@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef, Fragment } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
+import { exportToExcel } from "@/lib/excel-utils";
 
 type Customer = {
   id: string;
@@ -380,6 +381,16 @@ export default function CustomersPage() {
     }
   }
 
+  function handleExportExcel() {
+    const data = finalFiltered.map((r, i) => ({
+      "STT": i + 1,
+      "Code": r.code,
+      "Tên khách hàng": r.name,
+      "Ngày tạo": fmtDatetime(r.created_at)
+    }));
+    exportToExcel(data, `Danh_sach_khach_hang_${new Date().toISOString().slice(0,10)}`, "Customers");
+  }
+
   if (loading) return <LoadingPage text="Đang tải khách hàng..." />;
 
   return (
@@ -409,6 +420,9 @@ export default function CustomersPage() {
               + Thêm khách hàng
             </button>
           )}
+          <button onClick={handleExportExcel} className="btn btn-secondary">
+            📋 Xuất Excel
+          </button>
           <button onClick={load} className="btn btn-secondary">
             Làm mới
           </button>

@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
+import { exportToExcel } from "@/lib/excel-utils";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -754,6 +755,27 @@ export default function InventoryOpeningPage() {
     }
   }
 
+  function handleExportExcel() {
+    const data = finalFiltered.map((r, i) => {
+      const c = r.customers;
+      const p = r.products;
+      return {
+        "STT": i + 1,
+        "Ngày đầu kỳ": fmtDate(r.period_month),
+        "Khách hàng": c ? `${c.code} - ${c.name}` : r.customer_id,
+        "Mã hàng (SKU)": p ? p.sku : "",
+        "Tên hàng": p ? p.name : "",
+        "Kích thước": p?.spec ?? "",
+        "Tồn đầu kỳ": r.opening_qty,
+        "Đơn giá": r.opening_unit_cost ?? "",
+        "Tồn dài kỳ": r.is_long_aging ? "Có" : "Không",
+        "Ghi chú tồn dài kỳ": r.long_aging_note ?? "",
+        "Tạo lúc": fmtDatetime(r.created_at)
+      };
+    });
+    exportToExcel(data, `Ton_kho_dau_ky_${new Date().toISOString().slice(0,10)}`, "Opening");
+  }
+
   if (loading) return <LoadingPage text="Đang tải tồn đầu kỳ..." />;
 
   const activeFiltersCount = Object.keys(colFilters).length;
@@ -1003,6 +1025,9 @@ export default function InventoryOpeningPage() {
           )}
           <button onClick={load} className="btn btn-secondary">
             Làm mới
+          </button>
+          <button onClick={handleExportExcel} className="btn btn-secondary">
+            📋 Xuất Excel
           </button>
           {activeFiltersCount > 0 && (
             <button

@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
+import { exportToExcel } from "@/lib/excel-utils";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -792,6 +793,26 @@ export default function InventoryOutboundPage() {
     }
   }
 
+  function handleExportExcel() {
+    const data = finalFiltered.map((r, i) => {
+      return {
+        "STT": i + 1,
+        "Ngày xuất": fmtDate(r.tx_date),
+        "Khách hàng": customerLabel(r.customer_id),
+        "Mã hàng (SKU)": skuFor(r),
+        "Tên hàng": r.product_name_snapshot,
+        "Kích thước": r.product_spec_snapshot ?? "",
+        "Số lượng (Cuối cùng)": r.finalQty,
+        "Số lượng (Gốc)": r.originalQty,
+        "Điều chỉnh": r.adjTotal,
+        "Đơn giá": r.unit_cost ?? "",
+        "Ghi chú": r.note ?? "",
+        "Tạo lúc": fmtDatetime(r.created_at)
+      };
+    });
+    exportToExcel(data, `Lich_su_xuat_kho_${new Date().toISOString().slice(0,10)}`, "Outbounds");
+  }
+
   /* ================================================================ */
   /* Render                                                            */
   /* ================================================================ */
@@ -1037,6 +1058,9 @@ export default function InventoryOutboundPage() {
           )}
           <button onClick={load} className="btn btn-secondary">
             Làm mới
+          </button>
+          <button onClick={handleExportExcel} className="btn btn-secondary">
+            📋 Xuất Excel
           </button>
           {Object.keys(colFilters).length > 0 && (
             <button

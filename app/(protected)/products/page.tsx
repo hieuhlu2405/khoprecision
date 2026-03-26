@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef, Fragment } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, TableSkeleton, ErrorBanner } from "@/app/components/ui/Loading";
+import { exportToExcel } from "@/lib/excel-utils";
 
 type Customer = { id: string; code: string; name: string };
 type Product = {
@@ -517,6 +518,24 @@ export default function ProductsPage() {
     }
   }
 
+  function handleExportExcel() {
+    const data = finalFiltered.map((r, i) => {
+      const c = customers.find(x => x.id === r.customer_id);
+      return {
+        "STT": i + 1,
+        "Khách hàng": c ? `${c.code} - ${c.name}` : r.customer_id,
+        "Mã hàng (SKU)": r.sku,
+        "Tên hàng": r.name,
+        "Kích thước": r.spec ?? "",
+        "ĐVT": r.uom,
+        "Đơn giá": r.unit_price ?? "",
+        "Trạng thái": r.is_active ? "Hoạt động" : "Ngừng HĐ",
+        "Ngày tạo": fmtDatetime(r.created_at)
+      };
+    });
+    exportToExcel(data, `Danh_sach_ma_hang_${new Date().toISOString().slice(0,10)}`, "Products");
+  }
+
   if (loading) return <LoadingPage text="Đang tải mã hàng..." />;
 
   return (
@@ -546,6 +565,9 @@ export default function ProductsPage() {
           </button>
           <button onClick={() => setBulkOpen(!bulkOpen)} className="btn btn-secondary">
             {bulkOpen ? "✕ Đóng" : "≡ Thêm nhiều mã"}
+          </button>
+          <button onClick={handleExportExcel} className="btn btn-secondary">
+            📋 Xuất Excel
           </button>
           <button onClick={load} className="btn btn-secondary">
             Làm mới
