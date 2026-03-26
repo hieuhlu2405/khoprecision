@@ -13,12 +13,12 @@
   --brand-hover: #1A6BA8;
 
   /* Sidebar */
-  --sidebar-bg: #0f172a;
-  --sidebar-fg: #cbd5e1;
-  --sidebar-fg-muted: #64748b;
-  --sidebar-active-bg: rgba(255, 255, 255, 0.1);
+  --sidebar-bg: #0d4f7c;
+  --sidebar-fg: #f1f5f9;
+  --sidebar-fg-muted: #94a3b8;
+  --sidebar-active-bg: rgba(255, 255, 255, 0.15);
   --sidebar-active-fg: #ffffff;
-  --sidebar-header-fg: #475569;
+  --sidebar-header-fg: #cbd5e1;
   --sidebar-w: 240px;
   --sidebar-w-collapsed: 0px;
 
