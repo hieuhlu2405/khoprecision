@@ -532,3 +532,57 @@ select:not([class]):focus {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--slate-300); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--slate-400); }
+
+/* =====================================================================
+   Progressive Enhancement — Auto-improve all pages
+   (applies to pages using inline styles, no class required)
+   ===================================================================== */
+
+/* Better h1 across all pages */
+main h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--slate-900);
+  margin: 0 0 18px;
+  letter-spacing: -0.01em;
+}
+
+/* Fieldset panels — used in Inbound/Outbound create forms */
+fieldset {
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+fieldset legend {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--slate-700);
+  padding: 0 6px;
+}
+
+/* Better inline-styled tables (pages not yet migrated to .data-table) */
+table {
+  font-size: 13px;
+}
+
+/* Implicit focus ring for inputs with inline styles */
+input[style]:focus,
+select[style]:focus,
+textarea[style]:focus {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+/* Page-level container padding consistency */
+main > div {
+  font-family: inherit;
+}
+
+/* =====================================================================
+   Status Badges (utility)
+   ===================================================================== */
+.badge-pending  { background: #fef9c3; color: #854d0e; }
+.badge-approved { background: #dcfce7; color: #166534; }
+.badge-warning  { background: #fef3c7; color: #92400e; }
+.badge-info     { background: #dbeafe; color: #1e40af; }

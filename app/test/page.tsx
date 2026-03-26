@@ -1,8 +1,6 @@
-export default function Page() {
-  return (
-    <pre style={{ padding: 24 }}>
-      URL: {process.env.NEXT_PUBLIC_SUPABASE_URL ?? "MISSING"}
-    </pre>
-  );
-}
+import { redirect } from "next/navigation";
 
+// Trang /test đã được ẩn — redirect về trang chính
+export default function TestPage() {
+  redirect("/app");
+}
