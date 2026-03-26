@@ -86,7 +86,7 @@ export default function LoginPage() {
             Công ty Cổ phần Precision Packaging
           </div>
           <div style={{ fontSize: 14, opacity: 0.85, lineHeight: 1.6, maxWidth: 300 }}>
-            Hệ thống quản lý kho nội bộ — nhập kho, xuất kho, kiểm kê và báo cáo tồn kho.
+            Hệ thống chỉ sử dụng trong nội bộ công ty
           </div>
         </div>
 
