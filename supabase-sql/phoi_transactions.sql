@@ -42,13 +42,13 @@ CREATE POLICY "phoi_select"
 DROP POLICY IF EXISTS "phoi_insert" ON public.phoi_transactions;
 CREATE POLICY "phoi_insert"
   ON public.phoi_transactions FOR INSERT TO authenticated
-  WITH CHECK (public.is_manager());
+  WITH CHECK (public.is_admin() OR public.is_manager());
 
 DROP POLICY IF EXISTS "phoi_update" ON public.phoi_transactions;
 CREATE POLICY "phoi_update"
   ON public.phoi_transactions FOR UPDATE TO authenticated
-  USING (public.is_manager())
-  WITH CHECK (public.is_manager());
+  USING (public.is_admin() OR public.is_manager())
+  WITH CHECK (public.is_admin() OR public.is_manager());
 
 DROP POLICY IF EXISTS "phoi_delete" ON public.phoi_transactions;
 CREATE POLICY "phoi_delete"
