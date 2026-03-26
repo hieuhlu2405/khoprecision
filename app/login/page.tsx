@@ -85,7 +85,7 @@ export default function LoginPage() {
           <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 10, letterSpacing: "-0.02em" }}>
             Công ty Cổ phần Precision Packaging
           </div>
-          <div style={{ fontSize: 14, opacity: 0.85, lineHeight: 1.6, maxWidth: 300 }}>
+          <div style={{ fontSize: 14, opacity: 0.85, lineHeight: 1.6, maxWidth: 300, margin: "0 auto" }}>
             Hệ thống chỉ sử dụng trong nội bộ công ty
           </div>
         </div>
