@@ -286,20 +286,20 @@ export default function PhoiPage() {
     : [];
 
   return (
-    <div style={{ fontFamily: "inherit" }}>
+    <div className="page-root">
       {/* ── Header ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+      <div className="page-header">
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Nhập phôi nguyên liệu</h1>
-          <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 13 }}>
+          <h1>Nhập phôi nguyên liệu</h1>
+          <p>
             Tổng: <strong>{rows.length}</strong> phiếu · Đang hiển thị: <strong>{filtered.length}</strong>
-            {selectedIds.size > 0 && <span style={{ marginLeft: 8, color: "#0f172a" }}>· Đã chọn: <strong>{selectedIds.size}</strong></span>}
+            {selectedIds.size > 0 && <span style={{ marginLeft: 8, color: "var(--slate-800)" }}>· Đã chọn: <strong>{selectedIds.size}</strong></span>}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="toolbar" style={{ margin: 0 }}>
           {selectedIds.size > 0 && (
-            <button onClick={bulkDelete} disabled={bulkDeleting} className="btn btn-danger btn-sm">
-              {bulkDeleting ? "Đang xóa..." : `🗑 Xóa ${selectedIds.size} đã chọn`}
+            <button onClick={bulkDelete} disabled={bulkDeleting} className="btn btn-danger">
+              {bulkDeleting ? "Đang xóa..." : `Xóa ${selectedIds.size} đã chọn`}
             </button>
           )}
           {canCreateEdit && (
@@ -314,38 +314,35 @@ export default function PhoiPage() {
 
       {/* ── Create form ── */}
       {showCreate && (
-        <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}>
-          <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>Thêm phiếu nhập phôi</h3>
+        <div className="filter-panel" style={{ marginBottom: 24 }}>
+          <h3 className="modal-title" style={{ marginTop: 0 }}>Thêm phiếu nhập phôi</h3>
 
           {/* Header fields */}
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
-            <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: "0 0 160px" }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Ngày nhập *</span>
-              <input type="date" value={hDate} onChange={e => setHDate(e.target.value)}
-                style={{ padding: "7px 10px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 13 }} />
+          <div className="toolbar" style={{ margin: "0 0 16px 0", gap: 16 }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: "0 0 180px" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Ngày nhập *</span>
+              <input type="date" value={hDate} onChange={e => setHDate(e.target.value)} className="input" />
             </label>
-            <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 200px" }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Khách hàng</span>
-              <select value={hCustomerId} onChange={e => setHCustomerId(e.target.value)}
-                style={{ padding: "7px 10px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 13 }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: "1 1 240px" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Khách hàng</span>
+              <select value={hCustomerId} onChange={e => setHCustomerId(e.target.value)} className="input">
                 <option value="">— Chọn KH (ghi đè theo dòng) —</option>
                 {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
               </select>
             </label>
-            <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: "2 1 250px" }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Ghi chú phiếu</span>
-              <input value={hNote} onChange={e => setHNote(e.target.value)} placeholder="Ghi chú chung..."
-                style={{ padding: "7px 10px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 13 }} />
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: "2 1 300px" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Ghi chú phiếu</span>
+              <input value={hNote} onChange={e => setHNote(e.target.value)} placeholder="Ghi chú chung..." className="input" />
             </label>
           </div>
 
           {/* Lines table */}
-          <div style={{ overflowX: "auto", marginBottom: 10 }}>
-            <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 680 }}>
+          <div className="data-table-wrap" style={{ marginBottom: 12 }}>
+            <table className="data-table" style={{ minWidth: 680 }}>
               <thead>
                 <tr>
                   {["#", "Sản phẩm *", "Số lượng *", "Đơn giá", ""].map((h, i) => (
-                    <th key={i} style={{ padding: "8px 10px", background: "#f8fafc", fontSize: 12, fontWeight: 600, color: "#475569", textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>{h}</th>
+                    <th key={i}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -355,19 +352,20 @@ export default function PhoiPage() {
                     ? products.filter(p => `${p.sku} ${p.name}`.toLowerCase().includes((l.productSearch ?? "").toLowerCase())).slice(0, 8)
                     : [];
                   return (
-                    <tr key={l.key} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "6px 10px", color: "#94a3b8", fontSize: 12, width: 30 }}>{idx + 1}</td>
-                      <td style={{ padding: "6px 10px", minWidth: 280, position: "relative" }}>
+                    <tr key={l.key}>
+                      <td style={{ color: "var(--slate-400)", fontSize: 12, width: 30 }}>{idx + 1}</td>
+                      <td style={{ minWidth: 280, position: "relative" }}>
                         <input
                           value={l.productSearch ?? (products.find(p => p.id === l.productId) ? `${products.find(p => p.id === l.productId)!.sku} - ${products.find(p => p.id === l.productId)!.name}` : "")}
                           onChange={e => updateLine(l.key, "productSearch", e.target.value)}
                           onFocus={() => updateLine(l.key, "showSuggestions", "true")}
                           onBlur={() => setTimeout(() => updateLine(l.key, "showSuggestions", ""), 150)}
-                          placeholder="Tìm theo SKU hoặc tên..."
-                          style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }}
+                          placeholder="Tìm SKU hoặc tên SP..."
+                          className="input"
+                          style={{ width: "100%" }}
                         />
                         {l.showSuggestions && lSuggestions.length > 0 && (
-                          <div style={{ position: "absolute", left: 0, right: 0, zIndex: 50, background: "white", border: "1px solid #cbd5e1", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,.1)", maxHeight: 200, overflowY: "auto" }}>
+                          <div style={{ position: "absolute", left: 0, right: 0, zIndex: 100, background: "white", border: "1px solid var(--slate-200)", borderRadius: 8, boxShadow: "var(--shadow-lg)", maxHeight: 220, overflowY: "auto", marginTop: 4 }}>
                             {lSuggestions.map(p => (
                               <div key={p.id} onMouseDown={() => {
                                 updateLine(l.key, "productId", p.id);
@@ -375,9 +373,8 @@ export default function PhoiPage() {
                                 updateLine(l.key, "showSuggestions", "");
                                 if (p.unit_price != null) updateLine(l.key, "unitCost", String(p.unit_price));
                               }}
-                                style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid #f1f5f9" }}
-                                onMouseOver={e => (e.currentTarget.style.background = "#f8fafc")}
-                                onMouseOut={e => (e.currentTarget.style.background = "white")}
+                                style={{ padding: "10px 12px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid var(--slate-100)" }}
+                                className="suggestion-item"
                               >
                                 <strong>{p.sku}</strong> · {p.name} {p.spec ? `· ${p.spec}` : ""}
                               </div>
@@ -385,16 +382,14 @@ export default function PhoiPage() {
                           </div>
                         )}
                       </td>
-                      <td style={{ padding: "6px 10px", width: 120 }}>
-                        <input type="number" value={l.qty} onChange={e => updateLine(l.key, "qty", e.target.value)} min="0"
-                          style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }} placeholder="VD: 100" />
+                      <td style={{ width: 120 }}>
+                        <input type="number" value={l.qty} onChange={e => updateLine(l.key, "qty", e.target.value)} min="0" className="input" style={{ width: "100%" }} placeholder="Số lượng" />
                       </td>
-                      <td style={{ padding: "6px 10px", width: 140 }}>
-                        <input type="number" value={l.unitCost} onChange={e => updateLine(l.key, "unitCost", e.target.value)} min="0"
-                          style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }} placeholder="Đơn giá..." />
+                      <td style={{ width: 140 }}>
+                        <input type="number" value={l.unitCost} onChange={e => updateLine(l.key, "unitCost", e.target.value)} min="0" className="input" style={{ width: "100%" }} placeholder="Đơn giá" />
                       </td>
-                      <td style={{ padding: "6px 10px", width: 40, textAlign: "center" }}>
-                        <button onClick={() => removeLine(l.key)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 16, lineHeight: 1 }} title="Xóa dòng">✕</button>
+                      <td style={{ width: 40, textAlign: "center" }}>
+                        <button onClick={() => removeLine(l.key)} className="btn btn-ghost btn-sm" style={{ color: "var(--color-danger)" }} title="Xóa dòng">✕</button>
                       </td>
                     </tr>
                   );
@@ -403,29 +398,26 @@ export default function PhoiPage() {
             </table>
           </div>
 
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={addLine} className="btn btn-secondary btn-sm">+ Thêm dòng</button>
+          <div className="toolbar" style={{ margin: 0, gap: 12 }}>
+            <button onClick={addLine} className="btn btn-secondary">+ Thêm dòng</button>
             <button onClick={saveMulti} disabled={saving} className="btn btn-primary">
               {saving ? "Đang lưu..." : "💾 Lưu phiếu nhập"}
             </button>
-            <button onClick={() => setShowCreate(false)} className="btn btn-ghost btn-sm">Hủy</button>
+            <button onClick={() => setShowCreate(false)} className="btn btn-ghost">Hủy</button>
           </div>
         </div>
       )}
 
       {/* ── Filters ── */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm theo SKU / tên hàng..."
-          style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 13, minWidth: 240 }} />
-        <input type="date" value={qDate} onChange={e => setQDate(e.target.value)}
-          style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 13 }} />
-        <select value={qCustomer} onChange={e => setQCustomer(e.target.value)}
-          style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 13 }}>
+      <div className="filter-panel toolbar" style={{ marginBottom: 16 }}>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm SKU / tên hàng..." className="input" style={{ minWidth: 260 }} />
+        <input type="date" value={qDate} onChange={e => setQDate(e.target.value)} className="input" />
+        <select value={qCustomer} onChange={e => setQCustomer(e.target.value)} className="input">
           <option value="">Tất cả KH</option>
           {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
         </select>
         {(q || qDate || qCustomer) && (
-          <button onClick={() => { setQ(""); setQDate(""); setQCustomer(""); }} className="btn btn-clear-filter btn-sm">✕ Xóa lọc</button>
+          <button onClick={() => { setQ(""); setQDate(""); setQCustomer(""); }} className="btn btn-clear-filter">✕ Xóa lọc</button>
         )}
       </div>
 
@@ -492,41 +484,36 @@ export default function PhoiPage() {
 
       {/* ── Edit modal ── */}
       {editOpen && editing && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "grid", placeItems: "center", padding: 24, zIndex: 1000 }}
-          onClick={() => setEditOpen(false)}>
-          <div style={{ background: "white", borderRadius: 12, padding: 24, width: "100%", maxWidth: 520, boxShadow: "0 20px 60px rgba(0,0,0,.18)" }}
-            onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 700 }}>Sửa phiếu nhập phôi</h3>
+        <div className="modal-overlay" onClick={() => setEditOpen(false)}>
+          <div className="modal-box" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+            <h2 className="modal-title">Sửa phiếu nhập phôi</h2>
 
             <div style={{ display: "flex", gap: 12, flexDirection: "column" }}>
-              <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Ngày nhập *</span>
-                <input type="date" value={eDate} onChange={e => setEDate(e.target.value)}
-                  style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 14 }} />
+              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Ngày nhập *</span>
+                <input type="date" value={eDate} onChange={e => setEDate(e.target.value)} className="input" />
               </label>
-              <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Khách hàng</span>
-                <select value={eCustomerId} onChange={e => setECustomerId(e.target.value)}
-                  style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 14 }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Khách hàng</span>
+                <select value={eCustomerId} onChange={e => setECustomerId(e.target.value)} className="input">
                   <option value="">— Không liên kết —</option>
                   {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
                 </select>
               </label>
-              <label style={{ display: "flex", flexDirection: "column", gap: 5, position: "relative" }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Sản phẩm *</span>
+              <label style={{ display: "flex", flexDirection: "column", gap: 6, position: "relative" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Sản phẩm *</span>
                 <input value={eProductSearch}
                   onChange={e => { setEProductSearch(e.target.value); setEShowSuggestions(true); }}
                   onFocus={() => setEShowSuggestions(true)}
                   onBlur={() => setTimeout(() => setEShowSuggestions(false), 150)}
-                  placeholder="Tìm theo SKU hoặc tên..."
-                  style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 14 }} />
+                  placeholder="Tìm SKU hoặc tên SP..."
+                  className="input" />
                 {eShowSuggestions && eSuggestions.length > 0 && (
-                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 200, background: "white", border: "1px solid #cbd5e1", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,.12)", maxHeight: 200, overflowY: "auto" }}>
+                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "white", border: "1px solid var(--slate-200)", borderRadius: 8, boxShadow: "var(--shadow-lg)", maxHeight: 200, overflowY: "auto", marginTop: 4 }}>
                     {eSuggestions.map(p => (
                       <div key={p.id} onMouseDown={() => { setEProductId(p.id); setEProductSearch(`${p.sku} - ${p.name}`); setEShowSuggestions(false); if (p.unit_price != null) setECost(String(p.unit_price)); }}
-                        style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid #f1f5f9" }}
-                        onMouseOver={e => (e.currentTarget.style.background = "#f8fafc")}
-                        onMouseOut={e => (e.currentTarget.style.background = "white")}>
+                        style={{ padding: "10px 12px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid var(--slate-100)" }}
+                        className="suggestion-item">
                         <strong>{p.sku}</strong> · {p.name}
                       </div>
                     ))}
@@ -534,26 +521,23 @@ export default function PhoiPage() {
                 )}
               </label>
               <div style={{ display: "flex", gap: 12 }}>
-                <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Số lượng *</span>
-                  <input type="number" value={eQty} onChange={e => setEQty(e.target.value)} min="0"
-                    style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 14 }} />
+                <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Số lượng *</span>
+                  <input type="number" value={eQty} onChange={e => setEQty(e.target.value)} min="0" className="input" />
                 </label>
-                <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Đơn giá</span>
-                  <input type="number" value={eCost} onChange={e => setECost(e.target.value)} min="0"
-                    style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 14 }} />
+                <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Đơn giá</span>
+                  <input type="number" value={eCost} onChange={e => setECost(e.target.value)} min="0" className="input" />
                 </label>
               </div>
-              <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Ghi chú</span>
-                <input value={eNote} onChange={e => setENote(e.target.value)}
-                  style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 14 }} />
+              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Ghi chú</span>
+                <input value={eNote} onChange={e => setENote(e.target.value)} className="input" />
               </label>
             </div>
 
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20, paddingTop: 16, borderTop: "1px solid #f1f5f9" }}>
-              <button onClick={() => setEditOpen(false)} className="btn btn-ghost">Hủy</button>
+            <div className="modal-footer">
+              <button onClick={() => setEditOpen(false)} className="btn btn-secondary">Hủy</button>
               <button onClick={saveEdit} className="btn btn-primary">Lưu chỉnh sửa</button>
             </div>
           </div>

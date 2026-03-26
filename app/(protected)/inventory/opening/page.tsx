@@ -84,8 +84,8 @@ function fmtDatetime(d: string | null): string {
   return d.replace("T", " ").slice(0, 19);
 }
 
-const thStyle = { textAlign: "left", border: "1px solid #ddd", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap" } as const;
-const tdStyle = { border: "1px solid #ddd", padding: "10px 8px" } as const;
+const thStyle = { textAlign: "left", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap" } as const;
+const tdStyle = { padding: "10px 8px" } as const;
 
 function fmtNum(n: number | null | undefined): string {
   if (n == null) return "";
@@ -412,7 +412,7 @@ export default function InventoryOpeningPage() {
   }) {
     const active = !!colFilters[colKey];
     const isSortTarget = sortCol === colKey;
-    const baseStyle: React.CSSProperties = { ...thStyle, textAlign: align || "left", position: "relative", ...extra };
+    const baseStyle: React.CSSProperties = { textAlign: align || "left", position: "relative", ...extra };
     const popupOpen = openPopupId === colKey;
 
     return (
@@ -759,8 +759,10 @@ export default function InventoryOpeningPage() {
   const activeFiltersCount = Object.keys(colFilters).length;
 
   return (
-    <div style={{ fontFamily: "sans-serif" }} ref={containerRef}>
-      <h1>Tồn đầu kỳ (Opening Balances)</h1>
+    <div className="page-root" ref={containerRef}>
+      <div className="page-header">
+        <h1>Tồn đầu kỳ (Opening Balances)</h1>
+      </div>
 
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
@@ -768,21 +770,23 @@ export default function InventoryOpeningPage() {
       {/* Multi-line create form                                        */}
       {/* ============================================================ */}
       {canCreateEdit && !showCreate && (
-        <button
-          onClick={() => { resetCreateForm(); setShowCreate(true); }}
-          style={{ padding: 10, cursor: "pointer", marginTop: 12 }}
-        >
-          + Tạo tồn đầu kỳ mới
-        </button>
+        <div className="toolbar">
+          <button
+            onClick={() => { resetCreateForm(); setShowCreate(true); }}
+            className="btn btn-primary"
+          >
+            + Tạo tồn đầu kỳ mới
+          </button>
+        </div>
       )}
 
       {showCreate && (
-        <div style={{ border: "1px solid #ccc", borderRadius: 8, padding: 16, marginTop: 12, background: "#fafafa" }}>
-          <h2 style={{ marginTop: 0 }}>Tạo tồn đầu kỳ</h2>
+        <div className="filter-panel" style={{ marginTop: 12 }}>
+          <h2 style={{ marginTop: 0, fontSize: 18, marginBottom: 16 }}>Tạo tồn đầu kỳ</h2>
 
           {/* ---- Header fields ---- */}
-          <fieldset style={{ border: "1px solid #ddd", borderRadius: 6, padding: 12, marginBottom: 16 }}>
-            <legend style={{ fontWeight: 600 }}>Thông tin chung</legend>
+          <fieldset>
+            <legend>Thông tin chung</legend>
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
               <label style={{ display: "grid", gap: 4 }}>
                 Kỳ / Ngày đầu kỳ *
@@ -790,17 +794,18 @@ export default function InventoryOpeningPage() {
                   type="date"
                   value={hPeriod}
                   onChange={(e) => setHPeriod(e.target.value)}
-                  style={{ padding: 8 }}
+                  className="input"
                 />
               </label>
             </div>
           </fieldset>
 
           {/* ---- Detail lines ---- */}
-          <fieldset style={{ border: "1px solid #ddd", borderRadius: 6, padding: 12 }}>
-            <legend style={{ fontWeight: 600 }}>Chi tiết sản phẩm</legend>
+          <fieldset>
+            <legend>Chi tiết sản phẩm</legend>
 
-            <table style={{ borderCollapse: "collapse", width: "100%", border: "1px solid #ddd" }}>
+            <div className="data-table-wrap">
+              <table className="data-table">
               <thead>
                 <tr>
                   {["#", "Sản phẩm *", "Số lượng *", "Tồn dài kỳ", "Ghi chú tồn dài kỳ", ""].map((h) => (
@@ -827,7 +832,8 @@ export default function InventoryOpeningPage() {
                         }}
                         onFocus={() => updateLine(line.key, "showSuggestions", true)}
                         onBlur={() => setTimeout(() => updateLine(line.key, "showSuggestions", false), 200)}
-                        style={{ padding: 6, width: "100%" }}
+                        className="input"
+                        style={{ width: "100%" }}
                       />
                       {line.showSuggestions && (
                         <div style={{
@@ -890,7 +896,8 @@ export default function InventoryOpeningPage() {
                         type="number"
                         value={line.qty}
                         onChange={(e) => updateLine(line.key, "qty", e.target.value)}
-                        style={{ padding: 6, width: "100%" }}
+                        className="input"
+                        style={{ width: "100%" }}
                         min="0"
                         step="any"
                       />
@@ -911,7 +918,8 @@ export default function InventoryOpeningPage() {
                       <input
                         value={line.longAgingNote}
                         onChange={(e) => updateLine(line.key, "longAgingNote", e.target.value)}
-                        style={{ padding: 6, width: "100%" }}
+                        className="input"
+                        style={{ width: "100%" }}
                         placeholder="Chỉ điền khi chọn dài kỳ..."
                         disabled={!line.isLongAging}
                       />
@@ -931,24 +939,25 @@ export default function InventoryOpeningPage() {
                 ))}
               </tbody>
             </table>
+            </div>
 
-            <button onClick={addLine} style={{ padding: "6px 12px", marginTop: 8, cursor: "pointer" }}>
+            <button onClick={addLine} className="btn btn-secondary" style={{ marginTop: 12 }}>
               + Thêm dòng
             </button>
           </fieldset>
 
           {/* ---- Actions ---- */}
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 12 }}>
+          <div className="toolbar" style={{ marginTop: 16, justifyContent: "flex-end" }}>
             <button
               onClick={() => setShowCreate(false)}
-              style={{ padding: 10, cursor: "pointer" }}
+              className="btn btn-secondary"
             >
               Hủy
             </button>
             <button
               onClick={saveMulti}
               disabled={saving}
-              style={{ padding: "10px 20px", cursor: "pointer", fontWeight: 600 }}
+              className="btn btn-primary"
             >
               {saving ? "Đang lưu..." : "Lưu tồn đầu kỳ"}
             </button>
@@ -959,17 +968,18 @@ export default function InventoryOpeningPage() {
       {/* ============================================================ */}
       {/* Filters                                                       */}
       {/* ============================================================ */}
-      <div style={{ display: "flex", gap: 12, marginTop: 20, flexWrap: "wrap" }}>
+      <div className="filter-panel toolbar">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Tìm theo mã hàng / tên..."
-          style={{ padding: 10, minWidth: 260 }}
+          className="input"
+          style={{ minWidth: 260 }}
         />
         <select
           value={qCustomer}
           onChange={(e) => setQCustomer(e.target.value)}
-          style={{ padding: 10 }}
+          className="input"
         >
           <option value="">-- Tất cả khách hàng --</option>
           {customers.map((c) => (
@@ -982,28 +992,28 @@ export default function InventoryOpeningPage() {
           type="date"
           value={qPeriod}
           onChange={(e) => setQPeriod(e.target.value)}
-          style={{ padding: 10 }}
+          className="input"
           title="Lọc theo ngày đầu kỳ"
         />
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
            {(qPeriod || qCustomer || q) && (
-            <button onClick={() => { setQPeriod(""); setQCustomer(""); setQ(""); }} style={{ padding: 10, cursor: "pointer" }}>
+            <button onClick={() => { setQPeriod(""); setQCustomer(""); setQ(""); }} className="btn btn-clear-filter">
               Xóa tổng
             </button>
           )}
-          <button onClick={load} style={{ padding: 10, cursor: "pointer", background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 4 }}>
+          <button onClick={load} className="btn btn-secondary">
             Làm mới
           </button>
           {activeFiltersCount > 0 && (
             <button
                onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-               style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 4, color: "#991b1b" }}
+               className="btn btn-clear-filter"
             >
                Xóa lọc cột ({activeFiltersCount})
             </button>
           )}
           {canDelete && selectedIds.size > 0 && (
-            <button onClick={bulkDelete} style={{ padding: "8px 16px", cursor: "pointer", background: "#b91c1c", color: "white", border: "none", borderRadius: 4, fontWeight: 600 }}>
+            <button onClick={bulkDelete} className="btn btn-danger">
               Xóa đã chọn ({selectedIds.size})
             </button>
           )}
@@ -1013,8 +1023,8 @@ export default function InventoryOpeningPage() {
       {/* ============================================================ */}
       {/* Table                                                         */}
       {/* ============================================================ */}
-      <div style={{ overflowX: "auto", marginTop: 16 }}>
-        <table style={{ borderCollapse: "collapse", minWidth: 1400, border: "1px solid #ddd" }}>
+      <div className="data-table-wrap" style={{ marginTop: 16 }}>
+        <table className="data-table" style={{ minWidth: 1400 }}>
           <thead>
              <tr>
                {canDelete && (
@@ -1078,18 +1088,18 @@ export default function InventoryOpeningPage() {
                 <td style={{ ...tdStyle, whiteSpace: "nowrap", fontSize: "12px", color: "#64748b" }}>{mounted ? fmtDatetime(r.created_at) : "..."}</td>
                 <td style={{ ...tdStyle, whiteSpace: "nowrap", fontSize: "12px", color: "#64748b" }}>{mounted ? fmtDatetime(r.updated_at) : "..."}</td>
                 <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                  {canCreateEdit && (
-                    <>
-                      <button onClick={() => openEditForm(r)} style={{ padding: "6px 10px", cursor: "pointer", marginRight: 6 }}>
+                  <div className="toolbar" style={{ margin: 0, gap: 4 }}>
+                    {canCreateEdit && (
+                      <button onClick={() => openEditForm(r)} className="btn btn-secondary btn-sm">
                         Sửa
                       </button>
-                    </>
-                  )}
-                  {canDelete && (
-                    <button onClick={() => del(r)} style={{ padding: "6px 10px", cursor: "pointer" }}>
-                      Xóa
-                    </button>
-                  )}
+                    )}
+                    {canDelete && (
+                      <button onClick={() => del(r)} className="btn btn-danger btn-sm">
+                        Xóa
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -1108,42 +1118,27 @@ export default function InventoryOpeningPage() {
       {/* Edit Form Modal                                               */}
       {/* ============================================================ */}
       {editOpen && editing ? (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            display: "grid",
-            placeItems: "center",
-            padding: 24,
-            zIndex: 1000
-          }}
-          onClick={() => setEditOpen(false)}
-        >
-          <div
-            style={{ background: "white", padding: 16, width: 560, borderRadius: 10 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2>Sửa tồn đầu kỳ</h2>
+        <div className="modal-overlay" onClick={() => setEditOpen(false)}>
+          <div className="modal-box" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">Sửa tồn đầu kỳ</h2>
 
-            <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+            <div style={{ display: "grid", gap: 12 }}>
               <label style={{ display: "grid", gap: 6 }}>
                 Kỳ / Ngày đầu kỳ
                 <input
                   type="date"
                   value={ePeriod}
                   onChange={(e) => setEPeriod(e.target.value)}
-                  style={{ padding: 10 }}
+                  className="input"
                 />
               </label>
 
-              {/* Read-Only Product Display derived from current product state */}
               {eProductId && (() => {
                 const p = products.find(x => x.id === eProductId);
                 if (!p) return null;
                 const cLabel = customerLabel(p.customer_id);
                 return (
-                  <div style={{ fontSize: "0.9em", color: "#444", padding: "10px 12px", background: "#f9f9f9", borderRadius: 4, lineHeight: 1.5, border: "1px solid #eee" }}>
+                  <div style={{ fontSize: "13px", color: "var(--slate-600)", padding: "12px", background: "var(--slate-50)", borderRadius: 8, lineHeight: 1.6 }}>
                     <strong>Khách hàng:</strong> {cLabel || "---"}<br />
                     <strong>Mã hàng:</strong> {p.sku}<br />
                     <strong>Tên hàng:</strong> {p.name}<br />
@@ -1159,46 +1154,42 @@ export default function InventoryOpeningPage() {
                   type="number"
                   value={eQty}
                   onChange={(e) => setEQty(e.target.value)}
-                  style={{ padding: 10 }}
+                  className="input"
                   min="0"
                   step="any"
                 />
               </label>
 
-              <label style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
                 <input
                   type="checkbox"
+                  id="eLongAgingCheck"
                   checked={eIsLongAging}
                   onChange={(e) => setEIsLongAging(e.target.checked)}
-                  style={{ transform: "scale(1.2)" }}
                 />
-                Đánh dấu là Hàng Tồn Dài Kỳ
-              </label>
+                <label htmlFor="eLongAgingCheck" style={{ cursor: "pointer", fontWeight: 600 }}>Đánh dấu là Hàng Tồn Dài Kỳ</label>
+              </div>
 
-              <label style={{ display: "grid", gap: 6, opacity: eIsLongAging ? 1 : 0.5 }}>
-                Ghi chú tồn dài kỳ
-                <input
-                   value={eLongAgingNote}
-                   onChange={(e) => setELongAgingNote(e.target.value)}
-                   style={{ padding: 10 }}
-                   disabled={!eIsLongAging}
-                   placeholder="Nhập ghi chú (chỉ áp dụng nếu đã tick Tồn dài kỳ)..."
-                />
-              </label>
+              {eIsLongAging && (
+                <label style={{ display: "grid", gap: 6 }}>
+                  Ghi chú tồn dài kỳ
+                  <textarea
+                     value={eLongAgingNote}
+                     onChange={(e) => setELongAgingNote(e.target.value)}
+                     className="input"
+                     style={{ minHeight: 60 }}
+                     placeholder="Nhập ghi chú tồn dài kỳ..."
+                  />
+                </label>
+              )}
             </div>
 
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 24 }}>
-              <button
-                onClick={() => setEditOpen(false)}
-                style={{ padding: 10, cursor: "pointer" }}
-              >
+            <div className="modal-footer">
+              <button onClick={() => setEditOpen(false)} className="btn btn-secondary">
                 Hủy
               </button>
-              <button
-                onClick={saveEdit}
-                style={{ padding: "10px 20px", cursor: "pointer" }}
-              >
-                Lưu
+              <button onClick={saveEdit} className="btn btn-primary">
+                Lưu thay đổi
               </button>
             </div>
           </div>

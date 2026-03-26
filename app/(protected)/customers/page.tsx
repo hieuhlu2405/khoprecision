@@ -40,8 +40,8 @@ export default function CustomersPage() {
     return d.replace("T", " ").slice(0, 19);
   }
 
-  const thStyle = { textAlign: "left", border: "1px solid #ddd", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap" } as const;
-  const tdStyle = { border: "1px solid #ddd", padding: "10px 8px" } as const;
+  const thStyle = { textAlign: "left", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap" } as const;
+  const tdStyle = { padding: "10px 8px" } as const;
 
   /* ------------------------------------------------------------------ */
   /* Column Filters & Popups                                             */
@@ -75,12 +75,8 @@ export default function CustomersPage() {
 
   const popupStyle: React.CSSProperties = {
     position: "absolute", top: "100%", left: 0, zIndex: 100,
-    background: "white", border: "1px solid #cbd5e1", borderRadius: 6,
-    padding: 10, minWidth: 210, boxShadow: "0 4px 12px rgba(0,0,0,.12)",
-  };
-
-  const btnSmall: React.CSSProperties = {
-    padding: "4px 10px", fontSize: 12, cursor: "pointer", borderRadius: 4, border: "1px solid #cbd5e1", background: "#f8fafc",
+    background: "white", border: "1px solid var(--slate-200)", borderRadius: 8,
+    padding: 12, minWidth: 220, boxShadow: "var(--shadow-lg)",
   };
 
   function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | null; onChange: (f: TextFilter | null) => void; onClose: () => void }) {
@@ -88,15 +84,15 @@ export default function CustomersPage() {
     const [val, setVal] = useState(filter?.value ?? "");
     return (
       <div style={popupStyle} onClick={e => e.stopPropagation()}>
-        <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc cột</div>
-        <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
+        <div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13, color: "var(--slate-800)" }}>Lọc cột</div>
+        <select value={mode} onChange={e => setMode(e.target.value as any)} className="input" style={{ width: "100%", padding: "4px 8px", fontSize: 13, marginBottom: 8 }}>
           <option value="contains">Chứa</option>
           <option value="equals">Bằng</option>
         </select>
-        <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, backgroundColor: "#f3f2acbb", boxSizing: "border-box" }} autoFocus />
-        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-          <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-          <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Áp dụng</button>
+        <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." className="input" style={{ width: "100%", padding: "4px 8px", fontSize: 13, marginBottom: 12 }} autoFocus />
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+          <button className="btn btn-primary btn-sm" onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Áp dụng</button>
         </div>
       </div>
     );
@@ -108,20 +104,20 @@ export default function CustomersPage() {
     const [valTo, setValTo] = useState(filter?.valueTo ?? "");
     return (
       <div style={popupStyle} onClick={e => e.stopPropagation()}>
-        <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc ngày</div>
-        <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
+        <div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13, color: "var(--slate-800)" }}>Lọc theo ngày</div>
+        <select value={mode} onChange={e => setMode(e.target.value as any)} className="input" style={{ width: "100%", padding: "4px 8px", fontSize: 13, marginBottom: 8 }}>
           <option value="eq">Bằng</option>
-          <option value="before">Trước ngày</option>
-          <option value="after">Sau ngày</option>
-          <option value="range">Từ … đến …</option>
+          <option value="before">Trước</option>
+          <option value="after">Sau</option>
+          <option value="range">Khoảng</option>
         </select>
-        <input type="date" value={val} onChange={e => setVal(e.target.value)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} autoFocus />
+        <input type="date" value={val} onChange={e => setVal(e.target.value)} className="input" style={{ width: "100%", padding: "4px 8px", fontSize: 13, marginBottom: 8 }} />
         {mode === "range" && (
-          <input type="date" value={valTo} onChange={e => setValTo(e.target.value)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} />
+          <input type="date" value={valTo} onChange={e => setValTo(e.target.value)} className="input" style={{ width: "100%", padding: "4px 8px", fontSize: 13, marginBottom: 8 }} />
         )}
-        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 4 }}>
-          <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-          <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val || valTo ? { mode, value: val, valueTo: valTo } : null); onClose(); }}>Áp dụng</button>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+          <button className="btn btn-primary btn-sm" onClick={() => { onChange(val || valTo ? { mode, value: val, valueTo: valTo } : null); onClose(); }}>Áp dụng</button>
         </div>
       </div>
     );
@@ -199,7 +195,7 @@ export default function CustomersPage() {
   }) {
     const active = !!colFilters[colKey];
     const isSortTarget = sortCol === colKey;
-    const baseStyle: React.CSSProperties = { ...thStyle, textAlign: align || "left", position: "relative", ...extra };
+    const baseStyle: React.CSSProperties = { textAlign: align || "left", position: "relative", ...extra };
     const popupOpen = openPopupId === colKey;
 
     return (
@@ -387,50 +383,53 @@ export default function CustomersPage() {
   if (loading) return <LoadingPage text="Đang tải khách hàng..." />;
 
   return (
-    <div style={{ fontFamily: "sans-serif" }}>
-      <h1>Khách hàng (Customers)</h1>
+    <div className="page-root">
+      <div className="page-header">
+        <h1>Khách hàng (Customers)</h1>
+      </div>
 
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
-      <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+      <div className="filter-panel toolbar">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Tìm theo code / tên..."
-          style={{ padding: 10, minWidth: 320 }}
+          placeholder="Tìm theo mã khách / tên..."
+          className="input"
+          style={{ minWidth: 320 }}
         />
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           {q && (
-             <button onClick={() => setQ("")} style={{ padding: 10, cursor: "pointer" }}>
+             <button onClick={() => setQ("")} className="btn btn-clear-filter">
                Xóa tìm kiếm
              </button>
           )}
           {canCreateEdit && (
-            <button onClick={openCreate} style={{ padding: 10, cursor: "pointer", background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 4, fontWeight: 600 }}>
+            <button onClick={openCreate} className="btn btn-primary">
               + Thêm khách hàng
             </button>
           )}
-          <button onClick={load} style={{ padding: 10, cursor: "pointer", background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 4 }}>
+          <button onClick={load} className="btn btn-secondary">
             Làm mới
           </button>
           {Object.keys(colFilters).length > 0 && (
             <button
                onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-               style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 4, color: "#991b1b" }}
+               className="btn btn-clear-filter"
             >
                Xóa lọc cột ({Object.keys(colFilters).length})
             </button>
           )}
           {canDelete && selectedIds.size > 0 && (
-            <button onClick={bulkDelete} style={{ padding: "8px 16px", cursor: "pointer", background: "#b91c1c", color: "white", border: "none", borderRadius: 4, fontWeight: 600 }}>
+            <button onClick={bulkDelete} className="btn btn-danger">
               Xóa đã chọn ({selectedIds.size})
             </button>
           )}
         </div>
       </div>
 
-      <div style={{ overflowX: "auto", marginTop: 16 }} ref={containerRef}>
-        <table style={{ borderCollapse: "collapse", minWidth: 800, border: "1px solid #ddd" }}>
+      <div className="data-table-wrap" style={{ marginTop: 16 }} ref={containerRef}>
+        <table className="data-table" style={{ minWidth: 800 }}>
           <thead>
             <tr>
               {canDelete && (
@@ -470,24 +469,24 @@ export default function CustomersPage() {
                   {mounted ? fmtDatetime(c.created_at) : "..."}
                 </td>
                 <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                  {canCreateEdit && (
-                    <>
-                      <button onClick={() => openEdit(c)} style={{ padding: "6px 10px", cursor: "pointer" }}>
+                  <div className="toolbar" style={{ margin: 0, gap: 4 }}>
+                    {canCreateEdit && (
+                      <button onClick={() => openEdit(c)} className="btn btn-secondary btn-sm">
                         Sửa
-                      </button>{" "}
-                    </>
-                  )}
-                  {canDelete && (
-                    <button onClick={() => del(c)} style={{ padding: "6px 10px", cursor: "pointer" }}>
-                      Xóa
-                    </button>
-                  )}
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button onClick={() => del(c)} className="btn btn-danger btn-sm">
+                        Xóa
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
             {finalFiltered.length === 0 && (
               <tr>
-                <td colSpan={canDelete ? 5 : 4} style={{ ...tdStyle, padding: 24, textAlign: "center", color: "#888" }}>
+                <td colSpan={canDelete ? 5 : 4} style={{ padding: 24, textAlign: "center", color: "#888" }}>
                   Không tìm thấy khách hàng nào.
                 </td>
               </tr>
@@ -496,47 +495,45 @@ export default function CustomersPage() {
         </table>
       </div>
 
-      {open ? (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            display: "grid",
-            placeItems: "center",
-            padding: 24,
-          }}
-          onClick={() => setOpen(false)}
-        >
-          <div
-            style={{ background: "white", padding: 16, width: 520, borderRadius: 10 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2>{editing ? "Sửa khách hàng" : "Thêm khách hàng"}</h2>
+      {open && (
+        <div className="modal-overlay" onClick={() => setOpen(false)}>
+          <div className="modal-box" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">{editing ? "Sửa khách hàng" : "Thêm khách hàng"}</h2>
 
-            <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+            <div style={{ display: "grid", gap: 12 }}>
               <label style={{ display: "grid", gap: 6 }}>
-                Code
-                <input value={code} onChange={(e) => setCode(e.target.value)} style={{ padding: 10 }} />
+                Mã khách hàng *
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())}
+                  className="input"
+                  placeholder="Vd: KH0123"
+                  autoFocus
+                />
               </label>
 
               <label style={{ display: "grid", gap: 6 }}>
-                Tên
-                <input value={name} onChange={(e) => setName(e.target.value)} style={{ padding: 10 }} />
+                Tên khách hàng *
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="input"
+                  placeholder="Nhập tên khách hàng..."
+                />
               </label>
+            </div>
 
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
-                <button onClick={() => setOpen(false)} style={{ padding: 10, cursor: "pointer" }}>
-                  Hủy
-                </button>
-                <button onClick={save} style={{ padding: 10, cursor: "pointer" }}>
-                  Lưu
-                </button>
-              </div>
+            <div className="modal-footer">
+              <button onClick={() => setOpen(false)} className="btn btn-secondary">
+                Hủy
+              </button>
+              <button onClick={save} className="btn btn-primary">
+                Lưu
+              </button>
             </div>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

@@ -97,8 +97,8 @@ export default function ProductsPage() {
     return d.replace("T", " ").slice(0, 19);
   }
 
-  const thStyle = { textAlign: "left", border: "1px solid #ddd", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap" } as const;
-  const tdStyle = { border: "1px solid #ddd", padding: "10px 8px" } as const;
+  const thStyle = { textAlign: "left", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap" } as const;
+  const tdStyle = { padding: "10px 8px" } as const;
 
   /* ------------------------------------------------------------------ */
   /* Column Filters & Popups                                             */
@@ -152,12 +152,8 @@ export default function ProductsPage() {
 
   const popupStyle: React.CSSProperties = {
     position: "absolute", top: "100%", left: 0, zIndex: 100,
-    background: "white", border: "1px solid #cbd5e1", borderRadius: 6,
-    padding: 10, minWidth: 210, boxShadow: "0 4px 12px rgba(0,0,0,.12)",
-  };
-
-  const btnSmall: React.CSSProperties = {
-    padding: "4px 10px", fontSize: 12, cursor: "pointer", borderRadius: 4, border: "1px solid #cbd5e1", background: "#f8fafc",
+    background: "white", border: "1px solid var(--slate-200)", borderRadius: 8,
+    padding: 12, minWidth: 220, boxShadow: "var(--shadow-lg)",
   };
 
   function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | null; onChange: (f: TextFilter | null) => void; onClose: () => void }) {
@@ -165,15 +161,15 @@ export default function ProductsPage() {
     const [val, setVal] = useState(filter?.value ?? "");
     return (
       <div style={popupStyle} onClick={e => e.stopPropagation()}>
-        <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc cột</div>
-        <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
+        <div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13, color: "var(--slate-800)" }}>Lọc cột</div>
+        <select value={mode} onChange={e => setMode(e.target.value as any)} className="input" style={{ width: "100%", padding: "4px 8px", fontSize: 13, marginBottom: 8 }}>
           <option value="contains">Chứa</option>
           <option value="equals">Bằng</option>
         </select>
-        <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, backgroundColor: "#f3f2acbb", boxSizing: "border-box" }} autoFocus />
-        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-          <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-          <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Áp dụng</button>
+        <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." className="input" style={{ width: "100%", padding: "4px 8px", fontSize: 13, marginBottom: 12 }} autoFocus />
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+          <button className="btn btn-primary btn-sm" onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Áp dụng</button>
         </div>
       </div>
     );
@@ -185,20 +181,20 @@ export default function ProductsPage() {
     const [valTo, setValTo] = useState(filter?.valueTo ?? "");
     return (
       <div style={popupStyle} onClick={e => e.stopPropagation()}>
-        <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc cột (số)</div>
-        <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
+        <div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13, color: "var(--slate-800)" }}>Lọc cột (số)</div>
+        <select value={mode} onChange={e => setMode(e.target.value as any)} className="input" style={{ width: "100%", padding: "4px 8px", fontSize: 13, marginBottom: 8 }}>
           <option value="eq">Bằng (=)</option>
           <option value="gt">Lớn hơn (&gt;)</option>
           <option value="lt">Nhỏ hơn (&lt;)</option>
-          <option value="range">Từ … đến …</option>
+          <option value="range">Trong khoảng</option>
         </select>
-        <input value={val} onChange={e => setVal(e.target.value)} placeholder={mode === "range" ? "Từ" : "Giá trị"} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} autoFocus />
+        <input type="number" value={val} onChange={e => setVal(e.target.value)} placeholder={mode === "range" ? "Từ" : "Giá trị"} className="input" style={{ width: "100%", padding: "4px 8px", fontSize: 13, marginBottom: 8 }} autoFocus />
         {mode === "range" && (
-          <input value={valTo} onChange={e => setValTo(e.target.value)} placeholder="Đến" style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} />
+          <input type="number" value={valTo} onChange={e => setValTo(e.target.value)} placeholder="Đến" className="input" style={{ width: "100%", padding: "4px 8px", fontSize: 13, marginBottom: 8 }} />
         )}
-        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 4 }}>
-          <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-          <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val ? { mode, value: val, valueTo: valTo } : null); onClose(); }}>Áp dụng</button>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+          <button className="btn btn-primary btn-sm" onClick={() => { onChange(val ? { mode, value: val, valueTo: valTo } : null); onClose(); }}>Áp dụng</button>
         </div>
       </div>
     );
@@ -210,20 +206,20 @@ export default function ProductsPage() {
     const [valTo, setValTo] = useState(filter?.valueTo ?? "");
     return (
       <div style={popupStyle} onClick={e => e.stopPropagation()}>
-        <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc ngày</div>
-        <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
+        <div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13, color: "var(--slate-800)" }}>Lọc theo ngày</div>
+        <select value={mode} onChange={e => setMode(e.target.value as any)} className="input" style={{ width: "100%", padding: "4px 8px", fontSize: 13, marginBottom: 8 }}>
           <option value="eq">Bằng</option>
-          <option value="before">Trước ngày</option>
-          <option value="after">Sau ngày</option>
-          <option value="range">Từ … đến …</option>
+          <option value="before">Trước</option>
+          <option value="after">Sau</option>
+          <option value="range">Khoảng</option>
         </select>
-        <input type="date" value={val} onChange={e => setVal(e.target.value)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} autoFocus />
+        <input type="date" value={val} onChange={e => setVal(e.target.value)} className="input" style={{ width: "100%", padding: "4px 8px", fontSize: 13, marginBottom: 8 }} />
         {mode === "range" && (
-          <input type="date" value={valTo} onChange={e => setValTo(e.target.value)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} />
+          <input type="date" value={valTo} onChange={e => setValTo(e.target.value)} className="input" style={{ width: "100%", padding: "4px 8px", fontSize: 13, marginBottom: 8 }} />
         )}
-        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 4 }}>
-          <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-          <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val || valTo ? { mode, value: val, valueTo: valTo } : null); onClose(); }}>Áp dụng</button>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+          <button className="btn btn-primary btn-sm" onClick={() => { onChange(val ? { mode, value: val, valueTo: valTo } : null); onClose(); }}>Áp dụng</button>
         </div>
       </div>
     );
@@ -314,7 +310,7 @@ export default function ProductsPage() {
   }) {
     const active = !!colFilters[colKey];
     const isSortTarget = sortCol === colKey;
-    const baseStyle: React.CSSProperties = { ...thStyle, textAlign: align || "left", position: "relative", ...extra };
+    const baseStyle: React.CSSProperties = { textAlign: align || "left", position: "relative", ...extra };
     const popupOpen = openPopupId === colKey;
 
     return (
@@ -524,43 +520,46 @@ export default function ProductsPage() {
   if (loading) return <LoadingPage text="Đang tải mã hàng..." />;
 
   return (
-    <div style={{ fontFamily: "sans-serif" }}>
-      <h1>Mã hàng (Products)</h1>
+    <div className="page-root">
+      <div className="page-header">
+        <h1>Mã hàng (Products)</h1>
+      </div>
 
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
-      <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+      <div className="filter-panel toolbar">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Tìm theo SKU / tên / spec..."
-          style={{ padding: 10, minWidth: 320 }}
+          className="input"
+          style={{ minWidth: 320 }}
         />
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           {q && (
-             <button onClick={() => setQ("")} style={{ padding: 10, cursor: "pointer" }}>
+             <button onClick={() => setQ("")} className="btn btn-clear-filter">
                Xóa tìm kiếm
              </button>
           )}
-          <button onClick={openCreate} style={{ padding: 10, cursor: "pointer", background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 4, fontWeight: 600 }}>
+          <button onClick={openCreate} className="btn btn-primary">
             + Thêm mã hàng
           </button>
-          <button onClick={() => setBulkOpen(!bulkOpen)} style={{ padding: 10, cursor: "pointer", background: bulkOpen ? "#0f172a" : "#f8fafc", color: bulkOpen ? "white" : "inherit", border: "1px solid #cbd5e1", borderRadius: 4, fontWeight: 600 }}>
+          <button onClick={() => setBulkOpen(!bulkOpen)} className="btn btn-secondary">
             {bulkOpen ? "✕ Đóng" : "≡ Thêm nhiều mã"}
           </button>
-          <button onClick={load} style={{ padding: 10, cursor: "pointer", background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 4 }}>
+          <button onClick={load} className="btn btn-secondary">
             Làm mới
           </button>
           {Object.keys(colFilters).length > 0 && (
             <button
                onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-               style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 4, color: "#991b1b" }}
+               className="btn btn-clear-filter"
             >
                Xóa lọc cột ({Object.keys(colFilters).length})
             </button>
           )}
           {selectedIds.size > 0 && (
-            <button onClick={bulkDelete} style={{ padding: "8px 16px", cursor: "pointer", background: "#b91c1c", color: "white", border: "none", borderRadius: 4, fontWeight: 600 }}>
+            <button onClick={bulkDelete} className="btn btn-danger">
               Xóa đã chọn ({selectedIds.size})
             </button>
           )}
@@ -569,69 +568,63 @@ export default function ProductsPage() {
 
       {/* ── Bulk Add Panel ── */}
       {bulkOpen && (
-        <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 10, padding: 20, margin: "12px 0", boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}>
-          <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>≡ Thêm nhiều mã hàng</h3>
+        <div className="filter-panel" style={{ marginTop: 12 }}>
+          <h3 className="modal-title" style={{ marginTop: 0 }}>≡ Thêm nhiều mã hàng</h3>
           <ErrorBanner message={error} onDismiss={() => setError("")} />
-          <div style={{ overflowX: "auto", marginBottom: 10 }}>
-            <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 900 }}>
+          <div className="data-table-wrap" style={{ marginBottom: 12 }}>
+            <table className="data-table" style={{ minWidth: 900 }}>
               <thead>
                 <tr>
                   {["#", "Khách hàng *", "Mã hàng (SKU) *", "Tên hàng *", "Spec/Kích thước", "ĐVT", "Đơn giá", ""].map((h, i) => (
-                    <th key={i} style={{ padding: "8px 10px", background: "#f8fafc", fontSize: 12, fontWeight: 600, color: "#475569", textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>{h}</th>
+                    <th key={i}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {bulkLines.map((l, idx) => (
-                  <tr key={l.key} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "6px 10px", color: "#94a3b8", fontSize: 12, width: 30 }}>{idx + 1}</td>
-                    <td style={{ padding: "6px 8px", minWidth: 180 }}>
-                      <select value={l.customerId} onChange={e => updateBulkLine(l.key, "customerId", e.target.value)}
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }}>
+                  <tr key={l.key}>
+                    <td style={{ width: 36, color: "var(--slate-400)", fontSize: 12 }}>{idx + 1}</td>
+                    <td style={{ minWidth: 180 }}>
+                      <select value={l.customerId} onChange={e => updateBulkLine(l.key, "customerId", e.target.value)} className="input" style={{ width: "100%" }}>
                         <option value="">-- Chọn KH --</option>
                         {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
                       </select>
                     </td>
-                    <td style={{ padding: "6px 8px", minWidth: 120 }}>
-                      <input value={l.sku} onChange={e => updateBulkLine(l.key, "sku", e.target.value)} placeholder="VD: SP001"
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }} />
+                    <td style={{ minWidth: 120 }}>
+                      <input value={l.sku} onChange={e => updateBulkLine(l.key, "sku", e.target.value)} placeholder="VD: SP001" className="input" style={{ width: "100%" }} />
                     </td>
-                    <td style={{ padding: "6px 8px", minWidth: 200 }}>
-                      <input value={l.name} onChange={e => updateBulkLine(l.key, "name", e.target.value)} placeholder="Tên hàng..."
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }} />
+                    <td style={{ minWidth: 200 }}>
+                      <input value={l.name} onChange={e => updateBulkLine(l.key, "name", e.target.value)} placeholder="Tên hàng..." className="input" style={{ width: "100%" }} />
                     </td>
-                    <td style={{ padding: "6px 8px", minWidth: 140 }}>
-                      <input value={l.spec} onChange={e => updateBulkLine(l.key, "spec", e.target.value)} placeholder="VD: 100x200mm"
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }} />
+                    <td style={{ minWidth: 140 }}>
+                      <input value={l.spec} onChange={e => updateBulkLine(l.key, "spec", e.target.value)} placeholder="VD: 100x200mm" className="input" style={{ width: "100%" }} />
                     </td>
-                    <td style={{ padding: "6px 8px", width: 80 }}>
-                      <input value={l.uom} onChange={e => updateBulkLine(l.key, "uom", e.target.value)} placeholder="pcs"
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }} />
+                    <td style={{ width: 80 }}>
+                      <input value={l.uom} onChange={e => updateBulkLine(l.key, "uom", e.target.value)} placeholder="pcs" className="input" style={{ width: "100%" }} />
                     </td>
-                    <td style={{ padding: "6px 8px", width: 120 }}>
-                      <input type="number" value={l.unitPrice} onChange={e => updateBulkLine(l.key, "unitPrice", e.target.value)} min="0" placeholder="Đơn giá..."
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }} />
+                    <td style={{ width: 120 }}>
+                      <input type="number" value={l.unitPrice} onChange={e => updateBulkLine(l.key, "unitPrice", e.target.value)} min="0" placeholder="Đơn giá..." className="input" style={{ width: "100%" }} />
                     </td>
-                    <td style={{ padding: "6px 8px", width: 40, textAlign: "center" }}>
-                      <button onClick={() => removeBulkLine(l.key)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 16, lineHeight: 1 }} title="Xóa dòng">✕</button>
+                    <td style={{ width: 40, textAlign: "center" }}>
+                      <button onClick={() => removeBulkLine(l.key)} className="btn btn-ghost btn-sm" style={{ color: "var(--color-danger)" }} title="Xóa dòng">✕</button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={addBulkLine} style={{ padding: "7px 14px", border: "1px solid #cbd5e1", borderRadius: 6, background: "#f8fafc", cursor: "pointer", fontSize: 13 }}>+ Thêm dòng</button>
-            <button onClick={saveBulk} disabled={bulkSaving} style={{ padding: "7px 16px", background: bulkSaving ? "#94a3b8" : "var(--brand)", color: "white", border: "none", borderRadius: 6, cursor: bulkSaving ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 13 }}>
+          <div className="toolbar" style={{ margin: 0, gap: 12 }}>
+            <button onClick={addBulkLine} className="btn btn-secondary">+ Thêm dòng</button>
+            <button onClick={saveBulk} disabled={bulkSaving} className="btn btn-primary">
               {bulkSaving ? "Đang lưu..." : "💾 Lưu tất cả"}
             </button>
-            <button onClick={() => setBulkOpen(false)} style={{ padding: "7px 14px", border: "1px solid #e2e8f0", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 13 }}>Hủy</button>
+            <button onClick={() => setBulkOpen(false)} className="btn btn-ghost">Hủy</button>
           </div>
         </div>
       )}
 
-      <div style={{ overflowX: "auto", marginTop: 16 }} ref={containerRef}>
-        <table style={{ borderCollapse: "collapse", minWidth: 1000, border: "1px solid #ddd" }}>
+      <div className="data-table-wrap" style={{ marginTop: 16 }} ref={containerRef}>
+        <table className="data-table" style={{ minWidth: 1000 }}>
           <thead>
             <tr>
                <th style={{ ...thStyle, width: 40, textAlign: "center" }}>
@@ -681,12 +674,14 @@ export default function ProductsPage() {
                     {mounted ? fmtDatetime(p.created_at) : '...'}
                   </td>
                   <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                    <button onClick={() => openEdit(p)} style={{ padding: "6px 10px", cursor: "pointer" }}>
-                      Sửa
-                    </button>{" "}
-                    <button onClick={() => del(p)} style={{ padding: "6px 10px", cursor: "pointer" }}>
-                      Xóa
-                    </button>
+                    <div className="toolbar" style={{ margin: 0, gap: 4 }}>
+                      <button onClick={() => openEdit(p)} className="btn btn-secondary btn-sm">
+                        Sửa
+                      </button>
+                      <button onClick={() => del(p)} className="btn btn-danger btn-sm">
+                        Xóa
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -702,28 +697,15 @@ export default function ProductsPage() {
         </table>
       </div>
 
-      {open ? (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            display: "grid",
-            placeItems: "center",
-            padding: 24,
-          }}
-          onClick={() => setOpen(false)}
-        >
-          <div
-            style={{ background: "white", padding: 16, width: 520, borderRadius: 10 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2>{editing ? "Sửa mã hàng" : "Thêm mã hàng"}</h2>
+      {open && (
+        <div className="modal-overlay" onClick={() => setOpen(false)}>
+          <div className="modal-box" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">{editing ? "Sửa mã hàng" : "Thêm mã hàng"}</h2>
 
-            <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+            <div style={{ display: "grid", gap: 12 }}>
               <label style={{ display: "grid", gap: 6 }}>
                 Customer
-                <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} style={{ padding: 10 }}>
+                <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className="input">
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.code} - {c.name}
@@ -734,22 +716,22 @@ export default function ProductsPage() {
 
               <label style={{ display: "grid", gap: 6 }}>
                 SKU
-                <input value={sku} onChange={(e) => setSku(e.target.value)} style={{ padding: 10 }} />
+                <input value={sku} onChange={(e) => setSku(e.target.value)} className="input" />
               </label>
 
               <label style={{ display: "grid", gap: 6 }}>
                 Tên
-                <input value={name} onChange={(e) => setName(e.target.value)} style={{ padding: 10 }} />
+                <input value={name} onChange={(e) => setName(e.target.value)} className="input" />
               </label>
 
               <label style={{ display: "grid", gap: 6 }}>
                 Spec / Kích thước
-                <input value={spec} onChange={(e) => setSpec(e.target.value)} style={{ padding: 10 }} />
+                <input value={spec} onChange={(e) => setSpec(e.target.value)} className="input" />
               </label>
 
               <label style={{ display: "grid", gap: 6 }}>
                 ĐVT
-                <input value={uom} onChange={(e) => setUom(e.target.value)} style={{ padding: 10 }} />
+                <input value={uom} onChange={(e) => setUom(e.target.value)} className="input" />
               </label>
 
               <label style={{ display: "grid", gap: 6 }}>
@@ -758,29 +740,29 @@ export default function ProductsPage() {
                   type="number"
                   value={unitPrice}
                   onChange={(e) => setUnitPrice(e.target.value)}
-                  style={{ padding: 10 }}
+                  className="input"
                   min="0"
                   step="any"
                 />
               </label>
 
-              <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer" }}>
                 <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-                Active
+                <span style={{ fontWeight: 600 }}>Active</span>
               </label>
+            </div>
 
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
-                <button onClick={() => setOpen(false)} style={{ padding: 10, cursor: "pointer" }}>
-                  Hủy
-                </button>
-                <button onClick={save} style={{ padding: 10, cursor: "pointer" }}>
-                  Lưu
-                </button>
-              </div>
+            <div className="modal-footer">
+              <button onClick={() => setOpen(false)} className="btn btn-secondary">
+                Hủy
+              </button>
+              <button onClick={save} className="btn btn-primary">
+                Lưu
+              </button>
             </div>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
