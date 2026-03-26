@@ -1,0 +1,61 @@
+--- a/app/(protected)/customers/page.tsx
++++ b/app/(protected)/customers/page.tsx
+@@ -8,6 +8,8 @@ type Customer = {
+   code: string;
+   name: string;
+   created_at: string;
++  updated_at: string;
++  deleted_at: string | null;
+ };
+ 
+ type Profile = {
+@@ -84,7 +86,8 @@ export default function CustomersPage() {
+ 
+       const { data, error: e2 } = await supabase
+         .from("customers")
+-        .select("*")
++        .select("id, code, name, created_at, updated_at, deleted_at")
++        .is("deleted_at", null)
+         .order("created_at", { ascending: false });
+ 
+       if (e2) throw e2;
+@@ -143,8 +146,17 @@ export default function CustomersPage() {
+ 
+   async function del(c: Customer) {
+     if (!confirm(`Xóa khách hàng ${c.code}?`)) return;
+     setError("");
+     try {
+-      const { error } = await supabase.from("customers").delete().eq("id", c.id);
++      const { data: u } = await supabase.auth.getUser();
++      if (!u.user) {
++        setError("Không có quyền xóa");
++        return;
++      }
++      const { error } = await supabase
++        .from("customers")
++        .update({ deleted_at: new Date().toISOString(), deleted_by: u.user.id })
++        .eq("id", c.id);
+       if (error) throw error;
+       await load();
+     } catch (err: any) {
+@@ -182,7 +194,7 @@ export default function CustomersPage() {
+         <table style={{ borderCollapse: "collapse", minWidth: 800 }}>
+           <thead>
+             <tr>
+-              {["Code", "Tên", "Created", "Action"].map((h) => (
++              {["Code", "Tên", "Created", "Updated", "Action"].map((h) => (
+                 <th key={h} style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>
+                   {h}
+                 </th>
+@@ -195,7 +207,10 @@ export default function CustomersPage() {
+                 <td style={{ borderBottom: "1px solid #eee", padding: 8, fontFamily: "monospace" }}>{c.code}</td>
+                 <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{c.name}</td>
+                 <td style={{ borderBottom: "1px solid #eee", padding: 8, whiteSpace: "nowrap" }}>
+-                  {mounted ? new Date(c.created_at).toLocaleString() : '...'}
++                  {new Date(c.created_at).toISOString().slice(0, 19).replace('T', ' ')}
++                </td>
++                <td style={{ borderBottom: "1px solid #eee", padding: 8, whiteSpace: "nowrap" }}>
++                  {new Date(c.updated_at).toISOString().slice(0, 19).replace('T', ' ')}
+                 </td>
+                 <td style={{ borderBottom: "1px solid #eee", padding: 8, whiteSpace: "nowrap" }}>
+                   {canCreateEdit && (

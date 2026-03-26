@@ -1,0 +1,60 @@
+--- a/app/(protected)/products/page.tsx
++++ b/app/(protected)/products/page.tsx
+@@ -13,6 +13,8 @@ type Product = {
+   is_active: boolean;
+   customer_id: string;
+   created_at: string;
++  updated_at: string;
++  deleted_at: string | null;
+ };
+ 
+ export default function ProductsPage() {
+@@ -92,7 +94,8 @@ export default function ProductsPage() {
+ 
+       const { data, error: e2 } = await supabase
+         .from("products")
+-        .select("*")
++        .select("id, sku, name, spec, uom, is_active, customer_id, created_at, updated_at, deleted_at")
++        .is("deleted_at", null)
+         .order("created_at", { ascending: false });
+ 
+       if (e2) throw e2;
+@@ -164,8 +167,17 @@ export default function ProductsPage() {
+   async function del(p: Product) {
+     if (!confirm(`Xóa mã hàng ${p.sku}?`)) return;
+     setError("");
+     try {
+-      const { error } = await supabase.from("products").delete().eq("id", p.id);
++      const { data: u } = await supabase.auth.getUser();
++      if (!u.user) {
++        setError("Không có quyền xóa");
++        return;
++      }
++      const { error } = await supabase
++        .from("products")
++        .update({ deleted_at: new Date().toISOString(), deleted_by: u.user.id })
++        .eq("id", p.id);
+       if (error) throw error;
+       await load();
+     } catch (err: any) {
+@@ -200,7 +212,7 @@ export default function ProductsPage() {
+         <table style={{ borderCollapse: "collapse", minWidth: 1000 }}>
+           <thead>
+             <tr>
+-              {["SKU", "Tên", "Spec", "UOM", "Active", "Customer", "Created", "Action"].map((h) => (
++              {["SKU", "Tên", "Spec", "UOM", "Active", "Customer", "Created", "Updated", "Action"].map((h) => (
+                 <th key={h} style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>
+                   {h}
+                 </th>
+@@ -221,7 +233,10 @@ export default function ProductsPage() {
+                     {c ? `${c.code} - ${c.name}` : p.customer_id}
+                   </td>
+                   <td style={{ borderBottom: "1px solid #eee", padding: 8, whiteSpace: "nowrap" }}>
+-                    {mounted ? new Date(p.created_at).toLocaleString() : '...'}
++                    {new Date(p.created_at).toISOString().slice(0, 19).replace('T', ' ')}
++                  </td>
++                  <td style={{ borderBottom: "1px solid #eee", padding: 8, whiteSpace: "nowrap" }}>
++                    {new Date(p.updated_at).toISOString().slice(0, 19).replace('T', ' ')}
+                   </td>
+                   <td style={{ borderBottom: "1px solid #eee", padding: 8, whiteSpace: "nowrap" }}>
+                     <button onClick={() => openEdit(p)} style={{ padding: "6px 10px", cursor: "pointer" }}>
