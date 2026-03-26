@@ -796,57 +796,65 @@ export default function StocktakeDetailPage() {
   if (!header) return <div style={{ padding: 24, fontFamily: "sans-serif", color: "crimson" }}>Không tìm thấy phiếu kiểm kê</div>;
 
   return (
-    <div style={{ fontFamily: "sans-serif", paddingBottom: 64 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h1>
-          Kiểm kê Kho {" "}
-          {isConfirmed ? (
-            <span style={{ color: "#166534", background: "#dcfce3", padding: "4px 8px", borderRadius: 4, fontSize: 16 }}>Đã chốt</span>
-          ) : (
-            <span style={{ color: "#d97706", background: "#fef3c7", padding: "4px 8px", borderRadius: 4, fontSize: 16 }}>Nháp</span>
-          )}
-        </h1>
-        <button onClick={() => router.push("/inventory/stocktake")} style={{ padding: "6px 12px", background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}>
-          Quay lại danh sách
-        </button>
+    <div className="page-root" style={{ paddingBottom: 80 }}>
+      {/* ── Page Header ── */}
+      <div className="page-header">
+        <div>
+          <h1>
+            Chi tiết Kiểm kê {" "}
+            {isConfirmed ? (
+              <span className="badge badge-success" style={{ fontSize: 14, marginLeft: 8 }}>Đã xác nhận (Confirmed)</span>
+            ) : (
+              <span className="badge badge-warning" style={{ fontSize: 14, marginLeft: 8 }}>Bản nháp (Draft)</span>
+            )}
+          </h1>
+          <p className="page-subtitle">ID: {id}</p>
+        </div>
+        <div className="toolbar" style={{ margin: 0 }}>
+          <button onClick={() => router.push("/inventory/stocktake")} className="btn btn-secondary">
+            ← Quay lại danh sách
+          </button>
+        </div>
       </div>
 
-      {error && <pre style={{ color: "crimson" }}>{error}</pre>}
+      <ErrorBanner message={error} onDismiss={() => setError("")} />
 
-      <div style={{ background: "#f8fafc", padding: 20, borderRadius: 8, border: "1px solid #e2e8f0", marginBottom: 24, display: "grid", gap: 16 }}>
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-          <label style={{ display: "grid", gap: 4, fontSize: 14, fontWeight: 500 }}>
-            Ngày kiểm kê
+      <div className="filter-panel" style={{ marginBottom: 24 }}>
+        <h3 className="modal-title" style={{ marginTop: 0, marginBottom: 16 }}>Thông tin chung</h3>
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <label className="input-label" style={{ minWidth: 160 }}>
+            Ngày kiểm kê *
             <input
               type="date"
               value={header.stocktake_date}
               onChange={e => setHeader({ ...header, stocktake_date: e.target.value })}
               disabled={!canEdit || isConfirmed}
-              style={{ padding: 8, border: "1px solid #cbd5e1", borderRadius: 4, width: 160 }}
+              className="input"
             />
           </label>
-          <label style={{ display: "grid", gap: 4, fontSize: 14, fontWeight: 500, flex: 1 }}>
-            Ghi chú
+          <label className="input-label" style={{ flex: 1 }}>
+            Ghi chú phiếu
             <input
               value={header.note || ""}
               onChange={e => setHeader({ ...header, note: e.target.value })}
               disabled={!canEdit}
-              style={{ padding: 8, border: "1px solid #cbd5e1", borderRadius: 4 }}
-              placeholder="Ghi chú thêm..."
+              className="input"
+              placeholder="Ghi chú thêm về đợt kiểm kê này..."
             />
           </label>
         </div>
 
         {isConfirmed && (
-          <div style={{ padding: 16, background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 6 }}>
-            <label style={{ display: "grid", gap: 4, fontSize: 14, fontWeight: 600, color: "#991b1b" }}>
-              Lý do sửa sau chốt <span style={{ color: "red" }}>(*) Bắt buộc nếu có chỉnh sửa</span>
+          <div style={{ padding: 16, background: "var(--color-danger-light)", border: "1px solid var(--color-danger)", borderRadius: 8, marginTop: 12 }}>
+            <label className="input-label" style={{ color: "var(--color-danger)", fontWeight: 700 }}>
+              Lý do sửa sau chốt <span style={{ fontSize: 12, fontWeight: 400 }}>(Mã hàng đã được chốt, cần lý do để chỉnh sửa)</span>
               <input
                 value={editReason}
                 onChange={e => setEditReason(e.target.value)}
                 disabled={!canEditConfirmed}
-                style={{ padding: 8, border: "1px solid #fca5a5", borderRadius: 4, background: canEditConfirmed ? "white" : "#f1f5f9" }}
-                placeholder="Nhập lý do để lưu lịch sử sửa đổi..."
+                className="input"
+                style={{ marginTop: 4, background: canEditConfirmed ? "white" : "transparent" }}
+                placeholder="Ví dụ: Kiểm tra lại thấy nhập nhầm số lượng, hiệu chỉnh theo biên bản..."
               />
             </label>
             {header.post_confirm_edit_reason && (
@@ -859,170 +867,162 @@ export default function StocktakeDetailPage() {
         )}
 
         {canEdit && !isConfirmed && (
-          <div>
-            <button onClick={handleSaveHeader} disabled={saving} style={{ padding: "8px 16px", background: "#0f172a", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}>
-              Lưu tiêu đề
+          <div style={{ marginTop: 20 }}>
+            <button onClick={handleSaveHeader} disabled={saving} className="btn btn-primary">
+              {saving ? "Đang lưu..." : "💾 Lưu thông tin chung"}
             </button>
           </div>
         )}
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <h2 style={{ fontSize: 18 }}>Chi tiết Kiểm kê</h2>
-        <div style={{ display: "flex", gap: 12 }}>
+      <div className="toolbar" style={{ marginTop: 32, marginBottom: 12 }}>
+        <h3 className="modal-title" style={{ margin: 0 }}>Danh sách chi tiết kiểm kê</h3>
+        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           {Object.keys(colFilters).length > 0 && (
             <button
                onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-               style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 4, color: "#991b1b" }}
+               className="btn btn-clear-filter"
             >
                Xóa lọc cột ({Object.keys(colFilters).length})
             </button>
           )}
           {canEdit && selectedLineIds.size > 0 && (
-            <button onClick={bulkRemoveLines} style={{ padding: "8px 16px", background: "#b91c1c", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}>
+            <button onClick={bulkRemoveLines} className="btn btn-danger">
               Xóa đã chọn ({selectedLineIds.size})
             </button>
           )}
           {canEdit && (
-            <button onClick={addEmptyLine} style={{ padding: "8px 12px", background: "#4f46e5", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}>
-              + Thêm dòng
+            <button onClick={addEmptyLine} className="btn btn-primary">
+              + Thêm dòng mới
             </button>
           )}
         </div>
       </div>
 
-      <div style={{ overflowX: "auto" }} ref={containerRef}>
-        <table style={{ borderCollapse: "collapse", minWidth: 1500, width: "100%", border: "1px solid #ddd", background: "white" }}>
+      <div className="data-table-wrap" ref={containerRef}>
+        <table className="data-table" style={{ minWidth: 1600 }}>
           <thead>
             <tr>
               {canEdit && (
-                <th style={{ ...thStyle, width: 40, textAlign: "center" }}>
+                <th style={{ width: 40, textAlign: "center" }}>
                   <input type="checkbox"
                     checked={finalFiltered.length > 0 && finalFiltered.every(l => selectedLineIds.has(l.id))}
                     onChange={e => {
                       if (e.target.checked) setSelectedLineIds(new Set(finalFiltered.map(l => l.id)));
                       else setSelectedLineIds(new Set());
                     }}
+                    style={{ cursor: "pointer" }}
                   />
                 </th>
               )}
-              <th style={{ ...thStyle, width: 40, textAlign: "center" }}>STT</th>
+              <th style={{ width: 50, textAlign: "center" }}>STT</th>
               <ThCell label="Khách hàng" colKey="customer" sortable colType="text" />
-              <ThCell label="Mã hàng" colKey="sku" sortable colType="text" extra={{ width: 220 }} />
-              <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
-              <ThCell label="Kích thước" colKey="spec" sortable colType="text" />
-              <ThCell label="Số lượng hệ thống" colKey="sysQty" sortable colType="num" align="right" />
-              <ThCell label="Số lượng thực tế" colKey="actQty" sortable colType="num" align="right" extra={{ background: "#eff6ff" }} />
+              <ThCell label="Mã hàng (SKU)" colKey="sku" sortable colType="text" extra={{ width: 220 }} />
+              <ThCell label="Tên sản phẩm" colKey="name" sortable colType="text" />
+              <ThCell label="Kích thước / Spec" colKey="spec" sortable colType="text" />
+              <ThCell label="Tồn hệ thống" colKey="sysQty" sortable colType="num" align="right" />
+              <ThCell label="Số lượng thực tế" colKey="actQty" sortable colType="num" align="right" />
               <ThCell label="Chênh lệch" colKey="diffQty" sortable colType="num" align="right" />
-              <ThCell label="% chênh lệch" colKey="diffPct" sortable colType="num" align="right" />
+              <ThCell label="% chênh" colKey="diffPct" sortable colType="num" align="right" />
               <ThCell label="Cảnh báo" colKey="warning" sortable colType="bool" align="center" />
               <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" />
-              <ThCell label="Tiền chênh lệch (VNĐ)" colKey="valDiff" sortable colType="num" align="right" />
-              <ThCell label="Lý do chênh lệch" colKey="reason" sortable colType="text" />
-              {canEdit && <th style={{ ...thStyle, textAlign: "center", width: 60 }}>Xóa</th>}
+              <ThCell label="Giá trị chênh" colKey="valDiff" sortable colType="num" align="right" />
+              <ThCell label="Lý do & Ghi chú" colKey="reason" sortable colType="text" />
+              {canEdit && <th style={{ textAlign: "center", width: 60 }}>Xóa</th>}
             </tr>
           </thead>
           <tbody>
             {finalFiltered.map((l, i) => {
               const rowValDiff = l.qty_diff * (l.unit_price_snapshot || 0);
               return (
-                <tr key={l.id} style={{ height: 48 }}>
+                <tr key={l.id}>
                   {canEdit && (
-                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                    <td style={{ textAlign: "center" }}>
                       <input type="checkbox" checked={selectedLineIds.has(l.id)}
                         onChange={e => {
                           const next = new Set(selectedLineIds);
                           if (e.target.checked) next.add(l.id); else next.delete(l.id);
                           setSelectedLineIds(next);
                         }}
+                        style={{ cursor: "pointer" }}
                       />
                     </td>
                   )}
-                  <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
-
-                  <td style={tdStyle}>{getCustomerLabel(l.customer_id)}</td>
-
-                  <td style={{ ...tdStyle, fontWeight: "bold" }}>
+                  <td style={{ textAlign: "center", color: "var(--slate-500)" }}>{i + 1}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>{getCustomerLabel(l.customer_id)}</td>
+                  <td style={{ fontWeight: 600 }}>
                     {!canEdit ? (
                       getProductSku(l.product_id) || "---"
                     ) : (
-                      <>
+                      <div style={{ position: "relative" }}>
                         <input
                           list={"dl-products-stocktake-" + i}
-                          placeholder="Nhập mã hàng/tên..."
+                          placeholder="Mã/Tên sản phẩm..."
                           value={l._searchQuery !== undefined ? l._searchQuery : (l.product_id ? getProductSku(l.product_id) : "")}
                           onChange={(e) => handleProductSearchChange(l.id, e.target.value)}
-                          style={{ width: "100%", padding: 6, border: "1px solid #ddd", borderRadius: 4 }}
+                          className="input"
+                          style={{ width: "100%" }}
                         />
                         <datalist id={"dl-products-stocktake-" + i}>
                           {products.map(p => (
                             <option key={p.id} value={`${p.sku} - ${p.name}`} />
                           ))}
                         </datalist>
-                      </>
+                      </div>
                     )}
                   </td>
-
-                  <td style={tdStyle}>{l.product_name_snapshot}</td>
-                  <td style={tdStyle}>{l.product_spec_snapshot || ""}</td>
-
-                  <td style={{ ...tdStyle, textAlign: "right", background: "#f8fafc", fontWeight: 600 }}>
+                  <td>{l.product_name_snapshot}</td>
+                  <td style={{ color: "var(--slate-500)" }}>{l.product_spec_snapshot || "—"}</td>
+                  <td style={{ textAlign: "right", backgroundColor: "var(--slate-50)", fontWeight: 500 }}>
                     {fmtNum(l.system_qty_before)}
                   </td>
-
-                  <td style={{ ...tdStyle, textAlign: "right", background: "#f8fafc" }}>
+                  <td style={{ textAlign: "right", backgroundColor: "var(--slate-50)" }}>
                     {!canEdit ? (
-                      <span style={{ fontWeight: "bold" }}>{fmtNum(l.actual_qty_after)}</span>
+                      <span style={{ fontWeight: 700 }}>{fmtNum(l.actual_qty_after)}</span>
                     ) : (
                       <input
                         type="number"
                         value={l._newQtyInput !== undefined ? l._newQtyInput : l.actual_qty_after}
                         step="0.01"
                         onChange={e => handleActualQtyChange(l.id, e.target.value)}
-                        style={{ width: 100, padding: 6, border: "1px solid #cbd5e1", borderRadius: 4, textAlign: "right", fontWeight: "bold" }}
+                        className="input"
+                        style={{ width: 100, textAlign: "right", fontWeight: 700, backgroundColor: "white" }}
                       />
                     )}
                   </td>
-
-                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: l.qty_diff > 0 ? "#16a34a" : l.qty_diff < 0 ? "#dc2626" : "inherit" }}>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: l.qty_diff > 0 ? "var(--color-success)" : l.qty_diff < 0 ? "var(--color-danger)" : "inherit" }}>
                     {l.qty_diff > 0 ? "+" : ""}{fmtNum(l.qty_diff)}
                   </td>
-
-                  <td style={{ ...tdStyle, textAlign: "right", fontSize: 13, color: "#64748b" }}>
-                    {l.diff_percent !== null ? l.diff_percent.toFixed(2) + "%" : ""}
+                  <td style={{ textAlign: "right", fontSize: 12, color: "var(--slate-500)" }}>
+                    {l.diff_percent !== null ? l.diff_percent.toFixed(2) + "%" : "—"}
                   </td>
-
-                  <td style={{ ...tdStyle, textAlign: "center" }}>
+                  <td style={{ textAlign: "center" }}>
                     {l.is_large_diff && (
-                      <span style={{ background: "#fee2e2", color: "#b91c1c", padding: "2px 6px", borderRadius: 4, fontSize: 12, fontWeight: 600, border: "1px solid #fca5a5", whiteSpace: "nowrap" }}>
-                        Chênh lệch lớn
-                      </span>
+                      <span className="badge badge-danger">Chênh lệch lớn</span>
                     )}
                   </td>
-
-                  <td style={{ ...tdStyle, textAlign: "right" }}>
+                  <td style={{ textAlign: "right", color: "var(--slate-600)" }}>
                     {fmtNum(l.unit_price_snapshot)}
                   </td>
-                  <td style={{ ...tdStyle, textAlign: "right", color: rowValDiff > 0 ? "#16a34a" : rowValDiff < 0 ? "#dc2626" : "inherit", fontWeight: "bold" }}>
+                  <td style={{ textAlign: "right", color: rowValDiff > 0 ? "var(--color-success)" : rowValDiff < 0 ? "var(--color-danger)" : "inherit", fontWeight: 700 }}>
                     {rowValDiff > 0 ? "+" : ""}{fmtNum(rowValDiff)}
                   </td>
-
-                  <td style={tdStyle}>
+                  <td>
                     {!canEdit ? (
-                      <span>{l.diff_reason || ""}</span>
+                      <span style={{ color: "var(--slate-600)" }}>{l.diff_reason || "—"}</span>
                     ) : (
                       <input
                         value={l.diff_reason || ""}
                         onChange={e => handleDiffReasonChange(l.id, e.target.value)}
-                        placeholder="Lý do chênh lệch..."
-                        style={{ width: "100%", padding: 6, border: "1px solid #cbd5e1", borderRadius: 4 }}
+                        placeholder="Lý do & ghi chú..."
+                        className="input"
+                        style={{ width: "100%" }}
                       />
                     )}
                   </td>
-
                   {canEdit && (
-                    <td style={{ ...tdStyle, textAlign: "center" }}>
-                      <button onClick={() => removeLine(l.id)} style={{ color: "red", border: "none", background: "none", cursor: "pointer", fontWeight: "bold" }}>X</button>
+                    <td style={{ textAlign: "center" }}>
+                      <button onClick={() => removeLine(l.id)} className="btn btn-ghost btn-sm" style={{ color: "var(--color-danger)" }}>×</button>
                     </td>
                   )}
                 </tr>
@@ -1030,7 +1030,9 @@ export default function StocktakeDetailPage() {
             })}
             {finalFiltered.length === 0 && (
               <tr>
-                <td colSpan={canEdit ? 15 : 13} style={{ ...tdStyle, padding: 32, textAlign: "center", color: "#888" }}>Chưa có dữ liệu. Kê khai kho tại đây.</td>
+                <td colSpan={canEdit ? 15 : 13} style={{ padding: 48, textAlign: "center", color: "var(--slate-500)" }}>
+                  Chưa có dữ liệu kiểm kê nào. Hãy thêm dòng mới để bắt đầu.
+                </td>
               </tr>
             )}
           </tbody>
@@ -1038,22 +1040,27 @@ export default function StocktakeDetailPage() {
       </div>
 
       {canEdit && (
-        <div style={{ marginTop: 24, display: "flex", gap: 16 }}>
+        <div className="toolbar" style={{ marginTop: 32, justifyContent: "flex-end", gap: 16 }}>
           {canEditDraft && (
-            <button onClick={handleSaveLinesAndApply} disabled={saving} style={{ padding: "10px 20px", background: "#f59e0b", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}>
-              Lưu chi tiết (Nháp)
+            <button onClick={handleSaveLinesAndApply} disabled={saving} className="btn btn-secondary" style={{ minWidth: 160 }}>
+              {saving ? "Đang lưu..." : "💾 Lưu bản nháp"}
             </button>
           )}
 
           {canEditDraft && (
-            <button onClick={handleConfirm} disabled={saving} style={{ padding: "10px 20px", background: "#166534", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}>
-              Chốt kiểm kê
+            <button onClick={handleConfirm} disabled={saving} className="btn btn-primary" style={{ minWidth: 160 }}>
+              🚀 Chốt kiểm kê
             </button>
           )}
 
           {canEditConfirmed && (
-            <button onClick={handleSaveLinesAndApply} disabled={saving || !editReason.trim()} style={{ padding: "10px 20px", background: "#991b1b", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}>
-              LƯU SỬA ĐỔI (ĐÃ CHỐT)
+            <button 
+              onClick={handleSaveLinesAndApply} 
+              disabled={saving || !editReason.trim()} 
+              className="btn btn-danger" 
+              style={{ minWidth: 200 }}
+            >
+              {saving ? "Đang cập nhật..." : "⚠️ LƯU CHỈNH SỬA (ĐÃ CHỐT)"}
             </button>
           )}
         </div>

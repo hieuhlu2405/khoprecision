@@ -182,24 +182,16 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
             }}
           >
             {!collapsed && (
-              <div style={{ overflow: "hidden" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {/* Original Logo Thumb */}
-                  <div style={{ 
-                    width: 32, height: 32, background: "white", borderRadius: 6, 
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    padding: 2, flexShrink: 0
-                  }}>
-                    <img src="/logo.jpg" alt="Logo" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 2 }} />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 800, color: "white", fontSize: 13, letterSpacing: "-0.01em", whiteSpace: "nowrap", lineHeight: 1.2 }}>
-                      PRECISION
-                    </div>
-                    <div style={{ fontSize: 9, color: "var(--brand)", letterSpacing: "0.05em", whiteSpace: "nowrap", lineHeight: 1, fontWeight: 700 }}>
-                      PACKAGING
-                    </div>
-                  </div>
+              <div style={{ overflow: "hidden", flex: 1, paddingLeft: 4 }}>
+                <div style={{ 
+                  fontWeight: 700, 
+                  color: "white", 
+                  fontSize: 14, 
+                  lineHeight: 1.3,
+                  letterSpacing: "0.01em"
+                }}>
+                  Công ty Cổ phần <br />
+                  Precision Packaging
                 </div>
               </div>
             )}

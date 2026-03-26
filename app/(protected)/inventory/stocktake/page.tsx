@@ -407,42 +407,52 @@ export default function StocktakeListPage() {
   }
 
   return (
-    <div style={{ fontFamily: "sans-serif" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h1>Danh sách phiếu Kiểm kê Kho</h1>
-        {isAdminOrManager && (
-          <button
-            onClick={handleCreateNew}
-            style={{ padding: "8px 16px", background: "#0f172a", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}
-          >
-            + Tạo phiếu kiểm kê
+    <div className="page-root">
+      <div className="page-header">
+        <div>
+          <h1>Kiểm kê kho (Stocktake)</h1>
+          <p className="page-subtitle">Quản lý và theo dõi các phiếu kiểm kê hàng hóa định kỳ.</p>
+        </div>
+        <div className="toolbar" style={{ margin: 0 }}>
+          <button onClick={loadData} className="btn btn-secondary">
+            Làm mới
           </button>
-        )}
+          {isAdminOrManager && (
+            <button onClick={handleCreateNew} className="btn btn-primary">
+              + Tạo phiếu kiểm kê mới
+            </button>
+          )}
+        </div>
       </div>
 
-      <div style={{ display: "flex", gap: 16, marginBottom: 20, background: "#f8fafc", padding: "12px 16px", borderRadius: 8, border: "1px solid #e2e8f0", alignItems: "center" }}>
-        <label style={{ display: "grid", gap: 4, fontSize: 14 }}>
-          Ngày kiểm kê
-          <input type="date" value={qDateStr} onChange={(e) => setQDateStr(e.target.value)} style={{ padding: 6 }} />
-        </label>
-        <label style={{ display: "grid", gap: 4, fontSize: 14 }}>
-          Trạng thái
-          <select value={qStatus} onChange={(e) => setQStatus(e.target.value)} style={{ padding: 6 }}>
-            <option value="all">-- Tất cả --</option>
-            <option value="draft">Nháp</option>
-            <option value="confirmed">Đã chốt</option>
-          </select>
-        </label>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+      <ErrorBanner message={error} onDismiss={() => setError("")} />
+
+      <div className="filter-panel toolbar" style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 500, color: "var(--slate-600)" }}>
+            Ngày kiểm kê
+            <input type="date" value={qDateStr} onChange={(e) => setQDateStr(e.target.value)} className="input" />
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 500, color: "var(--slate-600)" }}>
+            Trạng thái
+            <select value={qStatus} onChange={(e) => setQStatus(e.target.value)} className="input">
+              <option value="all">Tất cả trạng thái</option>
+              <option value="draft">Bản nháp</option>
+              <option value="confirmed">Đã xác nhận</option>
+            </select>
+          </label>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           {(qDateStr || qStatus !== "all") && (
-            <button onClick={() => { setQDateStr(""); setQStatus("all"); }} style={{ padding: "7px 12px", background: "#e2e8f0", border: "none", borderRadius: 4, cursor: "pointer", marginTop: 22 }}>
-              Xóa tổng
+            <button onClick={() => { setQDateStr(""); setQStatus("all"); }} className="btn btn-ghost btn-sm">
+              Xóa lọc tổng
             </button>
           )}
           {Object.keys(colFilters).length > 0 && (
             <button
                onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-               style={{ padding: "7px 12px", cursor: "pointer", fontSize: 13, background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 4, color: "#991b1b", marginTop: 20 }}
+               className="btn btn-clear-filter"
             >
                Xóa lọc cột ({Object.keys(colFilters).length})
             </button>
@@ -450,56 +460,58 @@ export default function StocktakeListPage() {
         </div>
       </div>
 
-      {error && <ErrorBanner message={error} onDismiss={() => setError("")} />}
-
       {loading ? (
-        <div className="loading-page">
-          <div className="spinner" style={{ width: 28, height: 28, borderWidth: 3 }} />
-          <span style={{ color: "var(--slate-500)", fontSize: 13 }}>Đang tải thông tin...</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 48, flexDirection: "column", gap: 16 }}>
+          <div className="spinner" style={{ width: 32, height: 32, borderWidth: 3 }} />
+          <div style={{ color: "#64748b", fontSize: 13 }}>Đang tải danh sách kiểm kê...</div>
         </div>
       ) : (
-        <div style={{ overflowX: "auto" }} ref={containerRef}>
-          <table style={{ borderCollapse: "collapse", minWidth: 1000, width: "100%", border: "1px solid #ddd", background: "white" }}>
+        <div className="data-table-wrap" ref={containerRef}>
+          <table className="data-table" style={{ minWidth: 1000 }}>
             <thead>
               <tr>
-                <th style={{ ...thStyle, textAlign: "center", width: 50 }}>STT</th>
+                <th style={{ textAlign: "center", width: 50 }}>STT</th>
                 <ThCell label="Ngày kiểm kê" colKey="date" sortable colType="date" />
                 <ThCell label="Trạng thái" colKey="status" sortable colType="text" />
                 <ThCell label="Người tạo" colKey="creator" sortable colType="text" />
-                <ThCell label="Người xác nhận" colKey="confirmer" sortable colType="text" />
-                <ThCell label="Ngày xác nhận" colKey="confirmedAt" sortable colType="date" />
+                <ThCell label="Người chốt" colKey="confirmer" sortable colType="text" />
+                <ThCell label="Ngày chốt" colKey="confirmedAt" sortable colType="date" />
                 <ThCell label="Ghi chú" colKey="note" sortable colType="text" />
-                <th style={{ ...thStyle, textAlign: "center" }}>Hành động</th>
+                <th style={{ textAlign: "center" }}>Hành động</th>
               </tr>
             </thead>
             <tbody>
               {finalFiltered.map((item, i) => (
                 <tr key={item.id}>
-                  <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
-                  <td style={{ ...tdStyle, fontWeight: "bold" }}>{properFmtDate(item.stocktake_date)}</td>
-                  <td style={tdStyle}>
+                  <td style={{ textAlign: "center" }}>{i + 1}</td>
+                  <td style={{ fontWeight: 600 }}>{properFmtDate(item.stocktake_date)}</td>
+                  <td>
                     {item.status === "draft" ? (
-                      <span style={{ padding: "2px 8px", background: "#fef3c7", color: "#d97706", borderRadius: 4, fontSize: 13, fontWeight: 500 }}>Nháp</span>
+                      <span className="badge badge-warning">Nháp</span>
                     ) : (
-                      <span style={{ padding: "2px 8px", background: "#dcfce3", color: "#166534", borderRadius: 4, fontSize: 13, fontWeight: 500 }}>Đã chốt</span>
+                      <span className="badge badge-success">Đã xác nhận</span>
                     )}
                   </td>
-                  <td style={tdStyle}>{item.created_by ? profiles[item.created_by] || item.created_by : ""}</td>
-                  <td style={tdStyle}>{item.confirmed_by ? profiles[item.confirmed_by] || item.confirmed_by : ""}</td>
-                  <td style={tdStyle}>{fmtDatetime(item.confirmed_at || "")}</td>
-                  <td style={{ ...tdStyle, color: "#64748b" }}>{item.note || ""}</td>
-                  <td style={{ ...tdStyle, textAlign: "center" }}>
+                  <td>{item.created_by ? profiles[item.created_by] || item.created_by : "—"}</td>
+                  <td>{item.confirmed_by ? profiles[item.confirmed_by] || item.confirmed_by : "—"}</td>
+                  <td>{item.confirmed_at ? fmtDatetime(item.confirmed_at) : "—"}</td>
+                  <td style={{ color: "var(--slate-500)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {item.note || "—"}
+                  </td>
+                  <td style={{ textAlign: "center" }}>
                     <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                       <Link
                         href={`/inventory/stocktake/${item.id}`}
-                        style={{ color: "#2563eb", textDecoration: "none", background: "#eff6ff", padding: "4px 8px", borderRadius: 4, fontSize: 13 }}
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: "var(--brand)" }}
                       >
-                        Xem chi tiết
+                        Chi tiết
                       </Link>
-                      {isAdminOrManager && (
+                      {isAdminOrManager && item.status === "draft" && (
                         <button
                           onClick={() => handleDelete(item)}
-                          style={{ color: "#dc2626", background: "#fef2f2", border: "none", padding: "4px 8px", borderRadius: 4, fontSize: 13, cursor: "pointer" }}
+                          className="btn btn-ghost btn-sm"
+                          style={{ color: "var(--color-danger)" }}
                         >
                           Xóa
                         </button>
@@ -510,7 +522,9 @@ export default function StocktakeListPage() {
               ))}
               {finalFiltered.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ ...tdStyle, padding: 24, textAlign: "center", color: "#888" }}>Không tìm thấy phiếu kiểm kê nào.</td>
+                  <td colSpan={8} style={{ padding: 48, textAlign: "center", color: "var(--slate-500)" }}>
+                    Không tìm thấy phiếu kiểm kê nào trong kho.
+                  </td>
                 </tr>
               )}
             </tbody>

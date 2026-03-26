@@ -98,7 +98,7 @@ export default function AppHome() {
           <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 6 }}>
             {greeting}!
           </div>
-          <h1 style={{ margin: "0 0 6px", fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em" }}>
+          <h1 style={{ margin: "0 0 6px", fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", color: "white" }}>
             {displayName}
           </h1>
           {profile && (
@@ -110,18 +110,24 @@ export default function AppHome() {
       </div>
 
       {/* ── Stat cards ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20, marginBottom: 28 }}>
         {statCards.map(card => (
           <div key={card.label} style={{
-            background: "white", borderRadius: 12, padding: "20px 24px",
-            border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,.04)",
-            borderLeft: `4px solid ${card.color}`,
+            background: "white", borderRadius: 14, padding: "24px",
+            border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,.04)",
+            borderLeft: `5px solid ${card.color}`,
+            display: "flex", flexDirection: "column", justifyContent: "space-between",
+            minHeight: 140
           }}>
-            <div style={{ fontSize: 24, marginBottom: 10 }}>{card.icon}</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em" }}>
-              {loading ? <span style={{ color: "#cbd5e1" }}>—</span> : card.value}
+            <div>
+              <div style={{ fontSize: 28, marginBottom: 12 }}>{card.icon}</div>
+              <div style={{ fontSize: 32, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                {loading ? <span style={{ color: "#cbd5e1" }}>—</span> : card.value}
+              </div>
             </div>
-            <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500, marginTop: 4 }}>{card.label}</div>
+            <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600, marginTop: 8, letterSpacing: "0.01em", textTransform: "uppercase" }}>
+              {card.label}
+            </div>
           </div>
         ))}
       </div>

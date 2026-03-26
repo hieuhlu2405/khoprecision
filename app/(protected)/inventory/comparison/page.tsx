@@ -881,28 +881,34 @@ export default function InventoryComparisonPage() {
   }
 
   /* Reusable summary card */
-  function SummaryCard({ title, v1, v2, diff, bg, accent }: { title: string; v1: number; v2: number; diff: number; bg: string; accent: string }) {
+  function SummaryCard({ title, v1, v2, diff, bg, accent, icon }: { title: string; v1: number; v2: number; diff: number; bg: string; accent: string; icon?: React.ReactNode }) {
+    const pct = calcPctRow(v1, diff);
+    const isPositive = diff > 0;
+    
     return (
-      <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: bg, minWidth: 240, flex: 1 }}>
-        <div style={{ fontSize: 13, color: accent, fontWeight: 600, marginBottom: 12 }}>{title}</div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px" }}>
+      <div className="stat-card" style={{ borderLeftColor: accent }}>
+        <div className="stat-card-header">
+          <span className="stat-card-title">{title}</span>
+          {icon && <div className="stat-card-icon" style={{ background: bg, color: accent }}>{icon}</div>}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
           <div>
-            <div style={{ fontSize: 20, color: "#64748b", fontWeight: 500 }}>Kỳ 1</div>
-            <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 2 }}>{fmtNum(v1)}</div>
+            <div style={{ fontSize: 11, color: "var(--slate-400)", marginBottom: 4, textTransform: "uppercase" }}>Kỳ 1</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--slate-600)" }}>{fmtNum(v1)}</div>
           </div>
-          <div>
-            <div style={{ fontSize: 20, color: "#64748b", fontWeight: 500 }}>Kỳ 2</div>
-            <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 2 }}>{fmtNum(v2)}</div>
+          <div style={{ paddingLeft: 12, borderLeft: "1px solid var(--slate-100)" }}>
+            <div style={{ fontSize: 11, color: "var(--slate-400)", marginBottom: 4, textTransform: "uppercase" }}>Kỳ 2</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--brand)" }}>{fmtNum(v2)}</div>
           </div>
         </div>
-
-        <div style={{ borderTop: "1px solid rgba(0,0,0,0.08)", marginTop: 10, paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <div style={{ fontSize: 13, color: diffColor(diff), fontWeight: 600 }}>
-            Chênh lệch: {diff >= 0 ? "+" : ""}{fmtNum(diff)}
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: diffColor(diff), background: "rgba(255,255,255,0.6)", padding: "2px 8px", borderRadius: 4 }}>
-            {fmtPctStr(v1, diff)}
+        <div className="stat-card-footer" style={{ background: "var(--slate-50)", margin: "0 -16px -16px", padding: "10px 16px", borderBottomLeftRadius: 10, borderBottomRightRadius: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: isPositive ? "var(--color-danger)" : "var(--color-success)" }}>
+              {isPositive ? "+" : ""}{fmtNum(diff)}
+            </span>
+            <span className={`badge ${isPositive ? "badge-danger" : "badge-success"}`} style={{ fontSize: 10 }}>
+              {isPositive ? "↑" : "↓"} {Math.abs(pct).toFixed(1)}%
+            </span>
           </div>
         </div>
       </div>
@@ -1072,325 +1078,143 @@ export default function InventoryComparisonPage() {
   }
 
   return (
-    <div style={{ fontFamily: "sans-serif" }} ref={containerRef}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8 }}>
-        <h1 style={{ margin: 0 }}>Biến động tồn kho</h1>
-        <button onClick={closeComparisonReport} disabled={closingComparison || loading || displayProductRows.length === 0} style={{ padding: "8px 16px", cursor: "pointer", background: "#0f172a", color: "white", border: "none", borderRadius: 4, fontWeight: 600, opacity: closingComparison ? 0.6 : 1 }}>
-          {closingComparison ? "Đang chốt..." : "📋 Chốt dữ liệu"}
-        </button>
-      </div>
+    <div className="page-root" ref={containerRef}>
+      <div className="page-header">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+          </div>
+          <div>
+            <h1 className="page-title">Đối soát Xuất - Nhập</h1>
+            <p className="page-description">So sánh kết quả vận hành giữa hai kỳ báo cáo</p>
+          </div>
+        </div>
 
-      {error && <pre style={{ color: "crimson" }}>{error}</pre>}
-
-      {/* ---- OVERALL SUMMARY CARDS ---- */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginTop: 24, marginBottom: 24 }}>
-        <SummaryCard title="Tổng số lượng nhập" v1={totals.in1} v2={totals.in2} diff={totals.inDiff} bg="#eff6ff" accent="#1d4ed8" />
-        <SummaryCard title="Tổng số lượng xuất" v1={totals.out1} v2={totals.out2} diff={totals.outDiff} bg="#fef2f2" accent="#991b1b" />
-        <SummaryCard title="Tổng giá trị nhập (VNĐ)" v1={totals.inVal1} v2={totals.inVal2} diff={totals.inValDiff} bg="#f0fdf4" accent="#166534" />
-        <SummaryCard title="Tổng giá trị xuất (VNĐ)" v1={totals.outVal1} v2={totals.outVal2} diff={totals.outValDiff} bg="#fffbeb" accent="#92400e" />
-      </div>
-
-      {/* ---- FILTERS ---- */}
-      <div style={{ background: "#f8fafc", padding: "12px 16px", borderRadius: 8, border: "1px solid #e2e8f0", marginBottom: 24 }}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: "#64748b", marginTop: 4 }}>Chọn nhanh:</span>
-          <button onClick={applyPresetPreviousMonth} style={{ padding: "4px 8px", fontSize: 11, cursor: "pointer", background: "#e2e8f0", border: "1px solid #cbd5e1", borderRadius: 4 }}>
-            So với tháng trước
+        <div className="toolbar">
+          <button className="btn btn-outline" onClick={applyPresetPreviousMonth}>
+            Kỳ trước
           </button>
-          <button onClick={applyPresetSameMonthLastYear} style={{ padding: "4px 8px", fontSize: 11, cursor: "pointer", background: "#e2e8f0", border: "1px solid #cbd5e1", borderRadius: 4 }}>
-            So với cùng kỳ năm trước
+          <button className="btn btn-outline" onClick={applyPresetSameMonthLastYear}>
+            Cùng kỳ năm ngoái
+          </button>
+          <div style={{ width: 1, height: 24, background: "var(--slate-200)", margin: "0 8px" }} />
+          <button className="btn btn-primary" onClick={closeComparisonReport} disabled={closingComparison || loading || displayProductRows.length === 0}>
+            {closingComparison ? "Đang chốt..." : "Chốt báo cáo"}
           </button>
         </div>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
-          {/* Period 1 */}
-          <fieldset style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "8px 12px", margin: 0 }}>
-            <legend style={{ fontSize: 20, fontWeight: 600, color: "#1d4ed8", padding: "0 4px" }}>Kỳ 1</legend>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ display: "grid", gap: 2, fontSize: 12, fontWeight: 500 }}>
-                Từ ngày
-                <input type="date" value={p1Start} onChange={(e) => setP1Start(e.target.value)} style={{ padding: 6, fontSize: 13 }} />
-              </label>
-              <label style={{ display: "grid", gap: 2, fontSize: 12, fontWeight: 500 }}>
-                Đến ngày
-                <input type="date" value={p1End} onChange={(e) => setP1End(e.target.value)} style={{ padding: 6, fontSize: 13 }} />
-              </label>
+      </div>
+
+      <div className="filter-panel" style={{ marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
+          <div style={{ padding: "8px 16px", background: "var(--slate-50)", borderRadius: 8, borderLeft: "4px solid var(--slate-300)" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--slate-500)", marginBottom: 12, textTransform: "uppercase" }}>Kỳ so sánh 1 (Gốc)</div>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <div style={{ flex: 1 }}>
+                <label className="filter-label">Từ ngày</label>
+                <input type="date" className="input" value={p1Start} onChange={e => setP1Start(e.target.value)} />
+              </div>
+              <div style={{ color: "var(--slate-300)", marginTop: 18 }}>→</div>
+              <div style={{ flex: 1 }}>
+                <label className="filter-label">Đến ngày</label>
+                <input type="date" className="input" value={p1End} onChange={e => setP1End(e.target.value)} />
+              </div>
             </div>
-          </fieldset>
-
-          {/* Period 2 */}
-          <fieldset style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: "8px 12px", margin: 0 }}>
-            <legend style={{ fontSize: 20, fontWeight: 600, color: "#991b1b", padding: "0 4px" }}>Kỳ 2</legend>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ display: "grid", gap: 2, fontSize: 12, fontWeight: 500 }}>
-                Từ ngày
-                <input type="date" value={p2Start} onChange={(e) => setP2Start(e.target.value)} style={{ padding: 6, fontSize: 13 }} />
-              </label>
-              <label style={{ display: "grid", gap: 2, fontSize: 12, fontWeight: 500 }}>
-                Đến ngày
-                <input type="date" value={p2End} onChange={(e) => setP2End(e.target.value)} style={{ padding: 6, fontSize: 13 }} />
-              </label>
+          </div>
+          <div style={{ padding: "8px 16px", background: "var(--brand-light)", opacity: 0.9, borderRadius: 8, borderLeft: "4px solid var(--brand)" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--brand)", marginBottom: 12, textTransform: "uppercase" }}>Kỳ so sánh 2 (Đối soát)</div>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <div style={{ flex: 1 }}>
+                <label className="filter-label" style={{ color: "var(--brand)" }}>Từ ngày</label>
+                <input type="date" className="input" style={{ borderColor: "var(--brand-light)" }} value={p2Start} onChange={e => setP2Start(e.target.value)} />
+              </div>
+              <div style={{ color: "var(--brand-light)", marginTop: 18 }}>→</div>
+              <div style={{ flex: 1 }}>
+                <label className="filter-label" style={{ color: "var(--brand)" }}>Đến ngày</label>
+                <input type="date" className="input" style={{ borderColor: "var(--brand-light)" }} value={p2End} onChange={e => setP2End(e.target.value)} />
+              </div>
             </div>
-          </fieldset>
+          </div>
+        </div>
 
-          {/* Other filters */}
-          <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-            Khách hàng
-            <input
-              list="dl-cmp-customer"
-              placeholder="Gõ code / tên..."
-              value={qCustomerSearch}
-              onChange={(e) => {
-                const val = e.target.value;
-                setQCustomerSearch(val);
-                const matched = customers.find((c) => `${c.code} - ${c.name}` === val);
-                setQCustomer(matched ? matched.id : "");
-              }}
-              style={{ padding: 8, minWidth: 160, fontSize: 14 }}
-            />
-            <datalist id="dl-cmp-customer">
-              {customers.map((c) => (
-                <option key={c.id} value={`${c.code} - ${c.name}`} />
-              ))}
-            </datalist>
-          </label>
+        <div style={{ height: 1, background: "var(--slate-100)", margin: "20px 0" }} />
 
-          <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-            Mã / Tên hàng
-            <input value={qProduct} onChange={(e) => setQProduct(e.target.value)} style={{ padding: 8, minWidth: 180, fontSize: 14 }} placeholder="Search..." />
-          </label>
-
-          <div style={{ borderLeft: "1px solid #cbd5e1", marginLeft: 4, paddingLeft: 12, display: "flex", height: 36, alignItems: "center" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
-              <input type="checkbox" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} />
-              Chỉ hiện mã có biến động
+        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div style={{ width: 280 }}>
+            <label className="filter-label">Khách hàng</label>
+            <select className="input" value={qCustomer} onChange={e => setQCustomer(e.target.value)}>
+              <option value="">-- Tất cả khách hàng --</option>
+              {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+            </select>
+          </div>
+          <div style={{ width: 280 }}>
+            <label className="filter-label">Sản phẩm</label>
+            <input type="text" className="input" placeholder="SKU hoặc tên hàng..." value={qProduct} onChange={e => setQProduct(e.target.value)} />
+          </div>
+          <div style={{ paddingBottom: 10 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+              <input type="checkbox" checked={onlyChanged} onChange={e => setOnlyChanged(e.target.checked)} />
+              <span>Chỉ hiện mã có biến động</span>
             </label>
           </div>
-
-          <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-            {(qCustomer || qProduct) && (
-              <button onClick={() => { setQCustomer(""); setQCustomerSearch(""); setQProduct(""); }} style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 4 }}>
-                Xóa lọc
-              </button>
-            )}
-            <button onClick={load} style={{ padding: "8px 16px", cursor: "pointer", fontSize: 13, background: "#0f172a", color: "white", border: "none", borderRadius: 4 }}>
-              Làm mới
+          <div style={{ flex: 1, textAlign: "right", paddingBottom: 8 }}>
+            <button className="btn btn-primary" onClick={load} disabled={loading}>
+              {loading ? "Đang tải dữ liệu..." : "Lấy dữ liệu"}
             </button>
-            {(activeCustFilters > 0 || activeProdFilters > 0) && (
-               <button
-                 onClick={() => { setColFiltersCust({}); setColFiltersProd({}); setSortColCust(null); setSortDirCust(null); setSortColProd(null); setSortDirProd(null); }}
-                 style={{ padding: "8px 12px", cursor: "pointer", fontSize: 12, background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 4, color: "#991b1b" }}
-               >
-                 Xóa lọc cột ({activeCustFilters + activeProdFilters})
-               </button>
-            )}
           </div>
-        </div>
-
-        {/* Show selected ranges */}
-        <div style={{ marginTop: 8, fontSize: 12, color: "#64748b" }}>
-          <strong>Kỳ 1:</strong> {lbl1} &nbsp;|&nbsp; <strong>Kỳ 2:</strong> {lbl2}
         </div>
       </div>
 
-      {loading ? (
-        <div style={{ padding: 24, textAlign: "center", color: "#666" }}>Đang tải báo cáo...</div>
-      ) : (
-        <div style={{ display: "grid", gap: 32 }}>
-
-          
-      {/* ================= CHARTS SECTION ================= */}
-      {displayProductRows.length > 0 && (
-      <div style={{ display: "grid", gap: 32, marginBottom: 40, marginTop: 16 }}>
-        <section>
-          <h2 style={{ fontSize: 18, borderBottom: "2px solid #ddd", paddingBottom: 8, marginBottom: 16 }}>Biểu đồ Nhập/Xuất theo ngày</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <VerticalGroupedColumnChart data={cInQtyDaily} title="Nhập kho theo ngày: Kỳ 1 vs Kỳ 2" label1="Kỳ 1" label2="Kỳ 2" color1="#93c5fd" color2="#3b82f6" />
-            <VerticalGroupedColumnChart data={cOutQtyDaily} title="Xuất kho theo ngày: Kỳ 1 vs Kỳ 2" label1="Kỳ 1" label2="Kỳ 2" color1="#fca5a5" color2="#ef4444" />
-            <VerticalGroupedColumnChart data={cInValDaily} title="Giá trị nhập theo ngày" label1="Kỳ 1" label2="Kỳ 2" color1="#86efac" color2="#22c55e" />
-            <VerticalGroupedColumnChart data={cOutValDaily} title="Giá trị xuất theo ngày" label1="Kỳ 1" label2="Kỳ 2" color1="#fde047" color2="#eab308" />
-          </div>
-        </section>
-
-        <section>
-          <h2 style={{ fontSize: 18, borderBottom: "2px solid #ddd", paddingBottom: 8, marginBottom: 16 }}>So sánh theo Khách hàng (Top 10)</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <ClusteredBarChart data={custTops.inQty} title="So sánh nhập kho theo khách hàng" label1="Kỳ 1" label2="Kỳ 2" color1="#93c5fd" color2="#3b82f6" />
-            <ClusteredBarChart data={custTops.outQty} title="So sánh xuất kho theo khách hàng" label1="Kỳ 1" label2="Kỳ 2" color1="#fca5a5" color2="#ef4444" />
-            <ClusteredBarChart data={custTops.inVal} title="So sánh giá trị nhập theo khách hàng" label1="Kỳ 1" label2="Kỳ 2" color1="#86efac" color2="#22c55e" />
-            <ClusteredBarChart data={custTops.outVal} title="So sánh giá trị xuất theo khách hàng" label1="Kỳ 1" label2="Kỳ 2" color1="#fde047" color2="#eab308" />
-          </div>
-        </section>
-
-        <section>
-          <h2 style={{ fontSize: 18, borderBottom: "2px solid #ddd", paddingBottom: 8, marginBottom: 16 }}>Phân tích mã hàng (Top 10)</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <BarChart data={topProdDiffInQty} title="Top mã tăng nhập nhiều nhất" color="#3b82f6" />
-            <BarChart data={topProdDiffOutQty} title="Top mã tăng xuất nhiều nhất" color="#ef4444" />
-            <ClusteredBarChart data={prodTops.inVal} title="So sánh giá trị nhập theo mã hàng" label1="Kỳ 1" label2="Kỳ 2" color1="#86efac" color2="#22c55e" />
-            <ClusteredBarChart data={prodTops.outVal} title="So sánh giá trị xuất theo mã hàng" label1="Kỳ 1" label2="Kỳ 2" color1="#fde047" color2="#eab308" />
-          </div>
-        </section>
-
-        <section>
-          <h2 style={{ fontSize: 18, borderBottom: "2px solid #ddd", paddingBottom: 8, marginBottom: 16 }}>Cơ cấu giá trị (Khách hàng)</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <CompareStackedBarChart data1={custStackedIn.d1} data2={custStackedIn.d2} title="Cơ cấu giá trị nhập theo khách hàng" label1="Kỳ 1" label2="Kỳ 2" total1={totals.inVal1} total2={totals.inVal2} />
-            <CompareStackedBarChart data1={custStackedOut.d1} data2={custStackedOut.d2} title="Cơ cấu giá trị xuất theo khách hàng" label1="Kỳ 1" label2="Kỳ 2" total1={totals.outVal1} total2={totals.outVal2} />
-          </div>
-        </section>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, marginBottom: 32 }}>
+        <SummaryCard title="Nhập" v1={totals.in1} v2={totals.in2} diff={totals.inDiff} bg="var(--brand-light)" accent="var(--brand)" />
+        <SummaryCard title="Xuất" v1={totals.out1} v2={totals.out2} diff={totals.outDiff} bg="var(--color-danger-light)" accent="var(--color-danger)" />
+        <SummaryCard title="Giá trị Nhập" v1={totals.inVal1} v2={totals.inVal2} diff={totals.inValDiff} bg="var(--brand-light)" accent="var(--brand)" />
+        <SummaryCard title="Giá trị Xuất" v1={totals.outVal1} v2={totals.outVal2} diff={totals.outValDiff} bg="var(--color-danger-light)" accent="var(--color-danger)" />
       </div>
-      )}
 
-          {/* ================= CUSTOMER SUMMARY TABLE ================= */}
-          <section>
-            <h2 style={{ fontSize: 18, borderBottom: "2px solid #ddd", paddingBottom: 8, marginBottom: 16 }}>
-              Chi tiết theo Khách hàng
-            </h2>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ borderCollapse: "collapse", minWidth: 1400, width: "100%", border: "1px solid #ddd", background: "white" }}>
-                <thead>
-                  <tr>
-                    <th colSpan={2} style={{ ...thStyle, borderBottom: "1px solid #ddd" }}></th>
-                    <th colSpan={4} style={{ ...thStyle, textAlign: "center", background: "#eff6ff", borderBottom: "1px solid #ddd" }}>Số lượng Nhập</th>
-                    <th colSpan={3} style={{ ...thStyle, textAlign: "center", background: "#f0fdf4", borderBottom: "1px solid #ddd" }}>Giá trị nhập (VNĐ)</th>
-                    <th colSpan={4} style={{ ...thStyle, textAlign: "center", background: "#fef2f2", borderBottom: "1px solid #ddd" }}>Số lượng Xuất</th>
-                    <th colSpan={3} style={{ ...thStyle, textAlign: "center", background: "#fffbeb", borderBottom: "1px solid #ddd" }}>Giá trị xuất (VNĐ)</th>
-                  </tr>
-                  <tr style={{ background: "#f8fafc" }}>
-                    <th style={{ ...thStyle, textAlign: "center", width: 50 }}>STT</th>
-                    <CustThCell label="Khách hàng" colKey="customer" sortable isNum={false} />
-
-                    <CustThCell label="Kỳ 1" colKey="in1" sortable isNum align="right" extra={{ background: "#eff6ff" }} />
-                    <CustThCell label="Kỳ 2" colKey="in2" sortable isNum align="right" extra={{ background: "#eff6ff" }} />
-                    <CustThCell label="+/-" colKey="inDiff" sortable isNum align="right" extra={{ background: "#eff6ff" }} />
-                    <CustThCell label="%" colKey="inPct" sortable isNum align="right" extra={{ background: "#eff6ff" }} />
-
-                    <CustThCell label="Kỳ 1" colKey="inVal1" sortable isNum align="right" extra={{ background: "#f0fdf4" }} />
-                    <CustThCell label="Kỳ 2" colKey="inVal2" sortable isNum align="right" extra={{ background: "#f0fdf4" }} />
-                    <CustThCell label="+/-" colKey="inValDiff" sortable isNum align="right" extra={{ background: "#f0fdf4" }} />
-
-                    <CustThCell label="Kỳ 1" colKey="out1" sortable isNum align="right" extra={{ background: "#fef2f2" }} />
-                    <CustThCell label="Kỳ 2" colKey="out2" sortable isNum align="right" extra={{ background: "#fef2f2" }} />
-                    <CustThCell label="+/-" colKey="outDiff" sortable isNum align="right" extra={{ background: "#fef2f2" }} />
-                    <CustThCell label="%" colKey="outPct" sortable isNum align="right" extra={{ background: "#fef2f2" }} />
-
-                    <CustThCell label="Kỳ 1" colKey="outVal1" sortable isNum align="right" extra={{ background: "#fffbeb" }} />
-                    <CustThCell label="Kỳ 2" colKey="outVal2" sortable isNum align="right" extra={{ background: "#fffbeb" }} />
-                    <CustThCell label="+/-" colKey="outValDiff" sortable isNum align="right" extra={{ background: "#fffbeb" }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayCustomerRows.map((c, i) => (
-                    <tr key={c.customer_id || `u-${i}`}>
-                      <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
-                      <td style={tdStyle}>{customerLabel(c.customer_id)}</td>
-
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.in1)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.in2)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: diffColor(c.inDiff) }}>{c.inDiff >= 0 ? "+" : ""}{fmtNum(c.inDiff)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontSize: 12, color: "#64748b" }}>{fmtPctStr(c.in1, c.inDiff)}</td>
-
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.inVal1)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.inVal2)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: diffColor(c.inValDiff) }}>{c.inValDiff >= 0 ? "+" : ""}{fmtNum(c.inValDiff)}</td>
-
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.out1)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.out2)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: diffColor(c.outDiff) }}>{c.outDiff >= 0 ? "+" : ""}{fmtNum(c.outDiff)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontSize: 12, color: "#64748b" }}>{fmtPctStr(c.out1, c.outDiff)}</td>
-
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.outVal1)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.outVal2)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: diffColor(c.outValDiff) }}>{c.outValDiff >= 0 ? "+" : ""}{fmtNum(c.outValDiff)}</td>
-                    </tr>
-                  ))}
-                  {displayCustomerRows.length === 0 && (
-                    <tr><td colSpan={16} style={{ ...tdStyle, padding: 24, textAlign: "center", color: "#888" }}>Không có dữ liệu.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          {/* ================= PRODUCT DETAIL TABLE ================= */}
-          <section>
-            <h2 style={{ fontSize: 18, borderBottom: "2px solid #ddd", paddingBottom: 8, marginBottom: 16 }}>
-              Chi tiết theo Mã hàng
-            </h2>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ borderCollapse: "collapse", minWidth: 1800, width: "100%", border: "1px solid #ddd", background: "white" }}>
-                <thead>
-                  <tr>
-                    <th colSpan={5} style={{ ...thStyle, borderBottom: "1px solid #ddd" }}></th>
-                    <th colSpan={4} style={{ ...thStyle, textAlign: "center", background: "#eff6ff", borderBottom: "1px solid #ddd" }}>Số lượng Nhập</th>
-                    <th colSpan={3} style={{ ...thStyle, textAlign: "center", background: "#f0fdf4", borderBottom: "1px solid #ddd" }}>Giá trị nhập (VNĐ)</th>
-                    <th colSpan={4} style={{ ...thStyle, textAlign: "center", background: "#fef2f2", borderBottom: "1px solid #ddd" }}>Số lượng Xuất</th>
-                    <th colSpan={3} style={{ ...thStyle, textAlign: "center", background: "#fffbeb", borderBottom: "1px solid #ddd" }}>Giá trị xuất (VNĐ)</th>
-                  </tr>
-                  <tr style={{ background: "#f8fafc" }}>
-                    <th style={{ ...thStyle, textAlign: "center", width: 50 }}>STT</th>
-                    <ProdThCell label="Khách hàng" colKey="customer" sortable isNum={false} />
-                    <ProdThCell label="Mã hàng" colKey="sku" sortable isNum={false} />
-                    <ProdThCell label="Tên hàng" colKey="name" sortable isNum={false} />
-                    <ProdThCell label="Kích thước" colKey="spec" sortable={false} isNum={false} />
-
-                    <ProdThCell label="Kỳ 1" colKey="in1" sortable isNum align="right" extra={{ background: "#eff6ff" }} />
-                    <ProdThCell label="Kỳ 2" colKey="in2" sortable isNum align="right" extra={{ background: "#eff6ff" }} />
-                    <ProdThCell label="+/-" colKey="inDiff" sortable isNum align="right" extra={{ background: "#eff6ff" }} />
-                    <ProdThCell label="%" colKey="inPct" sortable isNum align="right" extra={{ background: "#eff6ff" }} />
-
-                    <ProdThCell label="Kỳ 1" colKey="inVal1" sortable isNum align="right" extra={{ background: "#f0fdf4" }} />
-                    <ProdThCell label="Kỳ 2" colKey="inVal2" sortable isNum align="right" extra={{ background: "#f0fdf4" }} />
-                    <ProdThCell label="+/-" colKey="inValDiff" sortable isNum align="right" extra={{ background: "#f0fdf4" }} />
-
-                    <ProdThCell label="Kỳ 1" colKey="out1" sortable isNum align="right" extra={{ background: "#fef2f2" }} />
-                    <ProdThCell label="Kỳ 2" colKey="out2" sortable isNum align="right" extra={{ background: "#fef2f2" }} />
-                    <ProdThCell label="+/-" colKey="outDiff" sortable isNum align="right" extra={{ background: "#fef2f2" }} />
-                    <ProdThCell label="%" colKey="outPct" sortable isNum align="right" extra={{ background: "#fef2f2" }} />
-
-                    <ProdThCell label="Kỳ 1" colKey="outVal1" sortable isNum align="right" extra={{ background: "#fffbeb" }} />
-                    <ProdThCell label="Kỳ 2" colKey="outVal2" sortable isNum align="right" extra={{ background: "#fffbeb" }} />
-                    <ProdThCell label="+/-" colKey="outValDiff" sortable isNum align="right" extra={{ background: "#fffbeb" }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayProductRows.map((r, i) => (
-                    <tr key={r.product.id}>
-                      <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
-                      <td style={{ ...tdStyle, fontSize: 13 }}>{customerLabel(r.customer_id)}</td>
-                      <td style={{ ...tdStyle, fontWeight: "bold" }}>{r.product.sku}</td>
-                      <td style={tdStyle}>{r.product.name}</td>
-                      <td style={{ ...tdStyle, fontSize: 13 }}>{r.product.spec || ""}</td>
-
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(r.in1)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(r.in2)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: diffColor(r.inDiff) }}>{r.inDiff >= 0 ? "+" : ""}{fmtNum(r.inDiff)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontSize: 12, color: "#64748b" }}>{fmtPctStr(r.in1, r.inDiff)}</td>
-
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(r.inVal1)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(r.inVal2)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: diffColor(r.inValDiff) }}>{r.inValDiff >= 0 ? "+" : ""}{fmtNum(r.inValDiff)}</td>
-
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(r.out1)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(r.out2)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: diffColor(r.outDiff) }}>{r.outDiff >= 0 ? "+" : ""}{fmtNum(r.outDiff)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontSize: 12, color: "#64748b" }}>{fmtPctStr(r.out1, r.outDiff)}</td>
-
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(r.outVal1)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(r.outVal2)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: diffColor(r.outValDiff) }}>{r.outValDiff >= 0 ? "+" : ""}{fmtNum(r.outValDiff)}</td>
-                    </tr>
-                  ))}
-                  {displayProductRows.length === 0 && (
-                    <tr><td colSpan={19} style={{ ...tdStyle, padding: 24, textAlign: "center", color: "#888" }}>Không có dữ liệu.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32 }}>
+        <div className="filter-panel" style={{ padding: 20 }}>
+          <VerticalGroupedColumnChart title="Số lượng Nhập theo ngày" label1="Kỳ 1" label2="Kỳ 2" data={cInQtyDaily} />
         </div>
-      )}
+        <div className="filter-panel" style={{ padding: 20 }}>
+          <VerticalGroupedColumnChart title="Số lượng Xuất theo ngày" label1="Kỳ 1" label2="Kỳ 2" data={cOutQtyDaily} color2="var(--color-danger)" />
+        </div>
+      </div>
+
+      <section>
+        <div className="toolbar" style={{ marginBottom: 16 }}>
+           <h3 className="modal-title">Tổng hợp Khách hàng</h3>
+        </div>
+        <div className="data-table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th style={{ textAlign: "center", width: 50 }}>STT</th>
+                <CustThCell label="Khách hàng" colKey="customer" sortable isNum={false} />
+                <CustThCell label="Nhập (K1)" colKey="in1" sortable isNum align="right" />
+                <CustThCell label="Nhập (K2)" colKey="in2" sortable isNum align="right" />
+                <CustThCell label="CL Nhập" colKey="inDiff" sortable isNum align="right" />
+                <CustThCell label="Xuất (K1)" colKey="out1" sortable isNum align="right" />
+                <CustThCell label="Xuất (K2)" colKey="out2" sortable isNum align="right" />
+                <CustThCell label="CL Xuất" colKey="outDiff" sortable isNum align="right" />
+              </tr>
+            </thead>
+            <tbody>
+              {displayCustomerRows.map((r, i) => (
+                <tr key={r.customer_id || `cust-${i}`}>
+                  <td style={{ textAlign: "center" }}>{i + 1}</td>
+                  <td style={{ fontWeight: 600 }}>{customerLabel(r.customer_id)}</td>
+                  <td style={{ textAlign: "right" }}>{fmtNum(r.in1)}</td>
+                  <td style={{ textAlign: "right" }}>{fmtNum(r.in2)}</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: diffColor(r.inDiff) }}>{r.inDiff > 0 ? "+" : ""}{fmtNum(r.inDiff)}</td>
+                  <td style={{ textAlign: "right" }}>{fmtNum(r.out1)}</td>
+                  <td style={{ textAlign: "right" }}>{fmtNum(r.out2)}</td>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: diffColor(r.outDiff) }}>{r.outDiff > 0 ? "+" : ""}{fmtNum(r.outDiff)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

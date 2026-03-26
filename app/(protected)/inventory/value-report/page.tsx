@@ -180,17 +180,66 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
 }
 
 /* ------------------------------------------------------------------ */
-/* Shared styles                                                       */
+/* Shared components                                                   */
 /* ------------------------------------------------------------------ */
 
-const thStyle: React.CSSProperties = {
-  padding: "10px 12px", border: "1px solid #ddd", fontSize: 13, fontWeight: 600,
-  background: "#f8fafc", whiteSpace: "nowrap", position: "relative",
-};
+function SummaryCard({ title, v1, v2, diff, bg, accent, icon, unit = "đ" }: { title: string; v1: number; v2: number; diff: number; bg: string; accent: string; icon?: React.ReactNode; unit?: string }) {
+  const pct = calcPct(diff, v1);
+  const isPositive = diff > 0;
+  return (
+    <div className="stat-card" style={{ borderLeftColor: accent }}>
+      <div className="stat-card-header">
+        <span className="stat-card-title">{title}</span>
+        {icon && <div className="stat-card-icon" style={{ background: bg, color: accent }}>{icon}</div>}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+        <div>
+          <div style={{ fontSize: 11, color: "var(--slate-400)", marginBottom: 4, textTransform: "uppercase" }}>Kỳ 1</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "var(--slate-600)" }}>{fmtNum(v1)} <small style={{ fontSize: 10 }}>{unit}</small></div>
+        </div>
+        <div style={{ paddingLeft: 12, borderLeft: "1px solid var(--slate-100)" }}>
+          <div style={{ fontSize: 11, color: "var(--slate-400)", marginBottom: 4, textTransform: "uppercase" }}>Kỳ 2</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "var(--brand)" }}>{fmtNum(v2)} <small style={{ fontSize: 10 }}>{unit}</small></div>
+        </div>
+      </div>
+      <div className="stat-card-footer" style={{ background: "var(--slate-50)", margin: "0 -16px -16px", padding: "10px 16px", borderBottomLeftRadius: 10, borderBottomRightRadius: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: isPositive ? "var(--color-danger)" : "var(--color-success)" }}>
+            {isPositive ? "+" : ""}{fmtNum(diff)}
+          </span>
+          <span className={`badge ${isPositive ? "badge-danger" : "badge-success"}`} style={{ fontSize: 10 }}>
+            {isPositive ? "↑" : "↓"} {Math.abs(pct).toFixed(1)}%
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-const tdStyle: React.CSSProperties = {
-  padding: "8px 12px", border: "1px solid #ddd", fontSize: 13,
-};
+const thStyle: React.CSSProperties = { padding: "10px 12px", border: "1px solid #ddd", fontSize: 13, fontWeight: 600, background: "#f8fafc", whiteSpace: "nowrap", position: "relative" };
+const tdStyle: React.CSSProperties = { padding: "8px 12px", border: "1px solid #ddd", fontSize: 13 };
+
+function ThCell({ label, colKey, sortable, isNum, align, active, isSortTarget, sortDir, onSort, onOpenFilter }: {
+  label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left" | "right" | "center";
+  active: boolean; isSortTarget: boolean; sortDir: SortDir;
+  onSort: (key: string) => void; onOpenFilter: (key: string) => void;
+}) {
+  return (
+    <th style={{ ...thStyle, textAlign: align || "left" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: align === "right" ? "flex-end" : "flex-start", gap: 4 }}>
+        <span>{label}</span>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          {sortable && (
+            <span onClick={() => onSort(colKey)} style={{ cursor: "pointer", fontSize: 10, opacity: isSortTarget ? 1 : 0.3 }}>
+              {isSortTarget && sortDir === "asc" ? "▲" : isSortTarget && sortDir === "desc" ? "▼" : "⇅"}
+            </span>
+          )}
+          <span onClick={() => onOpenFilter(colKey)} style={{ cursor: "pointer", marginLeft: 4, fontSize: 11, color: active ? "var(--brand)" : "var(--slate-400)" }}>▾</span>
+        </div>
+      </div>
+    </th>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* SVG Chart Helpers                                                   */
@@ -895,30 +944,82 @@ export default function InventoryValueReportPage() {
   }, [compareTopProducts, colFiltersProd, sortColProd, sortDirProd, customers]);
 
   /* ---- Header Cell Components ---- */
-  function CustThCell({ label, colKey, sortable, isNum, align, extra }: { label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left"|"right"|"center"; extra?: React.CSSProperties; }) {
-    const active = !!colFiltersCust[colKey]; const isSortTarget = sortColCust === colKey;
-    const baseStyle: React.CSSProperties = { ...thStyle, textAlign: align || "left", position: "relative", ...extra };
+  function CustThCell({ label, colKey, sortable, isNum, align, extra }: { label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left" | "right" | "center"; extra?: React.CSSProperties; }) {
+    const active = !!colFiltersCust[colKey];
+    const isSortTarget = sortColCust === colKey;
     const popupOpen = openPopupId === `cust-${colKey}`;
     return (
-      <th style={baseStyle}>
-        <span>{label}</span>
-        {sortable && (<span onClick={(e) => { e.stopPropagation(); if (isSortTarget) { if (sortDirCust === "asc") setSortDirCust("desc"); else { setSortDirCust(null); setSortColCust(null); } } else { setSortColCust(colKey); setSortDirCust("asc"); } }} style={{ cursor: "pointer", marginLeft: 2, fontSize: 10, opacity: isSortTarget ? 1 : 0.35, userSelect: "none" }}>{isSortTarget && sortDirCust === "asc" ? "▲" : isSortTarget && sortDirCust === "desc" ? "▼" : "⇅"}</span>)}
-        <span onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : `cust-${colKey}`); }} style={{ cursor: "pointer", marginLeft: 3, fontSize: 11, display: "inline-block", width: 16, height: 16, lineHeight: "16px", textAlign: "center", borderRadius: 3, background: active ? "#0f172a" : "#e2e8f0", color: active ? "white" : "#475569", userSelect: "none", verticalAlign: "middle" }}>▾</span>
-        {popupOpen && (isNum ? <NumFilterPopup filter={(colFiltersCust[colKey] as NumFilter) || null} onChange={f => { setColFiltersCust(p => { const x = {...p}; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} /> : <TextFilterPopup filter={(colFiltersCust[colKey] as TextFilter) || null} onChange={f => { setColFiltersCust(p => { const x = {...p}; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />)}
+      <th style={{ ...thStyle, textAlign: align || "left", ...extra }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: align === "right" ? "flex-end" : "flex-start", gap: 4 }}>
+          <span>{label}</span>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {sortable && (
+              <span 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  if (isSortTarget) { 
+                    if (sortDirCust === "asc") setSortDirCust("desc"); 
+                    else { setSortDirCust(null); setSortColCust(null); } 
+                  } else { setSortColCust(colKey); setSortDirCust("asc"); } 
+                }} 
+                style={{ cursor: "pointer", fontSize: 10, opacity: isSortTarget ? 1 : 0.3 }}
+              >
+                {isSortTarget && sortDirCust === "asc" ? "▲" : isSortTarget && sortDirCust === "desc" ? "▼" : "⇅"}
+              </span>
+            )}
+            <span 
+              onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : `cust-${colKey}`); }} 
+              style={{ cursor: "pointer", marginLeft: 4, fontSize: 11, color: active ? "var(--brand)" : "var(--slate-400)" }}
+            >
+              %{active ? " (filtered)" : ""}▾
+            </span>
+          </div>
+        </div>
+        {popupOpen && (
+          isNum ? 
+            <NumFilterPopup filter={(colFiltersCust[colKey] as NumFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : 
+            <TextFilterPopup filter={(colFiltersCust[colKey] as TextFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />
+        )}
       </th>
     );
   }
 
-  function ProdThCell({ label, colKey, sortable, isNum, align, extra }: { label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left"|"right"|"center"; extra?: React.CSSProperties; }) {
-    const active = !!colFiltersProd[colKey]; const isSortTarget = sortColProd === colKey;
-    const baseStyle: React.CSSProperties = { ...thStyle, textAlign: align || "left", position: "relative", ...extra };
+  function ProdThCell({ label, colKey, sortable, isNum, align, extra }: { label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left" | "right" | "center"; extra?: React.CSSProperties; }) {
+    const active = !!colFiltersProd[colKey];
+    const isSortTarget = sortColProd === colKey;
     const popupOpen = openPopupId === `prod-${colKey}`;
     return (
-      <th style={baseStyle}>
-        <span>{label}</span>
-        {sortable && (<span onClick={(e) => { e.stopPropagation(); if (isSortTarget) { if (sortDirProd === "asc") setSortDirProd("desc"); else { setSortDirProd(null); setSortColProd(null); } } else { setSortColProd(colKey); setSortDirProd("asc"); } }} style={{ cursor: "pointer", marginLeft: 2, fontSize: 10, opacity: isSortTarget ? 1 : 0.35, userSelect: "none" }}>{isSortTarget && sortDirProd === "asc" ? "▲" : isSortTarget && sortDirProd === "desc" ? "▼" : "⇅"}</span>)}
-        <span onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : `prod-${colKey}`); }} style={{ cursor: "pointer", marginLeft: 3, fontSize: 11, display: "inline-block", width: 16, height: 16, lineHeight: "16px", textAlign: "center", borderRadius: 3, background: active ? "#0f172a" : "#e2e8f0", color: active ? "white" : "#475569", userSelect: "none", verticalAlign: "middle" }}>▾</span>
-        {popupOpen && (isNum ? <NumFilterPopup filter={(colFiltersProd[colKey] as NumFilter) || null} onChange={f => { setColFiltersProd(p => { const x = {...p}; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} /> : <TextFilterPopup filter={(colFiltersProd[colKey] as TextFilter) || null} onChange={f => { setColFiltersProd(p => { const x = {...p}; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />)}
+      <th style={{ ...thStyle, textAlign: align || "left", ...extra }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: align === "right" ? "flex-end" : "flex-start", gap: 4 }}>
+          <span>{label}</span>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {sortable && (
+              <span 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  if (isSortTarget) { 
+                    if (sortDirProd === "asc") setSortDirProd("desc"); 
+                    else { setSortDirProd(null); setSortColProd(null); } 
+                  } else { setSortColProd(colKey); setSortDirProd("asc"); } 
+                }} 
+                style={{ cursor: "pointer", fontSize: 10, opacity: isSortTarget ? 1 : 0.3 }}
+              >
+                {isSortTarget && sortDirProd === "asc" ? "▲" : isSortTarget && sortDirProd === "desc" ? "▼" : "⇅"}
+              </span>
+            )}
+            <span 
+              onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : `prod-${colKey}`); }} 
+              style={{ cursor: "pointer", marginLeft: 4, fontSize: 11, color: active ? "var(--brand)" : "var(--slate-400)" }}
+            >
+              %{active ? " (filtered)" : ""}▾
+            </span>
+          </div>
+        </div>
+        {popupOpen && (
+          isNum ? 
+            <NumFilterPopup filter={(colFiltersProd[colKey] as NumFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : 
+            <TextFilterPopup filter={(colFiltersProd[colKey] as TextFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />
+        )}
       </th>
     );
   }
@@ -951,206 +1052,148 @@ export default function InventoryValueReportPage() {
   }
 
   return (
-    <div style={{ fontFamily: "sans-serif" }} ref={containerRef}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8 }}>
-        <h1 style={{ margin: 0 }}>Giá trị tồn kho & Xếp hạng</h1>
-        <button onClick={closeReport} disabled={closing || loading || productData.length === 0} style={{ padding: "8px 16px", cursor: "pointer", background: "#0f172a", color: "white", border: "none", borderRadius: 4, fontWeight: 600, opacity: closing ? 0.6 : 1 }}>
-          {closing ? "Đang chốt..." : "📋 Chốt dữ liệu"}
+    <div className="page-root" ref={containerRef}>
+      <div className="page-header">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div>
+            <h1 className="page-title">Báo cáo Giá trị & Xếp hạng</h1>
+            <p className="page-description">Phân tích giá trị tồn kho và xếp hạng khách hàng, mã hàng</p>
+          </div>
+        </div>
+
+        <div className="toolbar">
+          <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading || productData.length === 0}>
+            {closing ? "Đang chốt..." : "Chốt báo cáo"}
+          </button>
+        </div>
+      </div>
+
+      <div className="tabs" style={{ marginBottom: 24 }}>
+        <button className={`tab-item ${reportMode === "current" ? "active" : ""}`} onClick={() => setReportMode("current")}>
+          📊 Báo cáo hiện tại
+        </button>
+        <button className={`tab-item ${reportMode === "compare" ? "active" : ""}`} onClick={() => setReportMode("compare")}>
+          🔄 So sánh 2 kỳ
         </button>
       </div>
 
-      <div style={{ display: "flex", marginBottom: 20, marginTop: 16 }}>
-        <div style={{ flex: 1, padding: "10px 0", textAlign: "center", cursor: "pointer", fontWeight: 600, fontSize: 14, borderBottom: reportMode === "current" ? "3px solid #0f172a" : "1px solid #cbd5e1", color: reportMode === "current" ? "#0f172a" : "#64748b", background: reportMode === "current" ? "white" : "#f1f5f9" }} onClick={() => setReportMode("current")}>
-          Hiện tại
-        </div>
-        <div style={{ flex: 1, padding: "10px 0", textAlign: "center", cursor: "pointer", fontWeight: 600, fontSize: 14, borderBottom: reportMode === "compare" ? "3px solid #0f172a" : "1px solid #cbd5e1", color: reportMode === "compare" ? "#0f172a" : "#64748b", background: reportMode === "compare" ? "white" : "#f1f5f9" }} onClick={() => setReportMode("compare")}>
-          So sánh 2 kỳ
-        </div>
-      </div>
+      {error && <div className="alert alert-error" style={{ marginBottom: 20 }}>{error}</div>}
 
-      {error && <pre style={{ color: "crimson" }}>{error}</pre>}
-
-      {/* ---- Summary Cards ---- */}
-      <div style={{ display: "flex", gap: 16, marginTop: 12, marginBottom: 24, flexWrap: "wrap" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 32 }}>
         {reportMode === "current" ? (
           <>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#fafffa", minWidth: 200, flex: 1 }}>
-              <div style={{ fontSize: 13, color: "#2E7D32", fontWeight: 600 }}>Tổng giá trị tồn kho (VNĐ)</div>
-              <div style={{ fontSize: 24, fontWeight: "bold", marginTop: 8, color: "#1b5e20" }}>{fmtNum(overallTotals.totalValue)}</div>
+            <div className="stat-card" style={{ borderLeft: "4px solid var(--brand)" }}>
+              <div className="label">Tổng giá trị tồn kho</div>
+              <div className="value" style={{ color: "var(--brand)" }}>{fmtNum(overallTotals.totalValue)} <small style={{ fontSize: 14 }}>VNĐ</small></div>
             </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#f8fafc", minWidth: 200, flex: 1 }}>
-              <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Tổng số mã còn tồn</div>
-              <div style={{ fontSize: 24, fontWeight: "bold", marginTop: 8 }}>{fmtNum(overallTotals.productCount)}</div>
+            <div className="stat-card" style={{ borderLeft: "4px solid var(--slate-400)" }}>
+              <div className="label">Tổng số lượng tồn</div>
+              <div className="value">{fmtNum(overallTotals.totalQty)}</div>
             </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#f8fafc", minWidth: 200, flex: 1 }}>
-              <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Tổng số khách hàng có tồn</div>
-              <div style={{ fontSize: 24, fontWeight: "bold", marginTop: 8 }}>{fmtNum(overallTotals.customerCount)}</div>
+            <div className="stat-card" style={{ borderLeft: "4px solid var(--brand-light)" }}>
+              <div className="label">Số mã còn tồn</div>
+              <div className="value" style={{ color: "var(--brand)" }}>{fmtNum(overallTotals.productCount)}</div>
             </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#f8fafc", minWidth: 200, flex: 1 }}>
-              <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Tổng số lượng tồn</div>
-              <div style={{ fontSize: 24, fontWeight: "bold", marginTop: 8 }}>{fmtNum(overallTotals.totalQty)}</div>
+            <div className="stat-card" style={{ borderLeft: "4px solid var(--slate-500)" }}>
+              <div className="label">Số khách hàng</div>
+              <div className="value">{fmtNum(overallTotals.customerCount)}</div>
             </div>
           </>
         ) : (
           <>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#f8fafc", minWidth: 150, flex: 1 }}>
-              <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Tổng giá trị tồn kỳ 1</div>
-              <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 8 }}>{fmtNum(compareTotals.val1)}</div>
+            <SummaryCard title="Giá trị kho" v1={compareTotals.val1} v2={compareTotals.val2} diff={compareTotals.diff} bg="var(--brand-light)" accent="var(--brand)" />
+            <div className="stat-card" style={{ borderLeft: "4px solid var(--slate-400)" }}>
+              <div className="label">Số khách (Kỳ 1)</div>
+              <div className="value">{fmtNum(compareTotals.cust1)}</div>
             </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#f8fafc", minWidth: 150, flex: 1 }}>
-              <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Tổng giá trị tồn kỳ 2</div>
-              <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 8 }}>{fmtNum(compareTotals.val2)}</div>
-            </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: compareTotals.diff > 0 ? "#f0fdf4" : compareTotals.diff < 0 ? "#fef2f2" : "#f8fafc", minWidth: 150, flex: 1 }}>
-              <div style={{ fontSize: 13, color: compareTotals.diff > 0 ? "#16a34a" : compareTotals.diff < 0 ? "#dc2626" : "#64748b", fontWeight: 600 }}>Chênh lệch giá trị tồn</div>
-              <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 8, color: compareTotals.diff > 0 ? "#15803d" : compareTotals.diff < 0 ? "#b91c1c" : "inherit" }}>
-                {compareTotals.diff > 0 ? "+" : ""}{fmtNum(compareTotals.diff)}
-              </div>
-            </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: compareTotals.diff > 0 ? "#f0fdf4" : compareTotals.diff < 0 ? "#fef2f2" : "#f8fafc", minWidth: 150, flex: 1 }}>
-              <div style={{ fontSize: 13, color: compareTotals.diff > 0 ? "#16a34a" : compareTotals.diff < 0 ? "#dc2626" : "#64748b", fontWeight: 600 }}>% chênh lệch</div>
-              <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 8, color: compareTotals.diff > 0 ? "#15803d" : compareTotals.diff < 0 ? "#b91c1c" : "inherit" }}>
-                {compareTotals.pct > 0 ? "+" : ""}{fmtPercent(compareTotals.pct)}
-              </div>
-            </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#f8fafc", minWidth: 150, flex: 1 }}>
-              <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Tổng số khách (Kỳ 1)</div>
-              <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 8 }}>{fmtNum(compareTotals.cust1)}</div>
-            </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#f8fafc", minWidth: 150, flex: 1 }}>
-              <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>Tổng số khách (Kỳ 2)</div>
-              <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 8 }}>{fmtNum(compareTotals.cust2)}</div>
+            <div className="stat-card" style={{ borderLeft: "4px solid var(--brand-light)" }}>
+              <div className="label">Số khách (Kỳ 2)</div>
+              <div className="value">{fmtNum(compareTotals.cust2)}</div>
             </div>
           </>
         )}
       </div>
 
-      {/* ---- Filters ---- */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap", alignItems: "flex-end", background: "#f8fafc", padding: "12px 16px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-        
-        {reportMode === "current" ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-                Từ ngày
-                <input type="date" value={qStart} onChange={(e) => setQStart(e.target.value)} style={{ padding: 6, fontSize: 13 }} />
-              </label>
-              <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-                Đến ngày
-                <input type="date" value={qEnd} onChange={(e) => setQEnd(e.target.value)} style={{ padding: 6, fontSize: 13 }} />
-              </label>
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", gap: 16, alignItems: "flex-end" }}>
-              <div style={{ display: "flex", gap: 8, padding: 8, border: "1px solid #cbd5e1", borderRadius: 6, background: "white", alignItems: "center" }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#475569", width: 40 }}>Kỳ 1:</span>
-                <label style={{ display: "grid", gap: 2, fontSize: 11, fontWeight: 500, color: "#64748b" }}>
-                  Từ ngày
-                  <input type="date" value={p1Start} onChange={(e) => setP1Start(e.target.value)} style={{ padding: 4, fontSize: 12, width: 115 }} />
-                </label>
-                <label style={{ display: "grid", gap: 2, fontSize: 11, fontWeight: 500, color: "#64748b" }}>
-                  Đến ngày
-                  <input type="date" value={p1End} onChange={(e) => setP1End(e.target.value)} style={{ padding: 4, fontSize: 12, width: 115 }} />
-                </label>
+      <div className="filter-panel" style={{ marginBottom: 24 }}>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+          {reportMode === "current" ? (
+            <div style={{ display: "flex", gap: 12 }}>
+              <div style={{ width: 160 }}>
+                <label className="filter-label">Từ ngày</label>
+                <input type="date" className="input" value={qStart} onChange={e => setQStart(e.target.value)} />
               </div>
-
-              <div style={{ display: "flex", gap: 8, padding: 8, border: "1px solid #cbd5e1", borderRadius: 6, background: "white", alignItems: "center", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#0f172a", width: 40 }}>Kỳ 2:</span>
-                <label style={{ display: "grid", gap: 2, fontSize: 11, fontWeight: 500 }}>
-                  Từ ngày
-                  <input type="date" value={p2Start} onChange={(e) => setP2Start(e.target.value)} style={{ padding: 4, fontSize: 12, width: 115, border: "1px solid #94a3b8" }} />
-                </label>
-                <label style={{ display: "grid", gap: 2, fontSize: 11, fontWeight: 500 }}>
-                  Đến ngày
-                  <input type="date" value={p2End} onChange={(e) => setP2End(e.target.value)} style={{ padding: 4, fontSize: 12, width: 115, border: "1px solid #94a3b8" }} />
-                </label>
+              <div style={{ width: 160 }}>
+                <label className="filter-label">Đến ngày</label>
+                <input type="date" className="input" value={qEnd} onChange={e => setQEnd(e.target.value)} />
               </div>
             </div>
-
-            <div style={{ display: "flex", gap: 6 }}>
-              <button 
-                onClick={applyPresetPreviousMonth} 
-                style={{ padding: "4px 8px", fontSize: 11, cursor: "pointer", background: "#e2e8f0", border: "1px solid #cbd5e1", borderRadius: 4 }}
-              >
-                So với kỳ trước
-              </button>
-              <button 
-                onClick={applyPresetSameMonthLastYear} 
-                style={{ padding: "4px 8px", fontSize: 11, cursor: "pointer", background: "#e2e8f0", border: "1px solid #cbd5e1", borderRadius: 4 }}
-              >
-                So với cùng kỳ năm trước
-              </button>
+          ) : (
+            <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 8, padding: "8px 12px", background: "var(--slate-50)", borderRadius: 6, alignItems: "center" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--slate-500)", width: 40 }}>Kỳ 1:</span>
+                <input type="date" className="input" style={{ width: 130 }} value={p1Start} onChange={e => setP1Start(e.target.value)} />
+                <span style={{ color: "var(--slate-300)" }}>→</span>
+                <input type="date" className="input" style={{ width: 130 }} value={p1End} onChange={e => setP1End(e.target.value)} />
+              </div>
+              <div style={{ display: "flex", gap: 8, padding: "8px 12px", background: "var(--brand-light)", borderRadius: 6, alignItems: "center" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--brand)", width: 40 }}>Kỳ 2:</span>
+                <input type="date" className="input" style={{ width: 130 }} value={p2Start} onChange={e => setP2Start(e.target.value)} />
+                <span style={{ color: "var(--brand-light)" }}>→</span>
+                <input type="date" className="input" style={{ width: 130 }} value={p2End} onChange={e => setP2End(e.target.value)} />
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-outline" style={{ padding: "4px 8px", fontSize: 11 }} onClick={applyPresetPreviousMonth}>Kỳ trước</button>
+                <button className="btn btn-outline" style={{ padding: "4px 8px", fontSize: 11 }} onClick={applyPresetSameMonthLastYear}>Cùng kỳ</button>
+              </div>
             </div>
+          )}
+
+          <div style={{ width: 220 }}>
+            <label className="filter-label">Khách hàng</label>
+            <select className="input" value={qCustomer} onChange={e => setQCustomer(e.target.value)}>
+              <option value="">-- Tất cả khách hàng --</option>
+              {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+            </select>
           </div>
-        )}
-
-        <div style={{ display: "flex", gap: 16 }}>
-          <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-            Lọc Khách hàng
-            <input
-              list="dl-vreport-customer" placeholder="Gõ tìm khách hàng..." value={qCustomerSearch}
-              onChange={(e) => {
-                const val = e.target.value; setQCustomerSearch(val);
-                const matched = customers.find((c) => `${c.code} - ${c.name}` === val);
-                setQCustomer(matched ? matched.id : "");
-              }}
-              style={{ padding: 8, minWidth: 180, fontSize: 14 }}
-            />
-            <datalist id="dl-vreport-customer">
-              {customers.map((c) => <option key={c.id} value={`${c.code} - ${c.name}`} />)}
-            </datalist>
-          </label>
-
-          <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-            Tìm Mã / Tên hàng
-            <input value={qProduct} onChange={(e) => setQProduct(e.target.value)} style={{ padding: 8, minWidth: 180, fontSize: 14 }} placeholder="Search sku/name..." />
-          </label>
-
-          <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-            Số lượng top mã
-            <select value={topN} onChange={(e) => setTopN(Number(e.target.value))} style={{ padding: 8, fontSize: 14 }}>
+          <div style={{ width: 220 }}>
+            <label className="filter-label">Sản phẩm</label>
+            <input type="text" className="input" placeholder="SKU hoặc tên hàng..." value={qProduct} onChange={e => setQProduct(e.target.value)} />
+          </div>
+          <div style={{ width: 120 }}>
+            <label className="filter-label">Top mã</label>
+            <select className="input" value={topN} onChange={e => setTopN(Number(e.target.value))}>
               <option value={10}>Top 10</option>
               <option value={20}>Top 20</option>
               <option value={50}>Top 50</option>
               <option value={100}>Top 100</option>
             </select>
-          </label>
+          </div>
+          <div style={{ flex: 1, textAlign: "right", paddingBottom: 4 }}>
+            <button className="btn btn-primary" onClick={load} disabled={loading}>{loading ? "Đang tải..." : "Lấy dữ liệu"}</button>
+          </div>
         </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 18 }}>
-          <div style={{ display: "flex", gap: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 500, cursor: "pointer" }}>
-              <input type="checkbox" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} /> Chỉ hiện hàng còn tồn ({">"}0)
-            </label>
-            {reportMode === "compare" && (
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 500, cursor: "pointer" }}>
-                <input type="checkbox" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} /> Chỉ hiện mã có biến động
-              </label>
-            )}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={load} style={{ padding: "8px 16px", cursor: "pointer", fontSize: 13, background: "#0f172a", color: "white", border: "none", borderRadius: 4 }}>
-              Làm mới
-            </button>
-            {(activeCustFilters > 0 || activeProdFilters > 0) && (
-              <button
-                onClick={() => { setColFiltersCust({}); setColFiltersProd({}); setSortColCust(null); setSortDirCust(null); setSortColProd(null); setSortDirProd(null); }}
-                style={{ padding: "8px 12px", cursor: "pointer", fontSize: 12, background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 4, color: "#991b1b" }}
-              >
-                Xóa lọc cột ({activeCustFilters + activeProdFilters})
-              </button>
-            )}
-          </div>
+        <div style={{ display: "flex", gap: 20, marginTop: 16 }}>
+           <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+             <input type="checkbox" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} />
+             <span>Chỉ hiện hàng còn tồn ({">"}0)</span>
+           </label>
+           {reportMode === "compare" && (
+             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+               <input type="checkbox" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} />
+               <span>Chỉ hiện mã có biến động</span>
+             </label>
+           )}
         </div>
       </div>
 
-      <div style={{ marginTop: 12, marginBottom: 20, fontSize: 13, color: "#475569", display: "flex", gap: 16 }}>
+      <div style={{ marginTop: 12, marginBottom: 20, fontSize: 13, color: "var(--slate-500)", display: "flex", gap: 16 }}>
         {reportMode === "current" ? (
           <>
             <span><strong>Kỳ dữ liệu:</strong> Từ ngày {formatToVietnameseDate(bounds.effectiveStart)} đến ngày {formatToVietnameseDate(bounds.effectiveEnd)}</span>
-            {bounds.S && <span style={{ padding: "2px 6px", background: "#e2e8f0", borderRadius: 4, fontSize: 12 }}>Mốc tồn: {formatToVietnameseDate(bounds.S)}</span>}
+            {bounds.S && <span className="badge badge-outline">Mốc tồn: {formatToVietnameseDate(bounds.S)}</span>}
           </>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -1161,196 +1204,117 @@ export default function InventoryValueReportPage() {
       </div>
 
       {loading ? (
-        <div style={{ padding: 24, textAlign: "center", color: "#666" }}>Đang tải báo cáo...</div>
+        <div style={{ padding: 48, textAlign: "center", color: "var(--slate-400)" }}>Đang tải báo cáo...</div>
       ) : (
         <div style={{ display: "grid", gap: 32 }}>
 
           {/* ---- CHARTS SECTION ---- */}
-          {reportMode === "current" && overallTotals.totalValue > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 8 }}>
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                <div style={{ flex: 1, minWidth: 300, border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, background: "white" }}>
-                  <BarChart
-                    title="Top 10 mã hàng theo giá trị tồn"
-                    data={baseTopProducts.slice(0, 10).map(p => ({ label: p.product.sku, value: p.inventory_value }))}
-                    color="#2563eb"
-                    minHeight={220}
-                  />
-                </div>
-                <div style={{ flex: 1, minWidth: 300, border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, background: "white" }}>
-                  <BarChart
-                    title="Top 10 khách hàng theo giá trị tồn"
-                    data={baseCustomerSummary.slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.value }))}
-                    color="#059669"
-                    minHeight={220}
-                  />
-                </div>
+          {(reportMode as string) === "current" ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+              <div className="filter-panel" style={{ padding: 20 }}>
+                <BarChart title="Top 10 mã hàng theo giá trị tồn" data={baseTopProducts.slice(0, 10).map(p => ({ label: p.product.sku, value: p.inventory_value }))} color="var(--brand)" />
               </div>
-              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, background: "white" }}>
-                <StackedBarChart
-                  title="Cơ cấu giá trị tồn theo khách hàng"
-                  totalValue={overallTotals.totalValue}
-                  data={(() => {
-                    const sorted = [...baseCustomerSummary].sort((a, b) => b.value - a.value);
-                    const top5 = sorted.slice(0, 5);
-                    const restSum = sorted.slice(5).reduce((acc, c) => acc + c.value, 0);
-                    const chartData = top5.map(c => ({ label: customerLabel(c.customer_id), value: c.value }));
-                    if (restSum > 0) chartData.push({ label: "Khác", value: restSum });
-                    return chartData;
-                  })()}
-                />
+              <div className="filter-panel" style={{ padding: 20 }}>
+                <BarChart title="Top 10 khách hàng theo giá trị tồn" data={baseCustomerSummary.slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.value }))} color="var(--color-success)" />
+              </div>
+              <div className="filter-panel" style={{ gridColumn: "span 2", padding: 20 }}>
+                <StackedBarChart title="Cơ cấu giá trị tồn kho theo khách hàng (%)" totalValue={overallTotals.totalValue} data={(() => {
+                  const sorted = [...baseCustomerSummary].sort((a,b) => b.value - a.value);
+                  const top5 = sorted.slice(0, 5);
+                  const restSum = sorted.slice(5).reduce((acc, c) => acc + c.value, 0);
+                  const chartData = top5.map(c => ({ label: customerLabel(c.customer_id), value: c.value }));
+                  if (restSum > 0) chartData.push({ label: "Khác", value: restSum });
+                  return chartData;
+                })()} />
               </div>
             </div>
-          )}
-
-          {reportMode === "compare" && compareTotals.val1 + compareTotals.val2 > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 8 }}>
-              
-              {/* Compact summary comparison */}
-              <div style={{ display: "flex", gap: 16, alignItems: "center", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 20px", background: "white" }}>
-                <div style={{ fontWeight: 600, fontSize: 13, color: "#334155", width: 220 }}>Tổng giá trị tồn: Kỳ 1 vs Kỳ 2</div>
-                <div style={{ flex: 1, display: "flex", gap: 32, alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Kỳ 1</div>
-                    <div style={{ fontSize: 16, fontWeight: 600, color: "#475569" }}>{fmtNum(compareTotals.val1)} đ</div>
-                  </div>
-                  <div style={{ color: "#cbd5e1", fontSize: 20 }}>→</div>
-                  <div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Kỳ 2</div>
-                    <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>{fmtNum(compareTotals.val2)} đ</div>
-                  </div>
-                  <div style={{ paddingLeft: 16, borderLeft: "1px dashed #cbd5e1" }}>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Chênh lệch</div>
-                    <div style={{ fontSize: 16, fontWeight: 600, color: compareTotals.diff > 0 ? "#16a34a" : compareTotals.diff < 0 ? "#dc2626" : "#475569" }}>
-                      {compareTotals.diff > 0 ? "+" : ""}{fmtNum(compareTotals.diff)} ({compareTotals.pct > 0 ? "+" : ""}{fmtPercent(compareTotals.pct)})
-                    </div>
-                  </div>
-                </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+              <div className="filter-panel" style={{ padding: 20 }}>
+                <ClusteredBarChart title="So sánh giá trị tồn mã hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareProductData.sort((a,b) => (b.val2 || 0) - (a.val2 || 0)).slice(0, 10).map(p => ({ label: p.product.sku, val1: p.val1 || 0, val2: p.val2 || 0 }))} />
               </div>
-
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                <div style={{ flex: 1, minWidth: 340, border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, background: "white" }}>
-                  <ClusteredBarChart
-                    title="So sánh giá trị tồn theo mã hàng"
-                    label1="Kỳ 1"
-                    label2="Kỳ 2"
-                    color1="#94a3b8"
-                    color2="#dc2626"
-                    minHeight={240}
-                    data={compareProductData
-                      .sort((a, b) => Math.max(b.val1, b.val2) - Math.max(a.val1, a.val2))
-                      .slice(0, 10)
-                      .map(p => ({ label: p.product.sku, val1: p.val1, val2: p.val2 }))}
-                  />
-                </div>
-                <div style={{ flex: 1, minWidth: 340, border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, background: "white" }}>
-                  <ClusteredBarChart
-                    title="So sánh giá trị tồn theo khách hàng"
-                    label1="Kỳ 1"
-                    label2="Kỳ 2"
-                    color1="#94a3b8"
-                    color2="#dc2626"
-                    minHeight={240}
-                    data={compareCustomerSummary
-                      .sort((a, b) => Math.max(b.p1_value || 0, b.p2_value || 0) - Math.max(a.p1_value || 0, a.p2_value || 0))
-                      .slice(0, 10)
-                      .map(c => ({ label: customerLabel(c.customer_id), val1: c.p1_value || 0, val2: c.p2_value || 0 }))}
-                  />
-                </div>
+              <div className="filter-panel" style={{ padding: 20 }}>
+                <ClusteredBarChart title="So sánh giá trị tồn khách hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareCustomerSummary.sort((a,b) => (b.p2_value || 0) - (a.p2_value || 0)).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), val1: c.p1_value || 0, val2: c.p2_value || 0 }))} />
               </div>
-              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, background: "white" }}>
-                <CompareStackedBarChart
-                  title="So sánh cơ cấu giá trị tồn theo khách hàng"
-                  label1="Kỳ 1"
-                  label2="Kỳ 2"
-                  total1={compareTotals.val1}
-                  total2={compareTotals.val2}
+              <div className="filter-panel" style={{ gridColumn: "span 2", padding: 20 }}>
+                <CompareStackedBarChart title="Cơ cấu giá trị tồn Kỳ 1 vs Kỳ 2 (%)" label1="Kỳ 1" label2="Kỳ 2" total1={compareTotals.val1} total2={compareTotals.val2} 
                   data1={(() => {
-                    const sorted = [...compareCustomerSummary].sort((a, b) => (b.p1_value || 0) - (a.p1_value || 0));
+                    const sorted = [...compareCustomerSummary].sort((a,b) => (b.p1_value || 0) - (a.p1_value || 0));
                     const top5 = sorted.slice(0, 5);
-                    const restSum = sorted.slice(5).reduce((acc, c) => acc + (c.p1_value || 0), 0);
-                    const chartData = top5.map(c => ({ label: customerLabel(c.customer_id), value: c.p1_value || 0 }));
-                    if (restSum > 0) chartData.push({ label: "Khác", value: restSum });
-                    return chartData;
+                    const rest = sorted.slice(5).reduce((acc, c) => acc + (c.p1_value || 0), 0);
+                    const res = top5.map(c => ({ label: customerLabel(c.customer_id), value: c.p1_value || 0 }));
+                    if (rest > 0) res.push({ label: "Khác", value: rest });
+                    return res;
                   })()}
                   data2={(() => {
-                    // Important to sort Kỳ 2 by Kỳ 1's rank to keep colors aligned, except for new customers which will append
-                    const sorted1 = [...compareCustomerSummary].sort((a, b) => (b.p1_value || 0) - (a.p1_value || 0));
-                    const top5Ids = new Set(sorted1.slice(0, 5).map(c => c.customer_id));
-                    
-                    const chartData = sorted1.slice(0, 5).map(c => ({ label: customerLabel(c.customer_id), value: c.p2_value || 0 }));
-                    const restSum = compareCustomerSummary.filter(c => !top5Ids.has(c.customer_id)).reduce((acc, c) => acc + (c.p2_value || 0), 0);
-                    if (restSum > 0) chartData.push({ label: "Khác", value: restSum });
-                    return chartData;
+                    const sorted1 = [...compareCustomerSummary].sort((a,b) => (b.p1_value || 0) - (a.p1_value || 0));
+                    const topIds = new Set(sorted1.slice(0, 5).map(c => c.customer_id));
+                    const res = sorted1.slice(0, 5).map(c => ({ label: customerLabel(c.customer_id), value: c.p2_value || 0 }));
+                    const rest = compareCustomerSummary.filter(c => !topIds.has(c.customer_id)).reduce((acc, c) => acc + (c.p2_value||0), 0);
+                    if (rest > 0) res.push({ label: "Khác", value: rest });
+                    return res;
                   })()}
                 />
               </div>
             </div>
           )}
 
-          {/* SECTION 1: Theo Khách hàng */}
+          {/* ---- TABLES ---- */}
           <section>
-            <h2 style={{ fontSize: 18, borderBottom: "2px solid #ddd", paddingBottom: 8, marginBottom: 16 }}>
-              Báo cáo giá trị tồn theo khách hàng
-            </h2>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ borderCollapse: "collapse", minWidth: 800, width: "100%", border: "1px solid #eee", background: "white" }}>
+            <div className="toolbar" style={{ marginBottom: 16 }}>
+              <h3 className="modal-title">Tổng hợp Khách hàng</h3>
+            </div>
+            <div className="data-table-wrap">
+              <table className="data-table">
                 <thead>
-                  <tr style={{ background: "#f8fafc" }}>
-                    <th style={{ ...thStyle, textAlign: "center", width: 60 }}>STT</th>
+                  <tr>
+                    <th style={{ textAlign: "center", width: 50 }}>STT</th>
                     <CustThCell label="Khách hàng" colKey="customer" sortable isNum={false} />
-                    <CustThCell label="Số mã còn tồn" colKey="products" sortable isNum align="right" />
-                    {reportMode === "current" ? (
+                    <CustThCell label="Số mã" colKey="products" sortable isNum align="right" />
+                    {(reportMode as string) === "current" ? (
                       <>
-                        <CustThCell label="Tổng số lượng tồn" colKey="qty" sortable isNum align="right" />
-                        <CustThCell label="Tổng giá trị tồn kho" colKey="value" sortable isNum align="right" />
-                        <CustThCell label="Tỷ trọng %" colKey="pct" sortable isNum align="right" />
+                        <CustThCell label="Số lượng" colKey="qty" sortable isNum align="right" />
+                        <CustThCell label="Giá trị tồn kho" colKey="value" sortable isNum align="right" />
+                        <CustThCell label="Tỷ trọng" colKey="pct" sortable isNum align="right" />
                       </>
                     ) : (
                       <>
-                        <CustThCell label="Giá trị tồn kỳ 1" colKey="p1_value" sortable isNum align="right" extra={{ background: "#f1f5f9" }} />
-                        <CustThCell label="Giá trị tồn kỳ 2" colKey="p2_value" sortable isNum align="right" extra={{ background: "#f0fdf4" }} />
+                        <CustThCell label="Giá trị K1" colKey="p1_value" sortable isNum align="right" />
+                        <CustThCell label="Giá trị K2" colKey="p2_value" sortable isNum align="right" />
                         <CustThCell label="Chênh lệch" colKey="valDiff" sortable isNum align="right" />
-                        <CustThCell label="% chênh lệch" colKey="pctDiff" sortable isNum align="right" />
-                        <CustThCell label="Tỷ trọng kỳ 1" colKey="p1_pct" sortable isNum align="right" />
-                        <CustThCell label="Tỷ trọng kỳ 2" colKey="p2_pct" sortable isNum align="right" />
+                        <CustThCell label="% CL" colKey="pctDiff" sortable isNum align="right" />
                       </>
                     )}
                   </tr>
                 </thead>
                 <tbody>
-                  {(reportMode === "current" ? displayCustomerSummary : compareCustomerSummary).map((c, i) => (
-                    <tr key={c.customer_id || `unknown-${i}`}>
-                      <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
-                      <td style={{ ...tdStyle, fontWeight: 500 }}>{customerLabel(c.customer_id)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.productCount)}</td>
-                      {reportMode === "current" ? (
-                        <>
-                          <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.qty)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: "#1b5e20" }}>{fmtNum(c.value)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", color: "#64748b" }}>
-                            {overallTotals.totalValue > 0 ? fmtPercent((c.value / overallTotals.totalValue) * 100) : "0.00%"}
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td style={{ ...tdStyle, textAlign: "right", background: "#f8fafc" }}>{fmtNum(c.p1_value || 0)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", background: "#f0fdf4" }}>{fmtNum(c.p2_value || 0)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", color: (c.valDiff || 0) > 0 ? "#15803d" : (c.valDiff || 0) < 0 ? "#b91c1c" : "inherit" }}>
-                            {(c.valDiff || 0) > 0 ? "+" : ""}{fmtNum(c.valDiff || 0)}
-                          </td>
-                          <td style={{ ...tdStyle, textAlign: "right", color: (c.pctDiff || 0) > 0 ? "#15803d" : (c.pctDiff || 0) < 0 ? "#b91c1c" : "inherit" }}>
-                            {(c.pctDiff || 0) > 0 ? "+" : ""}{fmtPercent(c.pctDiff || 0)}
-                          </td>
-                          <td style={{ ...tdStyle, textAlign: "right", color: "#64748b" }}>{fmtPercent(c.p1_pct || 0)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", color: "#64748b" }}>{fmtPercent(c.p2_pct || 0)}</td>
-                        </>
-                      )}
-                    </tr>
-                  ))}
+                  {(reportMode as string) === "current" ? (
+                    displayCustomerSummary.map((c, i) => (
+                      <tr key={c.customer_id || `u1-${i}`}>
+                        <td style={{ textAlign: "center" }}>{i + 1}</td>
+                        <td style={{ fontWeight: 600 }}>{customerLabel(c.customer_id)}</td>
+                        <td style={{ textAlign: "right" }}>{fmtNum(c.productCount)}</td>
+                        <td style={{ textAlign: "right" }}>{fmtNum(c.qty)}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>{fmtNum(c.value)}</td>
+                        <td style={{ textAlign: "right", fontSize: 12 }}>{overallTotals.totalValue > 0 ? fmtPercent((c.value / overallTotals.totalValue) * 100) : "0.00%"}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    compareCustomerSummary.map((c, i) => (
+                      <tr key={c.customer_id || `u2-${i}`}>
+                        <td style={{ textAlign: "center" }}>{i + 1}</td>
+                        <td style={{ fontWeight: 600 }}>{customerLabel(c.customer_id)}</td>
+                        <td style={{ textAlign: "right" }}>{fmtNum(c.productCount)}</td>
+                        <td style={{ textAlign: "right" }}>{fmtNum(c.p1_value || 0)}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700 }}>{fmtNum(c.p2_value || 0)}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700, color: (c.valDiff||0) > 0 ? "var(--color-danger)" : (c.valDiff||0)<0 ? "var(--color-success)" : "inherit" }}>{(c.valDiff||0) > 0 ? "+" : ""}{fmtNum(c.valDiff||0)}</td>
+                        <td style={{ textAlign: "right", fontSize: 12, color: (c.pctDiff||0) > 0 ? "var(--color-danger)" : (c.pctDiff||0)<0 ? "var(--color-success)" : "inherit" }}>{(c.pctDiff||0)>0 ? "+":""}{fmtPercent(c.pctDiff||0)}</td>
+                      </tr>
+                    ))
+                  )}
                   {((reportMode === "current" ? displayCustomerSummary : compareCustomerSummary).length === 0) && (
                     <tr>
-                      <td colSpan={10} style={{ padding: 24, textAlign: "center", color: "#888", border: "1px solid #ddd" }}>Không có dữ liệu.</td>
+                      <td colSpan={10} style={{ padding: 24, textAlign: "center", color: "var(--slate-400)" }}>Không có dữ liệu.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1358,87 +1322,72 @@ export default function InventoryValueReportPage() {
             </div>
           </section>
 
-          {/* SECTION 2: Top Sản phẩm */}
           <section>
-            <h2 style={{ fontSize: 18, borderBottom: "2px solid #ddd", paddingBottom: 8, marginBottom: 16 }}>
-              Top {topN} mã chiếm giá trị tồn lớn
-            </h2>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ borderCollapse: "collapse", minWidth: 1000, width: "100%", border: "1px solid #eee", background: "white" }}>
+            <div className="toolbar" style={{ marginBottom: 16 }}>
+              <h3 className="modal-title">Chi tiết Top {topN} Mã hàng</h3>
+            </div>
+            <div className="data-table-wrap">
+              <table className="data-table">
                 <thead>
-                  <tr style={{ background: "#f8fafc" }}>
-                    <ProdThCell label="Xếp hạng" colKey="rank" sortable isNum align="center" extra={{ width: 80 }} />
-                    <ProdThCell label="Khách hàng" colKey="customer" sortable isNum={false} />
+                  <tr>
+                    <ProdThCell label="Hạng" colKey="rank" sortable isNum align="center" extra={{ width: 60 }} />
                     <ProdThCell label="Mã hàng" colKey="sku" sortable isNum={false} />
                     <ProdThCell label="Tên hàng" colKey="name" sortable isNum={false} />
-                    <ProdThCell label="Kích thước" colKey="spec" sortable={false} isNum={false} />
-                    {reportMode === "current" ? (
+                    <ProdThCell label="Khách hàng" colKey="customer" sortable isNum={false} />
+                    {(reportMode as string) === "current" ? (
                       <>
-                        <ProdThCell label="Tồn còn lại" colKey="qty" sortable isNum align="right" extra={{ background: "#f7fee7" }} />
-                        <ProdThCell label="Đơn giá" colKey="price" sortable isNum align="right" />
-                        <ProdThCell label="Giá trị tồn kho" colKey="value" sortable isNum align="right" />
-                        <th style={{ ...thStyle, textAlign: "right" }}>Tỷ trọng %</th>
+                        <ProdThCell label="Tồn còn lại" colKey="qty" sortable isNum align="right" />
+                        <ProdThCell label="Giá trị tồn" colKey="value" sortable isNum align="right" />
+                        <th style={{ ...thStyle, textAlign: "right" }}>Tỷ trọng</th>
                       </>
                     ) : (
                       <>
-                        <ProdThCell label="Tồn kỳ 1" colKey="qty1" sortable isNum align="right" />
-                        <ProdThCell label="Tồn kỳ 2" colKey="qty2" sortable isNum align="right" extra={{ background: "#f7fee7" }} />
-                        <ProdThCell label="Giá trị tồn kỳ 1" colKey="val1" sortable isNum align="right" />
-                        <ProdThCell label="Giá trị tồn kỳ 2" colKey="val2" sortable isNum align="right" />
-                        <ProdThCell label="Chênh lệch giá trị" colKey="valDiff" sortable isNum align="right" />
-                        <ProdThCell label="% chênh lệch" colKey="pctDiff" sortable isNum align="right" />
+                        <ProdThCell label="Tồn K1" colKey="qty1" sortable isNum align="right" />
+                        <ProdThCell label="Tồn K2" colKey="qty2" sortable isNum align="right" />
+                        <ProdThCell label="Giá trị K1" colKey="val1" sortable isNum align="right" />
+                        <ProdThCell label="Giá trị K2" colKey="val2" sortable isNum align="right" />
+                        <ProdThCell label="CL Giá trị" colKey="valDiff" sortable isNum align="right" />
                       </>
                     )}
                   </tr>
                 </thead>
                 <tbody>
-                  {reportMode === "current" ? (
+                  {(reportMode as string) === "current" ? (
                     displayTopProducts.map((p) => (
                       <tr key={p.product.id}>
-                        <td style={{ ...tdStyle, textAlign: "center", fontWeight: "bold", color: p.rank <= 3 ? "#e11d48" : "inherit" }}>#{p.rank}</td>
-                        <td style={{ ...tdStyle, fontSize: "13px" }}>{customerLabel(p.customer_id)}</td>
-                        <td style={{ ...tdStyle, fontWeight: "bold" }}>{p.product.sku}</td>
-                        <td style={tdStyle}>{p.product.name}</td>
-                        <td style={{ ...tdStyle, fontSize: "13px" }}>{p.product.spec || ""}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", background: "#f7fee7" }}>{fmtNum(p.current_qty)}</td>
-                        <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(p.product.unit_price)}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: "#1b5e20" }}>{fmtNum(p.inventory_value)}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", color: "#64748b" }}>
-                          {overallTotals.totalValue > 0 ? fmtPercent((p.inventory_value / overallTotals.totalValue) * 100) : "0.00%"}
-                        </td>
+                        <td style={{ textAlign: "center", fontWeight: 700, color: p.rank <= 3 ? "var(--color-danger)" : "inherit" }}>#{p.rank}</td>
+                        <td style={{ fontWeight: 700 }}>{p.product.sku}</td>
+                        <td style={{ fontSize: 13 }}>{p.product.name}</td>
+                        <td style={{ fontSize: 12, color: "var(--slate-500)" }}>{customerLabel(p.customer_id)}</td>
+                        <td style={{ textAlign: "right" }}>{fmtNum(p.current_qty)}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>{fmtNum(p.inventory_value)}</td>
+                        <td style={{ textAlign: "right", fontSize: 12 }}>{overallTotals.totalValue > 0 ? fmtPercent((p.inventory_value / overallTotals.totalValue) * 100) : "0.00%"}</td>
                       </tr>
                     ))
                   ) : (
                     displayCompareTopProducts.map((p) => (
                       <tr key={p.product.id}>
-                        <td style={{ ...tdStyle, textAlign: "center", fontWeight: "bold", color: p.rank <= 3 ? "#e11d48" : "inherit" }}>#{p.rank}</td>
-                        <td style={{ ...tdStyle, fontSize: "13px" }}>{customerLabel(p.customer_id)}</td>
-                        <td style={{ ...tdStyle, fontWeight: "bold" }}>{p.product.sku}</td>
-                        <td style={tdStyle}>{p.product.name}</td>
-                        <td style={{ ...tdStyle, fontSize: "13px" }}>{p.product.spec || ""}</td>
-                        <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(p.qty1)}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", background: "#f7fee7" }}>{fmtNum(p.qty2)}</td>
-                        <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(p.val1)}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: "#1b5e20" }}>{fmtNum(p.val2)}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", color: p.valDiff > 0 ? "#15803d" : p.valDiff < 0 ? "#b91c1c" : "inherit" }}>
-                          {p.valDiff > 0 ? "+" : ""}{fmtNum(p.valDiff)}
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: "right", color: p.pctDiff > 0 ? "#15803d" : p.pctDiff < 0 ? "#b91c1c" : "inherit" }}>
-                          {p.pctDiff > 0 ? "+" : ""}{fmtPercent(p.pctDiff)}
-                        </td>
+                        <td style={{ textAlign: "center", fontWeight: 700, color: p.rank <= 3 ? "var(--color-danger)" : "inherit" }}>#{p.rank}</td>
+                        <td style={{ fontWeight: 700 }}>{p.product.sku}</td>
+                        <td style={{ fontSize: 13 }}>{p.product.name}</td>
+                        <td style={{ fontSize: 12, color: "var(--slate-500)" }}>{customerLabel(p.customer_id)}</td>
+                        <td style={{ textAlign: "right" }}>{fmtNum(p.qty1)}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700 }}>{fmtNum(p.qty2)}</td>
+                        <td style={{ textAlign: "right" }}>{fmtNum(p.val1)}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>{fmtNum(p.val2)}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700, color: p.valDiff > 0 ? "var(--color-danger)" : p.valDiff < 0 ? "var(--color-success)" : "inherit" }}>{p.valDiff > 0 ? "+" : ""}{fmtNum(p.valDiff)}</td>
                       </tr>
                     ))
                   )}
                   {((reportMode === "current" ? displayTopProducts : displayCompareTopProducts).length === 0) && (
                     <tr>
-                      <td colSpan={11} style={{ padding: 24, textAlign: "center", color: "#888", border: "1px solid #ddd" }}>Không có dữ liệu.</td>
+                      <td colSpan={11} style={{ padding: 24, textAlign: "center", color: "var(--slate-400)" }}>Không có dữ liệu.</td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
           </section>
-
         </div>
       )}
     </div>

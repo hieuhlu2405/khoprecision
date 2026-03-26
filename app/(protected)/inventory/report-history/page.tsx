@@ -303,52 +303,93 @@ export default function ReportHistoryListPage() {
   if (loading) return <LoadingPage text="Đang tải lịch sử báo cáo..." />;
 
   return (
-    <div style={{ fontFamily: "sans-serif" }}>
-      <h1>Lịch sử Chốt báo cáo</h1>
+    <div className="page-root">
+      <div className="page-header">
+        <div>
+          <h1>Lịch sử chốt báo cáo</h1>
+          <p className="page-subtitle">Xem lại các bản báo cáo tồn kho đã được lưu trữ trong hệ thống.</p>
+        </div>
+        <div className="toolbar" style={{ margin: 0 }}>
+          <button onClick={load} className="btn btn-secondary">
+            Làm mới
+          </button>
+        </div>
+      </div>
+
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-        <button onClick={load} style={{ padding: 10, cursor: "pointer", background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 4 }}>Làm mới</button>
+      <div className="toolbar" style={{ marginBottom: 16 }}>
         {Object.keys(colFilters).length > 0 && (
-          <button onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }} style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 4, color: "#991b1b" }}>Xóa lọc cột ({Object.keys(colFilters).length})</button>
+          <button
+            onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
+            className="btn btn-clear-filter"
+          >
+            Xóa lọc cột ({Object.keys(colFilters).length})
+          </button>
         )}
       </div>
 
-      <div style={{ overflowX: "auto" }} ref={containerRef}>
-        <table style={{ borderCollapse: "collapse", minWidth: 1100, width: "100%", border: "1px solid #ddd", background: "white" }}>
+      <div className="data-table-wrap" ref={containerRef}>
+        <table className="data-table" style={{ minWidth: 1200 }}>
           <thead>
             <tr>
-              <th style={{ ...thStyle, width: 50, textAlign: "center" }}>STT</th>
+              <th style={{ textAlign: "center", width: 50 }}>STT</th>
               <ThCell label="Loại báo cáo" colKey="reportType" sortable colType="text" />
-              <ThCell label="Tiêu đề" colKey="title" sortable colType="text" />
-              <th style={thStyle}>Kỳ báo cáo</th>
+              <ThCell label="Tiêu đề / Ghi chú" colKey="title" sortable colType="text" />
+              <th>Kỳ báo cáo (Inclusive)</th>
               <ThCell label="Ngày chốt" colKey="createdAt" sortable colType="date" />
-              <ThCell label="Người chốt" colKey="creator" sortable colType="text" />
-              <th style={{ ...thStyle, textAlign: "center" }}>Hành động</th>
+              <ThCell label="Người thực hiện" colKey="creator" sortable colType="text" />
+              <th style={{ textAlign: "center", width: 140 }}>Hành động</th>
             </tr>
           </thead>
           <tbody>
             {finalFiltered.map((r, i) => (
               <tr key={r.id}>
-                <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
-                <td style={tdStyle}>{REPORT_TYPE_LABELS[r.report_type] || r.report_type}</td>
-                <td style={tdStyle}>{r.title || "—"}</td>
-                <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                  {periodLabel(r.period_1_start, r.period_1_end)}
+                <td style={{ textAlign: "center" }}>{i + 1}</td>
+                <td>
+                  <span className="badge badge-info" style={{ fontWeight: 600 }}>
+                    {REPORT_TYPE_LABELS[r.report_type] || r.report_type}
+                  </span>
+                </td>
+                <td style={{ fontWeight: 500 }}>{r.title || "—"}</td>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  <div style={{ fontWeight: 600 }}>{periodLabel(r.period_1_start, r.period_1_end)}</div>
                   {isComparison(r) && r.period_2_start && (
-                    <><br /><span style={{ fontSize: 12, color: "#666" }}>vs {periodLabel(r.period_2_start, r.period_2_end)}</span></>
+                    <div style={{ fontSize: 12, color: "var(--slate-500)", marginTop: 2 }}>
+                      So sánh với: {periodLabel(r.period_2_start, r.period_2_end)}
+                    </div>
                   )}
                 </td>
-                <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{mounted ? fmtDatetimeLocal(r.created_at) : "..."}</td>
-                <td style={tdStyle}>{getCreator(r.created_by)}</td>
-                <td style={{ ...tdStyle, textAlign: "center", whiteSpace: "nowrap" }}>
-                  <button onClick={() => router.push(`/inventory/report-history/${r.id}`)} style={{ padding: "6px 10px", cursor: "pointer", marginRight: 4 }}>Xem</button>
-                  <button onClick={() => handleDelete(r.id)} style={{ padding: "6px 10px", cursor: "pointer", color: "#991b1b" }}>Xóa</button>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  {mounted ? fmtDatetimeLocal(r.created_at) : "..."}
+                </td>
+                <td>{getCreator(r.created_by)}</td>
+                <td style={{ textAlign: "center" }}>
+                  <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                    <button 
+                      onClick={() => router.push(`/inventory/report-history/${r.id}`)} 
+                      className="btn btn-ghost btn-sm"
+                      style={{ color: "var(--brand)" }}
+                    >
+                      Xem
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(r.id)} 
+                      className="btn btn-ghost btn-sm"
+                      style={{ color: "var(--color-danger)" }}
+                    >
+                      Xóa
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
             {finalFiltered.length === 0 && (
-              <tr><td colSpan={7} style={{ ...tdStyle, textAlign: "center", padding: 32, color: "#888" }}>Chưa có bản chốt nào.</td></tr>
+              <tr>
+                <td colSpan={7} style={{ padding: 48, textAlign: "center", color: "var(--slate-500)" }}>
+                  Chưa có báo cáo nào được chốt và lưu trữ.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>

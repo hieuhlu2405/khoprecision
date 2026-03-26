@@ -1063,198 +1063,219 @@ export default function InventoryAgingReportPage() {
   }
 
   return (
-    <div style={{ fontFamily: "sans-serif" }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8 }}>
-        <h1 style={{ margin: 0 }}>Tồn dài kỳ</h1>
-        <button onClick={closeAgingReport} disabled={closingAging || loading || filteredLongAgingData.length === 0} style={{ padding: "8px 16px", cursor: "pointer", background: "#0f172a", color: "white", border: "none", borderRadius: 4, fontWeight: 600, opacity: closingAging ? 0.6 : 1 }}>
-          {closingAging ? "Đang chốt..." : "📋 Chốt dữ liệu"}
-        </button>
+    <div className="page-root">
+      <div className="page-header">
+        <div>
+          <h1>Báo cáo tồn lâu ngày (Aging)</h1>
+          <p className="page-subtitle">Phân tích các sản phẩm có thời gian tồn kho vượt ngưỡng để tối ưu hóa dòng vốn.</p>
+        </div>
+        <div className="toolbar" style={{ margin: 0 }}>
+          <button 
+            onClick={closeAgingReport} 
+            disabled={closingAging || loading || filteredLongAgingData.length === 0} 
+            className="btn btn-primary"
+            style={{ opacity: closingAging ? 0.6 : 1 }}
+          >
+            {closingAging ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}
+          </button>
+        </div>
       </div>
 
+      <ErrorBanner message={error} onDismiss={() => setError("")} />
+
       {/* ---- Mode Tabs ---- */}
-      <div style={{ display: "flex", marginBottom: 20, marginTop: 12 }}>
+      <div className="toolbar" style={{ marginBottom: 24, padding: 0, borderBottom: "1px solid var(--slate-200)" }}>
         {(["current", "compare"] as const).map(m => (
-          <div key={m} style={{ flex: 1, padding: "10px 0", textAlign: "center", cursor: "pointer", fontWeight: 600, fontSize: 14, borderBottom: reportMode === m ? "3px solid #0f172a" : "1px solid #cbd5e1", color: reportMode === m ? "#0f172a" : "#64748b", background: reportMode === m ? "white" : "#f1f5f9" }} onClick={() => setReportMode(m)}>
-            {m === "current" ? "Hiện tại" : "So sánh 2 kỳ"}
-          </div>
+          <button
+            key={m}
+            className={`btn ${reportMode === m ? "btn-primary" : "btn-ghost"}`}
+            style={{ 
+              borderRadius: 0, 
+              borderBottom: reportMode === m ? "2px solid var(--brand)" : "none",
+              padding: "12px 24px",
+              fontWeight: 600
+            }}
+            onClick={() => setReportMode(m)}
+          >
+            {m === "current" ? "📊 Báo cáo hiện tại" : "🔄 So sánh đối soát 2 kỳ"}
+          </button>
         ))}
       </div>
 
-      {error && <pre style={{ color: "crimson" }}>{error}</pre>}
-
       {/* ---- SUMMARY CARDS ---- */}
-      <div style={{ display: "flex", gap: 16, marginTop: 12, marginBottom: 24, flexWrap: "wrap" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 32 }}>
         {reportMode === "current" ? (
           <>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#fffbeb", minWidth: 200, flex: 1 }}>
-              <div style={{ fontSize: 13, color: "#b45309", fontWeight: 600 }}>Cơ cấu % trên tổng tồn kho</div>
-              <div style={{ fontSize: 24, fontWeight: "bold", marginTop: 8, color: "#92400e" }}>{fmtPercent(overallTotals.pctGlobal)}</div>
+            <div className="stat-card" style={{ borderLeft: "4px solid var(--color-warning)" }}>
+              <div className="label">Cơ cấu % trên tổng tồn kho</div>
+              <div className="value" style={{ color: "var(--color-warning)" }}>{fmtPercent(overallTotals.pctGlobal)}</div>
             </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#fef2f2", minWidth: 200, flex: 1 }}>
-              <div style={{ fontSize: 13, color: "#991b1b", fontWeight: 600 }}>Tổng giá trị tồn dài kỳ (VNĐ)</div>
-              <div style={{ fontSize: 24, fontWeight: "bold", marginTop: 8, color: "#7f1d1d" }}>{fmtNum(overallTotals.tValLongAging)}</div>
+            <div className="stat-card" style={{ borderLeft: "4px solid var(--color-danger)" }}>
+              <div className="label">Tổng giá trị tồn dài kỳ</div>
+              <div className="value" style={{ color: "var(--color-danger)" }}>{fmtNum(overallTotals.tValLongAging)} <small style={{ fontSize: 14 }}>VNĐ</small></div>
             </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#f8fafc", minWidth: 200, flex: 1 }}>
-              <div style={{ fontSize: 13, color: "#475569", fontWeight: 600 }}>Tổng toàn bộ giá trị kho (VNĐ)</div>
-              <div style={{ fontSize: 24, fontWeight: "bold", marginTop: 8, color: "#334155" }}>{fmtNum(overallTally)}</div>
+            <div className="stat-card" style={{ borderLeft: "4px solid var(--slate-400)" }}>
+              <div className="label">Tổng toàn bộ giá trị kho</div>
+              <div className="value">{fmtNum(overallTally)} <small style={{ fontSize: 14 }}>VNĐ</small></div>
             </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#eff6ff", minWidth: 200, flex: 1 }}>
-              <div style={{ fontSize: 13, color: "#1d4ed8", fontWeight: 600 }}>Tổng số khách hàng có tồn dài kỳ</div>
-              <div style={{ fontSize: 24, fontWeight: "bold", marginTop: 8, color: "#1e3a8a" }}>{fmtNum(overallTotals.customerCount)}</div>
+            <div className="stat-card" style={{ borderLeft: "4px solid var(--brand)" }}>
+              <div className="label">Số khách hàng có tồn dài kỳ</div>
+              <div className="value" style={{ color: "var(--brand)" }}>{fmtNum(overallTotals.customerCount)}</div>
             </div>
           </>
         ) : (
           <>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#fef2f2", minWidth: 150, flex: 1 }}>
-              <div style={{ fontSize: 12, color: "#991b1b", fontWeight: 600 }}>Giá trị tồn dài kỳ kỳ 1</div>
-              <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 6 }}>{fmtNum(compareTotals.v1)}</div>
+            <div className="stat-card">
+              <div className="label">Giá trị Aging (Kỳ 1)</div>
+              <div className="value" style={{ fontSize: 20 }}>{fmtNum(compareTotals.v1)}</div>
             </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#fef2f2", minWidth: 150, flex: 1 }}>
-              <div style={{ fontSize: 12, color: "#991b1b", fontWeight: 600 }}>Giá trị tồn dài kỳ kỳ 2</div>
-              <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 6 }}>{fmtNum(compareTotals.v2)}</div>
+            <div className="stat-card">
+              <div className="label">Giá trị Aging (Kỳ 2)</div>
+              <div className="value" style={{ fontSize: 20 }}>{fmtNum(compareTotals.v2)}</div>
             </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: compareTotals.diff > 0 ? "#fef2f2" : compareTotals.diff < 0 ? "#f0fdf4" : "#f8fafc", minWidth: 150, flex: 1 }}>
-              <div style={{ fontSize: 12, color: compareTotals.diff > 0 ? "#991b1b" : compareTotals.diff < 0 ? "#15803d" : "#475569", fontWeight: 600 }}>Chênh lệch</div>
-              <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 6, color: compareTotals.diff > 0 ? "#b91c1c" : compareTotals.diff < 0 ? "#15803d" : "inherit" }}>{compareTotals.diff > 0 ? "+" : ""}{fmtNum(compareTotals.diff)}</div>
+            <div className="stat-card" style={{ borderLeft: `4px solid ${compareTotals.diff > 0 ? "var(--color-danger)" : "var(--color-success)"}` }}>
+              <div className="label">Chênh lệch giá trị</div>
+              <div className="value" style={{ fontSize: 20, color: compareTotals.diff > 0 ? "var(--color-danger)" : "var(--color-success)" }}>
+                {compareTotals.diff > 0 ? "+" : ""}{fmtNum(compareTotals.diff)}
+              </div>
             </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: compareTotals.diff > 0 ? "#fef2f2" : compareTotals.diff < 0 ? "#f0fdf4" : "#f8fafc", minWidth: 150, flex: 1 }}>
-              <div style={{ fontSize: 12, color: compareTotals.diff > 0 ? "#991b1b" : compareTotals.diff < 0 ? "#15803d" : "#475569", fontWeight: 600 }}>% chênh lệch</div>
-              <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 6, color: compareTotals.diff > 0 ? "#b91c1c" : compareTotals.diff < 0 ? "#15803d" : "inherit" }}>{compareTotals.pct > 0 ? "+" : ""}{fmtPercent(compareTotals.pct)}</div>
-            </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#f8fafc", minWidth: 130, flex: 1 }}>
-              <div style={{ fontSize: 12, color: "#475569", fontWeight: 600 }}>Số mã tồn dài kỳ (kỳ 1)</div>
-              <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 6 }}>{fmtNum(compareTotals.count1)}</div>
-            </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#f8fafc", minWidth: 130, flex: 1 }}>
-              <div style={{ fontSize: 12, color: "#475569", fontWeight: 600 }}>Số mã tồn dài kỳ (kỳ 2)</div>
-              <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 6 }}>{fmtNum(compareTotals.count2)}</div>
-            </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#eff6ff", minWidth: 130, flex: 1 }}>
-              <div style={{ fontSize: 12, color: "#1d4ed8", fontWeight: 600 }}>Số khách có tồn dài kỳ (kỳ 1)</div>
-              <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 6, color: "#1e3a8a" }}>{fmtNum(compareTotals.custCount1)}</div>
-            </div>
-            <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#eff6ff", minWidth: 130, flex: 1 }}>
-              <div style={{ fontSize: 12, color: "#1d4ed8", fontWeight: 600 }}>Số khách có tồn dài kỳ (kỳ 2)</div>
-              <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 6, color: "#1e3a8a" }}>{fmtNum(compareTotals.custCount2)}</div>
+            <div className="stat-card">
+              <div className="label">% biến động</div>
+              <div className="value" style={{ fontSize: 20, color: compareTotals.diff > 0 ? "var(--color-danger)" : "var(--color-success)" }}>
+                {compareTotals.pct > 0 ? "+" : ""}{fmtPercent(compareTotals.pct)}
+              </div>
             </div>
           </>
         )}
       </div>
 
       {/* ---- Top-level Filters ---- */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap", alignItems: "flex-end", background: "#f8fafc", padding: "12px 16px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+      <div className="filter-panel" style={{ marginBottom: 24 }}>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
 
-        {reportMode === "current" ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-                Từ ngày
-                <input type="date" value={qStart} onChange={(e) => setQStart(e.target.value)} style={{ padding: 6, fontSize: 13 }} />
-              </label>
-              <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-                Đến ngày
-                <input type="date" value={qEnd} onChange={(e) => setQEnd(e.target.value)} style={{ padding: 6, fontSize: 13 }} />
-              </label>
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => { setQStart(bounds.prevSnapshotQStart); setQEnd(bounds.prevSnapshotQEnd); }} style={{ padding: "4px 8px", fontSize: 11, cursor: "pointer", background: "#e2e8f0", border: "1px solid #cbd5e1", borderRadius: 4 }}>So với kỳ trước</button>
-              <button onClick={() => { const p = applySamePeriodLastYearDates(bounds.effectiveStart, bounds.effectiveEnd); setQStart(p.newStart); setQEnd(p.newEnd); }} style={{ padding: "4px 8px", fontSize: 11, cursor: "pointer", background: "#e2e8f0", border: "1px solid #cbd5e1", borderRadius: 4 }}>So với cùng kỳ năm trước</button>
-            </div>
-            <div style={{ marginTop: 4, fontSize: 13, color: "#475569", display: "flex", gap: 12 }}>
-              <span><strong>Kỳ dữ liệu:</strong> {formatToVietnameseDate(bounds.effectiveStart)} – {formatToVietnameseDate(bounds.effectiveEnd)}</span>
-              {bounds.S && <span style={{ padding: "2px 6px", background: "#e2e8f0", borderRadius: 4, fontSize: 12 }}>Mốc tồn: {formatToVietnameseDate(bounds.S)}</span>}
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
-              <div style={{ display: "flex", gap: 8, padding: 8, border: "1px solid #cbd5e1", borderRadius: 6, background: "white", alignItems: "center" }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#475569", width: 40 }}>Kỳ 1:</span>
-                <label style={{ display: "grid", gap: 2, fontSize: 11, fontWeight: 500 }}>Từ ngày<input type="date" value={p1Start} onChange={e => setP1Start(e.target.value)} style={{ padding: 4, fontSize: 12, width: 115 }} /></label>
-                <label style={{ display: "grid", gap: 2, fontSize: 11, fontWeight: 500 }}>Đến ngày<input type="date" value={p1End} onChange={e => setP1End(e.target.value)} style={{ padding: 4, fontSize: 12, width: 115 }} /></label>
+          {reportMode === "current" ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                <label className="input-label" style={{ minWidth: 140 }}>
+                  Từ ngày
+                  <input type="date" value={qStart} onChange={(e) => setQStart(e.target.value)} className="input" />
+                </label>
+                <label className="input-label" style={{ minWidth: 140 }}>
+                  Đến ngày
+                  <input type="date" value={qEnd} onChange={(e) => setQEnd(e.target.value)} className="input" />
+                </label>
               </div>
-              <div style={{ display: "flex", gap: 8, padding: 8, border: "1px solid #94a3b8", borderRadius: 6, background: "white", alignItems: "center" }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#0f172a", width: 40 }}>Kỳ 2:</span>
-                <label style={{ display: "grid", gap: 2, fontSize: 11, fontWeight: 500 }}>Từ ngày<input type="date" value={p2Start} onChange={e => setP2Start(e.target.value)} style={{ padding: 4, fontSize: 12, width: 115 }} /></label>
-                <label style={{ display: "grid", gap: 2, fontSize: 11, fontWeight: 500 }}>Đến ngày<input type="date" value={p2End} onChange={e => setP2End(e.target.value)} style={{ padding: 4, fontSize: 12, width: 115 }} /></label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => { setQStart(bounds.prevSnapshotQStart); setQEnd(bounds.prevSnapshotQEnd); }} className="btn btn-secondary btn-sm">So với kỳ trước</button>
+                <button onClick={() => { const p = applySamePeriodLastYearDates(bounds.effectiveStart, bounds.effectiveEnd); setQStart(p.newStart); setQEnd(p.newEnd); }} className="btn btn-secondary btn-sm">So với cùng kỳ năm trước</button>
+              </div>
+              <div style={{ marginTop: 4, fontSize: 13, color: "var(--slate-500)", display: "flex", flexDirection: "column", gap: 2 }}>
+                <div><strong>Kỳ dữ liệu:</strong> {formatToVietnameseDate(bounds.effectiveStart)} – {formatToVietnameseDate(bounds.effectiveEnd)}</div>
+                {bounds.S && <div style={{ fontSize: 12 }}>Mốc tồn gần nhất: {formatToVietnameseDate(bounds.S)}</div>}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={applyPresetPreviousMonth} style={{ padding: "4px 8px", fontSize: 11, cursor: "pointer", background: "#e2e8f0", border: "1px solid #cbd5e1", borderRadius: 4 }}>So với kỳ trước</button>
-              <button onClick={applyPresetSameMonthLastYear} style={{ padding: "4px 8px", fontSize: 11, cursor: "pointer", background: "#e2e8f0", border: "1px solid #cbd5e1", borderRadius: 4 }}>So với cùng kỳ năm trước</button>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
+                <div style={{ display: "flex", gap: 8, padding: 12, border: "1px solid var(--slate-200)", borderRadius: 8, background: "white", alignItems: "flex-end" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-500)", marginBottom: 10 }}>KỲ 1:</span>
+                  <label className="input-label" style={{ minWidth: 130 }}>Từ ngày<input type="date" value={p1Start} onChange={e => setP1Start(e.target.value)} className="input" /></label>
+                  <label className="input-label" style={{ minWidth: 130 }}>Đến ngày<input type="date" value={p1End} onChange={e => setP1End(e.target.value)} className="input" /></label>
+                </div>
+                <div style={{ display: "flex", gap: 8, padding: 12, border: "1px solid var(--brand-light)", borderRadius: 8, background: "white", alignItems: "flex-end" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)", marginBottom: 10 }}>KỲ 2:</span>
+                  <label className="input-label" style={{ minWidth: 130 }}>Từ ngày<input type="date" value={p2Start} onChange={e => setP2Start(e.target.value)} className="input" /></label>
+                  <label className="input-label" style={{ minWidth: 130 }}>Đến ngày<input type="date" value={p2End} onChange={e => setP2End(e.target.value)} className="input" /></label>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={applyPresetPreviousMonth} className="btn btn-secondary btn-sm">So với kỳ trước</button>
+                <button onClick={applyPresetSameMonthLastYear} className="btn btn-secondary btn-sm">So với cùng kỳ năm trước</button>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--slate-500)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div><strong>Dữ liệu Kỳ 1:</strong> {formatToVietnameseDate(bounds1.effectiveStart)} – {formatToVietnameseDate(bounds1.effectiveEnd)}</div>
+                <div><strong>Dữ liệu Kỳ 2:</strong> {formatToVietnameseDate(bounds2.effectiveStart)} – {formatToVietnameseDate(bounds2.effectiveEnd)}</div>
+              </div>
             </div>
-            <div style={{ fontSize: 12, color: "#475569", display: "flex", flexDirection: "column", gap: 2 }}>
-              <span><strong>Kỳ 1:</strong> {formatToVietnameseDate(bounds1.effectiveStart)} – {formatToVietnameseDate(bounds1.effectiveEnd)} {bounds1.S && `(Mốc tồn: ${formatToVietnameseDate(bounds1.S)})`}</span>
-              <span><strong>Kỳ 2:</strong> {formatToVietnameseDate(bounds2.effectiveStart)} – {formatToVietnameseDate(bounds2.effectiveEnd)} {bounds2.S && `(Mốc tồn: ${formatToVietnameseDate(bounds2.S)})`}</span>
-            </div>
-          </div>
-        )}
+          )}
 
-        <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-          Khách hàng
-          <input list="dl-aging-customer" placeholder="Gõ code / tên..." value={qCustomerSearch} onChange={(e) => { const val = e.target.value; setQCustomerSearch(val); const matched = customers.find((c) => `${c.code} - ${c.name}` === val); setQCustomer(matched ? matched.id : ""); }} style={{ padding: 8, minWidth: 160, fontSize: 14 }} />
-          <datalist id="dl-aging-customer">{customers.map((c) => (<option key={c.id} value={`${c.code} - ${c.name}`} />))}</datalist>
-        </label>
-
-        <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-          Mã / Tên hàng
-          <input value={qProduct} onChange={(e) => setQProduct(e.target.value)} style={{ padding: 8, minWidth: 180, fontSize: 14 }} placeholder="Search..." />
-        </label>
-
-        <div style={{ borderLeft: "1px solid #cbd5e1", marginLeft: 4, paddingLeft: 12, display: "flex", height: "36px", alignItems: "center" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
-            <input type="checkbox" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} /> Chỉ hiện hàng còn tồn
+          <label className="input-label" style={{ minWidth: 200 }}>
+            Lọc theo Khách hàng
+            <input list="dl-aging-customer" placeholder="Mã / Tên khách..." value={qCustomerSearch} onChange={(e) => { const val = e.target.value; setQCustomerSearch(val); const matched = customers.find((c) => `${c.code} - ${c.name}` === val); setQCustomer(matched ? matched.id : ""); }} className="input" />
+            <datalist id="dl-aging-customer">{customers.map((c) => (<option key={c.id} value={`${c.code} - ${c.name}`} />))}</datalist>
           </label>
-        </div>
 
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          {(qCustomer || qProduct) && (
-            <button onClick={() => { setQCustomer(""); setQCustomerSearch(""); setQProduct(""); }} style={{ padding: "8px 12px", cursor: "pointer", fontSize: "13px", background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 4 }}>Xóa lọc</button>
-          )}
-          <button onClick={load} style={{ padding: "8px 16px", cursor: "pointer", fontSize: 13, background: "#0f172a", color: "white", border: "none", borderRadius: 4 }}>Làm mới</button>
-          {activeFilterCount > 0 && (
-            <button onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }} style={{ padding: "8px 12px", cursor: "pointer", fontSize: 12, background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 4, color: "#991b1b" }}>Xóa lọc cột ({activeFilterCount})</button>
-          )}
+          <label className="input-label" style={{ minWidth: 200 }}>
+            Lọc Mã / Tên hàng
+            <input value={qProduct} onChange={(e) => setQProduct(e.target.value)} className="input" placeholder="Tìm kiếm sản phẩm..." />
+          </label>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, height: 42 }}>
+            <input type="checkbox" id="chkOnlyInStock" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} style={{ width: 18, height: 18, cursor: "pointer" }} />
+            <label htmlFor="chkOnlyInStock" style={{ fontSize: 13, cursor: "pointer", fontWeight: 500 }}>Chỉ hiện hàng còn tồn</label>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+            {(qCustomer || qProduct) && (
+              <button 
+                onClick={() => { setQCustomer(""); setQCustomerSearch(""); setQProduct(""); }} 
+                className="btn btn-secondary"
+              >
+                Xóa lọc nhanh
+              </button>
+            )}
+            <button onClick={load} className="btn btn-secondary">
+              🔄 Làm mới
+            </button>
+            {activeFilterCount > 0 && (
+              <button 
+                onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }} 
+                className="btn btn-clear-filter"
+              >
+                Xóa lọc cột ({activeFilterCount})
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {loading ? (
-        <div style={{ padding: 24, textAlign: "center", color: "#666" }}>Đang tải báo cáo...</div>
+        <LoadingInline text="Đang tính toán dữ liệu báo cáo..." />
       ) : (
         <div style={{ display: "grid", gap: 32 }}>
 
           {/* ---- CHARTS SECTION ---- */}
           {reportMode === "current" && overallTotals.tValLongAging > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 8 }}>
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                <div style={{ flex: 1, minWidth: 300, border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, background: "white" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 20 }}>
+                <div className="filter-panel" style={{ padding: 20, background: "white" }}>
                   <BarChart
-                    title="Top 10 khách hàng theo giá trị tồn dài kỳ"
+                    title="Top 10 khách hàng theo giá trị tồn lâu ngày"
                     data={[...customerSummary].sort((a,b) => b.value - a.value).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.value }))}
-                    color="#059669"
-                    minHeight={220}
+                    color="var(--color-success)"
+                    minHeight={250}
                   />
                 </div>
-                <div style={{ flex: 1, minWidth: 300, border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, background: "white" }}>
+                <div className="filter-panel" style={{ padding: 20, background: "white" }}>
                   <BarChart
-                    title="Top 10 mã hàng theo giá trị tồn dài kỳ"
+                    title="Top 10 mã hàng theo giá trị tồn ($)"
                     data={[...filteredLongAgingData].sort((a,b) => (b.inventory_value||0) - (a.inventory_value||0)).slice(0, 10).map(p => ({ label: p.product.sku, value: p.inventory_value || 0 }))}
-                    color="#2563eb"
-                    minHeight={220}
+                    color="var(--brand)"
+                    minHeight={250}
                   />
                 </div>
-                <div style={{ flex: 1, minWidth: 300, border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, background: "white" }}>
+                <div className="filter-panel" style={{ padding: 20, background: "white" }}>
                   <BarChart
-                    title="Top 10 mã hàng theo số lượng tồn dài kỳ"
+                    title="Top 10 mã hàng theo số lượng (Qty)"
                     data={[...filteredLongAgingData].sort((a,b) => (b.current_qty||0) - (a.current_qty||0)).slice(0, 10).map(p => ({ label: p.product.sku, value: p.current_qty || 0 }))}
-                    color="#d97706"
-                    minHeight={220}
+                    color="var(--color-warning)"
+                    minHeight={250}
                   />
                 </div>
               </div>
-              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, background: "white" }}>
+              <div className="filter-panel" style={{ padding: 20, background: "white" }}>
                 <StackedBarChart
-                  title="Cơ cấu tồn dài kỳ theo khách hàng"
+                  title="Cơ cấu tồn lâu ngày theo khách hàng (% giá trị)"
                   totalValue={overallTotals.tValLongAging}
                   data={(() => {
                     const sorted = [...customerSummary].sort((a, b) => b.value - a.value);
@@ -1270,79 +1291,67 @@ export default function InventoryAgingReportPage() {
           )}
 
           {reportMode === "compare" && compareTotals.v1 + compareTotals.v2 > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 8 }}>
-              {/* Compact summary comparison */}
-              <div style={{ display: "flex", gap: 16, alignItems: "center", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 20px", background: "white" }}>
-                <div style={{ fontWeight: 600, fontSize: 13, color: "#334155", width: 220 }}>Tổng tồn dài kỳ: Kỳ 1 vs Kỳ 2</div>
-                <div style={{ flex: 1, display: "flex", gap: 32, alignItems: "center" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+              <div className="filter-panel" style={{ display: "flex", gap: 24, alignItems: "center", padding: 20, background: "white" }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "var(--slate-700)", width: 240, borderRight: "1px solid var(--slate-200)", paddingRight: 20 }}>
+                  TỔNG QUAN BIẾN ĐỘNG:<br/>
+                  Kỳ 1 vs Kỳ 2
+                </div>
+                <div style={{ flex: 1, display: "flex", gap: 48, alignItems: "center" }}>
                   <div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Kỳ 1</div>
-                    <div style={{ fontSize: 16, fontWeight: 600, color: "#475569" }}>{fmtNum(compareTotals.v1)} đ</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{fmtNum(compareTotals.count1)} mã hàng</div>
+                    <div style={{ fontSize: 12, color: "var(--slate-500)", marginBottom: 4 }}>KỲ 1</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "var(--slate-600)" }}>{fmtNum(compareTotals.v1)} <small>đ</small></div>
+                    <div style={{ fontSize: 11, color: "var(--slate-400)" }}>{fmtNum(compareTotals.count1)} mã hàng</div>
                   </div>
-                  <div style={{ color: "#cbd5e1", fontSize: 20 }}>→</div>
+                  <div style={{ color: "var(--slate-300)", fontSize: 24 }}>→</div>
                   <div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Kỳ 2</div>
-                    <div style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>{fmtNum(compareTotals.v2)} đ</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{fmtNum(compareTotals.count2)} mã hàng</div>
+                    <div style={{ fontSize: 12, color: "var(--slate-500)", marginBottom: 4 }}>KỲ 2</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "var(--brand)" }}>{fmtNum(compareTotals.v2)} <small>đ</small></div>
+                    <div style={{ fontSize: 11, color: "var(--brand-light)" }}>{fmtNum(compareTotals.count2)} mã hàng</div>
                   </div>
-                  <div style={{ paddingLeft: 16, borderLeft: "1px dashed #cbd5e1" }}>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Chênh lệch giá trị</div>
-                    <div style={{ fontSize: 16, fontWeight: 600, color: compareTotals.diff > 0 ? "#dc2626" : compareTotals.diff < 0 ? "#16a34a" : "#475569" }}>
+                  <div style={{ paddingLeft: 24, borderLeft: "2px dashed var(--slate-200)" }}>
+                    <div style={{ fontSize: 12, color: "var(--slate-500)", marginBottom: 4 }}>BIẾN ĐỘNG</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: compareTotals.diff > 0 ? "var(--color-danger)" : "var(--color-success)" }}>
                       {compareTotals.diff > 0 ? "+" : ""}{fmtNum(compareTotals.diff)} ({compareTotals.pct > 0 ? "+" : ""}{fmtPercent(compareTotals.pct)})
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                <div style={{ flex: 1, minWidth: 340, border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, background: "white" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: 20 }}>
+                <div className="filter-panel" style={{ padding: 20, background: "white" }}>
                   <ClusteredBarChart
-                    title="So sánh giá trị tồn dài kỳ theo khách hàng"
+                    title="Biến động giá trị theo khách hàng"
                     label1="Kỳ 1"
                     label2="Kỳ 2"
-                    color1="#94a3b8"
-                    color2="#dc2626"
-                    minHeight={240}
+                    color1="var(--slate-300)"
+                    color2="var(--color-danger)"
+                    minHeight={250}
                     data={compareCustomerSummary
                       .sort((a, b) => Math.max(b.val1 || 0, b.val2 || 0) - Math.max(a.val1 || 0, a.val2 || 0))
                       .slice(0, 10)
                       .map(c => ({ label: customerLabel(c.customer_id), val1: c.val1 || 0, val2: c.val2 || 0 }))}
                   />
                 </div>
-                <div style={{ flex: 1, minWidth: 340, border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, background: "white" }}>
+                <div className="filter-panel" style={{ padding: 20, background: "white" }}>
                   <ClusteredBarChart
-                    title="So sánh giá trị tồn dài kỳ theo mã hàng"
+                    title="Biến động giá trị theo mã hàng"
                     label1="Kỳ 1"
                     label2="Kỳ 2"
-                    color1="#94a3b8"
-                    color2="#dc2626"
-                    minHeight={240}
+                    color1="var(--slate-300)"
+                    color2="var(--color-danger)"
+                    minHeight={250}
                     data={compareAgingData
                       .sort((a, b) => Math.max(b.val1, b.val2) - Math.max(a.val1, a.val2))
                       .slice(0, 10)
                       .map(p => ({ label: p.product.sku, val1: p.val1, val2: p.val2 }))}
                   />
                 </div>
-                <div style={{ flex: 1, minWidth: 340, border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, background: "white" }}>
-                  <ClusteredBarChart
-                    title="So sánh số lượng tồn dài kỳ theo mã hàng"
-                    label1="Kỳ 1"
-                    label2="Kỳ 2"
-                    color1="#94a3b8"
-                    color2="#d97706"
-                    minHeight={240}
-                    data={compareAgingData
-                      .sort((a, b) => Math.max(b.qty1, b.qty2) - Math.max(a.qty1, a.qty2))
-                      .slice(0, 10)
-                      .map(p => ({ label: p.product.sku, val1: p.qty1, val2: p.qty2 }))}
-                  />
-                </div>
               </div>
               
-              <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, background: "white" }}>
+              <div className="filter-panel" style={{ padding: 20, background: "white" }}>
                 <CompareStackedBarChart
-                  title="So sánh cơ cấu tồn dài kỳ theo khách hàng"
+                  title="So sánh cơ cấu tồn kho (% giá trị)"
                   label1="Kỳ 1"
                   label2="Kỳ 2"
                   total1={compareTotals.v1}
@@ -1371,31 +1380,31 @@ export default function InventoryAgingReportPage() {
 
           {/* ---- CUSTOMER SUMMARY TABLE ---- */}
           <section>
-            <h2 style={{ fontSize: 18, borderBottom: "2px solid #ddd", paddingBottom: 8, marginBottom: 16 }}>
-              Tổng hợp tồn dài kỳ theo Khách hàng
-            </h2>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ borderCollapse: "collapse", minWidth: 800, width: "100%", border: "1px solid #ddd", background: "white" }}>
+            <div className="toolbar" style={{ marginBottom: 16 }}>
+              <h3 className="modal-title" style={{ margin: 0 }}>Tổng hợp theo Khách hàng</h3>
+            </div>
+            <div className="data-table-wrap">
+              <table className="data-table">
                 <thead>
-                  <tr style={{ background: "#f8fafc" }}>
-                    <th style={{ ...thStyle, textAlign: "center", width: 60 }}>STT</th>
-                    <th style={thStyle}>Khách hàng</th>
+                  <tr>
+                    <th style={{ textAlign: "center", width: 60 }}>STT</th>
+                    <th>Khách hàng</th>
                     {reportMode === "current" ? (
                       <>
-                        <th style={{ ...thStyle, textAlign: "right" }}>Số mã tồn dài kỳ</th>
-                        <th style={{ ...thStyle, textAlign: "right" }}>Tổng số lượng tồn dài kỳ</th>
-                        <th style={{ ...thStyle, textAlign: "right" }}>Tổng giá trị tồn dài kỳ</th>
-                        <th style={{ ...thStyle, textAlign: "right" }}>% trên tổng tồn dài kỳ</th>
-                        <th style={{ ...thStyle, textAlign: "right" }}>% trên tổng tồn kho</th>
+                        <th style={{ textAlign: "right" }}>Số mã Aging</th>
+                        <th style={{ textAlign: "right" }}>Số lượng</th>
+                        <th style={{ textAlign: "right" }}>Giá trị tồn (VNĐ)</th>
+                        <th style={{ textAlign: "right" }}>% trên Aging</th>
+                        <th style={{ textAlign: "right" }}>% trên tổng kho</th>
                       </>
                     ) : (
                       <>
-                        <th style={{ ...thStyle, textAlign: "right", background: "#f1f5f9" }}>Số mã kỳ 1</th>
-                        <th style={{ ...thStyle, textAlign: "right", background: "#f0fdf4" }}>Số mã kỳ 2</th>
-                        <th style={{ ...thStyle, textAlign: "right", background: "#f1f5f9" }}>Giá trị tồn dài kỳ kỳ 1</th>
-                        <th style={{ ...thStyle, textAlign: "right", background: "#f0fdf4" }}>Giá trị tồn dài kỳ kỳ 2</th>
-                        <th style={{ ...thStyle, textAlign: "right" }}>Chênh lệch</th>
-                        <th style={{ ...thStyle, textAlign: "right" }}>% chênh lệch</th>
+                        <th style={{ textAlign: "right", background: "var(--slate-50)" }}>Số mã (K1)</th>
+                        <th style={{ textAlign: "right", background: "var(--brand-light)", opacity: 0.1 }}>Số mã (K2)</th>
+                        <th style={{ textAlign: "right", background: "var(--slate-50)" }}>Giá trị (K1)</th>
+                        <th style={{ textAlign: "right", background: "var(--brand-light)", opacity: 0.1 }}>Giá trị (K2)</th>
+                        <th style={{ textAlign: "right" }}>Biến động</th>
+                        <th style={{ textAlign: "right" }}>% Thay đổi</th>
                       </>
                     )}
                   </tr>
@@ -1403,118 +1412,116 @@ export default function InventoryAgingReportPage() {
                 <tbody>
                   {reportMode === "current" ? customerSummary.map((c, i) => (
                     <tr key={c.customer_id || `uc-${i}`}>
-                      <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
-                      <td style={tdStyle}>{customerLabel(c.customer_id)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.productCount)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.qty)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: "#991b1b" }}>{fmtNum(c.value)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{overallTotals.tValLongAging > 0 ? fmtPercent((c.value / overallTotals.tValLongAging) * 100) : "0.00%"}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", color: "#475569" }}>{overallTally > 0 ? fmtPercent((c.value / overallTally) * 100) : "0.00%"}</td>
+                      <td style={{ textAlign: "center" }}>{i + 1}</td>
+                      <td style={{ fontWeight: 500 }}>{customerLabel(c.customer_id)}</td>
+                      <td style={{ textAlign: "right" }}>{fmtNum(c.productCount)}</td>
+                      <td style={{ textAlign: "right" }}>{fmtNum(c.qty)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 700, color: "var(--color-danger)" }}>{fmtNum(c.value)}</td>
+                      <td style={{ textAlign: "right", color: "var(--slate-500)" }}>{overallTotals.tValLongAging > 0 ? fmtPercent((c.value / overallTotals.tValLongAging) * 100) : "0.00%"}</td>
+                      <td style={{ textAlign: "right", color: "var(--slate-500)" }}>{overallTally > 0 ? fmtPercent((c.value / overallTally) * 100) : "0.00%"}</td>
                     </tr>
                   )) : compareCustomerSummary.map((c, i) => (
                     <tr key={c.customer_id || `cc-${i}`}>
-                      <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
-                      <td style={tdStyle}>{customerLabel(c.customer_id)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", background: "#f8fafc" }}>{fmtNum(c.count1)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", background: "#f0fdf4" }}>{fmtNum(c.count2)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", background: "#f8fafc" }}>{fmtNum(c.val1)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", background: "#f0fdf4" }}>{fmtNum(c.val2)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", color: c.valDiff > 0 ? "#b91c1c" : c.valDiff < 0 ? "#15803d" : "inherit" }}>{c.valDiff > 0 ? "+" : ""}{fmtNum(c.valDiff)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", color: c.pctDiff > 0 ? "#b91c1c" : c.pctDiff < 0 ? "#15803d" : "inherit" }}>{c.pctDiff > 0 ? "+" : ""}{fmtPercent(c.pctDiff)}</td>
+                      <td style={{ textAlign: "center" }}>{i + 1}</td>
+                      <td style={{ fontWeight: 500 }}>{customerLabel(c.customer_id)}</td>
+                      <td style={{ textAlign: "right", background: "var(--slate-50)" }}>{fmtNum(c.count1)}</td>
+                      <td style={{ textAlign: "right", background: "var(--slate-50)" }}>{fmtNum(c.count2)}</td>
+                      <td style={{ textAlign: "right", background: "var(--slate-50)" }}>{fmtNum(c.val1)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 700, background: "var(--slate-50)" }}>{fmtNum(c.val2)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 700, color: c.pctDiff > 0 ? "var(--color-danger)" : c.pctDiff < 0 ? "var(--color-success)" : "inherit" }}>{c.pctDiff > 0 ? "+" : ""}{fmtPercent(c.pctDiff)}</td>
                     </tr>
                   ))}
                   {(reportMode === "current" ? customerSummary : compareCustomerSummary).length === 0 && (
-                    <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: "#888", border: "1px solid #ddd" }}>Không có số liệu.</td></tr>
+                    <tr><td colSpan={8} style={{ padding: 48, textAlign: "center", color: "var(--slate-500)" }}>Không có số liệu cho bộ lọc này.</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
           </section>
-
-          {/* ---- DETAIL / COMPARE PRODUCT TABLE ---- */}
           <section>
-            <h2 style={{ fontSize: 18, borderBottom: "2px solid #ddd", paddingBottom: 8, marginBottom: 16 }}>
-              {reportMode === "current" ? "Chi tiết các mã tồn dài kỳ" : "So sánh mã tồn dài kỳ giữa 2 kỳ"}
-            </h2>
-            <div style={{ overflowX: "auto" }} ref={tableRef}>
+            <div className="toolbar" style={{ marginBottom: 16 }}>
+              <h3 className="modal-title" style={{ margin: 0 }}>
+                {reportMode === "current" ? "Chi tiết các mã Aging" : "Biến động chi tiết theo mã hàng"}
+              </h3>
+            </div>
+            <div className="data-table-wrap" ref={tableRef}>
               {reportMode === "current" ? (
-                <table style={{ borderCollapse: "collapse", minWidth: 1000, width: "100%", border: "1px solid #ddd", background: "white" }}>
+                <table className="data-table">
                   <thead>
-                    <tr style={{ background: "#f8fafc" }}>
-                      <th style={{ ...thStyle, textAlign: "center", width: 50 }}>STT</th>
+                    <tr>
+                      <th style={{ textAlign: "center", width: 50 }}>STT</th>
                       <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} />
                       <ThCell label="Tên hàng" colKey="name" sortable isNum={false} />
                       <ThCell label="Kích thước" colKey="spec" sortable={false} isNum={false} />
-                      <ThCell label="Số lượng tồn dài kỳ" colKey="current_qty" sortable isNum align="right" />
+                      <ThCell label="Số lượng" colKey="current_qty" sortable isNum align="right" />
                       <ThCell label="Đơn giá" colKey="unit_price" sortable isNum align="right" />
-                      <ThCell label="Giá trị tồn dài kỳ" colKey="inventory_value" sortable isNum align="right" />
-                      <ThCell label="% trên tổng tồn dài kỳ" colKey="pct_aging" sortable isNum align="right" />
-                      <ThCell label="% trên tổng tồn kho" colKey="pct_global" sortable isNum align="right" />
-                      <ThCell label="Ghi chú tồn dài kỳ" colKey="note" sortable={false} isNum={false} />
+                      <ThCell label="Giá trị Aging" colKey="inventory_value" sortable isNum align="right" />
+                      <ThCell label="% / Aging" colKey="pct_aging" sortable isNum align="right" />
+                      <ThCell label="% / Tổng" colKey="pct_global" sortable isNum align="right" />
+                      <ThCell label="Ghi chú" colKey="note" sortable={false} isNum={false} />
                     </tr>
                   </thead>
                   <tbody>
                     {displayDetailData.map((p, i) => (
-                      <tr key={`${p.product.id}-${p.customer_id}`} style={{ background: "#fdf8f6" }}>
-                        <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
-                        <td style={{ ...tdStyle, fontWeight: "bold" }}>{p.product.sku}</td>
-                        <td style={tdStyle}>{p.product.name}</td>
-                        <td style={{ ...tdStyle, fontSize: "13px" }}>{p.product.spec || ""}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold" }}>{fmtNum(p.current_qty)}</td>
-                        <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(p.product.unit_price)}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: "#991b1b" }}>{fmtNum(p.inventory_value)}</td>
-                        <td style={{ ...tdStyle, textAlign: "right" }}>{overallTotals.tValLongAging > 0 ? fmtPercent((p.inventory_value / overallTotals.tValLongAging) * 100) : "0.00%"}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", color: "#475569" }}>{overallTally > 0 ? fmtPercent((p.inventory_value / overallTally) * 100) : "0.00%"}</td>
-                        <td style={{ ...tdStyle, color: "#666", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{p.long_aging_note || ""}</td>
+                      <tr key={`${p.product.id}-${p.customer_id}`}>
+                        <td style={{ textAlign: "center" }}>{i + 1}</td>
+                        <td style={{ fontWeight: 600 }}>{p.product.sku}</td>
+                        <td>{p.product.name}</td>
+                        <td style={{ fontSize: 12, color: "var(--slate-500)" }}>{p.product.spec || "—"}</td>
+                        <td style={{ textAlign: "right", fontWeight: 600 }}>{fmtNum(p.current_qty)}</td>
+                        <td style={{ textAlign: "right", color: "var(--slate-500)" }}>{fmtNum(p.product.unit_price)}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700, color: "var(--color-danger)" }}>{fmtNum(p.inventory_value)}</td>
+                        <td style={{ textAlign: "right", fontSize: 12 }}>{overallTotals.tValLongAging > 0 ? fmtPercent((p.inventory_value / overallTotals.tValLongAging) * 100) : "0.00%"}</td>
+                        <td style={{ textAlign: "right", fontSize: 12 }}>{overallTally > 0 ? fmtPercent((p.inventory_value / overallTally) * 100) : "0.00%"}</td>
+                        <td style={{ fontSize: 12, fontStyle: "italic", color: "var(--slate-500)" }}>{p.long_aging_note || "—"}</td>
                       </tr>
                     ))}
                     {displayDetailData.length === 0 && (
-                      <tr><td colSpan={10} style={{ border: "1px solid #ddd", padding: 24, textAlign: "center", color: "#888" }}>Không có sản phẩm tồn dài kỳ nào khớp điều kiện lọc.</td></tr>
+                      <tr><td colSpan={10} style={{ padding: 48, textAlign: "center", color: "var(--slate-500)" }}>Không tìm thấy sản phẩm nào khớp điều kiện lọc.</td></tr>
                     )}
                   </tbody>
                 </table>
               ) : (
-                <table style={{ borderCollapse: "collapse", minWidth: 1100, width: "100%", border: "1px solid #ddd", background: "white" }}>
+                <table className="data-table">
                   <thead>
-                    <tr style={{ background: "#f8fafc" }}>
-                      <th style={{ ...thStyle, textAlign: "center", width: 50 }}>STT</th>
-                      <th style={thStyle}>Mã hàng</th>
-                      <th style={thStyle}>Tên hàng</th>
-                      <th style={thStyle}>Kích thước</th>
-                      <th style={{ ...thStyle, textAlign: "right", background: "#f1f5f9" }}>SL tồn dài kỳ kỳ 1</th>
-                      <th style={{ ...thStyle, textAlign: "right", background: "#f0fdf4" }}>SL tồn dài kỳ kỳ 2</th>
-                      <th style={{ ...thStyle, textAlign: "right", background: "#f1f5f9" }}>Giá trị tồn dài kỳ kỳ 1</th>
-                      <th style={{ ...thStyle, textAlign: "right", background: "#f0fdf4" }}>Giá trị tồn dài kỳ kỳ 2</th>
-                      <th style={{ ...thStyle, textAlign: "right" }}>Chênh lệch</th>
-                      <th style={{ ...thStyle, textAlign: "right" }}>% chênh lệch</th>
-                      <th style={thStyle}>Ghi chú tồn dài kỳ</th>
+                    <tr>
+                      <th style={{ textAlign: "center", width: 50 }}>STT</th>
+                      <th>Mã hàng</th>
+                      <th>Tên hàng</th>
+                      <th>Quy cách</th>
+                      <th style={{ textAlign: "right" }}>Giá trị Aging (K1)</th>
+                      <th style={{ textAlign: "right" }}>Giá trị Aging (K2)</th>
+                      <th style={{ textAlign: "right" }}>Biến động</th>
+                      <th style={{ textAlign: "right" }}>% Thay đổi</th>
+                      <th>Ghi chú</th>
                     </tr>
                   </thead>
                   <tbody>
                     {compareAgingData.map((p, i) => (
-                      <tr key={`${p.product.id}-${p.customer_id}`} style={{ background: i % 2 === 0 ? "#fdf8f6" : "white" }}>
-                        <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
-                        <td style={{ ...tdStyle, fontWeight: "bold" }}>{p.product.sku}</td>
-                        <td style={tdStyle}>{p.product.name}</td>
-                        <td style={{ ...tdStyle, fontSize: "13px" }}>{p.product.spec || ""}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", background: "#f8fafc" }}>{p.isAging1 ? fmtNum(p.qty1) : "–"}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", background: "#f0fdf4" }}>{p.isAging2 ? fmtNum(p.qty2) : "–"}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", background: "#f8fafc" }}>{p.isAging1 ? fmtNum(p.val1) : "–"}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: "bold", color: "#991b1b", background: "#f0fdf4" }}>{p.isAging2 ? fmtNum(p.val2) : "–"}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", color: p.valDiff > 0 ? "#b91c1c" : p.valDiff < 0 ? "#15803d" : "inherit" }}>{p.valDiff > 0 ? "+" : ""}{fmtNum(p.valDiff)}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", color: p.pctDiff > 0 ? "#b91c1c" : p.pctDiff < 0 ? "#15803d" : "inherit" }}>{p.pctDiff > 0 ? "+" : ""}{fmtPercent(p.pctDiff)}</td>
-                        <td style={{ ...tdStyle, color: "#666", maxWidth: 200, fontSize: 12 }}>{p.isAging2 ? (p.note2 || "") : (p.note1 || "")}</td>
+                      <tr key={`${p.product.id}-${p.customer_id}`}>
+                        <td style={{ textAlign: "center" }}>{i + 1}</td>
+                        <td style={{ fontWeight: 600 }}>{p.product.sku}</td>
+                        <td style={{ fontWeight: 500 }}>{p.product.name}</td>
+                        <td style={{ fontSize: 12, color: "var(--slate-500)" }}>{p.product.spec || "—"}</td>
+                        <td style={{ textAlign: "right", background: "var(--slate-50)" }}>{p.isAging1 ? fmtNum(p.val1) : "–"}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700, background: "var(--slate-50)" }}>{p.isAging2 ? fmtNum(p.val2) : "–"}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700, color: p.valDiff > 0 ? "var(--color-danger)" : p.valDiff < 0 ? "var(--color-success)" : "inherit" }}>
+                          {p.valDiff > 0 ? "+" : ""}{fmtNum(p.valDiff)}
+                        </td>
+                        <td style={{ textAlign: "right", fontWeight: 700, color: p.pctDiff > 0 ? "var(--color-danger)" : p.pctDiff < 0 ? "var(--color-success)" : "inherit" }}>
+                          {p.pctDiff > 0 ? "+" : ""}{fmtPercent(p.pctDiff)}
+                        </td>
+                        <td style={{ fontSize: 12, color: "var(--slate-500)" }}>{p.isAging2 ? (p.note2 || "") : (p.note1 || "")}</td>
                       </tr>
                     ))}
                     {compareAgingData.length === 0 && (
-                      <tr><td colSpan={11} style={{ border: "1px solid #ddd", padding: 24, textAlign: "center", color: "#888" }}>Không có dữ liệu tồn dài kỳ để so sánh.</td></tr>
+                      <tr><td colSpan={11} style={{ padding: 48, textAlign: "center", color: "var(--slate-500)" }}>Không có dữ liệu tồn lâu để so sánh.</td></tr>
                     )}
                   </tbody>
                 </table>
               )}
             </div>
           </section>
-
         </div>
       )}
     </div>

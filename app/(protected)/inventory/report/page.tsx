@@ -6,6 +6,7 @@ import { buildStockRows, SnapshotRow, TransactionRow } from "../shared/calc";
 import { formatToVietnameseDate, computeSnapshotBounds, applySamePeriodLastYearDates } from "../shared/date-utils";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
+import { exportToExcel } from "@/lib/excel-utils";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -510,195 +511,232 @@ export default function InventoryReportPage() {
       }
 
       showToast("Đã chốt dữ liệu thành công!", "success");
-    } catch (err: any) {
-      setError(err?.message ?? "Lỗi khi chốt dữ liệu");
     } finally {
       setClosing(false);
     }
   }
 
+  function handleExportExcel() {
+    const data = displayData.map((r, i) => ({
+      "STT": i + 1,
+      "Khách hàng": customerLabel(r.customer_id),
+      "Mã hàng (SKU)": r.product.sku,
+      "Tên hàng": r.product.name,
+      "Kích thước": r.product.spec || "",
+      "Tồn đầu kỳ": r.opening_qty,
+      "Nhập": r.inbound_qty,
+      "Xuất": r.outbound_qty,
+      "Tồn hiện tại": r.current_qty,
+      "Đơn giá": r.product.unit_price ?? 0,
+      "Giá trị tồn kho": r.inventory_value ?? 0
+    }));
+    exportToExcel(data, `Ton_kho_hien_tai_${new Date().toISOString().slice(0,10)}`, "Inventory");
+  }
+
   return (
-    <div style={{ fontFamily: "sans-serif" }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8 }}>
-        <h1 style={{ margin: 0 }}>Tồn Kho Hiện Tại</h1>
-        <button onClick={closeReport} disabled={closing || loading || displayData.length === 0} style={{ padding: "8px 16px", cursor: "pointer", background: "#0f172a", color: "white", border: "none", borderRadius: 4, fontWeight: 600, opacity: closing ? 0.6 : 1 }}>
-          {closing ? "Đang chốt..." : "📋 Chốt dữ liệu"}
-        </button>
+    <div className="page-root">
+      <div className="page-header">
+        <div>
+          <h1>Tồn Kho Hiện Tại</h1>
+          <p className="page-subtitle">
+            Kỳ dữ liệu: <strong>{formatToVietnameseDate(bounds.effectiveStart)}</strong> đến <strong>{formatToVietnameseDate(bounds.effectiveEnd)}</strong>
+          </p>
+        </div>
+        <div className="toolbar" style={{ margin: 0 }}>
+          <button 
+            onClick={closeReport} 
+            disabled={closing || loading || displayData.length === 0} 
+            className="btn btn-primary"
+            style={{ minWidth: 140 }}
+          >
+            {closing ? "Đang chốt..." : "📋 Chốt dữ liệu"}
+          </button>
+          <button onClick={handleExportExcel} className="btn btn-secondary">
+            📊 Xuất Excel
+          </button>
+        </div>
       </div>
 
-      {error && <ErrorBanner message={error} onDismiss={() => setError("")} />}
+      <ErrorBanner message={error} onDismiss={() => setError("")} />
 
       {/* ---- Cards ---- */}
-      <div style={{ display: "flex", gap: 16, marginTop: 24, marginBottom: 24, flexWrap: "wrap" }}>
-        <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#fdfdfdff", minWidth: 200 }}>
-          <div style={{ fontSize: 20, color: "#f17b0bff", fontWeight: 600 }}>Tổng số lượng tồn hiện tại</div>
-          <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 8 }}>{fmtNum(totals.qty)}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 24 }}>
+        <div style={{ 
+          background: "white", borderRadius: 12, padding: "20px", 
+          border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,.04)",
+          borderLeft: "5px solid #f17b0b"
+        }}>
+          <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>Tổng số lượng tồn</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{fmtNum(totals.qty)}</div>
         </div>
-        <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#fafffa", minWidth: 200 }}>
-          <div style={{ fontSize: 20, color: "#2E7D32", fontWeight: 600 }}>Tổng giá trị tồn kho (VNĐ)</div>
-          <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 8, color: "#0c0c0cff" }}>
-            {fmtNum(totals.val)}
-          </div>
+        
+        <div style={{ 
+          background: "white", borderRadius: 12, padding: "20px", 
+          border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,.04)",
+          borderLeft: "5px solid #16a34a"
+        }}>
+          <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>Tổng giá trị tồn kho (VNĐ)</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{fmtNum(totals.val)}</div>
         </div>
-        <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#f0f9ff", minWidth: 200 }}>
-          <div style={{ fontSize: 20, color: "#0284c7", fontWeight: 600 }}>Tổng nhập (Đã bao gồm điều chỉnh)</div>
-          <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 8 }}>{fmtNum(totals.srcIn)}</div>
+
+        <div style={{ 
+          background: "white", borderRadius: 12, padding: "20px", 
+          border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,.04)",
+          borderLeft: "5px solid #0284c7"
+        }}>
+          <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>Tổng nhập (Đã điều chỉnh)</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{fmtNum(totals.srcIn)}</div>
         </div>
-        <div style={{ padding: 16, border: "1px solid #ccc", borderRadius: 8, background: "#fff1f2", minWidth: 200 }}>
-          <div style={{ fontSize: 20, color: "#e11d48", fontWeight: 600 }}>Tổng xuất (Đã bao gồm điều chỉnh)</div>
-          <div style={{ fontSize: 20, fontWeight: "bold", marginTop: 8 }}>{fmtNum(totals.srcOut)}</div>
+
+        <div style={{ 
+          background: "white", borderRadius: 12, padding: "20px", 
+          border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,.04)",
+          borderLeft: "5px solid #e11d48"
+        }}>
+          <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>Tổng xuất (Đã điều chỉnh)</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{fmtNum(totals.srcOut)}</div>
         </div>
       </div>
 
       {/* ---- Top-level Filters ---- */}
-      <div style={{ background: "#f8fafc", padding: "12px 16px", borderRadius: 8, border: "1px solid #e2e8f0", marginBottom: 20 }}>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
-          
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-                Từ ngày
-                <input type="date" value={qStart} onChange={(e) => setQStart(e.target.value)} style={{ padding: 6, fontSize: 13 }} />
-              </label>
-              <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-                Đến ngày
-                <input type="date" value={qEnd} onChange={(e) => setQEnd(e.target.value)} style={{ padding: 6, fontSize: 13 }} />
-              </label>
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button 
-                onClick={() => { setQStart(bounds.prevSnapshotQStart); setQEnd(bounds.prevSnapshotQEnd); }} 
-                style={{ padding: "4px 8px", fontSize: 11, cursor: "pointer", background: "#e2e8f0", border: "1px solid #cbd5e1", borderRadius: 4 }}
-              >
-                So với kỳ trước
-              </button>
-              <button 
-                onClick={() => { const p = applySamePeriodLastYearDates(bounds.effectiveStart, bounds.effectiveEnd); setQStart(p.newStart); setQEnd(p.newEnd); }} 
-                style={{ padding: "4px 8px", fontSize: 11, cursor: "pointer", background: "#e2e8f0", border: "1px solid #cbd5e1", borderRadius: 4 }}
-              >
-                So với cùng kỳ năm trước
-              </button>
-            </div>
+      <div className="filter-panel toolbar" style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "#64748b" }}>Từ</span>
+            <input type="date" value={qStart} onChange={(e) => setQStart(e.target.value)} className="input" style={{ width: 140 }} />
+            <span style={{ fontSize: 13, fontWeight: 500, color: "#64748b" }}>đến</span>
+            <input type="date" value={qEnd} onChange={(e) => setQEnd(e.target.value)} className="input" style={{ width: 140 }} />
           </div>
+          
+          <div className="btn-group" style={{ display: "flex", gap: 4 }}>
+            <button 
+              onClick={() => { setQStart(bounds.prevSnapshotQStart); setQEnd(bounds.prevSnapshotQEnd); }} 
+              className="btn btn-secondary btn-sm"
+            >
+              So với kỳ trước
+            </button>
+            <button 
+              onClick={() => { const p = applySamePeriodLastYearDates(bounds.effectiveStart, bounds.effectiveEnd); setQStart(p.newStart); setQEnd(p.newEnd); }} 
+              className="btn btn-secondary btn-sm"
+            >
+              So cùng kỳ năm trước
+            </button>
+          </div>
+        </div>
 
-          <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-            Khách hàng
-            <input
-              list="dl-filter-customer"
-              placeholder="Gõ code / tên..."
-              value={qCustomerSearch}
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginLeft: 8 }}>
+          <input
+            list="dl-filter-customer"
+            placeholder="Tìm mã / tên Khách hàng..."
+            value={qCustomerSearch}
             onChange={(e) => {
               const val = e.target.value;
               setQCustomerSearch(val);
               const matched = customers.find((c) => `${c.code} - ${c.name}` === val);
               setQCustomer(matched ? matched.id : "");
             }}
-            style={{ padding: 8 }}
+            className="input"
+            style={{ width: 220 }}
           />
           <datalist id="dl-filter-customer">
             {customers.map((c) => (
               <option key={c.id} value={`${c.code} - ${c.name}`} />
             ))}
           </datalist>
-        </label>
 
-        <label style={{ display: "grid", gap: 4, fontSize: 13, fontWeight: 500 }}>
-          Mã / Tên hàng
           <input
             value={qProduct}
             onChange={(e) => setQProduct(e.target.value)}
-            style={{ padding: 8, minWidth: 200, fontSize: 14 }}
-            placeholder="Tìm kiếm..."
+            className="input"
+            placeholder="Tìm Mã / Tên hàng..."
+            style={{ width: 200 }}
           />
-        </label>
-
-        <div style={{ borderLeft: "1px solid #cbd5e1", marginLeft: 4, paddingLeft: 12, display: "flex", height: 36, alignItems: "center" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={onlyInStock}
-              onChange={(e) => setOnlyInStock(e.target.checked)}
-            />
-            Chỉ hiện hàng còn tồn ({">"} 0)
-          </label>
         </div>
+
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", marginLeft: 8, color: "var(--slate-600)" }}>
+          <input
+            type="checkbox"
+            checked={onlyInStock}
+            onChange={(e) => setOnlyInStock(e.target.checked)}
+            style={{ cursor: "pointer" }}
+          />
+          Chỉ hiện hàng còn tồn
+        </label>
 
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           {(qStart !== defStart || qEnd !== defEnd || qCustomer || qProduct) && (
-            <button onClick={() => { setQStart(defStart); setQEnd(defEnd); setQCustomer(""); setQCustomerSearch(""); setQProduct(""); }} style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 4 }}>
+            <button onClick={() => { setQStart(defStart); setQEnd(defEnd); setQCustomer(""); setQCustomerSearch(""); setQProduct(""); }} className="btn btn-ghost btn-sm">
               Xóa lọc
             </button>
           )}
 
-          <button onClick={load} style={{ padding: "8px 16px", cursor: "pointer", fontSize: 13, background: "#0f172a", color: "white", border: "none", borderRadius: 4 }}>
+          <button onClick={load} className="btn btn-secondary">
             Làm mới
           </button>
 
           {activeFilterCount > 0 && (
             <button
               onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-              style={{ padding: "8px 12px", cursor: "pointer", fontSize: 12, background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 4, color: "#991b1b" }}
+              className="btn btn-clear-filter"
             >
               Xóa lọc cột ({activeFilterCount})
             </button>
           )}
         </div>
-        </div>
+      </div>
 
-        {/* Show selected ranges & baseline metadata */}
-        <div style={{ marginTop: 12, fontSize: 13, color: "#475569", display: "flex", gap: 16 }}>
-          <span><strong>Kỳ dữ liệu:</strong> Từ ngày {formatToVietnameseDate(bounds.effectiveStart)} đến ngày {formatToVietnameseDate(bounds.effectiveEnd)}</span>
-          {bounds.S && (
-            <span style={{ padding: "2px 6px", background: "#e2e8f0", borderRadius: 4, fontSize: 12 }}>
-              Mốc tồn: {formatToVietnameseDate(bounds.S)}
-            </span>
-          )}
-        </div>
+      <div style={{ marginBottom: 16, fontSize: 13, color: "#64748b", display: "flex", gap: 12, alignItems: "center" }}>
+        <span>Kỳ báo cáo: <strong>{formatToVietnameseDate(bounds.effectiveStart)}</strong> → <strong>{formatToVietnameseDate(bounds.effectiveEnd)}</strong></span>
+        {bounds.S && (
+          <span style={{ padding: "2px 8px", background: "var(--slate-100)", borderRadius: 6, fontSize: 12 }}>
+            Mốc tồn snapshot: {formatToVietnameseDate(bounds.S)}
+          </span>
+        )}
       </div>
 
       {/* ---- Table ---- */}
       {loading ? (
         <LoadingInline text="Đang tải báo cáo..." />
       ) : (
-        <div style={{ overflowX: "auto" }} ref={tableRef}>
-          <table style={{ borderCollapse: "collapse", minWidth: 1000, width: "100%", border: "1px solid #eee" }}>
+        <div className="data-table-wrap" ref={tableRef}>
+          <table className="data-table" style={{ minWidth: 1200 }}>
             <thead>
-              <tr style={{ background: "#fafafa" }}>
-                <th style={{ textAlign: "center", border: "1px solid #ddd", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap", borderBottom: "2px solid #ddd" }}>STT</th>
+              <tr>
+                <th style={{ textAlign: "center", width: 50 }}>STT</th>
                 <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} />
                 <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} />
                 <ThCell label="Tên hàng" colKey="name" sortable isNum={false} />
                 <ThCell label="Kích thước" colKey="spec" sortable={false} isNum={false} />
                 <ThCell label="Tồn đầu kỳ" colKey="opening_qty" sortable isNum align="right" />
-                <ThCell label="Nhập" colKey="inbound_qty" sortable isNum align="right" extra={{ background: "#fafafaff" }} />
-                <ThCell label="Xuất" colKey="outbound_qty" sortable isNum align="right" extra={{ background: "#ffffffff" }} />
-                <ThCell label="Tồn còn lại" colKey="current_qty" sortable isNum align="right" extra={{ color: "#f70404ff", background: "#fcfc0344" }} />
+                <ThCell label="Nhập" colKey="inbound_qty" sortable isNum align="right" />
+                <ThCell label="Xuất" colKey="outbound_qty" sortable isNum align="right" />
+                <ThCell label="Tồn còn lại" colKey="current_qty" sortable isNum align="right" />
                 <ThCell label="Đơn giá" colKey="unit_price" sortable isNum align="right" />
-                <ThCell label="Giá trị tồn kho" colKey="inventory_value" sortable isNum align="right" extra={{ color: "#f70404ff", background: "#fcfc0344" }} />
+                <ThCell label="Giá trị tồn kho" colKey="inventory_value" sortable isNum align="right" />
               </tr>
             </thead>
             <tbody>
               {displayData.map((r, i) => (
                 <tr key={`${r.product.id}-${r.customer_id}`}>
-                  <td style={{ ...cellStyle, textAlign: "center" }}>{i + 1}</td>
-                  <td style={{ ...cellStyle, whiteSpace: "nowrap", fontSize: "18px" }}>{customerLabel(r.customer_id)}</td>
-                  <td style={{ ...cellStyle, fontWeight: "bold" }}>{r.product.sku}</td>
-                  <td style={cellStyle}>{r.product.name}</td>
-                  <td style={cellStyle}>{r.product.spec || ""}</td>
+                  <td style={{ textAlign: "center" }}>{i + 1}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>{customerLabel(r.customer_id)}</td>
+                  <td style={{ fontWeight: 600 }}>{r.product.sku}</td>
+                  <td>{r.product.name}</td>
+                  <td style={{ color: "#64748b" }}>{r.product.spec || "—"}</td>
 
-                  <td style={{ ...cellStyle, textAlign: "right", background: "#fbfcf8ff" }}>{fmtNum(r.opening_qty)}</td>
-                  <td style={{ ...cellStyle, textAlign: "right", color: r.inbound_qty > 0 ? "black" : "inherit" }}>{fmtNum(r.inbound_qty)}</td>
-                  <td style={{ ...cellStyle, textAlign: "right", color: r.outbound_qty > 0 ? "crimson" : "inherit" }}>{fmtNum(r.outbound_qty)}</td>
+                  <td style={{ textAlign: "right" }}>{fmtNum(r.opening_qty)}</td>
+                  <td style={{ textAlign: "right", color: r.inbound_qty > 0 ? "var(--color-success)" : "inherit" }}>{fmtNum(r.inbound_qty)}</td>
+                  <td style={{ textAlign: "right", color: r.outbound_qty > 0 ? "var(--color-danger)" : "inherit" }}>{fmtNum(r.outbound_qty)}</td>
 
-                  <td style={{ ...cellStyle, textAlign: "right", color: "#f70404ff", fontWeight: "bold", background: "#fcfc0344" }}>{fmtNum(r.current_qty)}</td>
-                  <td style={{ ...cellStyle, textAlign: "right" }}>{fmtNum(r.product.unit_price)}</td>
-                  <td style={{ ...cellStyle, textAlign: "right", color: "#f70404ff", fontWeight: "bold", background: "#fcfc0344" }}>{fmtNum(r.inventory_value)}</td>
+                  <td style={{ textAlign: "right", color: "var(--color-danger)", fontWeight: 700, backgroundColor: "rgba(239, 68, 68, 0.05)" }}>{fmtNum(r.current_qty)}</td>
+                  <td style={{ textAlign: "right" }}>{fmtNum(r.product.unit_price)}</td>
+                  <td style={{ textAlign: "right", color: "var(--color-danger)", fontWeight: 700, backgroundColor: "rgba(239, 68, 68, 0.05)" }}>{fmtNum(r.inventory_value)}</td>
                 </tr>
               ))}
               {displayData.length === 0 && (
                 <tr>
-                  <td colSpan={13} style={{ padding: 24, textAlign: "center", color: "#888" }}>
-                    Không có số liệu tồn kho nào (hoặc không khớp bộ lọc).
+                  <td colSpan={13} style={{ padding: 48, textAlign: "center", color: "#64748b" }}>
+                    Không có số liệu tồn kho nào khớp với bộ lọc.
                   </td>
                 </tr>
               )}
