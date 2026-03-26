@@ -27,7 +27,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
-  // form state
+  // form state (single add/edit)
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [sku, setSku] = useState("");
@@ -37,6 +37,50 @@ export default function ProductsPage() {
   const [unitPrice, setUnitPrice] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [isActive, setIsActive] = useState(true);
+
+  // bulk add state
+  type BulkLine = { key: number; customerId: string; sku: string; name: string; spec: string; uom: string; unitPrice: string; };
+  let bulkKeySeq = 100;
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkLines, setBulkLines] = useState<BulkLine[]>([{ key: bulkKeySeq++, customerId: "", sku: "", name: "", spec: "", uom: "pcs", unitPrice: "" }]);
+  const [bulkSaving, setBulkSaving] = useState(false);
+
+  function addBulkLine() {
+    setBulkLines(prev => [...prev, { key: bulkKeySeq++, customerId: customers[0]?.id ?? "", sku: "", name: "", spec: "", uom: "pcs", unitPrice: "" }]);
+  }
+  function removeBulkLine(key: number) {
+    setBulkLines(prev => prev.length <= 1 ? prev : prev.filter(l => l.key !== key));
+  }
+  function updateBulkLine(key: number, field: keyof Omit<BulkLine, "key">, value: string) {
+    setBulkLines(prev => prev.map(l => l.key === key ? { ...l, [field]: value } : l));
+  }
+  async function saveBulk() {
+    setError("");
+    const validLines = bulkLines.filter(l => l.sku.trim() || l.name.trim());
+    if (validLines.length === 0) { setError("Chưa có dòng nào có dữ liệu."); return; }
+    for (let i = 0; i < validLines.length; i++) {
+      const l = validLines[i];
+      if (!l.sku.trim()) { setError(`Dòng ${i + 1}: thiếu Mã hàng (SKU).`); return; }
+      if (!l.name.trim()) { setError(`Dòng ${i + 1}: thiếu Tên hàng.`); return; }
+      if (!l.customerId) { setError(`Dòng ${i + 1}: chưa chọn Khách hàng.`); return; }
+    }
+    setBulkSaving(true);
+    try {
+      const insertRows = validLines.map(l => ({
+        sku: l.sku.trim(), name: l.name.trim(),
+        spec: l.spec.trim() || null, uom: l.uom.trim() || "pcs",
+        unit_price: l.unitPrice ? Number(l.unitPrice) : null,
+        customer_id: l.customerId, is_active: true,
+      }));
+      const { error } = await supabase.from("products").insert(insertRows);
+      if (error) throw error;
+      setBulkLines([{ key: bulkKeySeq++, customerId: customers[0]?.id ?? "", sku: "", name: "", spec: "", uom: "pcs", unitPrice: "" }]);
+      setBulkOpen(false);
+      showToast(`Đã thêm ${insertRows.length} mã hàng.`, "success");
+      await load();
+    } catch (err: any) { setError(err?.message ?? "Lỗi khi lưu"); }
+    finally { setBulkSaving(false); }
+  }
 
   function fmtNum(n: number | null | undefined): string {
     if (n == null) return "";
@@ -501,6 +545,9 @@ export default function ProductsPage() {
           <button onClick={openCreate} style={{ padding: 10, cursor: "pointer", background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 4, fontWeight: 600 }}>
             + Thêm mã hàng
           </button>
+          <button onClick={() => setBulkOpen(!bulkOpen)} style={{ padding: 10, cursor: "pointer", background: bulkOpen ? "#0f172a" : "#f8fafc", color: bulkOpen ? "white" : "inherit", border: "1px solid #cbd5e1", borderRadius: 4, fontWeight: 600 }}>
+            {bulkOpen ? "✕ Đóng" : "≡ Thêm nhiều mã"}
+          </button>
           <button onClick={load} style={{ padding: 10, cursor: "pointer", background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 4 }}>
             Làm mới
           </button>
@@ -519,6 +566,69 @@ export default function ProductsPage() {
           )}
         </div>
       </div>
+
+      {/* ── Bulk Add Panel ── */}
+      {bulkOpen && (
+        <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 10, padding: 20, margin: "12px 0", boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}>
+          <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>≡ Thêm nhiều mã hàng</h3>
+          <ErrorBanner message={error} onDismiss={() => setError("")} />
+          <div style={{ overflowX: "auto", marginBottom: 10 }}>
+            <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 900 }}>
+              <thead>
+                <tr>
+                  {["#", "Khách hàng *", "Mã hàng (SKU) *", "Tên hàng *", "Spec/Kích thước", "ĐVT", "Đơn giá", ""].map((h, i) => (
+                    <th key={i} style={{ padding: "8px 10px", background: "#f8fafc", fontSize: 12, fontWeight: 600, color: "#475569", textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {bulkLines.map((l, idx) => (
+                  <tr key={l.key} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "6px 10px", color: "#94a3b8", fontSize: 12, width: 30 }}>{idx + 1}</td>
+                    <td style={{ padding: "6px 8px", minWidth: 180 }}>
+                      <select value={l.customerId} onChange={e => updateBulkLine(l.key, "customerId", e.target.value)}
+                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }}>
+                        <option value="">-- Chọn KH --</option>
+                        {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+                      </select>
+                    </td>
+                    <td style={{ padding: "6px 8px", minWidth: 120 }}>
+                      <input value={l.sku} onChange={e => updateBulkLine(l.key, "sku", e.target.value)} placeholder="VD: SP001"
+                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }} />
+                    </td>
+                    <td style={{ padding: "6px 8px", minWidth: 200 }}>
+                      <input value={l.name} onChange={e => updateBulkLine(l.key, "name", e.target.value)} placeholder="Tên hàng..."
+                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }} />
+                    </td>
+                    <td style={{ padding: "6px 8px", minWidth: 140 }}>
+                      <input value={l.spec} onChange={e => updateBulkLine(l.key, "spec", e.target.value)} placeholder="VD: 100x200mm"
+                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }} />
+                    </td>
+                    <td style={{ padding: "6px 8px", width: 80 }}>
+                      <input value={l.uom} onChange={e => updateBulkLine(l.key, "uom", e.target.value)} placeholder="pcs"
+                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }} />
+                    </td>
+                    <td style={{ padding: "6px 8px", width: 120 }}>
+                      <input type="number" value={l.unitPrice} onChange={e => updateBulkLine(l.key, "unitPrice", e.target.value)} min="0" placeholder="Đơn giá..."
+                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 5, fontSize: 13, boxSizing: "border-box" }} />
+                    </td>
+                    <td style={{ padding: "6px 8px", width: 40, textAlign: "center" }}>
+                      <button onClick={() => removeBulkLine(l.key)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 16, lineHeight: 1 }} title="Xóa dòng">✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={addBulkLine} style={{ padding: "7px 14px", border: "1px solid #cbd5e1", borderRadius: 6, background: "#f8fafc", cursor: "pointer", fontSize: 13 }}>+ Thêm dòng</button>
+            <button onClick={saveBulk} disabled={bulkSaving} style={{ padding: "7px 16px", background: bulkSaving ? "#94a3b8" : "var(--brand)", color: "white", border: "none", borderRadius: 6, cursor: bulkSaving ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 13 }}>
+              {bulkSaving ? "Đang lưu..." : "💾 Lưu tất cả"}
+            </button>
+            <button onClick={() => setBulkOpen(false)} style={{ padding: "7px 14px", border: "1px solid #e2e8f0", borderRadius: 6, background: "white", cursor: "pointer", fontSize: 13 }}>Hủy</button>
+          </div>
+        </div>
+      )}
 
       <div style={{ overflowX: "auto", marginTop: 16 }} ref={containerRef}>
         <table style={{ borderCollapse: "collapse", minWidth: 1000, border: "1px solid #ddd" }}>

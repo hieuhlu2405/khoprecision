@@ -31,6 +31,7 @@ function buildMenu(p: Profile, isAdmin: boolean) {
     { label: "Tồn đầu kỳ", href: "/inventory/opening", show: true },
     { label: "Nhập kho", href: "/inventory/inbound", show: true },
     { label: "Xuất kho", href: "/inventory/outbound", show: true },
+    { label: "Nhập phôi", href: "/inventory/phoi", show: true },
     { label: "Kiểm kê", href: "/inventory/stocktake", show: true },
 
     { label: "Báo cáo", show: true, isHeader: true },
