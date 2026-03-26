@@ -3,65 +3,6 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-/* ── Brand color ───────────────────────────────────────────────── */
-const BRAND = "#2487C8";
-const BRAND_DARK = "#1A6BA8";
-const BRAND_LIGHT = "#E8F4FD";
-
-/* ── Precision Packaging SVG Logo ──────────────────────────────── */
-function PPLogo({ size = 72 }: { size?: number }) {
-  const s = size;
-  return (
-    <svg
-      width={s * 2.4}
-      height={s}
-      viewBox="0 0 240 100"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* ── Geometric chevron mark ── */}
-      {/* Back chevron (lighter) */}
-      <polygon points="8,88 36,12 50,12 22,88" fill={BRAND} opacity="0.55" />
-      {/* Front chevron (solid) */}
-      <polygon points="28,88 56,12 70,12 42,88" fill={BRAND} />
-      {/* Swoosh curve */}
-      <path
-        d="M6,72 Q36,42 68,72"
-        stroke={BRAND}
-        strokeWidth="5"
-        fill="none"
-        strokeLinecap="round"
-      />
-
-      {/* ── PRECISION text ── */}
-      <text
-        x="84"
-        y="58"
-        fontFamily="'Arial Black', 'Arial', sans-serif"
-        fontWeight="900"
-        fontSize="36"
-        fill="#1a2332"
-        letterSpacing="-0.5"
-      >
-        PRECISION
-      </text>
-
-      {/* ── PACKAGING text ── */}
-      <text
-        x="85"
-        y="80"
-        fontFamily="'Arial', sans-serif"
-        fontWeight="400"
-        fontSize="18"
-        fill={BRAND}
-        letterSpacing="3"
-      >
-        PACKAGING
-      </text>
-    </svg>
-  );
-}
-
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
@@ -105,7 +46,7 @@ export default function LoginPage() {
       {/* ── Left panel — Branding ── */}
       <div style={{
         flex: "0 0 45%",
-        background: `linear-gradient(145deg, #0d4f7c 0%, ${BRAND} 60%, #4dbae8 100%)`,
+        background: `linear-gradient(145deg, #0d4f7c 0%, var(--brand) 60%, #4dbae8 100%)`,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -117,17 +58,27 @@ export default function LoginPage() {
         {/* Decorative circles */}
         <div style={{ position: "absolute", top: -80, right: -80, width: 320, height: 320, borderRadius: "50%", background: "rgba(255,255,255,0.06)" }} />
         <div style={{ position: "absolute", bottom: -60, left: -60, width: 240, height: 240, borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
-        <div style={{ position: "absolute", top: "40%", left: -40, width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
 
-        {/* Logo on white card */}
+        {/* Original Logo Image */}
         <div style={{
           background: "white",
           borderRadius: 20,
-          padding: "28px 36px",
+          padding: "24px",
           marginBottom: 36,
           boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}>
-          <PPLogo size={60} />
+          <img
+            src="/logo.jpg"
+            alt="Precision Packaging Logo"
+            style={{
+              maxWidth: "280px",
+              height: "auto",
+              display: "block",
+            }}
+          />
         </div>
 
         <div style={{ color: "white", textAlign: "center", position: "relative", zIndex: 1 }}>
@@ -189,7 +140,7 @@ export default function LoginPage() {
                     background: "white",
                     transition: "border-color 0.2s",
                   }}
-                  onFocus={(e) => { e.target.style.borderColor = BRAND; }}
+                  onFocus={(e) => { e.target.style.borderColor = "var(--brand)"; }}
                   onBlur={(e) => { e.target.style.borderColor = "#e2e8f0"; }}
                 />
               </div>
@@ -216,7 +167,7 @@ export default function LoginPage() {
                     background: "white",
                     transition: "border-color 0.2s",
                   }}
-                  onFocus={(e) => { e.target.style.borderColor = BRAND; }}
+                  onFocus={(e) => { e.target.style.borderColor = "var(--brand)"; }}
                   onBlur={(e) => { e.target.style.borderColor = "#e2e8f0"; }}
                 />
               </div>
@@ -242,7 +193,7 @@ export default function LoginPage() {
               disabled={loading}
               style={{
                 padding: "13px",
-                background: loading ? "#94a3b8" : `linear-gradient(135deg, ${BRAND_DARK}, ${BRAND})`,
+                background: loading ? "#94a3b8" : `linear-gradient(135deg, var(--brand-hover), var(--brand))`,
                 color: "white",
                 border: "none",
                 borderRadius: 10,
@@ -276,14 +227,14 @@ export default function LoginPage() {
             {mode === "login" ? (
               <>Chưa có tài khoản?{" "}
                 <button onClick={() => { setMode("register"); setMsg(null); }}
-                  style={{ background: "none", border: "none", color: BRAND, cursor: "pointer", fontWeight: 700, fontSize: 13, padding: 0 }}>
+                  style={{ background: "none", border: "none", color: "var(--brand)", cursor: "pointer", fontWeight: 700, fontSize: 13, padding: 0 }}>
                   Đăng ký ngay
                 </button>
               </>
             ) : (
               <>Đã có tài khoản?{" "}
                 <button onClick={() => { setMode("login"); setMsg(null); }}
-                  style={{ background: "none", border: "none", color: BRAND, cursor: "pointer", fontWeight: 700, fontSize: 13, padding: 0 }}>
+                  style={{ background: "none", border: "none", color: "var(--brand)", cursor: "pointer", fontWeight: 700, fontSize: 13, padding: 0 }}>
                   Đăng nhập
                 </button>
               </>

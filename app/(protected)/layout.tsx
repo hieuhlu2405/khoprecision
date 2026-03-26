@@ -178,18 +178,20 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
           >
             {!collapsed && (
               <div style={{ overflow: "hidden" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                  {/* Mini logo SVG */}
-                  <svg width="22" height="18" viewBox="0 0 44 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <polygon points="0,36 18,0 26,0 8,36" fill="#2487C8" opacity="0.7"/>
-                    <polygon points="12,36 30,0 38,0 20,36" fill="#2487C8"/>
-                    <path d="M4,28 Q22,10 40,28" stroke="#2487C8" strokeWidth="3" fill="none" strokeLinecap="round"/>
-                  </svg>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {/* Original Logo Thumb */}
+                  <div style={{ 
+                    width: 32, height: 32, background: "white", borderRadius: 6, 
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: 2, flexShrink: 0
+                  }}>
+                    <img src="/logo.jpg" alt="Logo" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 2 }} />
+                  </div>
                   <div>
                     <div style={{ fontWeight: 800, color: "white", fontSize: 13, letterSpacing: "-0.01em", whiteSpace: "nowrap", lineHeight: 1.2 }}>
                       PRECISION
                     </div>
-                    <div style={{ fontSize: 9, color: "#2487C8", letterSpacing: "0.05em", whiteSpace: "nowrap", lineHeight: 1 }}>
+                    <div style={{ fontSize: 9, color: "var(--brand)", letterSpacing: "0.05em", whiteSpace: "nowrap", lineHeight: 1, fontWeight: 700 }}>
                       PACKAGING
                     </div>
                   </div>
