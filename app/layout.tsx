@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Factory Tool",
-  description: "Hệ thống quản lý kho, xuất nhập, kiểm kê và báo cáo nội bộ.",
+  title: "Precision Packaging",
+  description: "Hệ thống quản lý kho nội bộ — Công ty Cổ phần Precision Packaging.",
 };
 
 export default function RootLayout({

@@ -178,11 +178,21 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
           >
             {!collapsed && (
               <div style={{ overflow: "hidden" }}>
-                <div style={{ fontWeight: 800, color: "white", fontSize: 15, letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
-                  Factory Tool
-                </div>
-                <div style={{ fontSize: 10, color: "var(--sidebar-fg-muted)", marginTop: 1 }}>
-                  v1.0 · Internal
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  {/* Mini logo SVG */}
+                  <svg width="22" height="18" viewBox="0 0 44 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="0,36 18,0 26,0 8,36" fill="#2487C8" opacity="0.7"/>
+                    <polygon points="12,36 30,0 38,0 20,36" fill="#2487C8"/>
+                    <path d="M4,28 Q22,10 40,28" stroke="#2487C8" strokeWidth="3" fill="none" strokeLinecap="round"/>
+                  </svg>
+                  <div>
+                    <div style={{ fontWeight: 800, color: "white", fontSize: 13, letterSpacing: "-0.01em", whiteSpace: "nowrap", lineHeight: 1.2 }}>
+                      PRECISION
+                    </div>
+                    <div style={{ fontSize: 9, color: "#2487C8", letterSpacing: "0.05em", whiteSpace: "nowrap", lineHeight: 1 }}>
+                      PACKAGING
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
