@@ -15,6 +15,8 @@ type Profile = {
   role: Role;
   department: Dept;
   is_active: boolean;
+  is_approved: boolean;
+  deleted_at: string | null;
 };
 
 function buildMenu(p: Profile, isAdmin: boolean) {
@@ -114,6 +116,8 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
 
       if (error) { setErr(error.message); return; }
       if (!p) { setErr("Không tìm thấy profile. Vào Supabase backfill profiles."); return; }
+      if (p.deleted_at) { setErr("Tài khoản này đã bị xóa."); return; }
+      if (!p.is_approved) { setErr("Tài khoản đang chờ duyệt. Vui lòng liên hệ Admin."); return; }
       if (!p.is_active) { setErr("Tài khoản đang bị khóa."); return; }
 
       setProfile(p as Profile);

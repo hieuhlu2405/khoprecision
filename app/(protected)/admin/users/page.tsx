@@ -15,7 +15,9 @@ type Profile = {
   role: Role;
   department: Dept;
   is_active: boolean;
+  is_approved: boolean;
   created_at: string;
+  deleted_at: string | null;
 };
 
 const ROLES: Role[] = ["admin", "manager", "staff"];
@@ -87,7 +89,10 @@ export default function AdminUsersPage() {
       setIsAdmin(adminCheck ?? false);
 
       const { data, error: e2 } = await supabase
-        .from("profiles").select("*").order("created_at", { ascending: false });
+        .from("profiles")
+        .select("*")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
       if (e2) throw e2;
       setRows((data ?? []) as Profile[]);
     } catch (err: any) {
@@ -113,6 +118,7 @@ export default function AdminUsersPage() {
         role: p.role,
         department: p.department,
         is_active: p.is_active,
+        is_approved: p.is_approved,
       }).eq("id", p.id);
       if (error) throw error;
       showToast("Đã lưu thông tin người dùng!", "success");
@@ -138,7 +144,9 @@ export default function AdminUsersPage() {
 
     setDeletingId(p.id);
     try {
-      const { error } = await supabase.from("profiles").delete().eq("id", p.id);
+      const { error } = await supabase.from("profiles").update({
+        deleted_at: new Date().toISOString()
+      }).eq("id", p.id);
       if (error) throw error;
       setRows((prev) => prev.filter((x) => x.id !== p.id));
       setSelectedIds((prev) => { const s = new Set(prev); s.delete(p.id); return s; });
@@ -167,7 +175,9 @@ export default function AdminUsersPage() {
 
     setBulkDeleting(true);
     try {
-      const { error } = await supabase.from("profiles").delete().in("id", ids);
+      const { error } = await supabase.from("profiles").update({
+        deleted_at: new Date().toISOString()
+      }).in("id", ids);
       if (error) throw error;
       setRows((prev) => prev.filter((x) => !ids.includes(x.id)));
       setSelectedIds(new Set());
@@ -176,6 +186,24 @@ export default function AdminUsersPage() {
       showToast(err?.message ?? "Lỗi khi xóa hàng loạt", "error");
     } finally {
       setBulkDeleting(false);
+    }
+  }
+
+  /* ---- Approve user ---- */
+  async function approveUser(p: Profile) {
+    setSavingId(p.id);
+    try {
+      const { error } = await supabase.from("profiles").update({
+        is_approved: true,
+        is_active: true // Auto-activate upon approval
+      }).eq("id", p.id);
+      if (error) throw error;
+      setRows((prev) => prev.map((x) => x.id === p.id ? { ...x, is_approved: true, is_active: true } : x));
+      showToast(`Đã duyệt tài khoản "${p.full_name || p.id.slice(0, 8)}"`, "success");
+    } catch (err: any) {
+      showToast(err?.message ?? "Lỗi khi duyệt", "error");
+    } finally {
+      setSavingId("");
     }
   }
 
@@ -246,6 +274,7 @@ export default function AdminUsersPage() {
                   style={{ cursor: "pointer" }}
                 />
               </th>
+              <th style={thStyle}>Trạng thái</th>
               <th style={thStyle}>ID</th>
               <th style={thStyle}>Tên hiển thị</th>
               <th style={thStyle}>Role</th>
@@ -280,6 +309,15 @@ export default function AdminUsersPage() {
                         onChange={() => toggleOne(p.id)}
                         style={{ cursor: "pointer" }}
                       />
+                    )}
+                  </td>
+
+                  {/* Status */}
+                  <td style={{ ...tdStyle, textAlign: "center" }}>
+                    {p.is_approved ? (
+                      <span style={{ padding: "2px 8px", background: "#dcfce7", color: "#166534", borderRadius: 99, fontSize: 11, fontWeight: 700 }}>Duyệt</span>
+                    ) : (
+                      <span style={{ padding: "2px 8px", background: "#fef9c3", color: "#854d0e", borderRadius: 99, fontSize: 11, fontWeight: 700 }}>Chờ duyệt</span>
                     )}
                   </td>
 
@@ -355,6 +393,20 @@ export default function AdminUsersPage() {
                   {/* Actions */}
                   <td style={{ ...tdStyle, textAlign: "center", whiteSpace: "nowrap" }}>
                     <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                      {!p.is_approved && (
+                        <button
+                          onClick={() => approveUser(p)}
+                          disabled={isSaving || isDeleting}
+                          style={{
+                            padding: "5px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600,
+                            background: "#16a34a", color: "white", border: "none", borderRadius: 4,
+                            opacity: isSaving ? 0.7 : 1,
+                          }}
+                        >
+                          {isSaving ? "..." : "Duyệt"}
+                        </button>
+                      )}
+
                       <button
                         onClick={() => saveRow(p)}
                         disabled={isSaving || isDeleting}
@@ -364,7 +416,7 @@ export default function AdminUsersPage() {
                           opacity: isSaving ? 0.7 : 1,
                         }}
                       >
-                        {isSaving ? "Đang lưu..." : "Lưu"}
+                        {isSaving ? "..." : "Lưu"}
                       </button>
 
                       {!isMe && (
