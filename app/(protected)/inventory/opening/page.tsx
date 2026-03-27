@@ -778,9 +778,7 @@ export default function InventoryOpeningBalancesPage() {
                     <td className="font-medium text-slate-900">{fmtDate(r.period_month)}</td>
                     <td className="text-slate-500 text-xs font-semibold">{customerLabel(r.customer_id)}</td>
                     <td>
-                      <div className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 font-mono text-[11px] inline-block">
-                        {r.products?.sku}
-                      </div>
+                      <span className="font-bold text-slate-900">{r.products?.sku}</span>
                     </td>
                     <td className="text-slate-600 font-medium truncate max-w-[300px]" title={r.products?.name}>{r.products?.name}</td>
                     <td className="text-right font-bold text-slate-900">{fmtNum(r.opening_qty)}</td>
