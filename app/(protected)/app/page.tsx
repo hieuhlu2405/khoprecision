@@ -18,7 +18,7 @@ const DEPT_LABELS: Record<string, string> = { sales: "Kinh doanh", warehouse: "K
 
 const quickLinks = [
   { href: "/inventory/inbound", icon: "📥", color: "#d97706", label: "Nhập kho", desc: "Ghi nhận hàng thành phẩm đầu vào" },
-  { href: "/inventory/outbound", icon: "📦", color: "#dc2626", label: "Xuất kho", desc: "Ghi nhận hàng thành phẩm đầu ra" },
+  { href: "/inventory/outbound", icon: "🚚", color: "#dc2626", label: "Xuất kho", desc: "Ghi nhận hàng thành phẩm đầu ra" },
   { href: "/inventory/report", icon: "📊", color: "#6366f1", label: "Tồn kho hiện tại", desc: "Xem tồn kho thành phẩm" },
   { href: "/inventory/stocktake", icon: "🔍", color: "#0d9488", label: "Kiểm kê", desc: "Tạo phiếu kiểm kê kho" },
   { href: "/inventory/phoi", icon: "🧱", color: "#475569", label: "Nhập phôi", desc: "Ghi nhận hàng phôi nguyên vật liệu" },
@@ -81,7 +81,7 @@ export default function AppHome() {
     { label: "Mã hàng đang hoạt động", value: stats?.products ?? "—", icon: "🏷️", color: "#2487C8" },
     { label: "Khách hàng", value: stats?.customers ?? "—", icon: "🤝", color: "#16a34a" },
     { label: "Phiếu nhập tháng này", value: stats?.inboundThisMonth ?? "—", icon: "📥", color: "#d97706" },
-    { label: "Phiếu xuất tháng này", value: stats?.outboundThisMonth ?? "—", icon: "📦", color: "#dc2626" },
+    { label: "Phiếu xuất tháng này", value: stats?.outboundThisMonth ?? "—", icon: "🚚", color: "#dc2626" },
   ];
 
   return (
