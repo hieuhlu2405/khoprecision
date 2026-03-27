@@ -259,8 +259,11 @@ export default function StocktakeListPage() {
       showToast("Bạn không có quyền xóa phiếu kiểm kê.", "error");
       return;
     }
-    const msg = "Bạn có chắc muốn xóa phiếu kiểm kê này?\nToàn bộ chi tiết kiểm kê và dữ liệu tồn đầu kỳ được tạo từ phiếu này cũng sẽ bị xóa mềm.";
-    const ok = await showConfirm({ message: msg, danger: true, confirmLabel: "Xóa" });
+    const isConfirmed = item.status === "confirmed";
+    const msg = isConfirmed 
+      ? "CẢNH BÁO: Phiếu kiểm kê này ĐÃ CHỐT.\nViệc xóa phiếu sẽ hủy bỏ các bản ghi Tồn đầu kỳ liên quan và có thể làm thay đổi số liệu báo cáo hiện tại.\nBạn có chắc chắn muốn tiếp tục xóa mềm?"
+      : "Bạn có chắc muốn xóa phiếu kiểm kê này?\nToàn bộ chi tiết kiểm kê và dữ liệu tồn đầu kỳ được tạo từ phiếu này cũng sẽ bị xóa mềm.";
+    const ok = await showConfirm({ message: msg, danger: true, confirmLabel: isConfirmed ? "Xác nhận xóa phiếu đã chốt" : "Xóa" });
     if (!ok) return;
 
     try {
@@ -575,11 +578,12 @@ export default function StocktakeListPage() {
                       >
                         Chi tiết
                       </Link>
-                      {isAdminOrManager && item.status === "draft" && (
+                      {isAdminOrManager && (
                         <button
                           onClick={() => handleDelete(item)}
                           className="btn btn-ghost btn-sm"
                           style={{ color: "var(--color-danger)" }}
+                          title={item.status === "confirmed" ? "Xóa phiếu đã chốt (Chỉ dành cho Admin)" : "Xóa phiếu"}
                         >
                           Xóa
                         </button>

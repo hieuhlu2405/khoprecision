@@ -528,25 +528,64 @@ export default function InventoryReportPage() {
         initial="hidden"
         animate="show"
         variants={{
-          hidden: { opacity: 0 },
-          show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+          hidden: { opacity: 0, y: 10 },
+          show: { opacity: 1, y: 0, transition: { staggerChildren: 0.1 } }
         }}
       >
-        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} className="stat-card border-l-4 border-amber-500 group hover:shadow-lg transition-all duration-300 glass">
-          <div className="stat-card-label group-hover:text-slate-500 transition-colors uppercase tracking-widest font-bold text-[10px]">Tổng lượng tồn</div>
-          <div className="stat-card-value text-amber-600 drop-shadow-sm font-black text-2xl group-hover:scale-105 origin-left transition-transform duration-300">{fmtNum(totals.qty)}</div>
+        <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
+          <div className="stat-card border-none bg-white/70 backdrop-blur-md shadow-sm border border-slate-200/50 hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-500 rounded-2xl p-6">
+            <div className="flex justify-between items-start mb-3">
+              <div className="p-2 bg-amber-100/80 rounded-lg text-amber-600">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Số lượng</span>
+            </div>
+            <div className="stat-card-label text-slate-500 font-medium text-xs mb-1">Tổng lượng tồn</div>
+            <div className="text-3xl font-black text-slate-900 tracking-tight group-hover:text-amber-600 transition-colors uppercase">{fmtNum(totals.qty)}</div>
+          </div>
         </motion.div>
-        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} className="stat-card border-l-4 border-emerald-500 group hover:shadow-lg transition-all duration-300 glass">
-          <div className="stat-card-label group-hover:text-slate-500 transition-colors uppercase tracking-widest font-bold text-[10px]">Tổng giá trị (VNĐ)</div>
-          <div className="stat-card-value text-emerald-600 drop-shadow-sm font-black text-2xl group-hover:scale-105 origin-left transition-transform duration-300 font-mono tracking-tighter">{fmtNum(totals.val)}</div>
+
+        <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
+          <div className="stat-card border-none bg-white/70 backdrop-blur-md shadow-sm border border-slate-200/50 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-500 rounded-2xl p-6">
+            <div className="flex justify-between items-start mb-3">
+              <div className="p-2 bg-emerald-100/80 rounded-lg text-emerald-600">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Giá trị</span>
+            </div>
+            <div className="stat-card-label text-slate-500 font-medium text-xs mb-1">Tổng giá trị (VNĐ)</div>
+            <div className="text-3xl font-black text-slate-900 tracking-tighter group-hover:text-emerald-600 transition-colors font-mono">{fmtNum(totals.val)}</div>
+          </div>
         </motion.div>
-        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} className="stat-card border-l-4 border-blue-500 group hover:shadow-lg transition-all duration-300 glass">
-          <div className="stat-card-label group-hover:text-slate-500 transition-colors uppercase tracking-widest font-bold text-[10px]">Tổng nhập</div>
-          <div className="stat-card-value text-blue-600 drop-shadow-sm font-black text-2xl group-hover:scale-105 origin-left transition-transform duration-300">+{fmtNum(totals.srcIn)}</div>
+
+        <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
+          <div className="stat-card border-none bg-white/70 backdrop-blur-md shadow-sm border border-slate-200/50 hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-500 rounded-2xl p-6">
+            <div className="flex justify-between items-start mb-3">
+              <div className="p-2 bg-blue-100/80 rounded-lg text-blue-600">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nhập</span>
+            </div>
+            <div className="stat-card-label text-slate-500 font-medium text-xs mb-1">Tổng nhập</div>
+            <div className="text-3xl font-black text-slate-900 tracking-tight group-hover:text-blue-600 transition-colors">+{fmtNum(totals.srcIn)}</div>
+          </div>
         </motion.div>
-        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} className="stat-card border-l-4 border-red-500 group hover:shadow-lg transition-all duration-300 glass">
-          <div className="stat-card-label group-hover:text-slate-500 transition-colors uppercase tracking-widest font-bold text-[10px]">Tổng xuất</div>
-          <div className="stat-card-value text-red-600 drop-shadow-sm font-black text-2xl group-hover:scale-105 origin-left transition-transform duration-300">-{fmtNum(totals.srcOut)}</div>
+
+        <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
+          <div className="stat-card border-none bg-white/70 backdrop-blur-md shadow-sm border border-slate-200/50 hover:shadow-xl hover:shadow-red-500/10 transition-all duration-500 rounded-2xl p-6">
+            <div className="flex justify-between items-start mb-3">
+              <div className="p-2 bg-red-100/80 rounded-lg text-red-600">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Xuất</span>
+            </div>
+            <div className="stat-card-label text-slate-500 font-medium text-xs mb-1">Tổng xuất</div>
+            <div className="text-3xl font-black text-slate-900 tracking-tight group-hover:text-red-600 transition-colors">-{fmtNum(totals.srcOut)}</div>
+          </div>
         </motion.div>
       </motion.div>
 
@@ -558,12 +597,8 @@ export default function InventoryReportPage() {
       >
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex gap-2 items-end">
-            <div className="w-32"><label className="filter-label">Từ ngày</label><input type="date" value={qStart} onChange={e => setQStart(e.target.value)} className="input" /></div>
-            <div className="w-32"><label className="filter-label">Đến ngày</label><input type="date" value={qEnd} onChange={e => setQEnd(e.target.value)} className="input" /></div>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => { setQStart(bounds.prevSnapshotQStart); setQEnd(bounds.prevSnapshotQEnd); }} className="btn btn-secondary btn-sm h-9">Kỳ trước</button>
-            <button onClick={() => { const p = applySamePeriodLastYearDates(bounds.effectiveStart, bounds.effectiveEnd); setQStart(p.newStart); setQEnd(p.newEnd); }} className="btn btn-secondary btn-sm h-9">Cùng kỳ năm ngoái</button>
+            <div className="w-40"><label className="filter-label text-slate-500 font-bold uppercase text-[9px] mb-1.5 block tracking-widest">Từ ngày</label><input type="date" value={qStart} onChange={e => setQStart(e.target.value)} className="input border-slate-200/60 bg-white/50 focus:bg-white transition-all rounded-lg h-10" /></div>
+            <div className="w-40"><label className="filter-label text-slate-500 font-bold uppercase text-[9px] mb-1.5 block tracking-widest">Đến ngày</label><input type="date" value={qEnd} onChange={e => setQEnd(e.target.value)} className="input border-slate-200/60 bg-white/50 focus:bg-white transition-all rounded-lg h-10" /></div>
           </div>
           <div className="w-48">
             <label className="filter-label">Khách hàng</label>
@@ -629,15 +664,20 @@ export default function InventoryReportPage() {
                 );
               })}
             </tbody>
-            <tfoot className="sticky bottom-0 z-20 bg-slate-900 text-white shadow-[0_-2px_4px_rgba(0,0,0,0.1)]">
-              <tr className="font-bold border-none">
-                <td colSpan={4} className="p-4 uppercase tracking-tighter text-xs opacity-70">Tổng cộng ({displayData.length} mã)</td>
-                <td className="text-right p-4 border-l border-white/5"></td>
-                <td className="text-right p-4 border-l border-white/5 text-green-400">+{fmtNum(totals.srcIn)}</td>
-                <td className="text-right p-4 border-l border-white/5 text-red-400">-{fmtNum(totals.srcOut)}</td>
-                <td className="text-right p-4 border-l border-white/5 text-amber-400 text-lg">{fmtNum(totals.qty)}</td>
-                <td className="border-l border-white/5"></td>
-                <td className="text-right p-4 border-l border-white/5 text-emerald-400 text-lg">{fmtNum(totals.val)}</td>
+            <tfoot className="sticky bottom-0 z-20 bg-white/80 backdrop-blur-xl border-t border-slate-200 shadow-[0_-8px_30px_rgb(0,0,0,0.06)]">
+              <tr className="font-bold border-none text-slate-900">
+                <td colSpan={4} className="p-5 uppercase tracking-tighter text-[11px] font-black text-slate-400">
+                  <span className="flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                    TỔNG CỘNG ({displayData.length} MÃ)
+                  </span>
+                </td>
+                <td className="text-right p-5 border-l border-slate-100/50"></td>
+                <td className="text-right p-5 border-l border-slate-100/50 text-blue-600 font-black">+{fmtNum(totals.srcIn)}</td>
+                <td className="text-right p-5 border-l border-slate-100/50 text-red-500 font-black">-{fmtNum(totals.srcOut)}</td>
+                <td className="text-right p-5 border-l border-slate-100/50 text-amber-600 font-black text-lg bg-amber-50/30">{fmtNum(totals.qty)}</td>
+                <td className="border-l border-slate-100/50"></td>
+                <td className="text-right p-5 border-l border-slate-100/50 text-emerald-600 font-black text-xl bg-emerald-50/30 font-mono">{fmtNum(totals.val)}</td>
               </tr>
             </tfoot>
           </table>
