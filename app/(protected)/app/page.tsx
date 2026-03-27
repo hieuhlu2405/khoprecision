@@ -99,7 +99,7 @@ export default function AppHome() {
             {greeting}!
           </div>
           <h1 style={{ margin: "0 0 6px", fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", color: "white" }}>
-            {displayName}
+            {displayName} {displayName === "Nguyễn Trọng Hiếu" ? "👑" : ""}
           </h1>
           {profile && (
             <div style={{ fontSize: 13, opacity: 0.85 }}>

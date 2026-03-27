@@ -231,8 +231,12 @@ export default function AdminUsersPage() {
     <div style={{ fontFamily: "sans-serif" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Quản lý người dùng</h1>
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-[#64748b]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
+            🛡️
+          </div>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Quản lý người dùng</h1>
           <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 13 }}>
             Tổng: <strong>{rows.length}</strong> tài khoản
             {selectedIds.size > 0 && (
@@ -241,6 +245,7 @@ export default function AdminUsersPage() {
               </span>
             )}
           </p>
+          </div>
         </div>
 
         {selectedIds.size > 0 && (

@@ -22,28 +22,28 @@ type Profile = {
 function buildMenu(p: Profile, isAdmin: boolean) {
   const items: { label: string; href?: string; show: boolean; isHeader?: boolean }[] = [
     { label: "Quản lý dữ liệu", show: true, isHeader: true },
-    { label: "Dashboard", href: "/app", show: true },
-    { label: "Mã hàng", href: "/products", show: true },
-    { label: "Khách hàng", href: "/customers", show: true },
+    { label: "🏠 Dashboard", href: "/app", show: true },
+    { label: "🏷️ Mã hàng", href: "/products", show: true },
+    { label: "🤝 Khách hàng", href: "/customers", show: true },
 
     { label: "Nghiệp vụ kho", show: true, isHeader: true },
-    { label: "Tồn kho hiện tại", href: "/inventory/report", show: true },
-    { label: "Tồn đầu kỳ", href: "/inventory/opening", show: true },
-    { label: "Nhập kho", href: "/inventory/inbound", show: true },
-    { label: "Xuất kho", href: "/inventory/outbound", show: true },
-    { label: "Nhập phôi", href: "/inventory/phoi", show: true },
-    { label: "Kiểm kê", href: "/inventory/stocktake", show: true },
+    { label: "📦 Tồn kho hiện tại", href: "/inventory/report", show: true },
+    { label: "🚩 Tồn đầu kỳ", href: "/inventory/opening", show: true },
+    { label: "📥 Nhập kho", href: "/inventory/inbound", show: true },
+    { label: "🚚 Xuất kho", href: "/inventory/outbound", show: true },
+    { label: "🧱 Nhập phôi", href: "/inventory/phoi", show: true },
+    { label: "🔍 Kiểm kê", href: "/inventory/stocktake", show: true },
 
     { label: "Báo cáo", show: true, isHeader: true },
-    { label: "Giá trị tồn kho", href: "/inventory/value-report", show: true },
-    { label: "Tồn dài kỳ", href: "/inventory/aging", show: true },
-    { label: "Biến động tồn kho", href: "/inventory/comparison", show: true },
+    { label: "💰 Giá trị tồn kho", href: "/inventory/value-report", show: true },
+    { label: "⌛ Tồn dài kỳ", href: "/inventory/aging", show: true },
+    { label: "🔄 Biến động tồn kho", href: "/inventory/comparison", show: true },
 
     { label: "Lịch sử", show: true, isHeader: true },
-    { label: "Lịch sử báo cáo", href: "/inventory/report-history", show: true },
+    { label: "🕒 Lịch sử báo cáo", href: "/inventory/report-history", show: true },
 
     { label: "Quản trị hệ thống", show: isAdmin, isHeader: true },
-    { label: "Người dùng", href: "/admin/users", show: isAdmin },
+    { label: "🛡️ Người dùng", href: "/admin/users", show: isAdmin },
 
     { label: "Phân hệ khác", show: true, isHeader: true },
     { label: "Đơn hàng", href: "/sales/orders", show: p.role !== "staff" || p.department === "sales" },

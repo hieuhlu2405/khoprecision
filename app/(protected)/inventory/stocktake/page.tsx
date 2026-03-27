@@ -474,8 +474,8 @@ export default function StocktakeListPage() {
     <div className="page-root">
       <div className="page-header">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="m9 14 2 2 4-4"/></svg>
+          <div className="w-10 h-10 rounded-xl bg-[#0d9488]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
+            🔍
           </div>
           <div>
             <h1 className="page-title">Kiểm kê kho (Stocktake)</h1>

@@ -389,8 +389,8 @@ export default function ReportHistoryListPage() {
     <div className="page-root">
       <div className="page-header">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+          <div className="w-10 h-10 rounded-xl bg-[#6366f1]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
+            🕒
           </div>
           <div>
             <h1 className="page-title">Lịch sử chốt báo cáo</h1>

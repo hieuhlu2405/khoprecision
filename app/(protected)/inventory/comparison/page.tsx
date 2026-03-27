@@ -643,8 +643,8 @@ export default function InventoryComparisonPage() {
     >
       <div className="page-header sticky top-0 bg-white/80 backdrop-blur-md z-50 py-4 px-6 -mx-6 mb-6 border-b border-slate-200/60 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)", boxShadow: "0 0 15px var(--brand-glow)" }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+          <div className="w-10 h-10 rounded-xl bg-[#6366f1]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
+            🔄
           </div>
           <div>
             <h1 className="page-title !m-0 !text-xl !font-extrabold tracking-tight">Đối soát Xuất - Nhập</h1>
