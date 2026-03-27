@@ -8,6 +8,7 @@ import { useUI } from "@/app/context/UIContext";
 import { LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
 import { useDebounce } from "@/app/hooks/useDebounce";
+import { motion } from "framer-motion";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -135,7 +136,11 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
   return (
     <div style={popupStyle} onClick={e => e.stopPropagation()}>
       <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc cột</div>
-      <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
+      <select 
+        value={mode} 
+        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMode(e.target.value as "contains" | "equals")} 
+        style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}
+      >
         <option value="contains">Chứa</option>
         <option value="equals">Bằng</option>
       </select>
@@ -165,7 +170,11 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
   return (
     <div style={popupStyle} onClick={e => e.stopPropagation()}>
       <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc cột (số)</div>
-      <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
+      <select 
+        value={mode} 
+        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMode(e.target.value as "eq" | "gt" | "lt" | "range")} 
+        style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}
+      >
         <option value="eq">Bằng (=)</option>
         <option value="gt">Lớn hơn (&gt;)</option>
         <option value="lt">Nhỏ hơn (&lt;)</option>
@@ -264,7 +273,7 @@ export default function InventoryReportPage() {
   }, [sortCol, sortDir]);
 
   /* ---- Load Data ---- */
-  async function load() {
+  const load = useCallback(async () => {
     setError("");
     setLoading(true);
     try {
@@ -298,14 +307,14 @@ export default function InventoryReportPage() {
       const { data: txData, error: eT } = await supabase.from("inventory_transactions").select("*").gte("tx_date", minDate).lt("tx_date", nextD).is("deleted_at", null);
       if (eT) throw eT;
       setTxs(txData as InventoryTx[]);
-    } catch (err: any) {
-      setError(err?.message ?? "Có lỗi xảy ra");
+    } catch (err: unknown) {
+      setError((err as Error)?.message ?? "Có lỗi xảy ra");
     } finally {
       setLoading(false);
     }
-  }
+  }, [qStart, qEnd]);
 
-  useEffect(() => { load(); }, [qStart, qEnd]);
+  useEffect(() => { load(); }, [load]);
 
   /* ---- Calculations ---- */
   const reportData = useMemo(() => {
@@ -365,7 +374,7 @@ export default function InventoryReportPage() {
       });
     }
     return rows;
-  }, [reportData, colFilters, sortCol, sortDir, customers]);
+  }, [reportData, colFilters, sortCol, sortDir]);
 
   const totals = useMemo(() => {
     return displayData.reduce((acc, r) => ({
@@ -415,23 +424,28 @@ export default function InventoryReportPage() {
       <th 
         ref={thRef}
         style={{ 
-          textAlign: align || "left", border: "1px solid #ddd", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap", 
-          position: "sticky", top: 0, zIndex: 30, width: width ? `${width}px` : w, minWidth: width ? `${width}px` : "50px", 
-          boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)", ...extra 
+          textAlign: align || "left", 
+          padding: "12px 10px", 
+          position: "sticky", top: 0, zIndex: 60, 
+          width: width ? `${width}px` : w, 
+          minWidth: width ? `${width}px` : "50px", 
+          background: "transparent",
+          borderBottom: "1px solid var(--slate-200)",
+          ...extra 
         }} 
-        className="group"
+        className="group glass-header"
       >
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
+          <span className="text-slate-900 font-bold text-[10px] uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
             {sortable && (
-              <button onClick={() => toggleSort(colKey as SortableCol)} className={`p-1 rounded-md ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500 hover:bg-indigo-100"}`}>
+              <button onClick={() => toggleSort(colKey as SortableCol)} className={`p-1.5 rounded-md transition-all ${isSortTarget ? "text-brand bg-white/80 font-black shadow-sm" : "text-indigo-500 hover:bg-white/50"}`}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
                 </svg>
               </button>
             )}
-            <button onClick={() => setOpenPopup(popupOpen ? null : colKey)} className={`p-1 rounded-md ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}>
+            <button onClick={() => setOpenPopup(popupOpen ? null : colKey)} className={`p-1.5 rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-white/50"}`}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
             </button>
           </div>
@@ -462,7 +476,7 @@ export default function InventoryReportPage() {
       const lines = displayData.map((r, i) => ({ closure_id: ins.id, line_type: "product_detail", sort_order: i, customer_id: r.customer_id || null, product_id: r.product.id, row_json: { "khách hàng": customerLabel(r.customer_id), "mã hàng": r.product.sku, "tên hàng": r.product.name, "kích thước": r.product.spec || "", "tồn đầu kỳ": r.opening_qty, "nhập": r.inbound_qty, "xuất": r.outbound_qty, "tồn còn lại": r.current_qty, "đơn giá": r.product.unit_price ?? 0, "giá trị tồn kho": r.inventory_value ?? 0 } }));
       if (lines.length > 0) { const { error: e2 } = await supabase.from("inventory_report_closure_lines").insert(lines); if (e2) throw e2; }
       showToast("Đã chốt dữ liệu thành công!", "success");
-    } catch (err: any) { setError(err?.message ?? "Lỗi"); } finally { setClosing(false); }
+    } catch (err: unknown) { setError((err as Error)?.message ?? "Lỗi"); } finally { setClosing(false); }
   }
 
   function handleExportExcel() {
@@ -473,33 +487,70 @@ export default function InventoryReportPage() {
   const [closing, setClosing] = useState(false);
 
   return (
-    <div className="page-root" ref={tableRef}>
-      <div className="page-header">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center shadow-sm">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+    <motion.div 
+      className="page-root" 
+      ref={tableRef}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+    >
+      <div className="page-header sticky top-0 bg-white/80 backdrop-blur-md z-50 py-4 px-6 -mx-6 mb-8 border-b border-slate-200/60 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)", boxShadow: "0 0 15px var(--brand-glow)" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 leading-tight">Tồn Kho Hiện Tại</h1>
-            <p className="text-sm text-slate-500">Báo cáo chi tiết số lượng và giá trị tồn kho thời gian thực.</p>
+            <h1 className="page-title !m-0 !text-xl !font-extrabold tracking-tight">Tồn Kho Hiện Tại</h1>
+            <p className="page-description !m-0 text-slate text-xs font-medium">Báo cáo số lượng và giá trị tồn kho thời gian thực</p>
           </div>
         </div>
-        <div className="toolbar ml-auto">
-          <button className="btn btn-secondary" onClick={handleExportExcel}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Xuất Excel</button>
-          <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading || displayData.length === 0}>{closing ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}</button>
+        <div className="toolbar ml-auto flex gap-3">
+          <button className="btn btn-ghost btn-sm" onClick={handleExportExcel}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 
+            Xuất Excel
+          </button>
+          <div className="w-px h-6 bg-slate-200 mx-1" />
+          <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading || displayData.length === 0}>
+            {closing ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}
+          </button>
         </div>
       </div>
 
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="stat-card border-l-4 border-amber-500"><div className="stat-card-label">Tổng lượng tồn</div><div className="stat-card-value text-amber-600">{fmtNum(totals.qty)}</div></div>
-        <div className="stat-card border-l-4 border-emerald-500"><div className="stat-card-label">Tổng giá trị (VNĐ)</div><div className="stat-card-value text-emerald-600">{fmtNum(totals.val)}</div></div>
-        <div className="stat-card border-l-4 border-blue-500"><div className="stat-card-label">Tổng nhập</div><div className="stat-card-value text-blue-600">+{fmtNum(totals.srcIn)}</div></div>
-        <div className="stat-card border-l-4 border-red-500"><div className="stat-card-label">Tổng xuất</div><div className="stat-card-value text-red-600">-{fmtNum(totals.srcOut)}</div></div>
-      </div>
+      <motion.div 
+        className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
+        initial="hidden"
+        animate="show"
+        variants={{
+          hidden: { opacity: 0 },
+          show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+        }}
+      >
+        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} className="stat-card border-l-4 border-amber-500 group hover:shadow-lg transition-all duration-300 glass">
+          <div className="stat-card-label group-hover:text-slate-500 transition-colors uppercase tracking-widest font-bold text-[10px]">Tổng lượng tồn</div>
+          <div className="stat-card-value text-amber-600 drop-shadow-sm font-black text-2xl group-hover:scale-105 origin-left transition-transform duration-300">{fmtNum(totals.qty)}</div>
+        </motion.div>
+        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} className="stat-card border-l-4 border-emerald-500 group hover:shadow-lg transition-all duration-300 glass">
+          <div className="stat-card-label group-hover:text-slate-500 transition-colors uppercase tracking-widest font-bold text-[10px]">Tổng giá trị (VNĐ)</div>
+          <div className="stat-card-value text-emerald-600 drop-shadow-sm font-black text-2xl group-hover:scale-105 origin-left transition-transform duration-300 font-mono tracking-tighter">{fmtNum(totals.val)}</div>
+        </motion.div>
+        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} className="stat-card border-l-4 border-blue-500 group hover:shadow-lg transition-all duration-300 glass">
+          <div className="stat-card-label group-hover:text-slate-500 transition-colors uppercase tracking-widest font-bold text-[10px]">Tổng nhập</div>
+          <div className="stat-card-value text-blue-600 drop-shadow-sm font-black text-2xl group-hover:scale-105 origin-left transition-transform duration-300">+{fmtNum(totals.srcIn)}</div>
+        </motion.div>
+        <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} className="stat-card border-l-4 border-red-500 group hover:shadow-lg transition-all duration-300 glass">
+          <div className="stat-card-label group-hover:text-slate-500 transition-colors uppercase tracking-widest font-bold text-[10px]">Tổng xuất</div>
+          <div className="stat-card-value text-red-600 drop-shadow-sm font-black text-2xl group-hover:scale-105 origin-left transition-transform duration-300">-{fmtNum(totals.srcOut)}</div>
+        </motion.div>
+      </motion.div>
 
-      <div className="filter-panel mb-6">
+      <motion.div 
+        className="filter-panel mb-8 p-6 glass shadow-sm border border-slate-100 rounded-xl relative z-40"
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.2, duration: 0.4 }}
+      >
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex gap-2 items-end">
             <div className="w-32"><label className="filter-label">Từ ngày</label><input type="date" value={qStart} onChange={e => setQStart(e.target.value)} className="input" /></div>
@@ -527,7 +578,7 @@ export default function InventoryReportPage() {
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
 
       <div className="text-[11px] mb-2 text-slate-400 flex items-center gap-3">
         <span>Báo cáo thực tế: <strong className="text-slate-600">{formatToVietnameseDate(bounds.effectiveStart)}</strong> → <strong className="text-slate-600">{formatToVietnameseDate(bounds.effectiveEnd)}</strong></span>
@@ -546,9 +597,9 @@ export default function InventoryReportPage() {
                 <ThCell label="Tồn đầu" colKey="opening_qty" sortable isNum align="right" w="100px" />
                 <ThCell label="Nhập" colKey="inbound_qty" sortable isNum align="right" w="100px" />
                 <ThCell label="Xuất" colKey="outbound_qty" sortable isNum align="right" w="100px" />
-                <ThCell label="Tồn hiện tại" colKey="current_qty" sortable isNum align="right" w="110px" extra={{ background: "#eef2ff" }} />
+                <ThCell label="Tồn hiện tại" colKey="current_qty" sortable isNum align="right" w="110px" extra={{ background: "transparent", color: "var(--brand-700)" }} />
                 <ThCell label="Đơn giá" colKey="unit_price" sortable isNum align="right" w="110px" />
-                <ThCell label="Giá trị tồn" colKey="inventory_value" sortable isNum align="right" w="130px" extra={{ background: "#f0fdf4" }} />
+                <ThCell label="Giá trị tồn" colKey="inventory_value" sortable isNum align="right" w="130px" extra={{ background: "transparent", color: "var(--color-success)" }} />
               </tr>
             </thead>
             <tbody>
@@ -587,6 +638,6 @@ export default function InventoryReportPage() {
           </table>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

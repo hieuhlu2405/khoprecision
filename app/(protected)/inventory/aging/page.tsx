@@ -8,6 +8,8 @@ import { buildStockRows, SnapshotRow, TransactionRow } from "../shared/calc";
 import { formatToVietnameseDate, computeSnapshotBounds, applySamePeriodLastYearDates } from "../shared/date-utils";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { exportToExcel } from "@/lib/excel-utils";
+import { motion, AnimatePresence } from "framer-motion";
+
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -145,7 +147,7 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
   return (
     <div style={popupStyle} onClick={e => e.stopPropagation()}>
       <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc cột</div>
-      <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
+      <select value={mode} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMode(e.target.value as "contains" | "equals")} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
         <option value="contains">Chứa</option>
         <option value="equals">Bằng</option>
       </select>
@@ -165,7 +167,7 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
   return (
     <div style={popupStyle} onClick={e => e.stopPropagation()}>
       <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc cột (số)</div>
-      <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
+      <select value={mode} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMode(e.target.value as "eq" | "gt" | "lt" | "range")} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
         <option value="eq">Bằng (=)</option>
         <option value="gt">Lớn hơn (&gt;)</option>
         <option value="lt">Nhỏ hơn (&lt;)</option>
@@ -190,14 +192,15 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
 const thStyle: React.CSSProperties = { padding: "10px 12px", border: "1px solid #ddd", fontSize: 13, fontWeight: 600, background: "#f8fafc", whiteSpace: "nowrap", position: "relative" };
 const tdStyle: React.CSSProperties = { padding: "12px 12px", borderBottom: "1px solid var(--slate-100)" };
 
-function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilters, sortCol, sortDir, onSort, openPopupId, setOpenPopupId, w, colWidths, onResize, popupPrefix }: {
+function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilters, sortCol, sortDir, onSort, openPopupId, setOpenPopupId, w, colWidths, onResize, popupPrefix, glassHeader }: {
     label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left" | "right" | "center";
     colFilters: Record<string, ColFilter>; setColFilters: React.Dispatch<React.SetStateAction<Record<string, ColFilter>>>;
     sortCol: string | null; sortDir: SortDir;
-    onSort: (key: any) => void; 
+    onSort: (key: SortableCol) => void; 
     openPopupId: string | null; setOpenPopupId: (id: string | null) => void;
     w?: string; colWidths: Record<string, number>; onResize: (key: string, width: number) => void;
     popupPrefix: string;
+    glassHeader?: boolean;
   }) {
     const active = !!colFilters[colKey];
     const isSortTarget = sortCol === colKey;
@@ -229,19 +232,19 @@ function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilte
       minWidth: width ? `${width}px` : "50px",
       position: "sticky",
       top: 0,
-      zIndex: 30,
+      zIndex: 60,
       boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
       color: "var(--slate-900)",
     };
 
     return (
-      <th style={baseStyle} ref={thRef} className="group">
+      <th style={baseStyle} ref={thRef} className={`group ${glassHeader ? "glass-header" : ""}`}>
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
           <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
             {sortable && (
               <button
-                onClick={(e) => { e.stopPropagation(); onSort(colKey); }}
+                onClick={(e) => { e.stopPropagation(); onSort(colKey as SortableCol); }}
                 className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
                 title="Sắp xếp"
               >
@@ -305,7 +308,6 @@ function BarChart({ data, title, color = "#0f172a", minHeight = 220 }: {
   const marginLeft = 140; // Space for long labels
   const marginRight = 60; // Space for value labels
   const height = Math.max(minHeight, data.length * rowHeight + marginTop + marginBottom);
-  const plotWidth = "100%";
   
   return (
     <div style={{ position: "relative", width: "100%" }}>
@@ -405,7 +407,6 @@ function ClusteredBarChart({ data, title, label1, label2, color1 = "#0f172a", co
           const barH = 14;
           const gap = 2;
           const y1 = cy - barH - gap / 2;
-          const y2 = cy + gap / 2;
           
           const w1 = `${Math.max(1, (d.val1 / maxVal) * 100)}%`;
           const w2 = `${Math.max(1, (d.val2 / maxVal) * 100)}%`;
@@ -498,7 +499,6 @@ function StackedBarChart({ data, title, totalValue }: {
   if (!data.length || totalValue <= 0) return null;
 
   const height = 40;
-  let currentX = 0;
 
   return (
     <div style={{ width: "100%", marginBottom: 16 }}>
@@ -507,9 +507,9 @@ function StackedBarChart({ data, title, totalValue }: {
         <svg width="100%" height={height} style={{ display: "block", borderRadius: 6, overflow: "hidden" }}>
           {data.map((d, i) => {
             const pct = (d.value / totalValue) * 100;
+            const prevPctSum = data.slice(0, i).reduce((sum, item) => sum + (item.value / totalValue) * 100, 0);
             const w = `${pct}%`;
-            const x = `${currentX}%`;
-            currentX += pct;
+            const x = `${prevPctSum}%`;
             
             return (
               <g 
@@ -521,7 +521,7 @@ function StackedBarChart({ data, title, totalValue }: {
               >
                 <rect x={x} y={0} width={w} height={height} fill={COLORS[i % COLORS.length]} />
                 {pct >= 8 && (
-                  <text x={`${currentX - pct / 2}%`} y={height / 2 + 4} textAnchor="middle" fill="white" fontSize={11} fontWeight={600}>
+                  <text x={`${prevPctSum + pct / 2}%`} y={height / 2 + 4} textAnchor="middle" fill="white" fontSize={11} fontWeight={600}>
                     {pct.toFixed(1)}%
                   </text>
                 )}
@@ -583,7 +583,6 @@ function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, t
   
   // Helper to render a single stacked bar
   const renderBarRow = (seriesIdx: number, seriesLabel: string, data: { label: string; value: number }[], total: number) => {
-    let currentX = 0;
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ width: 45, fontSize: 12, fontWeight: 600, color: "#475569", textAlign: "right" }}>{seriesLabel}</div>
@@ -592,9 +591,9 @@ function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, t
             <svg width="100%" height={barHeight} style={{ display: "block", borderRadius: 4, overflow: "hidden" }}>
               {data.map((d, i) => {
                 const pct = (d.value / total) * 100;
+                const prevPctSum = data.slice(0, i).reduce((sum, item) => sum + (item.value / total) * 100, 0);
                 const w = `${pct}%`;
-                const x = `${currentX}%`;
-                currentX += pct;
+                const x = `${prevPctSum}%`;
                 const isHovered = hoverIdx?.series === seriesIdx && hoverIdx?.idx === i;
                 
                 return (
@@ -607,7 +606,7 @@ function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, t
                   >
                     <rect x={x} y={0} width={w} height={barHeight} fill={COLORS[i % COLORS.length]} />
                     {pct >= 6 && (
-                      <text x={`${currentX - pct / 2}%`} y={barHeight / 2 + 4} textAnchor="middle" fill="white" fontSize={10} fontWeight={600}>
+                      <text x={`${prevPctSum + pct / 2}%`} y={barHeight / 2 + 4} textAnchor="middle" fill="white" fontSize={10} fontWeight={600}>
                         {pct.toFixed(1)}%
                       </text>
                     )}
@@ -757,6 +756,16 @@ export default function InventoryAgingReportPage() {
   const [sortCol, setSortCol] = useState<SortableCol | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [openPopup, setOpenPopup] = useState<string | null>(null);
+  const [colWidthsCust, setColWidthsCust] = useState<Record<string, number>>({});
+  const [colWidthsDet, setColWidthsDet] = useState<Record<string, number>>({});
+
+  const onResizeCust = useCallback((key: string, w: number) => {
+    setColWidthsCust(prev => ({ ...prev, [key]: w }));
+  }, []);
+  const onResizeDet = useCallback((key: string, w: number) => {
+    setColWidthsDet(prev => ({ ...prev, [key]: w }));
+  }, []);
+
 
   const tableRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -786,7 +795,7 @@ export default function InventoryAgingReportPage() {
   }, [sortCol, sortDir]);
 
   /* ---- Load Data ---- */
-  async function load() {
+  const load = useCallback(async () => {
     setError("");
     setLoading(true);
 
@@ -829,17 +838,16 @@ export default function InventoryAgingReportPage() {
         setTxs1((t1.data ?? []) as InventoryTx[]);
         setTxs2((t2.data ?? []) as InventoryTx[]);
       }
-    } catch (err: any) {
-      setError(err?.message ?? "Có lỗi xảy ra");
+    } catch (err: unknown) {
+      setError((err as Error)?.message ?? "Có lỗi xảy ra");
     } finally {
       setLoading(false);
     }
-  }
+  }, [qStart, qEnd, p1Start, p1End, p2Start, p2End, reportMode, showToast]);
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qStart, qEnd, p1Start, p1End, p2Start, p2End, reportMode]);
+  }, [load]);
 
   /* ---- Calculations (UNCHANGED business logic) ---- */
   const productData = useMemo(() => {
@@ -1191,21 +1199,32 @@ export default function InventoryAgingReportPage() {
       }
 
       showToast("Đã chốt dữ liệu thành công!", "success");
-    } catch (err: any) {
-      setError(err?.message ?? "Lỗi khi chốt dữ liệu");
+    } catch (err: unknown) {
+      setError((err as Error)?.message ?? "Lỗi khi chốt dữ liệu");
     } finally {
       setClosingAging(false);
     }
   }
 
   return (
-    <div className="page-root">
-      <div className="page-header">
-        <div>
-          <h1>Báo cáo tồn lâu ngày (Aging)</h1>
-          <p className="page-subtitle text-slate">Phân tích các sản phẩm có thời gian tồn kho vượt ngưỡng để tối ưu hóa dòng vốn.</p>
+    <motion.div 
+      className="page-root"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+    >
+
+      <div className="page-header sticky top-0 bg-white/80 backdrop-blur-md z-50 py-4 px-6 -mx-6 mb-6 border-b border-slate-200/60 shadow-sm">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)", boxShadow: "0 0 15px var(--brand-glow)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div>
+            <h1 className="page-title !m-0 !text-xl !font-extrabold tracking-tight">Báo cáo tồn lâu ngày (Aging)</h1>
+            <p className="page-description !m-0 text-slate text-xs font-medium">Theo dõi và phân tích các mã hàng tồn kho quá hạn định kỳ</p>
+          </div>
         </div>
-        <div className="toolbar" style={{ margin: 0, gap: 12 }}>
+        <div className="toolbar" style={{ margin: 0, gap: 12, marginLeft: "auto" }}>
           <button
             onClick={handleExport}
             disabled={loading || (reportMode === "current" ? displayDetailData.length === 0 : compareAgingData.length === 0)}
@@ -1241,58 +1260,117 @@ export default function InventoryAgingReportPage() {
       </div>
 
       {/* ---- SUMMARY CARDS ---- */}
-      <div className="stats-grid">
+      <motion.div 
+        className="stats-grid" 
+        style={{ gap: 20 }}
+        initial="hidden"
+        animate="show"
+        variants={{
+          hidden: { opacity: 0 },
+          show: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+          }
+        }}
+      >
         {reportMode === "current" ? (
           <>
-            <div className="stat-card warning">
+            <motion.div 
+              variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+              className="stat-card warning !border-none !shadow-md hover:shadow-lg transition-all" 
+              style={{ borderLeft: "4px solid var(--color-warning)" }}
+              whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+            >
               <div className="stat-label">Cơ cấu % trên tổng tồn kho</div>
               <div className="stat-value">{fmtPercent(overallTotals.pctGlobal)}</div>
-            </div>
-            <div className="stat-card danger">
+            </motion.div>
+            <motion.div 
+              variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+              className="stat-card danger !border-none !shadow-md hover:shadow-lg transition-all" 
+              style={{ borderLeft: "4px solid var(--color-danger)" }}
+              whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+            >
               <div className="stat-label">Tổng giá trị tồn dài kỳ</div>
               <div className="stat-value">
                 {fmtNum(overallTotals.tValLongAging)} <small className="stat-unit">VNĐ</small>
               </div>
-            </div>
-            <div className="stat-card secondary">
+            </motion.div>
+            <motion.div 
+              variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+              className="stat-card secondary !border-none !shadow-md hover:shadow-lg transition-all" 
+              style={{ borderLeft: "4px solid var(--slate-400)" }}
+              whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+            >
               <div className="stat-label">Tổng toàn bộ giá trị kho</div>
               <div className="stat-value">
                 {fmtNum(overallTally)} <small className="stat-unit">VNĐ</small>
               </div>
-            </div>
-            <div className="stat-card brand">
+            </motion.div>
+            <motion.div 
+              variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+              className="stat-card brand !border-none !shadow-md hover:shadow-lg transition-all" 
+              style={{ borderLeft: "4px solid var(--brand)" }}
+              whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+            >
               <div className="stat-label">Số khách hàng có tồn dài kỳ</div>
               <div className="stat-value">{fmtNum(overallTotals.customerCount)}</div>
-            </div>
+            </motion.div>
           </>
         ) : (
           <>
-            <div className="stat-card secondary">
+            <motion.div 
+              variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+              className="stat-card secondary !border-none !shadow-md hover:shadow-lg transition-all" 
+              style={{ borderLeft: "4px solid var(--slate-400)" }}
+              whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+            >
               <div className="stat-label">Giá trị Aging (Kỳ 1)</div>
               <div className="stat-value">{fmtNum(compareTotals.v1)}</div>
-            </div>
-            <div className="stat-card brand">
+            </motion.div>
+            <motion.div 
+              variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+              className="stat-card brand !border-none !shadow-md hover:shadow-lg transition-all" 
+              style={{ borderLeft: "4px solid var(--brand)" }}
+              whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+            >
               <div className="stat-label">Giá trị Aging (Kỳ 2)</div>
               <div className="stat-value">{fmtNum(compareTotals.v2)}</div>
-            </div>
-            <div className={`stat-card ${compareTotals.diff > 0 ? "danger" : "success"}`}>
+            </motion.div>
+            <motion.div 
+              variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+              className={`stat-card ${compareTotals.diff > 0 ? "danger" : "success"} !border-none !shadow-md hover:shadow-lg transition-all`} 
+              style={{ borderLeft: `4px solid ${compareTotals.diff > 0 ? "var(--color-danger)" : "var(--color-success)"}` }}
+              whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+            >
               <div className="stat-label">Chênh lệch giá trị</div>
               <div className="stat-value">
                 {compareTotals.diff > 0 ? "+" : ""}{fmtNum(compareTotals.diff)}
               </div>
-            </div>
-            <div className={`stat-card ${compareTotals.diff > 0 ? "danger" : "success"}`}>
+            </motion.div>
+            <motion.div 
+              variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+              className={`stat-card ${compareTotals.diff > 0 ? "danger" : "success"} !border-none !shadow-md hover:shadow-lg transition-all`} 
+              style={{ borderLeft: `4px solid ${compareTotals.diff > 0 ? "var(--color-danger)" : "var(--color-success)"}` }}
+              whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+            >
               <div className="stat-label">% biến động</div>
               <div className="stat-value">
                 {compareTotals.pct > 0 ? "+" : ""}{fmtPercent(compareTotals.pct)}
               </div>
-            </div>
+            </motion.div>
           </>
         )}
-      </div>
+      </motion.div>
+
 
       {/* ---- Top-level Filters ---- */}
-      <div className="filter-panel">
+      <motion.div 
+        className="filter-panel glass shadow-sm"
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.2, duration: 0.4 }}
+      >
+
         <div className="filter-row">
           {reportMode === "current" ? (
             <div className="filter-group">
@@ -1405,12 +1483,21 @@ export default function InventoryAgingReportPage() {
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {loading ? (
         <LoadingInline text="Đang tính toán dữ liệu báo cáo..." />
       ) : (
         <div className="page-content">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={reportMode}
+              initial={{ opacity: 0, scale: 0.99 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.01 }}
+              transition={{ duration: 0.25 }}
+            >
+
           {/* ---- CHARTS SECTION ---- */}
           {reportMode === "current" && overallTotals.tValLongAging > 0 && (
             <div className="charts-section">
@@ -1519,24 +1606,24 @@ export default function InventoryAgingReportPage() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" w="60px" />
-                    <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
+                    <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" w="60px" glassHeader />
+                    <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
                     {reportMode === "current" ? (
                       <>
-                        <ThCell label="Số mã Aging" colKey="count" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
-                        <ThCell label="Số lượng" colKey="qty" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
-                        <ThCell label="Giá trị tồn (VNĐ)" colKey="value" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
-                        <ThCell label="% Aging" colKey="pct_aging" sortable={false} isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
-                        <ThCell label="% Tổng kho" colKey="pct_global" sortable={false} isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
+                        <ThCell label="Số mã Aging" colKey="count" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Số lượng" colKey="qty" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Giá trị tồn (VNĐ)" colKey="value" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="% Aging" colKey="pct_aging" sortable={false} isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="% Tổng kho" colKey="pct_global" sortable={false} isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
                       </>
                     ) : (
                       <>
-                        <ThCell label="Số mã (K1)" colKey="count1" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
-                        <ThCell label="Số mã (K2)" colKey="count2" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
-                        <ThCell label="Giá trị (K1)" colKey="val1" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
-                        <ThCell label="Giá trị (K2)" colKey="val2" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
-                        <ThCell label="Biến động" colKey="valDiff" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
-                        <ThCell label="% Thay đổi" colKey="pctDiff" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
+                        <ThCell label="Số mã (K1)" colKey="count1" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Số mã (K2)" colKey="count2" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Giá trị (K1)" colKey="val1" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Giá trị (K2)" colKey="val2" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Biến động" colKey="valDiff" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="% Thay đổi" colKey="pctDiff" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
                       </>
                     )}
                   </tr>
@@ -1590,16 +1677,16 @@ export default function InventoryAgingReportPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" w="50px" />
-                      <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
-                      <ThCell label="Tên hàng" colKey="name" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
-                      <ThCell label="Quy cách" colKey="spec" sortable={false} isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
-                      <ThCell label="Số lượng" colKey="current_qty" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
-                      <ThCell label="Đơn giá" colKey="unit_price" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
-                      <ThCell label="Giá trị Aging" colKey="inventory_value" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
-                      <ThCell label="% / Aging" colKey="pct_aging" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
-                      <ThCell label="% / Tổng" colKey="pct_global" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
-                      <ThCell label="Ghi chú" colKey="note" sortable={false} isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
+                      <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="det" w="50px" glassHeader />
+                      <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="det" glassHeader />
+                      <ThCell label="Tên hàng" colKey="name" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="det" glassHeader />
+                      <ThCell label="Quy cách" colKey="spec" sortable={false} isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="det" glassHeader />
+                      <ThCell label="Số lượng" colKey="current_qty" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="det" glassHeader />
+                      <ThCell label="Đơn giá" colKey="unit_price" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="det" glassHeader />
+                      <ThCell label="Giá trị Aging" colKey="inventory_value" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="det" glassHeader />
+                      <ThCell label="% / Aging" colKey="pct_aging" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="det" glassHeader />
+                      <ThCell label="% / Tổng" colKey="pct_global" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="det" glassHeader />
+                      <ThCell label="Ghi chú" colKey="note" sortable={false} isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="det" glassHeader />
                     </tr>
                   </thead>
                   <tbody>
@@ -1628,15 +1715,15 @@ export default function InventoryAgingReportPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" w="50px" />
-                      <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
-                      <ThCell label="Tên hàng" colKey="name" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
-                      <ThCell label="Quy cách" colKey="spec" sortable={false} isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
-                      <ThCell label="Giá trị Aging (K1)" colKey="val1" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
-                      <ThCell label="Giá trị Aging (K2)" colKey="val2" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
-                      <ThCell label="Biến động" colKey="valDiff" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
-                      <ThCell label="% Thay đổi" colKey="pctDiff" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
-                      <ThCell label="Ghi chú" colKey="note" sortable={false} isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
+                      <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="comp" w="50px" glassHeader />
+                       <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="comp" glassHeader />
+                      <ThCell label="Tên hàng" colKey="name" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="comp" glassHeader />
+                      <ThCell label="Quy cách" colKey="spec" sortable={false} isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="comp" glassHeader />
+                      <ThCell label="Giá trị Aging (K1)" colKey="val1" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="comp" glassHeader />
+                      <ThCell label="Giá trị Aging (K2)" colKey="val2" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="comp" glassHeader />
+                      <ThCell label="Biến động" colKey="valDiff" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="comp" glassHeader />
+                      <ThCell label="% Thay đổi" colKey="pctDiff" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="comp" glassHeader />
+                      <ThCell label="Ghi chú" colKey="note" sortable={false} isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidthsDet} onResize={onResizeDet} popupPrefix="comp" glassHeader />
                     </tr>
                   </thead>
                   <tbody>
@@ -1667,8 +1754,10 @@ export default function InventoryAgingReportPage() {
               )}
             </div>
           </section>
-        </div>
-      )}
+        </motion.div>
+      </AnimatePresence>
     </div>
+  )}
+</motion.div>
   );
 }

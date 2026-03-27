@@ -8,9 +8,14 @@
   --bg: #ffffff;
   --fg: #0f172a;
 
-  /* Brand */
-  --brand: #2487C8;
-  --brand-hover: #1A6BA8;
+  /* Brand - Refined HSL for dynamic effects */
+  --brand-h: 204;
+  --brand-s: 70%;
+  --brand-l: 46%;
+  --brand: hsl(var(--brand-h), var(--brand-s), var(--brand-l));
+  --brand-hover: hsl(var(--brand-h), var(--brand-s), calc(var(--brand-l) - 8%));
+  --brand-light: hsl(var(--brand-h), var(--brand-s), 95%);
+  --brand-glow: hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.15);
 
   /* Sidebar */
   --sidebar-bg: #0d4f7c;
@@ -22,44 +27,45 @@
   --sidebar-w: 240px;
   --sidebar-w-collapsed: 0px;
 
-  /* Colors */
-  --slate-50:  #f8fafc;
-  --slate-100: #f1f5f9;
-  --slate-200: #e2e8f0;
-  --slate-300: #cbd5e1;
-  --slate-400: #94a3b8;
-  --slate-500: #64748b;
-  --slate-600: #475569;
-  --slate-700: #334155;
-  --slate-800: #1e293b;
-  --slate-900: #0f172a;
+  /* Slate Palette */
+  --slate-50:  hsl(210, 40%, 98%);
+  --slate-100: hsl(210, 40%, 96.1%);
+  --slate-200: hsl(214.3, 31.8%, 91.4%);
+  --slate-300: hsl(212.7, 26.8%, 83.9%);
+  --slate-400: hsl(215, 20.2%, 65.1%);
+  --slate-500: hsl(215.4, 16.3%, 46.9%);
+  --slate-600: hsl(215.3, 19.3%, 34.5%);
+  --slate-700: hsl(215.3, 25%, 26.7%);
+  --slate-800: hsl(217.2, 32.6%, 17.5%);
+  --slate-900: hsl(222.2, 47.4%, 11.2%);
 
   /* Semantic */
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-danger:  #dc2626;
-  --color-info:    #0284c7;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger:  #ef4444;
+  --color-info:    #3b82f6;
 
   /* Radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
 
-  /* Shadow */
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
-  --shadow-md: 0 4px 16px rgba(0,0,0,.10);
-  --shadow-lg: 0 20px 60px rgba(0,0,0,.18);
+  /* Shadow - Premium Depth */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 
   /* Transition */
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
-  --duration: 150ms;
+  --duration: 200ms;
 
   /* Table */
-  --table-border: #e2e8f0;
+  --table-border: hsl(214.3, 31.8%, 91.4%);
   --table-th-bg: #f8fafc;
   --table-th-fg: #475569;
-  --table-td-hover: #f8fafc;
-  --table-stripe: #fafafa;
+  --table-td-hover: hsl(var(--brand-h), var(--brand-s), 98.5%);
+  --table-stripe: hsl(210, 40%, 99%);
 }
 
 /* =====================================================================
@@ -121,17 +127,29 @@ body {
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
   border-radius: var(--radius-sm);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background var(--duration) var(--ease), box-shadow var(--duration) var(--ease), opacity var(--duration) var(--ease);
+  transition: all var(--duration) var(--ease);
   white-space: nowrap;
   line-height: 1;
   font-family: inherit;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .btn:disabled {
@@ -202,15 +220,16 @@ input[type="password"]:not([class]),
 input[type="number"]:not([class]),
 input[type="date"]:not([class]),
 select:not([class]) {
-  padding: 8px 10px;
-  border: 1px solid var(--slate-300);
+  padding: 10px 14px;
+  border: 1px solid var(--slate-200);
   border-radius: var(--radius-sm);
-  font-size: 13px;
+  font-size: 13.5px;
   font-family: inherit;
   color: var(--slate-800);
   background: white;
-  transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+  transition: all var(--duration) var(--ease);
   outline: none;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
 }
 
 .input:focus,
@@ -220,8 +239,10 @@ input[type="password"]:not([class]):focus,
 input[type="number"]:not([class]):focus,
 input[type="date"]:not([class]):focus,
 select:not([class]):focus {
-  border-color: var(--slate-600);
-  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.12);
+  border-color: var(--brand);
+  background: white;
+  box-shadow: 0 0 0 4px var(--brand-glow), inset 0 1px 1px rgba(0,0,0,0.01);
+  transform: scale(1.005);
 }
 
 /* =====================================================================
@@ -357,15 +378,46 @@ select:not([class]):focus {
    Loading
    ===================================================================== */
 
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--slate-100) 25%,
+    var(--slate-50) 37%,
+    var(--slate-100) 63%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
 @keyframes skeleton-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50% { opacity: 0.5; }
 }
 
 .skeleton {
-  background: var(--slate-200);
+  background: var(--slate-100);
   border-radius: var(--radius-sm);
-  animation: skeleton-pulse 1.6s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .skeleton-text {
@@ -865,9 +917,27 @@ main > div {
 .highlight-slate { background-color: var(--slate-50) !important; }
 .highlight-brand { background-color: rgba(36, 135, 200, 0.05) !important; }
 
+/* Glass Utility */
+.glass {
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(12px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+.glass-header {
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(8px) !important;
+  border-bottom: 1px solid var(--slate-200) !important;
+  z-index: 50;
+}
+
 .empty-state {
-  padding: 48px;
+  padding: 64px 24px;
   text-align: center;
-  color: var(--slate-500);
-  font-style: italic;
+  color: var(--slate-400);
+  background: var(--slate-50);
+  border: 1px dashed var(--slate-200);
+  border-radius: var(--radius-lg);
+  margin: 20px 0;
 }

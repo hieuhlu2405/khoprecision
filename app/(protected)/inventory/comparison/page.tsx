@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { buildStockRows, SnapshotRow, TransactionRow } from "../shared/calc";
 import { formatToVietnameseDate, computeSnapshotBounds, applySamePeriodLastYearDates } from "../shared/date-utils";
 import { useUI } from "@/app/context/UIContext";
+import { motion } from "framer-motion";
+import { LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -129,7 +131,7 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
     <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
       <div className="bg-white border border-slate-200 rounded-lg p-3 min-w-[220px] shadow-xl">
         <div className="mb-2 font-bold text-xs uppercase text-slate-500 tracking-wider">Lọc cột</div>
-        <select value={mode} onChange={e => setMode(e.target.value as any)} className="input w-full mb-2 p-1.5 text-sm">
+        <select value={mode} onChange={e => setMode(e.target.value as TextFilter["mode"])} className="input w-full mb-2 p-1.5 text-sm">
           <option value="contains">Chứa</option>
           <option value="equals">Bằng</option>
         </select>
@@ -151,7 +153,7 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
     <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
       <div className="bg-white border border-slate-200 rounded-lg p-3 min-w-[220px] shadow-xl">
         <div className="mb-2 font-bold text-xs uppercase text-slate-500 tracking-wider">Lọc số</div>
-        <select value={mode} onChange={e => setMode(e.target.value as any)} className="input w-full mb-2 p-1.5 text-sm">
+        <select value={mode} onChange={e => setMode(e.target.value as NumFilter["mode"])} className="input w-full mb-2 p-1.5 text-sm">
           <option value="eq">Bằng (=)</option>
           <option value="gt">Lớn hơn (&gt;)</option>
           <option value="lt">Nhỏ hơn (&lt;)</option>
@@ -266,7 +268,7 @@ export default function InventoryComparisonPage() {
     return () => document.removeEventListener("mousedown", handle);
   }, [openPopupId]);
 
-  async function load() {
+  const load = useCallback(async () => {
     setError(""); setLoading(true); setTxs1([]); setTxs2([]);
     try {
       const [rP, rC] = await Promise.all([
@@ -288,10 +290,10 @@ export default function InventoryComparisonPage() {
       ]);
       setTxs1((t1.data ?? []) as InventoryTx[]);
       setTxs2((t2.data ?? []) as InventoryTx[]);
-    } catch (err: any) { setError(err?.message ?? "Có lỗi xảy ra"); } finally { setLoading(false); }
-  }
+    } catch (err: unknown) { setError((err as Error)?.message ?? "Có lỗi xảy ra"); } finally { setLoading(false); }
+  }, [p1Start, p1End, p2Start, p2End]);
 
-  useEffect(() => { load(); }, [p1Start, p1End, p2Start, p2End]);
+  useEffect(() => { load(); }, [load]);
 
   function applyPresetPreviousMonth() { const { prevSnapshotQStart, prevSnapshotQEnd } = computeSnapshotBounds(p2Start, p2End, openings); setP1Start(prevSnapshotQStart); setP1End(prevSnapshotQEnd); }
   function applyPresetSameMonthLastYear() { const { effectiveStart, effectiveEnd } = computeSnapshotBounds(p2Start, p2End, openings); const p = applySamePeriodLastYearDates(effectiveStart, effectiveEnd); setP1Start(p.newStart); setP1End(p.newEnd); }
@@ -342,15 +344,35 @@ export default function InventoryComparisonPage() {
 
   const displayCustomerRows = useMemo(() => {
     let rs = [...customerRows];
-    for (const [k, f] of Object.entries(colFiltersCust)) { if (k === "customer") rs = rs.filter(r => passesTextFilter(customerLabel(r.customer_id), f as TextFilter)); else rs = rs.filter(r => passesNumFilter((r as any)[k], f as NumFilter)); }
-    if (sortColCust && sortDirCust) { const d = sortDirCust === "asc" ? 1 : -1; rs.sort((a, b) => { const va = sortColCust === "customer" ? customerLabel(a.customer_id) : (a as any)[sortColCust], vb = sortColCust === "customer" ? customerLabel(b.customer_id) : (b as any)[sortColCust]; return va < vb ? -1 * d : va > vb ? 1 * d : 0; }); }
+    for (const [k, f] of Object.entries(colFiltersCust)) {
+      if (k === "customer") rs = rs.filter(r => passesTextFilter(customerLabel(r.customer_id), f as TextFilter));
+      else rs = rs.filter(r => passesNumFilter((r as Record<string, unknown>)[k] as number, f as NumFilter));
+    }
+    if (sortColCust && sortDirCust) {
+      const d = sortDirCust === "asc" ? 1 : -1;
+      rs.sort((a, b) => {
+        const va = sortColCust === "customer" ? customerLabel(a.customer_id) : (a as Record<string, unknown>)[sortColCust] as number;
+        const vb = sortColCust === "customer" ? customerLabel(b.customer_id) : (b as Record<string, unknown>)[sortColCust] as number;
+        return va < vb ? -1 * d : va > vb ? 1 * d : 0;
+      });
+    }
     return rs;
-  }, [customerRows, colFiltersCust, sortColCust, sortDirCust, customers]);
+  }, [customerRows, colFiltersCust, sortColCust, sortDirCust, customerLabel]);
 
   const displayProductRows = useMemo(() => {
     let rs = [...productRows];
-    for (const [k, f] of Object.entries(colFiltersProd)) { if (["sku", "name", "spec"].includes(k)) rs = rs.filter(r => passesTextFilter((r.product as any)[k] || "", f as TextFilter)); else rs = rs.filter(r => passesNumFilter((r as any)[k], f as NumFilter)); }
-    if (sortColProd && sortDirProd) { const d = sortDirProd === "asc" ? 1 : -1; rs.sort((a, b) => { const va = ["sku", "name", "spec"].includes(sortColProd) ? (a.product as any)[sortColProd] : (a as any)[sortColProd], vb = ["sku", "name", "spec"].includes(sortColProd) ? (b.product as any)[sortColProd] : (b as any)[sortColProd]; return va < vb ? -1 * d : va > vb ? 1 * d : 0; }); }
+    for (const [k, f] of Object.entries(colFiltersProd)) {
+      if (["sku", "name", "spec"].includes(k)) rs = rs.filter(r => passesTextFilter((r.product as Record<string, unknown>)[k] as string || "", f as TextFilter));
+      else rs = rs.filter(r => passesNumFilter((r as Record<string, unknown>)[k] as number, f as NumFilter));
+    }
+    if (sortColProd && sortDirProd) {
+      const d = sortDirProd === "asc" ? 1 : -1;
+      rs.sort((a, b) => {
+        const va = ["sku", "name", "spec"].includes(sortColProd) ? (a.product as Record<string, unknown>)[sortColProd] as string : (a as Record<string, unknown>)[sortColProd] as number;
+        const vb = ["sku", "name", "spec"].includes(sortColProd) ? (b.product as Record<string, unknown>)[sortColProd] as string : (b as Record<string, unknown>)[sortColProd] as number;
+        return va < vb ? -1 * d : va > vb ? 1 * d : 0;
+      });
+    }
     return rs;
   }, [productRows, colFiltersProd, sortColProd, sortDirProd]);
 
@@ -403,14 +425,18 @@ export default function InventoryComparisonPage() {
     const baseStyle: React.CSSProperties = {
       ...thStyle,
       textAlign: align || "left",
-      position: "relative",
+      position: "sticky",
+      top: 0,
+      zIndex: 60,
       whiteSpace: "nowrap",
       width: width ? `${width}px` : w,
-      minWidth: width ? `${width}px` : "50px"
+      minWidth: width ? `${width}px` : "50px",
+      background: "transparent", // Use the glass-header background instead
+      borderBottom: "1px solid var(--slate-200)"
     };
 
     return (
-      <th style={baseStyle} ref={thRef} className="group">
+      <th style={baseStyle} ref={thRef} className="group glass-header">
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
           <span className="text-slate-900 font-bold text-[10px] uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
@@ -423,7 +449,7 @@ export default function InventoryComparisonPage() {
                     else { setSortDirCust(null); setSortColCust(null); }
                   } else { setSortColCust(colKey); setSortDirCust("asc"); }
                 }}
-                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
+                className={`p-1 hover:bg-white/50 rounded-md transition-colors ${isSortTarget ? "text-brand bg-white/80 font-black shadow-sm" : "text-indigo-500"}`}
                 title="Sắp xếp"
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -433,7 +459,7 @@ export default function InventoryComparisonPage() {
             )}
             <button
               onClick={e => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
-              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+              className={`p-1 hover:bg-white/50 rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-white/30"}`}
               title="Lọc dữ liệu"
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
@@ -484,14 +510,18 @@ export default function InventoryComparisonPage() {
     const baseStyle: React.CSSProperties = {
       ...thStyle,
       textAlign: align || "left",
-      position: "relative",
+      position: "sticky",
+      top: 0,
+      zIndex: 60,
       whiteSpace: "nowrap",
       width: width ? `${width}px` : w,
-      minWidth: width ? `${width}px` : "50px"
+      minWidth: width ? `${width}px` : "50px",
+      background: "transparent",
+      borderBottom: "1px solid var(--slate-200)"
     };
 
     return (
-      <th style={baseStyle} ref={thRef} className="group">
+      <th style={baseStyle} ref={thRef} className="group glass-header">
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
           <span className="text-slate-900 font-bold text-[10px] uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
@@ -504,7 +534,7 @@ export default function InventoryComparisonPage() {
                     else { setSortDirProd(null); setSortColProd(null); }
                   } else { setSortColProd(colKey); setSortDirProd("asc"); }
                 }}
-                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
+                className={`p-1 hover:bg-white/50 rounded-md transition-colors ${isSortTarget ? "text-brand bg-white/80 font-black shadow-sm" : "text-indigo-500"}`}
                 title="Sắp xếp"
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -514,7 +544,7 @@ export default function InventoryComparisonPage() {
             )}
             <button
               onClick={e => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey + "-p"); }}
-              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+              className={`p-1 hover:bg-white/50 rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-white/30"}`}
               title="Lọc dữ liệu"
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
@@ -540,29 +570,47 @@ export default function InventoryComparisonPage() {
   }
 
   function SummaryCard({ title, v1, v2, diff, accent }: { title: string; v1: number; v2: number; diff: number; accent: string }) {
-    const isP = diff > 0;
+    const isPositive = diff > 0;
     return (
-      <div className="stat-card border-l-4 group" style={{ borderLeftColor: accent }}>
-        <div className="mb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{title}</div>
+      <motion.div 
+        variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+        whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+        className="stat-card border-l-4 group hover:shadow-lg transition-all duration-300 glass" 
+        style={{ borderLeftColor: accent }}
+      >
+        <div className="mb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-slate-500 transition-colors">{title}</div>
         <div className="grid grid-cols-2 gap-4 mb-4">
-          <div><div className="text-[9px] text-slate-400 uppercase mb-0.5">Kỳ 1</div><div className="text-lg font-bold text-slate-700">{fmtNum(v1)}</div></div>
-          <div className="pl-4 border-l border-slate-100"><div className="text-[9px] text-brand uppercase mb-0.5 font-bold">Kỳ 2</div><div className="text-lg font-bold text-brand">{fmtNum(v2)}</div></div>
+          <div className="transition-transform group-hover:scale-105 duration-300">
+            <div className="text-[9px] text-slate-400 uppercase mb-0.5 font-medium">Kỳ gốc (K1)</div>
+            <div className="text-xl font-bold text-slate-700">{fmtNum(v1)}</div>
+          </div>
+          <div className="pl-4 border-l border-slate-100 transition-transform group-hover:scale-110 duration-500">
+            <div className="text-[9px] text-brand uppercase mb-0.5 font-black tracking-wider">Kỳ đối soát (K2)</div>
+            <div className="text-xl font-black text-brand drop-shadow-sm">{fmtNum(v2)}</div>
+          </div>
         </div>
-        <div className="flex items-center gap-2 pt-2 border-t border-slate-50"><span className={`text-sm font-bold ${isP?"text-rose-500":"text-emerald-500"}`}>{isP?"+":""}{fmtNum(diff)}</span><span className={`badge ${isP?"badge-danger":"badge-success"} text-[9px]`}>{isP?"↑":"↓"} {Math.abs(calcPctRow(v1,diff)).toFixed(1)}%</span></div>
-      </div>
+        <div className="flex items-center gap-2 pt-3 border-t border-slate-100/50">
+          <span className={`text-sm font-black ${isPositive ? "text-rose-500" : "text-emerald-500"}`}>
+            {isPositive ? "+" : ""}{fmtNum(diff)}
+          </span>
+          <span className={`badge ${isPositive ? "badge-danger border-rose-100 bg-rose-50/50" : "badge-success border-emerald-100 bg-emerald-50/50"} text-[10px] font-bold px-2 py-0.5`}>
+            {isPositive ? "↑" : "↓"} {Math.abs(calcPctRow(v1, diff)).toFixed(1)}%
+          </span>
+        </div>
+      </motion.div>
     );
   }
 
   const chartDailyData = useMemo(() => {
     const dMap = new Map<string, { v1: number, v2: number }>();
-    const process = (txs: InventoryTx[], bounds: any, key: 'v1' | 'v2') => {
+    const process = (txs: InventoryTx[], bounds: { effectiveStart: string; effectiveEnd: string; S: string | null }, key: 'v1' | 'v2') => {
       for (const t of txs) {
         if (t.deleted_at || t.tx_date < bounds.effectiveStart || t.tx_date >= dayAfter(bounds.effectiveEnd)) continue;
         const p = products.find(x => x.id === t.product_id);
         if (qCustomer && p?.customer_id !== qCustomer) continue;
         if (qProduct && p && !p.sku.toLowerCase().includes(qProduct.toLowerCase()) && !p.name.toLowerCase().includes(qProduct.toLowerCase())) continue;
         const d = t.tx_date.slice(0, 10), e = dMap.get(d) || { v1: 0, v2: 0 };
-        if (t.tx_type.includes('in')) e[key] += t.qty; else e[key] += 0; // Simplified for Qty
+        if (t.tx_type.includes('in')) e[key] += t.qty;
         dMap.set(d, e);
       }
     };
@@ -582,117 +630,205 @@ export default function InventoryComparisonPage() {
       const lines = displayProductRows.map((r, i) => ({ closure_id: ins.id, line_type: "comparison_product", sort_order: i, product_id: r.product.id, row_json: r }));
       if (lines.length > 0) await supabase.from("inventory_report_closure_lines").insert(lines);
       showToast("Thành công", "success");
-    } catch (e: any) { setError(e.message); } finally { setClosing(false); }
+    } catch (err: unknown) { setError((err as Error)?.message ?? "Lỗi"); } finally { setClosing(false); }
   }
 
   return (
-    <div className="page-root" ref={containerRef}>
-      <div className="page-header flex justify-between items-center mb-6">
+    <motion.div 
+      className="page-root" 
+      ref={containerRef}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+    >
+      <div className="page-header sticky top-0 bg-white/80 backdrop-blur-md z-50 py-4 px-6 -mx-6 mb-6 border-b border-slate-200/60 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="page-header-icon bg-brand/10 text-brand p-3 rounded-xl"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></div>
-          <div><h1 className="page-title text-2xl font-bold text-slate-800">Đối soát Xuất - Nhập</h1><p className="page-description text-slate-500 text-sm italic">So sánh kết quả vận hành giữa hai kỳ</p></div>
+          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)", boxShadow: "0 0 15px var(--brand-glow)" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+          </div>
+          <div>
+            <h1 className="page-title !m-0 !text-xl !font-extrabold tracking-tight">Đối soát Xuất - Nhập</h1>
+            <p className="page-description !m-0 text-slate text-xs font-medium">So sánh kết quả vận hành giữa hai kỳ</p>
+          </div>
         </div>
-        <div className="toolbar flex gap-2">
-          <button className="btn btn-outline" onClick={applyPresetPreviousMonth}>Kỳ trước</button>
-          <button className="btn btn-outline" onClick={applyPresetSameMonthLastYear}>Năm ngoái</button>
-          <div className="w-px h-8 bg-slate-200 mx-2" />
-          <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading}>{closing ? "Đang xử lý..." : "📋 Chốt lưu trữ"}</button>
+        <div className="toolbar ml-auto flex gap-3">
+          <button className="btn btn-ghost btn-sm" onClick={applyPresetPreviousMonth}>🔄 Kỳ trước</button>
+          <button className="btn btn-ghost btn-sm" onClick={applyPresetSameMonthLastYear}>📅 Năm ngoái</button>
+          <div className="w-px h-6 bg-slate-200 mx-1" />
+          <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading}>
+            {closing ? "Đang xử lý..." : "📋 Chốt lưu trữ"}
+          </button>
         </div>
       </div>
 
-      <div className="filter-panel mb-8 p-6 bg-white rounded-xl shadow-sm border border-slate-100">
+      <ErrorBanner message={error} onDismiss={() => setError("")} />
+
+      <motion.div 
+        className="filter-panel glass shadow-sm mb-8"
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.2, duration: 0.4 }}
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
-          <div className="p-4 bg-slate-50/50 rounded-lg border-l-4 border-slate-400">
-            <div className="text-[10px] font-bold text-slate-400 mb-3 uppercase tracking-widest">Kỳ gốc (1)</div>
+          <div className="p-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+            <div className="text-[10px] font-bold text-slate-400 mb-3 uppercase tracking-widest">Kỳ gốc (Kỳ 1)</div>
             <div className="flex gap-4 items-center">
-              <input type="date" className="input flex-1 bg-white" value={p1Start} onChange={e=>setP1Start(e.target.value)} /><span className="text-slate-300">→</span><input type="date" className="input flex-1 bg-white" value={p1End} onChange={e=>setP1End(e.target.value)} />
+              <input type="date" className="input-field flex-1" value={p1Start} onChange={e=>setP1Start(e.target.value)} />
+              <span className="text-slate-300 font-bold">→</span>
+              <input type="date" className="input-field flex-1" value={p1End} onChange={e=>setP1End(e.target.value)} />
             </div>
           </div>
-          <div className="p-4 bg-brand/5 rounded-lg border-l-4 border-brand">
-            <div className="text-[10px] font-bold text-brand mb-3 uppercase tracking-widest">Kỳ đối soát (2)</div>
+          <div className="p-4 bg-brand/5 rounded-xl border border-dashed border-brand/20">
+            <div className="text-[10px] font-bold text-brand mb-3 uppercase tracking-widest">Kỳ đối soát (Kỳ 2)</div>
             <div className="flex gap-4 items-center">
-              <input type="date" className="input flex-1 bg-white border-brand/20" value={p2Start} onChange={e=>setP2Start(e.target.value)} /><span className="text-brand/30">→</span><input type="date" className="input flex-1 bg-white border-brand/20" value={p2End} onChange={e=>setP2End(e.target.value)} />
+              <input type="date" className="input-field flex-1 !border-brand/20" value={p2Start} onChange={e=>setP2Start(e.target.value)} />
+              <span className="text-brand/30 font-bold">→</span>
+              <input type="date" className="input-field flex-1 !border-brand/20" value={p2End} onChange={e=>setP2End(e.target.value)} />
             </div>
           </div>
         </div>
         <div className="flex gap-6 flex-wrap items-end border-t border-slate-50 pt-6">
-          <div className="w-full md:w-[280px]"><label className="filter-label text-xs text-slate-500 font-bold mb-1 block uppercase">Khách hàng</label><select className="input" value={qCustomer} onChange={e=>setQCustomer(e.target.value)}><option value="">-- Tất cả --</option>{customers.map(c=><option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}</select></div>
-          <div className="w-full md:w-[280px]"><label className="filter-label text-xs text-slate-500 font-bold mb-1 block uppercase">Sản phẩm</label><input type="text" className="input" placeholder="SKU hoặc tên..." value={qProduct} onChange={e=>setQProduct(e.target.value)} /></div>
-          <div className="pb-2"><label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" className="rounded text-brand" checked={onlyChanged} onChange={e=>setOnlyChanged(e.target.checked)} /><span className="text-sm text-slate-600">Chỉ mặt hàng có biến động</span></label></div>
-          <div className="flex-1 text-right pb-1"><button className="btn btn-primary px-8 shadow-lg shadow-brand/20" onClick={load} disabled={loading}>{loading ? "Đang tải..." : "Lấy dữ liệu"}</button></div>
+          <div className="w-full md:w-[280px]">
+            <label className="field-label">Khách hàng</label>
+            <select className="input-field" value={qCustomer} onChange={e=>setQCustomer(e.target.value)}>
+              <option value="">-- Tất cả khách hàng --</option>
+              {customers.map(c=><option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+            </select>
+          </div>
+          <div className="w-full md:w-[280px]">
+            <label className="field-label">Tìm sản phẩm</label>
+            <input type="text" className="input-field" placeholder="Mã SKU hoặc tên hàng..." value={qProduct} onChange={e=>setQProduct(e.target.value)} />
+          </div>
+          <div className="pb-2">
+            <label className="checkbox-container">
+              <input type="checkbox" checked={onlyChanged} onChange={e=>setOnlyChanged(e.target.checked)} />
+              <span className="checkbox-label text-sm">Chỉ mặt hàng có biến động</span>
+            </label>
+          </div>
+          <div className="ml-auto">
+            <button className="btn btn-primary px-8 shadow-lg shadow-brand/20" onClick={load} disabled={loading}>
+              {loading ? "Đang tải..." : "🔄 Lấy dữ liệu đối soát"}
+            </button>
+          </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <SummaryCard title="Nhập" v1={totals.in1} v2={totals.in2} diff={totals.inDiff} accent="var(--brand)" />
-        <SummaryCard title="Xuất" v1={totals.out1} v2={totals.out2} diff={totals.outDiff} accent="var(--color-danger)" />
-        <SummaryCard title="GT Nhập" v1={totals.inVal1} v2={totals.inVal2} diff={totals.inValDiff} accent="var(--brand)" />
-        <SummaryCard title="GT Xuất" v1={totals.outVal1} v2={totals.outVal2} diff={totals.outValDiff} accent="var(--color-danger)" />
-      </div>
+      {loading ? (
+        <LoadingInline text="Đang phân tích và đối soát dữ liệu..." />
+      ) : (
+        <div className="page-content">
+          <motion.div 
+            className="stats-grid mb-8"
+            initial="hidden"
+            animate="show"
+            variants={{
+              hidden: { opacity: 0 },
+              show: {
+                opacity: 1,
+                transition: { staggerChildren: 0.1 }
+              }
+            }}
+          >
+            <SummaryCard title="Số lượng Nhập" v1={totals.in1} v2={totals.in2} diff={totals.inDiff} accent="var(--brand)" />
+            <SummaryCard title="Số lượng Xuất" v1={totals.out1} v2={totals.out2} diff={totals.outDiff} accent="var(--color-danger)" />
+            <SummaryCard title="Giá trị Nhập (VNĐ)" v1={totals.inVal1} v2={totals.inVal2} diff={totals.inValDiff} accent="var(--brand)" />
+            <SummaryCard title="Giá trị Xuất (VNĐ)" v1={totals.outVal1} v2={totals.outVal2} diff={totals.outValDiff} accent="var(--color-danger)" />
+          </motion.div>
 
-      <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm mb-10">
-        <VerticalGroupedColumnChart title="Biến động Nhập theo ngày" label1="Kỳ 1" label2="Kỳ 2" data={chartDailyData} />
-      </div>
+          <section className="page-section mb-10 overflow-hidden">
+            <div className="section-header">
+              <h3 className="section-title">Biến động nhập kho theo ngày</h3>
+            </div>
+            <div className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm">
+              <VerticalGroupedColumnChart title="So sánh tần suất nhập kho" label1="Kỳ 1" label2="Kỳ 2" data={chartDailyData} />
+            </div>
+          </section>
 
-      <div className="section-header flex justify-between items-center mb-4 px-2"><h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest text-brand">Tổng hợp Khách hàng</h3></div>
-      <div className="data-table-wrap mb-10 overflow-hidden shadow-sm border border-slate-100 rounded-xl bg-white">
-        <table className="data-table text-[11px]">
-          <thead>
-            <tr>
-              <ThCellCust label="STT" colKey="stt" sortable={false} colType="text" w="50px" align="center" />
-              <ThCellCust label="Khách hàng" colKey="customer" sortable colType="text" />
-              <ThCellCust label="Nhập (K1)" colKey="in1" sortable colType="num" align="right" w="100px" />
-              <ThCellCust label="Nhập (K2)" colKey="in2" sortable colType="num" align="right" w="100px" />
-              <ThCellCust label="CL Nhập" colKey="inDiff" sortable colType="num" align="right" w="100px" />
-              <ThCellCust label="Xuất (K1)" colKey="out1" sortable colType="num" align="right" w="100px" />
-              <ThCellCust label="Xuất (K2)" colKey="out2" sortable colType="num" align="right" w="100px" />
-              <ThCellCust label="CL Xuất" colKey="outDiff" sortable colType="num" align="right" w="100px" />
-            </tr>
-          </thead>
-          <tbody>
-            {displayCustomerRows.length === 0 ? <tr><td colSpan={8} className="p-10 text-center text-slate-400 italic">Không có dữ liệu</td></tr> : displayCustomerRows.map((r, i) => (
-              <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                <td style={{ ...tdStyle, textAlign: "center", color: "#94a3b8" }}>{i + 1}</td>
-                <td style={{ ...tdStyle, fontWeight: 600 }}>{customerLabel(r.customer_id)}</td>
-                <td style={tdStyle} className="text-right">{fmtNum(r.in1)}</td>
-                <td style={tdStyle} className="text-right font-medium text-brand">{fmtNum(r.in2)}</td>
-                <td style={{ ...tdStyle, color: diffColor(r.inDiff) }} className="text-right font-bold">{r.inDiff > 0 ? "+" : ""}{fmtNum(r.inDiff)}</td>
-                <td style={tdStyle} className="text-right">{fmtNum(r.out1)}</td>
-                <td style={tdStyle} className="text-right font-medium text-brand">{fmtNum(r.out2)}</td>
-                <td style={{ ...tdStyle, color: diffColor(r.outDiff) }} className="text-right font-bold">{r.outDiff > 0 ? "+" : ""}{fmtNum(r.outDiff)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          <section className="page-section mb-10">
+            <div className="section-header flex justify-between items-center">
+              <h3 className="section-title">Tổng hợp theo khách hàng</h3>
+              <span className="badge badge-secondary">{displayCustomerRows.length} đối tượng</span>
+            </div>
+            <div className="data-table-wrap !rounded-xl overflow-hidden shadow-sm border border-slate-100">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <ThCellCust label="STT" colKey="stt" sortable={false} colType="text" w="60px" align="center" />
+                    <ThCellCust label="Khách hàng" colKey="customer" sortable colType="text" />
+                    <ThCellCust label="Nhập (K1)" colKey="in1" sortable colType="num" align="right" w="100px" />
+                    <ThCellCust label="Nhập (K2)" colKey="in2" sortable colType="num" align="right" w="100px" />
+                    <ThCellCust label="Chênh lệch" colKey="inDiff" sortable colType="num" align="right" w="110px" />
+                    <ThCellCust label="Xuất (K1)" colKey="out1" sortable colType="num" align="right" w="100px" />
+                    <ThCellCust label="Xuất (K2)" colKey="out2" sortable colType="num" align="right" w="100px" />
+                    <ThCellCust label="Chênh lệch" colKey="outDiff" sortable colType="num" align="right" w="110px" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayCustomerRows.length === 0 ? (
+                    <tr><td colSpan={8} className="empty-state">Không có dữ liệu đối soát cho khách hàng.</td></tr>
+                  ) : displayCustomerRows.map((r, i) => (
+                    <tr key={i} className="hover:bg-brand/[0.02] transition-colors odd:bg-white even:bg-slate-50/30">
+                      <td style={tdStyle} className="text-center text-slate-400">{i + 1}</td>
+                      <td style={tdStyle} className="font-bold">{customerLabel(r.customer_id)}</td>
+                      <td style={tdStyle} className="text-right">{fmtNum(r.in1)}</td>
+                      <td style={tdStyle} className="text-right font-medium text-brand bg-brand/5">{fmtNum(r.in2)}</td>
+                      <td style={{ ...tdStyle, color: diffColor(r.inDiff) }} className="text-right font-black">
+                        {r.inDiff > 0 ? "+" : ""}{fmtNum(r.inDiff)}
+                      </td>
+                      <td style={tdStyle} className="text-right">{fmtNum(r.out1)}</td>
+                      <td style={tdStyle} className="text-right font-medium text-brand bg-slate-100/30">{fmtNum(r.out2)}</td>
+                      <td style={{ ...tdStyle, color: diffColor(r.outDiff) }} className="text-right font-black">
+                        {r.outDiff > 0 ? "+" : ""}{fmtNum(r.outDiff)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-      <div className="section-header flex justify-between items-center mb-4 px-2"><h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest text-brand">Chi tiết Sản phẩm</h3></div>
-      <div className="data-table-wrap overflow-hidden shadow-sm border border-slate-100 rounded-xl bg-white mb-8">
-        <table className="data-table text-[11px]">
-          <thead>
-            <tr>
-              <ThCellProd label="STT" colKey="stt" sortable={false} colType="text" w="50px" align="center" />
-              <ThCellProd label="Mã hàng" colKey="sku" sortable colType="text" w="120px" />
-              <ThCellProd label="Tên hàng" colKey="name" sortable colType="text" />
-              <ThCellProd label="CL Nhập" colKey="inDiff" sortable colType="num" align="right" w="100px" />
-              <ThCellProd label="CL Xuất" colKey="outDiff" sortable colType="num" align="right" w="100px" />
-              <ThCellProd label="CL GT Nhập" colKey="inValDiff" sortable colType="num" align="right" w="120px" />
-            </tr>
-          </thead>
-          <tbody>
-            {displayProductRows.length === 0 ? <tr><td colSpan={6} className="p-10 text-center text-slate-400 italic">Không có dữ liệu</td></tr> : displayProductRows.map((r, i) => (
-              <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                <td style={{ ...tdStyle, textAlign: "center", color: "#94a3b8" }}>{i + 1}</td>
-                <td style={{ ...tdStyle, fontWeight: 700 }}>{r.product.sku}</td>
-                <td style={tdStyle} className="text-slate-600 leading-relaxed font-bold">{r.product.name}</td>
-                <td style={{ ...tdStyle, color: diffColor(r.inDiff) }} className="text-right font-bold">{r.inDiff > 0 ? "+" : ""}{fmtNum(r.inDiff)}</td>
-                <td style={{ ...tdStyle, color: diffColor(r.outDiff) }} className="text-right font-bold">{r.outDiff > 0 ? "+" : ""}{fmtNum(r.outDiff)}</td>
-                <td style={{ ...tdStyle, color: diffColor(r.inValDiff) }} className="text-right font-medium">{r.inValDiff > 0 ? "+" : ""}{fmtNum(r.inValDiff)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          <section className="page-section mb-10">
+            <div className="section-header flex justify-between items-center">
+              <h3 className="section-title">Chi tiết biến động theo sản phẩm</h3>
+              <span className="badge badge-brand">{displayProductRows.length} mã hàng</span>
+            </div>
+            <div className="data-table-wrap !rounded-xl overflow-hidden shadow-sm border border-slate-100">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <ThCellProd label="STT" colKey="stt" sortable={false} colType="text" w="60px" align="center" />
+                    <ThCellProd label="Mã hàng" colKey="sku" sortable colType="text" w="140px" />
+                    <ThCellProd label="Tên sản phẩm" colKey="name" sortable colType="text" />
+                    <ThCellProd label="CL Nhập" colKey="inDiff" sortable colType="num" align="right" w="120px" />
+                    <ThCellProd label="CL Xuất" colKey="outDiff" sortable colType="num" align="right" w="120px" />
+                    <ThCellProd label="CL Giá trị" colKey="inValDiff" sortable colType="num" align="right" w="140px" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayProductRows.length === 0 ? (
+                    <tr><td colSpan={6} className="empty-state">Không tìm thấy sản phẩm có biến động.</td></tr>
+                  ) : displayProductRows.map((r, i) => (
+                    <tr key={i} className="hover:bg-brand/[0.02] transition-colors odd:bg-white even:bg-slate-50/30">
+                      <td style={tdStyle} className="text-center text-slate-400">{i + 1}</td>
+                      <td style={tdStyle} className="font-mono font-bold text-slate-900">{r.product.sku}</td>
+                      <td style={tdStyle} className="font-medium text-slate-700">{r.product.name}</td>
+                      <td style={{ ...tdStyle, color: diffColor(r.inDiff) }} className="text-right font-black">
+                        {r.inDiff > 0 ? "+" : ""}{fmtNum(r.inDiff)}
+                      </td>
+                      <td style={{ ...tdStyle, color: diffColor(r.outDiff) }} className="text-right font-black">
+                        {r.outDiff > 0 ? "+" : ""}{fmtNum(r.outDiff)}
+                      </td>
+                      <td style={{ ...tdStyle, color: diffColor(r.inValDiff) }} className="text-right font-black bg-brand/[0.03]">
+                        {r.inValDiff > 0 ? "+" : ""}{fmtNum(r.inValDiff)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      )}
+    </motion.div>
   );
 }

@@ -235,7 +235,7 @@ function SummaryCard({ title, v1, v2, diff, bg, accent, icon, unit = "đ" }: { t
 const thStyle: React.CSSProperties = { padding: "10px 12px", border: "1px solid #ddd", fontSize: 13, fontWeight: 600, background: "#f8fafc", whiteSpace: "nowrap", position: "relative" };
 const tdStyle: React.CSSProperties = { padding: "12px 12px", borderBottom: "1px solid var(--slate-100)" };
 
-function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilters, sortCol, sortDir, onSort, openPopupId, setOpenPopupId, w, colWidths, onResize, popupPrefix }: {
+function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilters, sortCol, sortDir, onSort, openPopupId, setOpenPopupId, w, colWidths, onResize, popupPrefix, glassHeader }: {
     label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left" | "right" | "center";
     colFilters: Record<string, ColFilter>; setColFilters: React.Dispatch<React.SetStateAction<Record<string, ColFilter>>>;
     sortCol: string | null; sortDir: SortDir;
@@ -243,6 +243,7 @@ function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilte
     openPopupId: string | null; setOpenPopupId: (id: string | null) => void;
     w?: string; colWidths: Record<string, number>; onResize: (key: string, width: number) => void;
     popupPrefix: string;
+    glassHeader?: boolean;
   }) {
     const active = !!colFilters[colKey];
     const isSortTarget = sortCol === colKey;
@@ -274,13 +275,13 @@ function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilte
       minWidth: width ? `${width}px` : "50px",
       position: "sticky",
       top: 0,
-      zIndex: 30,
+      zIndex: 60,
       boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
       color: "var(--slate-900)",
     };
 
     return (
-      <th style={baseStyle} ref={thRef} className="group">
+      <th style={baseStyle} ref={thRef} className={`group ${glassHeader ? "glass-header" : ""}`}>
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
           <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
@@ -1177,14 +1178,14 @@ export default function InventoryValueReportPage() {
 
   return (
     <div className="page-root" ref={containerRef}>
-      <div className="page-header">
+      <div className="page-header sticky top-0 bg-white/80 backdrop-blur-md z-50 py-4 px-6 -mx-6 mb-6 border-b border-slate-200/60 shadow-sm">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)", boxShadow: "0 0 15px var(--brand-glow)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           </div>
           <div>
-            <h1 className="page-title">Báo cáo Giá trị & Xếp hạng</h1>
-            <p className="page-description">Phân tích giá trị tồn kho và xếp hạng khách hàng, mã hàng</p>
+            <h1 className="page-title !m-0 !text-xl !font-extrabold tracking-tight">Báo cáo Giá trị & Xếp hạng</h1>
+            <p className="page-description !m-0 text-slate text-xs font-medium">Phân tích giá trị tồn kho và xếp hạng khách hàng, mã hàng</p>
           </div>
         </div>
 
@@ -1248,36 +1249,36 @@ export default function InventoryValueReportPage() {
 
       {error && <div className="alert alert-error" style={{ marginBottom: 20 }}>{error}</div>}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 32 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20, marginBottom: 32 }}>
         {reportMode === "current" ? (
           <>
-            <div className="stat-card" style={{ borderLeft: "4px solid var(--brand)" }}>
-              <div className="label">Tổng giá trị tồn kho</div>
-              <div className="value" style={{ color: "var(--brand)" }}>{fmtNum(overallTotals.totalValue)} <small style={{ fontSize: 14 }}>VNĐ</small></div>
+            <div className="stat-card brand !border-none !shadow-md hover:shadow-lg transition-all" style={{ borderLeft: "4px solid var(--brand)" }}>
+              <div className="stat-label">Tổng giá trị tồn kho</div>
+              <div className="stat-value" style={{ color: "var(--brand)" }}>{fmtNum(overallTotals.totalValue)} <small className="stat-unit">VNĐ</small></div>
             </div>
-            <div className="stat-card" style={{ borderLeft: "4px solid var(--slate-400)" }}>
-              <div className="label">Tổng số lượng tồn</div>
-              <div className="value">{fmtNum(overallTotals.totalQty)}</div>
+            <div className="stat-card secondary !border-none !shadow-md hover:shadow-lg transition-all" style={{ borderLeft: "4px solid var(--slate-400)" }}>
+              <div className="stat-label">Tổng số lượng tồn</div>
+              <div className="stat-value">{fmtNum(overallTotals.totalQty)}</div>
             </div>
-            <div className="stat-card" style={{ borderLeft: "4px solid var(--brand-light)" }}>
-              <div className="label">Số mã còn tồn</div>
-              <div className="value" style={{ color: "var(--brand)" }}>{fmtNum(overallTotals.productCount)}</div>
+            <div className="stat-card brand !border-none !shadow-md hover:shadow-lg transition-all" style={{ borderLeft: "4px solid var(--brand-light)" }}>
+              <div className="stat-label">Số mã còn tồn</div>
+              <div className="stat-value" style={{ color: "var(--brand)" }}>{fmtNum(overallTotals.productCount)}</div>
             </div>
-            <div className="stat-card" style={{ borderLeft: "4px solid var(--slate-500)" }}>
-              <div className="label">Số khách hàng</div>
-              <div className="value">{fmtNum(overallTotals.customerCount)}</div>
+            <div className="stat-card secondary !border-none !shadow-md hover:shadow-lg transition-all" style={{ borderLeft: "4px solid var(--slate-500)" }}>
+              <div className="stat-label">Số khách hàng</div>
+              <div className="stat-value">{fmtNum(overallTotals.customerCount)}</div>
             </div>
           </>
         ) : (
           <>
             <SummaryCard title="Giá trị kho" v1={compareTotals.val1} v2={compareTotals.val2} diff={compareTotals.diff} bg="var(--brand-light)" accent="var(--brand)" />
-            <div className="stat-card" style={{ borderLeft: "4px solid var(--slate-400)" }}>
-              <div className="label">Số khách (Kỳ 1)</div>
-              <div className="value">{fmtNum(compareTotals.cust1)}</div>
+            <div className="stat-card secondary !border-none !shadow-md hover:shadow-lg transition-all" style={{ borderLeft: "4px solid var(--slate-400)" }}>
+              <div className="stat-label">Số khách (Kỳ 1)</div>
+              <div className="stat-value">{fmtNum(compareTotals.cust1)}</div>
             </div>
-            <div className="stat-card" style={{ borderLeft: "4px solid var(--brand-light)" }}>
-              <div className="label">Số khách (Kỳ 2)</div>
-              <div className="value">{fmtNum(compareTotals.cust2)}</div>
+            <div className="stat-card brand !border-none !shadow-md hover:shadow-lg transition-all" style={{ borderLeft: "4px solid var(--brand-light)" }}>
+              <div className="stat-label">Số khách (Kỳ 2)</div>
+              <div className="stat-value">{fmtNum(compareTotals.cust2)}</div>
             </div>
           </>
         )}
@@ -1370,7 +1371,9 @@ export default function InventoryValueReportPage() {
       </div>
 
       {loading ? (
-        <div style={{ padding: 48, textAlign: "center", color: "var(--slate-400)" }}>Đang tải báo cáo...</div>
+        <div className="py-20 text-center color-slate font-medium">
+          <LoadingInline text="Đang tính toán dữ liệu báo cáo..." />
+        </div>
       ) : (
         <div style={{ display: "grid", gap: 32 }}>
 
@@ -1434,22 +1437,22 @@ export default function InventoryValueReportPage() {
               <table className="data-table !border-separate !border-spacing-0 overflow-visible" style={{ minWidth: 1000 }}>
                 <thead>
                   <tr>
-                    <th style={{ ...thStyle, textAlign: "center", width: 50, position: "sticky", top: 0, zIndex: 30, color: "var(--slate-900)" }}>STT</th>
-                    <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
+                    <th style={{ ...thStyle, textAlign: "center", width: 50, position: "sticky", top: 0, zIndex: 60, color: "var(--slate-900)" }} className="glass-header text-center">STT</th>
+                    <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
                     {reportMode === "current" ? (
                       <>
-                        <ThCell label="Số mã" colKey="products" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
-                        <ThCell label="Số lượng" colKey="qty" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
-                        <ThCell label="Giá trị tồn kho" colKey="value" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
-                        <th style={{ ...thStyle, textAlign: "right", position: "sticky", top: 0, zIndex: 30, color: "var(--slate-900)" }} className="text-right">Tỷ trọng</th>
+                        <ThCell label="Số mã" colKey="products" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Số lượng" colKey="qty" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Giá trị tồn kho" colKey="value" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <th style={{ ...thStyle, textAlign: "right", position: "sticky", top: 0, zIndex: 60, color: "var(--slate-900)" }} className="glass-header text-right">Tỷ trọng</th>
                       </>
                     ) : (
                       <>
-                        <ThCell label="Số mã" colKey="products" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
-                        <ThCell label="Giá trị K1" colKey="p1_value" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
-                        <ThCell label="Giá trị K2" colKey="p2_value" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
-                        <ThCell label="Chênh lệch" colKey="valDiff" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
-                        <ThCell label="% CL" colKey="pctDiff" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
+                        <ThCell label="Số mã" colKey="products" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Giá trị K1" colKey="p1_value" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Giá trị K2" colKey="p2_value" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Chênh lệch" colKey="valDiff" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="% CL" colKey="pctDiff" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
                       </>
                     )}
                   </tr>
@@ -1504,23 +1507,23 @@ export default function InventoryValueReportPage() {
               <table className="data-table !border-separate !border-spacing-0 overflow-visible" style={{ minWidth: 1000 }}>
                 <thead>
                   <tr>
-                    <ThCell label="Hạng" colKey="rank" sortable isNum align="center" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" w="60px" />
-                    <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
-                    <ThCell label="Tên hàng" colKey="name" sortable isNum={false} colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
-                    <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
+                    <ThCell label="Hạng" colKey="rank" sortable isNum align="center" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" w="60px" glassHeader />
+                    <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
+                    <ThCell label="Tên hàng" colKey="name" sortable isNum={false} colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
+                    <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
                     {reportMode === "current" ? (
                       <>
-                        <ThCell label="Tồn còn lại" colKey="qty" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
-                        <ThCell label="Giá trị tồn" colKey="value" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
-                        <th style={{ ...thStyle, textAlign: "right", position: "sticky", top: 0, zIndex: 30, color: "var(--slate-900)" }} className="text-right">Tỷ trọng</th>
+                        <ThCell label="Tồn còn lại" colKey="qty" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
+                        <ThCell label="Giá trị tồn" colKey="value" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
+                        <th style={{ ...thStyle, textAlign: "right", position: "sticky", top: 0, zIndex: 60, color: "var(--slate-900)" }} className="glass-header text-right">Tỷ trọng</th>
                       </>
                     ) : (
                       <>
-                        <ThCell label="Tồn K1" colKey="qty1" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
-                        <ThCell label="Tồn K2" colKey="qty2" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
-                        <ThCell label="Giá trị K1" colKey="val1" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
-                        <ThCell label="Giá trị K2" colKey="val2" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
-                        <ThCell label="CL Giá trị" colKey="valDiff" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
+                        <ThCell label="Tồn K1" colKey="qty1" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
+                        <ThCell label="Tồn K2" colKey="qty2" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
+                        <ThCell label="Giá trị K1" colKey="val1" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
+                        <ThCell label="Giá trị K2" colKey="val2" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
+                        <ThCell label="CL Giá trị" colKey="valDiff" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
                       </>
                     )}
                   </tr>

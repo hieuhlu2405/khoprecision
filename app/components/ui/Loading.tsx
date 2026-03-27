@@ -19,25 +19,27 @@ export function LoadingInline({ text = "Đang tải..." }: { text?: string }) {
 export function TableSkeleton({ rows = 6, cols = 5 }: { rows?: number; cols?: number }) {
   const widths = ["40%", "60%", "80%", "55%", "70%", "45%", "65%"];
   return (
-    <div style={{ padding: "0" }}>
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
       {/* Header skeleton */}
-      <div style={{ display: "flex", gap: 12, padding: "12px 10px", borderBottom: "2px solid var(--slate-200)", background: "var(--slate-50)" }}>
+      <div className="flex gap-4 p-4 border-bottom-2 border-slate-100 bg-slate-50/50">
         {Array.from({ length: cols }).map((_, i) => (
-          <div key={i} className="skeleton skeleton-text" style={{ flex: 1, height: 12 }} />
+          <div key={i} className="skeleton h-3 flex-1" />
         ))}
       </div>
       {/* Row skeletons */}
-      {Array.from({ length: rows }).map((_, ri) => (
-        <div key={ri} className="skeleton-row" style={{ padding: "10px 10px" }}>
-          {Array.from({ length: cols }).map((_, ci) => (
-            <div
-              key={ci}
-              className="skeleton"
-              style={{ flex: 1, height: 14, width: widths[(ri + ci) % widths.length] }}
-            />
-          ))}
-        </div>
-      ))}
+      <div className="divide-y divide-slate-100">
+        {Array.from({ length: rows }).map((_, ri) => (
+          <div key={ri} className="flex gap-4 p-4 items-center">
+            {Array.from({ length: cols }).map((_, ci) => (
+              <div
+                key={ci}
+                className="skeleton h-4"
+                style={{ flex: 1, width: widths[(ri + ci) % widths.length] }}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
