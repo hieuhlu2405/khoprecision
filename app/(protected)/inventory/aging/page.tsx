@@ -1025,8 +1025,12 @@ export default function InventoryAgingReportPage() {
   const [closingAging, setClosingAging] = useState(false);
 
   async function closeAgingReport() {
-    const ok = await showConfirm({ message: "Chốt lưu trữ báo cáo tồn lâu ngày kỳ này? Dữ liệu sẽ được đóng băng để đối soát sau này.", confirmLabel: "📋 Chốt lưu trữ báo cáo" });
+    const ok = await showConfirm({ 
+      message: "Chốt lưu trữ báo cáo tồn lâu ngày kỳ này? Dữ liệu sẽ được đóng băng để đối soát sau này.", 
+      confirmLabel: "📋 Chốt lưu trữ báo cáo" 
+    });
     if (!ok) return;
+
     setClosingAging(true);
     try {
       const { data: ins, error: e1 } = await supabase.from("inventory_report_closures").insert({
@@ -1035,25 +1039,53 @@ export default function InventoryAgingReportPage() {
         period_1_start: bounds.effectiveStart,
         period_1_end: bounds.effectiveEnd,
         baseline_snapshot_date_1: bounds.S || qStart,
-        summary_json: { "% trên tổng tồn kho": overallTotals.pctGlobal, "Giá trị tồn dài kỳ": overallTotals.tValLongAging, "Số khách hàng": overallTotals.customerCount },
+        summary_json: { 
+          "% trên tổng tồn kho": overallTotals.pctGlobal, 
+          "Giá trị tồn dài kỳ": overallTotals.tValLongAging, 
+          "Số khách hàng": overallTotals.customerCount 
+        },
         filters_json: { qStart, qEnd, customer: qCustomer, product: qProduct, onlyInStock },
       }).select("id").single();
+
       if (e1) throw e1;
       const closureId = ins.id;
 
       const agingLines = filteredLongAgingData.map((r, i) => ({
-        closure_id: closureId, line_type: "aging_product", sort_order: i, customer_id: r.customer_id || null, product_id: r.product.id,
-        row_json: { "khách hàng": customerLabel(r.customer_id), "mã hàng": r.product.sku, "tên hàng": r.product.name, "kích thước": r.product.spec || "", "tồn hiện tại": r.current_qty, "đơn giá": r.product.unit_price ?? 0, "giá trị tồn dài kỳ": r.inventory_value ?? 0 },
+        closure_id: closureId,
+        line_type: "aging_product",
+        sort_order: i,
+        customer_id: r.customer_id || null,
+        product_id: r.product.id,
+        row_json: { 
+          "khách hàng": customerLabel(r.customer_id), 
+          "mã hàng": r.product.sku, 
+          "tên hàng": r.product.name, 
+          "kích thước": r.product.spec || "", 
+          "tồn hiện tại": r.current_qty, 
+          "đơn giá": r.product.unit_price ?? 0, 
+          "giá trị tồn dài kỳ": r.inventory_value ?? 0 
+        },
       }));
+
       const custLines = customerSummary.map((c, i) => ({
-        closure_id: closureId, line_type: "aging_customer", sort_order: i, customer_id: c.customer_id || null,
-        row_json: { "khách hàng": customerLabel(c.customer_id), "số mã": c.productCount, "số lượng": c.qty, "giá trị": c.value },
+        closure_id: closureId,
+        line_type: "aging_customer",
+        sort_order: i,
+        customer_id: c.customer_id || null,
+        row_json: { 
+          "khách hàng": customerLabel(c.customer_id), 
+          "số mã": c.productCount, 
+          "số lượng": c.qty, 
+          "giá trị": c.value 
+        },
       }));
+
       const allLines = [...custLines, ...agingLines];
       if (allLines.length > 0) {
         const { error: e2 } = await supabase.from("inventory_report_closure_lines").insert(allLines);
         if (e2) throw e2;
       }
+
       showToast("Đã chốt dữ liệu thành công!", "success");
     } catch (err: any) {
       setError(err?.message ?? "Lỗi khi chốt dữ liệu");
@@ -1070,9 +1102,9 @@ export default function InventoryAgingReportPage() {
           <p className="page-subtitle">Phân tích các sản phẩm có thời gian tồn kho vượt ngưỡng để tối ưu hóa dòng vốn.</p>
         </div>
         <div className="toolbar" style={{ margin: 0 }}>
-          <button 
-            onClick={closeAgingReport} 
-            disabled={closingAging || loading || filteredLongAgingData.length === 0} 
+          <button
+            onClick={closeAgingReport}
+            disabled={closingAging || loading || filteredLongAgingData.length === 0}
             className="btn btn-primary"
             style={{ opacity: closingAging ? 0.6 : 1 }}
           >
@@ -1084,64 +1116,66 @@ export default function InventoryAgingReportPage() {
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
       {/* ---- Mode Tabs ---- */}
-      <div className="toolbar" style={{ marginBottom: 24, padding: 0, borderBottom: "1px solid var(--slate-200)" }}>
+      <div className="mode-tabs">
         {(["current", "compare"] as const).map(m => (
           <button
             key={m}
-            className={`btn ${reportMode === m ? "btn-primary" : "btn-ghost"}`}
-            style={{ 
-              borderRadius: 0, 
-              borderBottom: reportMode === m ? "2px solid var(--brand)" : "none",
-              padding: "12px 24px",
-              fontWeight: 600
-            }}
+            className={`tab-item ${reportMode === m ? "active" : ""}`}
             onClick={() => setReportMode(m)}
           >
-            {m === "current" ? "📊 Báo cáo hiện tại" : "🔄 So sánh đối soát 2 kỳ"}
+            {m === "current" ? (
+              <><span className="tab-icon">📊</span> Báo cáo hiện tại</>
+            ) : (
+              <><span className="tab-icon">🔄</span> So sánh đối soát 2 kỳ</>
+            )}
           </button>
         ))}
       </div>
 
       {/* ---- SUMMARY CARDS ---- */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 32 }}>
+      <div className="stats-grid">
         {reportMode === "current" ? (
           <>
-            <div className="stat-card" style={{ borderLeft: "4px solid var(--color-warning)" }}>
-              <div className="label">Cơ cấu % trên tổng tồn kho</div>
-              <div className="value" style={{ color: "var(--color-warning)" }}>{fmtPercent(overallTotals.pctGlobal)}</div>
+            <div className="stat-card warning">
+              <div className="stat-label">Cơ cấu % trên tổng tồn kho</div>
+              <div className="stat-value">{fmtPercent(overallTotals.pctGlobal)}</div>
             </div>
-            <div className="stat-card" style={{ borderLeft: "4px solid var(--color-danger)" }}>
-              <div className="label">Tổng giá trị tồn dài kỳ</div>
-              <div className="value" style={{ color: "var(--color-danger)" }}>{fmtNum(overallTotals.tValLongAging)} <small style={{ fontSize: 14 }}>VNĐ</small></div>
+            <div className="stat-card danger">
+              <div className="stat-label">Tổng giá trị tồn dài kỳ</div>
+              <div className="stat-value">
+                {fmtNum(overallTotals.tValLongAging)} <small className="stat-unit">VNĐ</small>
+              </div>
             </div>
-            <div className="stat-card" style={{ borderLeft: "4px solid var(--slate-400)" }}>
-              <div className="label">Tổng toàn bộ giá trị kho</div>
-              <div className="value">{fmtNum(overallTally)} <small style={{ fontSize: 14 }}>VNĐ</small></div>
+            <div className="stat-card secondary">
+              <div className="stat-label">Tổng toàn bộ giá trị kho</div>
+              <div className="stat-value">
+                {fmtNum(overallTally)} <small className="stat-unit">VNĐ</small>
+              </div>
             </div>
-            <div className="stat-card" style={{ borderLeft: "4px solid var(--brand)" }}>
-              <div className="label">Số khách hàng có tồn dài kỳ</div>
-              <div className="value" style={{ color: "var(--brand)" }}>{fmtNum(overallTotals.customerCount)}</div>
+            <div className="stat-card brand">
+              <div className="stat-label">Số khách hàng có tồn dài kỳ</div>
+              <div className="stat-value">{fmtNum(overallTotals.customerCount)}</div>
             </div>
           </>
         ) : (
           <>
-            <div className="stat-card" style={{ borderLeft: "4px solid var(--slate-400)" }}>
-              <div className="label">Giá trị Aging (Kỳ 1)</div>
-              <div className="value" style={{ fontSize: 20 }}>{fmtNum(compareTotals.v1)}</div>
+            <div className="stat-card secondary">
+              <div className="stat-label">Giá trị Aging (Kỳ 1)</div>
+              <div className="stat-value">{fmtNum(compareTotals.v1)}</div>
             </div>
-            <div className="stat-card" style={{ borderLeft: "4px solid var(--brand-light)" }}>
-              <div className="label">Giá trị Aging (Kỳ 2)</div>
-              <div className="value" style={{ fontSize: 20, color: "var(--brand)" }}>{fmtNum(compareTotals.v2)}</div>
+            <div className="stat-card brand">
+              <div className="stat-label">Giá trị Aging (Kỳ 2)</div>
+              <div className="stat-value">{fmtNum(compareTotals.v2)}</div>
             </div>
-            <div className="stat-card" style={{ borderLeft: `4px solid ${compareTotals.diff > 0 ? "var(--color-danger)" : "var(--color-success)"}` }}>
-              <div className="label">Chênh lệch giá trị</div>
-              <div className="value" style={{ fontSize: 20, color: compareTotals.diff > 0 ? "var(--color-danger)" : "var(--color-success)" }}>
+            <div className={`stat-card ${compareTotals.diff > 0 ? "danger" : "success"}`}>
+              <div className="stat-label">Chênh lệch giá trị</div>
+              <div className="stat-value">
                 {compareTotals.diff > 0 ? "+" : ""}{fmtNum(compareTotals.diff)}
               </div>
             </div>
-            <div className="stat-card">
-              <div className="label">% biến động</div>
-              <div className="value" style={{ fontSize: 20, color: compareTotals.diff > 0 ? "var(--color-danger)" : "var(--color-success)" }}>
+            <div className={`stat-card ${compareTotals.diff > 0 ? "danger" : "success"}`}>
+              <div className="stat-label">% biến động</div>
+              <div className="stat-value">
                 {compareTotals.pct > 0 ? "+" : ""}{fmtPercent(compareTotals.pct)}
               </div>
             </div>
@@ -1150,87 +1184,97 @@ export default function InventoryAgingReportPage() {
       </div>
 
       {/* ---- Top-level Filters ---- */}
-      <div className="filter-panel" style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
-
+      <div className="filter-panel">
+        <div className="filter-row">
           {reportMode === "current" ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                <label className="input-label" style={{ minWidth: 140 }}>
-                  Từ ngày
-                  <input type="date" value={qStart} onChange={(e) => setQStart(e.target.value)} className="input" />
-                </label>
-                <label className="input-label" style={{ minWidth: 140 }}>
-                  Đến ngày
-                  <input type="date" value={qEnd} onChange={(e) => setQEnd(e.target.value)} className="input" />
-                </label>
+            <div className="filter-group">
+              <div className="filter-inputs">
+                <div className="field-group">
+                  <label className="field-label">Từ ngày</label>
+                  <input type="date" value={qStart} onChange={(e) => setQStart(e.target.value)} className="input-field" />
+                </div>
+                <div className="field-group">
+                  <label className="field-label">Đến ngày</label>
+                  <input type="date" value={qEnd} onChange={(e) => setQEnd(e.target.value)} className="input-field" />
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div className="filter-actions-row">
                 <button onClick={() => { setQStart(bounds.prevSnapshotQStart); setQEnd(bounds.prevSnapshotQEnd); }} className="btn btn-secondary btn-sm">So với kỳ trước</button>
-                <button onClick={() => { const p = applySamePeriodLastYearDates(bounds.effectiveStart, bounds.effectiveEnd); setQStart(p.newStart); setQEnd(p.newEnd); }} className="btn btn-secondary btn-sm">So với cùng kỳ năm trước</button>
+                <button onClick={() => { const p = applySamePeriodLastYearDates(bounds.effectiveStart, bounds.effectiveEnd); setQStart(p.newStart); setQEnd(p.newEnd); }} className="btn btn-secondary btn-sm">Cùng kỳ năm trước</button>
               </div>
-              <div style={{ marginTop: 4, fontSize: 13, color: "var(--slate-500)", display: "flex", flexDirection: "column", gap: 2 }}>
-                <div><strong>Kỳ dữ liệu:</strong> {formatToVietnameseDate(bounds.effectiveStart)} – {formatToVietnameseDate(bounds.effectiveEnd)}</div>
-                {bounds.S && <div style={{ fontSize: 12 }}>Mốc tồn gần nhất: {formatToVietnameseDate(bounds.S)}</div>}
+              <div className="filter-info">
+                <span><strong>Kỳ dữ liệu:</strong> {formatToVietnameseDate(bounds.effectiveStart)} – {formatToVietnameseDate(bounds.effectiveEnd)}</span>
+                {bounds.S && <span className="sub-info">Mốc tồn gần nhất: {formatToVietnameseDate(bounds.S)}</span>}
               </div>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
-                <div style={{ display: "flex", gap: 8, padding: 12, border: "1px solid var(--slate-200)", borderRadius: 8, background: "white", alignItems: "flex-end" }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-500)", marginBottom: 10 }}>KỲ 1:</span>
-                  <label className="input-label" style={{ minWidth: 130 }}>Từ ngày<input type="date" value={p1Start} onChange={e => setP1Start(e.target.value)} className="input" /></label>
-                  <label className="input-label" style={{ minWidth: 130 }}>Đến ngày<input type="date" value={p1End} onChange={e => setP1End(e.target.value)} className="input" /></label>
+            <div className="filter-group compare">
+              <div className="compare-periods">
+                <div className="period-box p1">
+                  <span className="period-tag">KỲ 1</span>
+                  <div className="field-group">
+                    <label className="field-label">Từ</label>
+                    <input type="date" value={p1Start} onChange={e => setP1Start(e.target.value)} className="input-field" />
+                  </div>
+                  <div className="field-group">
+                    <label className="field-label">Đến</label>
+                    <input type="date" value={p1End} onChange={e => setP1End(e.target.value)} className="input-field" />
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: 8, padding: 12, border: "1px solid var(--brand-light)", borderRadius: 8, background: "white", alignItems: "flex-end" }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)", marginBottom: 10 }}>KỲ 2:</span>
-                  <label className="input-label" style={{ minWidth: 130 }}>Từ ngày<input type="date" value={p2Start} onChange={e => setP2Start(e.target.value)} className="input" /></label>
-                  <label className="input-label" style={{ minWidth: 130 }}>Đến ngày<input type="date" value={p2End} onChange={e => setP2End(e.target.value)} className="input" /></label>
+                <div className="period-box p2">
+                  <span className="period-tag active">KỲ 2</span>
+                  <div className="field-group">
+                    <label className="field-label">Từ</label>
+                    <input type="date" value={p2Start} onChange={e => setP2Start(e.target.value)} className="input-field" />
+                  </div>
+                  <div className="field-group">
+                    <label className="field-label">Đến</label>
+                    <input type="date" value={p2End} onChange={e => setP2End(e.target.value)} className="input-field" />
+                  </div>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div className="filter-actions-row">
                 <button onClick={applyPresetPreviousMonth} className="btn btn-secondary btn-sm">So với kỳ trước</button>
-                <button onClick={applyPresetSameMonthLastYear} className="btn btn-secondary btn-sm">So với cùng kỳ năm trước</button>
-              </div>
-              <div style={{ fontSize: 12, color: "var(--slate-500)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <div><strong>Dữ liệu Kỳ 1:</strong> {formatToVietnameseDate(bounds1.effectiveStart)} – {formatToVietnameseDate(bounds1.effectiveEnd)}</div>
-                <div><strong>Dữ liệu Kỳ 2:</strong> {formatToVietnameseDate(bounds2.effectiveStart)} – {formatToVietnameseDate(bounds2.effectiveEnd)}</div>
+                <button onClick={applyPresetSameMonthLastYear} className="btn btn-secondary btn-sm">Cùng kỳ năm trước</button>
               </div>
             </div>
           )}
 
-          <label className="input-label" style={{ minWidth: 200 }}>
-            Lọc theo Khách hàng
-            <input list="dl-aging-customer" placeholder="Mã / Tên khách..." value={qCustomerSearch} onChange={(e) => { const val = e.target.value; setQCustomerSearch(val); const matched = customers.find((c) => `${c.code} - ${c.name}` === val); setQCustomer(matched ? matched.id : ""); }} className="input" />
-            <datalist id="dl-aging-customer">{customers.map((c) => (<option key={c.id} value={`${c.code} - ${c.name}`} />))}</datalist>
-          </label>
-
-          <label className="input-label" style={{ minWidth: 200 }}>
-            Lọc Mã / Tên hàng
-            <input value={qProduct} onChange={(e) => setQProduct(e.target.value)} className="input" placeholder="Tìm kiếm sản phẩm..." />
-          </label>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 8, height: 42 }}>
-            <input type="checkbox" id="chkOnlyInStock" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} style={{ width: 18, height: 18, cursor: "pointer" }} />
-            <label htmlFor="chkOnlyInStock" style={{ fontSize: 13, cursor: "pointer", fontWeight: 500 }}>Chỉ hiện hàng còn tồn</label>
+          <div className="filter-group">
+            <div className="field-group" style={{ minWidth: 220 }}>
+              <label className="field-label">Khách hàng</label>
+              <input list="dl-aging-customer" placeholder="Mã / Tên khách..." value={qCustomerSearch} onChange={(e) => { const val = e.target.value; setQCustomerSearch(val); const matched = customers.find((c) => `${c.code} - ${c.name}` === val); setQCustomer(matched ? matched.id : ""); }} className="input-field" />
+              <datalist id="dl-aging-customer">{customers.map((c) => (<option key={c.id} value={`${c.code} - ${c.name}`} />))}</datalist>
+            </div>
+            <div className="field-group" style={{ minWidth: 220 }}>
+              <label className="field-label">Mã / Tên hàng</label>
+              <input value={qProduct} onChange={(e) => setQProduct(e.target.value)} className="input-field" placeholder="Tìm sản phẩm..." />
+            </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+          <div className="filter-group checkbox-group">
+            <label className="checkbox-container">
+              <input type="checkbox" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} />
+              <span className="checkbox-label">Chỉ hiện hàng còn tồn</span>
+            </label>
+          </div>
+
+          <div className="filter-actions">
             {(qCustomer || qProduct) && (
-              <button 
-                onClick={() => { setQCustomer(""); setQCustomerSearch(""); setQProduct(""); }} 
-                className="btn btn-secondary"
+              <button
+                onClick={() => { setQCustomer(""); setQCustomerSearch(""); setQProduct(""); }}
+                className="btn btn-ghost"
               >
                 Xóa lọc nhanh
               </button>
             )}
-            <button onClick={load} className="btn btn-secondary">
+            <button onClick={load} className="btn btn-brand">
               🔄 Làm mới
             </button>
             {activeFilterCount > 0 && (
-              <button 
-                onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }} 
-                className="btn btn-clear-filter"
+              <button
+                onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
+                className="btn btn-danger btn-ghost"
               >
                 Xóa lọc cột ({activeFilterCount})
               </button>
@@ -1239,16 +1283,16 @@ export default function InventoryAgingReportPage() {
         </div>
       </div>
 
+
       {loading ? (
         <LoadingInline text="Đang tính toán dữ liệu báo cáo..." />
       ) : (
-        <div style={{ display: "grid", gap: 32 }}>
-
+        <div className="page-content">
           {/* ---- CHARTS SECTION ---- */}
           {reportMode === "current" && overallTotals.tValLongAging > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 20 }}>
-                <div className="filter-panel" style={{ padding: 20, background: "white" }}>
+            <div className="charts-section">
+              <div className="charts-grid-3">
+                <div className="chart-card">
                   <BarChart
                     title="Top 10 khách hàng theo giá trị tồn lâu ngày"
                     data={[...customerSummary].sort((a,b) => b.value - a.value).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.value }))}
@@ -1256,15 +1300,15 @@ export default function InventoryAgingReportPage() {
                     minHeight={250}
                   />
                 </div>
-                <div className="filter-panel" style={{ padding: 20, background: "white" }}>
+                <div className="chart-card">
                   <BarChart
-                    title="Top 10 mã hàng theo giá trị tồn ($)"
+                    title="Top 10 mã hàng theo giá trị tồn (VNĐ)"
                     data={[...filteredLongAgingData].sort((a,b) => (b.inventory_value||0) - (a.inventory_value||0)).slice(0, 10).map(p => ({ label: p.product.sku, value: p.inventory_value || 0 }))}
                     color="var(--brand)"
                     minHeight={250}
                   />
                 </div>
-                <div className="filter-panel" style={{ padding: 20, background: "white" }}>
+                <div className="chart-card">
                   <BarChart
                     title="Top 10 mã hàng theo số lượng (Qty)"
                     data={[...filteredLongAgingData].sort((a,b) => (b.current_qty||0) - (a.current_qty||0)).slice(0, 10).map(p => ({ label: p.product.sku, value: p.current_qty || 0 }))}
@@ -1273,7 +1317,7 @@ export default function InventoryAgingReportPage() {
                   />
                 </div>
               </div>
-              <div className="filter-panel" style={{ padding: 20, background: "white" }}>
+              <div className="chart-card full-width">
                 <StackedBarChart
                   title="Cơ cấu tồn lâu ngày theo khách hàng (% giá trị)"
                   totalValue={overallTotals.tValLongAging}
@@ -1291,120 +1335,85 @@ export default function InventoryAgingReportPage() {
           )}
 
           {reportMode === "compare" && compareTotals.v1 + compareTotals.v2 > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-              <div className="filter-panel" style={{ display: "flex", gap: 24, alignItems: "center", padding: 20, background: "white" }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: "var(--slate-700)", width: 240, borderRight: "1px solid var(--slate-200)", paddingRight: 20 }}>
-                  TỔNG QUAN BIẾN ĐỘNG:<br/>
-                  Kỳ 1 vs Kỳ 2
-                </div>
-                <div style={{ flex: 1, display: "flex", gap: 48, alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: "var(--slate-500)", marginBottom: 4 }}>KỲ 1</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "var(--slate-600)" }}>{fmtNum(compareTotals.v1)} <small>đ</small></div>
-                    <div style={{ fontSize: 11, color: "var(--slate-400)" }}>{fmtNum(compareTotals.count1)} mã hàng</div>
-                  </div>
-                  <div style={{ color: "var(--slate-300)", fontSize: 24 }}>→</div>
-                  <div>
-                    <div style={{ fontSize: 12, color: "var(--slate-500)", marginBottom: 4 }}>KỲ 2</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "var(--brand)" }}>{fmtNum(compareTotals.v2)} <small>đ</small></div>
-                    <div style={{ fontSize: 11, color: "var(--brand-light)" }}>{fmtNum(compareTotals.count2)} mã hàng</div>
-                  </div>
-                  <div style={{ paddingLeft: 24, borderLeft: "2px dashed var(--slate-200)" }}>
-                    <div style={{ fontSize: 12, color: "var(--slate-500)", marginBottom: 4 }}>BIẾN ĐỘNG</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: compareTotals.diff > 0 ? "var(--color-danger)" : "var(--color-success)" }}>
-                      {compareTotals.diff > 0 ? "+" : ""}{fmtNum(compareTotals.diff)} ({compareTotals.pct > 0 ? "+" : ""}{fmtPercent(compareTotals.pct)})
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: 20 }}>
-                <div className="filter-panel" style={{ padding: 20, background: "white" }}>
+            <div className="charts-section">
+              <div className="charts-grid-2">
+                <div className="chart-card">
                   <ClusteredBarChart
-                    title="Biến động giá trị theo khách hàng"
+                    title="So sánh giá trị Aging theo khách hàng (Top 10)"
                     label1="Kỳ 1"
                     label2="Kỳ 2"
-                    color1="var(--slate-300)"
-                    color2="var(--color-danger)"
-                    minHeight={250}
-                    data={compareCustomerSummary
-                      .sort((a, b) => Math.max(b.val1 || 0, b.val2 || 0) - Math.max(a.val1 || 0, a.val2 || 0))
-                      .slice(0, 10)
-                      .map(c => ({ label: customerLabel(c.customer_id), val1: c.val1 || 0, val2: c.val2 || 0 }))}
+                    data={(() => {
+                      const allKeys = new Set([
+                        ...compareCustomerSummary.sort((a, b) => (b.val1 || 0) - (a.val1 || 0)).slice(0, 10).map(c => c.customer_id),
+                        ...compareCustomerSummary.sort((a, b) => (b.val2 || 0) - (a.val2 || 0)).slice(0, 10).map(c => c.customer_id)
+                      ]);
+                      return Array.from(allKeys).map(cid => {
+                        const row = compareCustomerSummary.find(c => c.customer_id === cid);
+                        return {
+                          label: customerLabel(cid || null),
+                          val1: row?.val1 || 0,
+                          val2: row?.val2 || 0
+                        };
+                      }).sort((a, b) => Math.max(b.val1, b.val2) - Math.max(a.val1, a.val2)).slice(0, 10);
+                    })()}
                   />
                 </div>
-                <div className="filter-panel" style={{ padding: 20, background: "white" }}>
-                  <ClusteredBarChart
-                    title="Biến động giá trị theo mã hàng"
+                <div className="chart-card">
+                  <CompareStackedBarChart
+                    title="Cơ cấu tồn dài kỳ (Kỳ 1 vs Kỳ 2)"
                     label1="Kỳ 1"
                     label2="Kỳ 2"
-                    color1="var(--slate-300)"
-                    color2="var(--color-danger)"
-                    minHeight={250}
-                    data={compareAgingData
-                      .sort((a, b) => Math.max(b.val1, b.val2) - Math.max(a.val1, a.val2))
-                      .slice(0, 10)
-                      .map(p => ({ label: p.product.sku, val1: p.val1, val2: p.val2 }))}
+                    total1={compareTotals.v1}
+                    total2={compareTotals.v2}
+                    data1={(() => {
+                      const sorted1 = [...compareCustomerSummary].sort((a, b) => (b.val1 || 0) - (a.val1 || 0));
+                      const top5Ids = new Set(sorted1.slice(0, 5).map(c => c.customer_id));
+                      const chartData = sorted1.slice(0, 5).map(c => ({ label: customerLabel(c.customer_id), value: c.val1 || 0 }));
+                      const restSum = compareCustomerSummary.filter(c => !top5Ids.has(c.customer_id)).reduce((acc, c) => acc + (c.val1 || 0), 0);
+                      if (restSum > 0) chartData.push({ label: "Khác", value: restSum });
+                      return chartData;
+                    })()}
+                    data2={(() => {
+                      const sorted1 = [...compareCustomerSummary].sort((a, b) => (b.val1 || 0) - (a.val1 || 0));
+                      const top5Ids = new Set(sorted1.slice(0, 5).map(c => c.customer_id));
+                      const chartData = sorted1.slice(0, 5).map(c => ({ label: customerLabel(c.customer_id), value: c.val2 || 0 }));
+                      const restSum = compareCustomerSummary.filter(c => !top5Ids.has(c.customer_id)).reduce((acc, c) => acc + (c.val2 || 0), 0);
+                      if (restSum > 0) chartData.push({ label: "Khác", value: restSum });
+                      return chartData;
+                    })()}
                   />
                 </div>
-              </div>
-              
-              <div className="filter-panel" style={{ padding: 20, background: "white" }}>
-                <CompareStackedBarChart
-                  title="So sánh cơ cấu tồn kho (% giá trị)"
-                  label1="Kỳ 1"
-                  label2="Kỳ 2"
-                  total1={compareTotals.v1}
-                  total2={compareTotals.v2}
-                  data1={(() => {
-                    const sorted = [...compareCustomerSummary].sort((a, b) => (b.val1 || 0) - (a.val1 || 0));
-                    const top5 = sorted.slice(0, 5);
-                    const restSum = sorted.slice(5).reduce((acc, c) => acc + (c.val1 || 0), 0);
-                    const chartData = top5.map(c => ({ label: customerLabel(c.customer_id), value: c.val1 || 0 }));
-                    if (restSum > 0) chartData.push({ label: "Khác", value: restSum });
-                    return chartData;
-                  })()}
-                  data2={(() => {
-                    const sorted1 = [...compareCustomerSummary].sort((a, b) => (b.val1 || 0) - (a.val1 || 0));
-                    const top5Ids = new Set(sorted1.slice(0, 5).map(c => c.customer_id));
-                    
-                    const chartData = sorted1.slice(0, 5).map(c => ({ label: customerLabel(c.customer_id), value: c.val2 || 0 }));
-                    const restSum = compareCustomerSummary.filter(c => !top5Ids.has(c.customer_id)).reduce((acc, c) => acc + (c.val2 || 0), 0);
-                    if (restSum > 0) chartData.push({ label: "Khác", value: restSum });
-                    return chartData;
-                  })()}
-                />
               </div>
             </div>
           )}
 
           {/* ---- CUSTOMER SUMMARY TABLE ---- */}
-          <section>
-            <div className="toolbar" style={{ marginBottom: 16 }}>
-              <h3 className="modal-title" style={{ margin: 0 }}>Tổng hợp theo Khách hàng</h3>
+          <section className="page-section">
+            <div className="section-header">
+              <h3 className="section-title">Tổng hợp theo Khách hàng</h3>
             </div>
             <div className="data-table-wrap">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th style={{ textAlign: "center", width: 60 }}>STT</th>
+                    <th className="text-center" style={{ width: 60 }}>STT</th>
                     <th>Khách hàng</th>
                     {reportMode === "current" ? (
                       <>
-                        <th style={{ textAlign: "right" }}>Số mã Aging</th>
-                        <th style={{ textAlign: "right" }}>Số lượng</th>
-                        <th style={{ textAlign: "right" }}>Giá trị tồn (VNĐ)</th>
-                        <th style={{ textAlign: "right" }}>% trên Aging</th>
-                        <th style={{ textAlign: "right" }}>% trên tổng kho</th>
+                        <th className="text-right">Số mã Aging</th>
+                        <th className="text-right">Số lượng</th>
+                        <th className="text-right">Giá trị tồn (VNĐ)</th>
+                        <th className="text-right">% trên Aging</th>
+                        <th className="text-right">% trên tổng kho</th>
                       </>
                     ) : (
                       <>
-                        <th style={{ textAlign: "right", background: "var(--slate-50)" }}>Số mã (K1)</th>
-                        <th style={{ textAlign: "right", background: "var(--brand-light)", opacity: 0.1 }}>Số mã (K2)</th>
-                        <th style={{ textAlign: "right", background: "var(--slate-50)" }}>Giá trị (K1)</th>
-                        <th style={{ textAlign: "right", background: "var(--brand-light)", opacity: 0.1 }}>Giá trị (K2)</th>
-                        <th style={{ textAlign: "right" }}>Biến động</th>
-                        <th style={{ textAlign: "right" }}>% Thay đổi</th>
+                        <th className="text-right highlight-slate">Số mã (K1)</th>
+                        <th className="text-right highlight-brand">Số mã (K2)</th>
+                        <th className="text-right highlight-slate">Giá trị (K1)</th>
+                        <th className="text-right highlight-brand">Giá trị (K2)</th>
+                        <th className="text-right">Biến động</th>
+                        <th className="text-right">% Thay đổi</th>
                       </>
                     )}
                   </tr>
@@ -1412,35 +1421,44 @@ export default function InventoryAgingReportPage() {
                 <tbody>
                   {reportMode === "current" ? customerSummary.map((c, i) => (
                     <tr key={c.customer_id || `uc-${i}`}>
-                      <td style={{ textAlign: "center" }}>{i + 1}</td>
-                      <td style={{ fontWeight: 500 }}>{customerLabel(c.customer_id)}</td>
-                      <td style={{ textAlign: "right" }}>{fmtNum(c.productCount)}</td>
-                      <td style={{ textAlign: "right" }}>{fmtNum(c.qty)}</td>
-                      <td style={{ textAlign: "right", fontWeight: 700, color: "var(--color-danger)" }}>{fmtNum(c.value)}</td>
-                      <td style={{ textAlign: "right", color: "var(--slate-500)" }}>{overallTotals.tValLongAging > 0 ? fmtPercent((c.value / overallTotals.tValLongAging) * 100) : "0.00%"}</td>
-                      <td style={{ textAlign: "right", color: "var(--slate-500)" }}>{overallTally > 0 ? fmtPercent((c.value / overallTally) * 100) : "0.00%"}</td>
+                      <td className="text-center">{i + 1}</td>
+                      <td className="font-semibold">{customerLabel(c.customer_id)}</td>
+                      <td className="text-right">{fmtNum(c.productCount)}</td>
+                      <td className="text-right">{fmtNum(c.qty)}</td>
+                      <td className="text-right font-bold color-danger">{fmtNum(c.value)}</td>
+                      <td className="text-right text-slate">{overallTotals.tValLongAging > 0 ? fmtPercent((c.value / overallTotals.tValLongAging) * 100) : "0.00%"}</td>
+                      <td className="text-right text-slate">{overallTally > 0 ? fmtPercent((c.value / overallTally) * 100) : "0.00%"}</td>
                     </tr>
                   )) : compareCustomerSummary.map((c, i) => (
                     <tr key={c.customer_id || `cc-${i}`}>
-                      <td style={{ textAlign: "center" }}>{i + 1}</td>
-                      <td style={{ fontWeight: 500 }}>{customerLabel(c.customer_id)}</td>
-                      <td style={{ textAlign: "right", background: "var(--slate-50)" }}>{fmtNum(c.count1)}</td>
-                      <td style={{ textAlign: "right", background: "var(--slate-50)" }}>{fmtNum(c.count2)}</td>
-                      <td style={{ textAlign: "right", background: "var(--slate-50)" }}>{fmtNum(c.val1)}</td>
-                      <td style={{ textAlign: "right", fontWeight: 700, background: "var(--slate-50)" }}>{fmtNum(c.val2)}</td>
-                      <td style={{ textAlign: "right", fontWeight: 700, color: c.pctDiff > 0 ? "var(--color-danger)" : c.pctDiff < 0 ? "var(--color-success)" : "inherit" }}>{c.pctDiff > 0 ? "+" : ""}{fmtPercent(c.pctDiff)}</td>
+                      <td className="text-center">{i + 1}</td>
+                      <td className="font-semibold">{customerLabel(c.customer_id)}</td>
+                      <td className="text-right highlight-slate">{fmtNum(c.count1)}</td>
+                      <td className="text-right highlight-brand">{fmtNum(c.count2)}</td>
+                      <td className="text-right highlight-slate">{fmtNum(c.val1)}</td>
+                      <td className="text-right highlight-brand font-bold">{fmtNum(c.val2)}</td>
+                      <td className="text-right font-bold" style={{ color: c.valDiff > 0 ? "var(--color-danger)" : c.valDiff < 0 ? "var(--color-success)" : "inherit" }}>
+                        {c.valDiff > 0 ? "+" : ""}{fmtNum(c.valDiff)}
+                      </td>
+                      <td className="text-right font-bold" style={{ color: c.pctDiff > 0 ? "var(--color-danger)" : c.pctDiff < 0 ? "var(--color-success)" : "inherit" }}>
+                        {c.pctDiff > 0 ? "+" : ""}{fmtPercent(c.pctDiff)}
+                      </td>
                     </tr>
                   ))}
                   {(reportMode === "current" ? customerSummary : compareCustomerSummary).length === 0 && (
-                    <tr><td colSpan={8} style={{ padding: 48, textAlign: "center", color: "var(--slate-500)" }}>Không có số liệu cho bộ lọc này.</td></tr>
+                    <tr>
+                      <td colSpan={reportMode === "current" ? 7 : 8} className="empty-state">Không có số liệu cho bộ lọc này.</td>
+                    </tr>
                   )}
                 </tbody>
               </table>
             </div>
           </section>
-          <section>
-            <div className="toolbar" style={{ marginBottom: 16 }}>
-              <h3 className="modal-title" style={{ margin: 0 }}>
+
+          {/* ---- DETAIL TABLE SECTION ---- */}
+          <section className="page-section">
+            <div className="section-header">
+              <h3 className="section-title">
                 {reportMode === "current" ? "Chi tiết các mã Aging" : "Biến động chi tiết theo mã hàng"}
               </h3>
             </div>
@@ -1449,10 +1467,10 @@ export default function InventoryAgingReportPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th style={{ textAlign: "center", width: 50 }}>STT</th>
+                      <th className="text-center" style={{ width: 50 }}>STT</th>
                       <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} />
                       <ThCell label="Tên hàng" colKey="name" sortable isNum={false} />
-                      <ThCell label="Kích thước" colKey="spec" sortable={false} isNum={false} />
+                      <ThCell label="Quy cách" colKey="spec" sortable={false} isNum={false} />
                       <ThCell label="Số lượng" colKey="current_qty" sortable isNum align="right" />
                       <ThCell label="Đơn giá" colKey="unit_price" sortable isNum align="right" />
                       <ThCell label="Giá trị Aging" colKey="inventory_value" sortable isNum align="right" />
@@ -1464,20 +1482,22 @@ export default function InventoryAgingReportPage() {
                   <tbody>
                     {displayDetailData.map((p, i) => (
                       <tr key={`${p.product.id}-${p.customer_id}`}>
-                        <td style={{ textAlign: "center" }}>{i + 1}</td>
-                        <td style={{ fontWeight: 600 }}>{p.product.sku}</td>
+                        <td className="text-center">{i + 1}</td>
+                        <td className="font-bold">{p.product.sku}</td>
                         <td>{p.product.name}</td>
-                        <td style={{ fontSize: 12, color: "var(--slate-500)" }}>{p.product.spec || "—"}</td>
-                        <td style={{ textAlign: "right", fontWeight: 600 }}>{fmtNum(p.current_qty)}</td>
-                        <td style={{ textAlign: "right", color: "var(--slate-500)" }}>{fmtNum(p.product.unit_price)}</td>
-                        <td style={{ textAlign: "right", fontWeight: 700, color: "var(--color-danger)" }}>{fmtNum(p.inventory_value)}</td>
-                        <td style={{ textAlign: "right", fontSize: 12 }}>{overallTotals.tValLongAging > 0 ? fmtPercent((p.inventory_value / overallTotals.tValLongAging) * 100) : "0.00%"}</td>
-                        <td style={{ textAlign: "right", fontSize: 12 }}>{overallTally > 0 ? fmtPercent((p.inventory_value / overallTally) * 100) : "0.00%"}</td>
-                        <td style={{ fontSize: 12, fontStyle: "italic", color: "var(--slate-500)" }}>{p.long_aging_note || "—"}</td>
+                        <td className="text-xs text-slate">{p.product.spec || "—"}</td>
+                        <td className="text-right font-semibold">{fmtNum(p.current_qty)}</td>
+                        <td className="text-right text-slate">{fmtNum(p.product.unit_price)}</td>
+                        <td className="text-right font-bold color-danger">{fmtNum(p.inventory_value)}</td>
+                        <td className="text-right text-xs">{overallTotals.tValLongAging > 0 ? fmtPercent((p.inventory_value / overallTotals.tValLongAging) * 100) : "0.00%"}</td>
+                        <td className="text-right text-xs">{overallTally > 0 ? fmtPercent((p.inventory_value / overallTally) * 100) : "0.00%"}</td>
+                        <td className="text-xs italic text-slate">{p.long_aging_note || "—"}</td>
                       </tr>
                     ))}
                     {displayDetailData.length === 0 && (
-                      <tr><td colSpan={10} style={{ padding: 48, textAlign: "center", color: "var(--slate-500)" }}>Không tìm thấy sản phẩm nào khớp điều kiện lọc.</td></tr>
+                      <tr>
+                        <td colSpan={10} className="empty-state">Không tìm thấy sản phẩm nào khớp điều kiện lọc.</td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
@@ -1485,33 +1505,33 @@ export default function InventoryAgingReportPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th style={{ textAlign: "center", width: 50 }}>STT</th>
+                      <th className="text-center" style={{ width: 50 }}>STT</th>
                       <th>Mã hàng</th>
                       <th>Tên hàng</th>
                       <th>Quy cách</th>
-                      <th style={{ textAlign: "right" }}>Giá trị Aging (K1)</th>
-                      <th style={{ textAlign: "right" }}>Giá trị Aging (K2)</th>
-                      <th style={{ textAlign: "right" }}>Biến động</th>
-                      <th style={{ textAlign: "right" }}>% Thay đổi</th>
+                      <th className="text-right highlight-slate">Giá trị Aging (K1)</th>
+                      <th className="text-right highlight-brand">Giá trị Aging (K2)</th>
+                      <th className="text-right">Biến động</th>
+                      <th className="text-right">% Thay đổi</th>
                       <th>Ghi chú</th>
                     </tr>
                   </thead>
                   <tbody>
                     {compareAgingData.map((p, i) => (
                       <tr key={`${p.product.id}-${p.customer_id}`}>
-                        <td style={{ textAlign: "center" }}>{i + 1}</td>
-                        <td style={{ fontWeight: 600 }}>{p.product.sku}</td>
-                        <td style={{ fontWeight: 500 }}>{p.product.name}</td>
-                        <td style={{ fontSize: 12, color: "var(--slate-500)" }}>{p.product.spec || "—"}</td>
-                        <td style={{ textAlign: "right", background: "var(--slate-50)" }}>{p.isAging1 ? fmtNum(p.val1) : "–"}</td>
-                        <td style={{ textAlign: "right", fontWeight: 700, background: "var(--slate-50)" }}>{p.isAging2 ? fmtNum(p.val2) : "–"}</td>
-                        <td style={{ textAlign: "right", fontWeight: 700, color: p.valDiff > 0 ? "var(--color-danger)" : p.valDiff < 0 ? "var(--color-success)" : "inherit" }}>
+                        <td className="text-center">{i + 1}</td>
+                        <td className="font-bold">{p.product.sku}</td>
+                        <td className="font-medium">{p.product.name}</td>
+                        <td className="text-xs text-slate">{p.product.spec || "—"}</td>
+                        <td className="text-right highlight-slate">{p.isAging1 ? fmtNum(p.val1) : "–"}</td>
+                        <td className="text-right highlight-brand font-bold">{p.isAging2 ? fmtNum(p.val2) : "–"}</td>
+                        <td className="text-right font-bold" style={{ color: p.valDiff > 0 ? "var(--color-danger)" : p.valDiff < 0 ? "var(--color-success)" : "inherit" }}>
                           {p.valDiff > 0 ? "+" : ""}{fmtNum(p.valDiff)}
                         </td>
-                        <td style={{ textAlign: "right", fontWeight: 700, color: p.pctDiff > 0 ? "var(--color-danger)" : p.pctDiff < 0 ? "var(--color-success)" : "inherit" }}>
+                        <td className="text-right font-bold" style={{ color: p.pctDiff > 0 ? "var(--color-danger)" : p.pctDiff < 0 ? "var(--color-success)" : "inherit" }}>
                           {p.pctDiff > 0 ? "+" : ""}{fmtPercent(p.pctDiff)}
                         </td>
-                        <td style={{ fontSize: 12, color: "var(--slate-500)" }}>{p.isAging2 ? (p.note2 || "") : (p.note1 || "")}</td>
+                        <td className="text-xs text-slate">{p.isAging2 ? (p.note2 || "") : (p.note1 || "")}</td>
                       </tr>
                     ))}
                     {compareAgingData.length === 0 && (

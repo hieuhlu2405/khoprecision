@@ -19,5 +19,11 @@ Dành cho Antigravity (AI) để luôn ghi nhớ và tuân thủ:
 4. **KIỂM TRA TRƯỚC KHI PUSH**:
    - Luôn sử dụng `browser_subagent` để chụp ảnh màn hình hoặc xem trực tiếp giao diện sau khi sửa để đảm bảo không bị "vỡ" layout.
 
+5. **NGÔN NGỮ PHẢN HỒI (MỚI)**:
+   - Luôn luôn trả kết quả và giao tiếp bằng tiếng Việt (Vietnamese) trong mọi tình huống.
+
+6. **TỰ ĐỘNG GIT PUSH (MỚI)**:
+   - Sau khi hoàn thành một khối lượng công việc (refactor xong một trang, fix xong bug), luôn thực hiện `git add`, `git commit` và `git push` để lưu trữ tiến độ.
+
 ---
 *Ghi nhớ: Logic là xương sống, UI là bộ mặt. Giữ xương sống nguyên vẹn, làm cho bộ mặt Premium.*
