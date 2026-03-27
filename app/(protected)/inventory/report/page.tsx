@@ -501,8 +501,8 @@ export default function InventoryReportPage() {
     >
       <div className="page-header sticky top-0 bg-white/80 backdrop-blur-md z-50 py-4 px-6 -mx-6 mb-8 border-b border-slate-200/60 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)", boxShadow: "0 0 15px var(--brand-glow)" }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+          <div className="w-10 h-10 rounded-xl bg-[#6366f1]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
+            📦
           </div>
           <div>
             <h1 className="page-title !m-0 !text-xl !font-extrabold tracking-tight">Tồn Kho Hiện Tại</h1>
