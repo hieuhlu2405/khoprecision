@@ -41,8 +41,8 @@ export default function CustomersPage() {
     return d.replace("T", " ").slice(0, 19);
   }
 
-  const thStyle = { textAlign: "left", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap" } as const;
-  const tdStyle = { padding: "10px 8px" } as const;
+  const thStyle = { textAlign: "left", background: "#f8fafc", whiteSpace: "nowrap" } as const;
+  const tdStyle = { padding: "12px 12px", borderBottom: "1px solid var(--slate-100)" } as const;
 
   /* ------------------------------------------------------------------ */
   /* Column Filters & Popups                                             */
@@ -189,42 +189,52 @@ export default function CustomersPage() {
     return result;
   }, [baseFiltered, colFilters, sortCol, sortDir]);
 
-  /* ---- Table Cell Component ---- */
-  function ThCell({ label, colKey, sortable, colType, align, extra }: {
+  /* ---- Table Header Cell Component ---- */
+  function ThCell({ label, colKey, sortable, colType, align, w, extra }: {
     label: string; colKey: string; sortable: boolean; colType: "text" | "date";
-    align?: "left" | "right" | "center"; extra?: React.CSSProperties;
+    align?: "left" | "right" | "center"; w?: string; extra?: React.CSSProperties;
   }) {
     const active = !!colFilters[colKey];
     const isSortTarget = sortCol === colKey;
-    const baseStyle: React.CSSProperties = { textAlign: align || "left", position: "relative", ...extra };
+    const baseStyle: React.CSSProperties = { ...thStyle, textAlign: align || "left", position: "relative", width: w, ...extra };
     const popupOpen = openPopupId === colKey;
 
     return (
       <th style={baseStyle}>
-        <span>{label}</span>
-        {sortable && (
-          <span
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isSortTarget) {
-                if (sortDir === "asc") setSortDir("desc");
-                else { setSortDir(null); setSortCol(null); }
-              } else { setSortCol(colKey); setSortDir("asc"); }
-            }}
-            style={{ cursor: "pointer", marginLeft: 2, fontSize: 10, opacity: isSortTarget ? 1 : 0.35, userSelect: "none" }}
-          >
-            {isSortTarget && sortDir === "asc" ? "▲" : isSortTarget && sortDir === "desc" ? "▼" : "⇅"}
-          </span>
-        )}
-        <span
-          onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
-          style={{ cursor: "pointer", marginLeft: 3, fontSize: 11, display: "inline-block", width: 16, height: 16, lineHeight: "16px", textAlign: "center", borderRadius: 3, background: active ? "#0f172a" : "#e2e8f0", color: active ? "white" : "#475569", userSelect: "none", verticalAlign: "middle" }}
-        >▾</span>
+        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+          <span className="text-slate-500 font-bold text-xs uppercase tracking-wider">{label}</span>
+          <div className="flex items-center gap-0.5">
+            {sortable && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isSortTarget) {
+                    if (sortDir === "asc") setSortDir("desc");
+                    else { setSortDir(null); setSortCol(null); }
+                  } else { setSortCol(colKey); setSortDir("asc"); }
+                }}
+                className={`p-1.5 hover:bg-slate-200 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/5" : "text-slate-300"}`}
+                title="Sắp xếp"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
+              className={`p-1.5 hover:bg-slate-200 rounded-md transition-all ${active ? "bg-brand text-white hover:bg-brand-hover shadow-sm shadow-brand/20" : "text-slate-300"}`}
+              title="Lọc cột"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            </button>
+          </div>
+        </div>
         {popupOpen && (
-          <>
+          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
             {colType === "text" && <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
             {colType === "date" && <DateFilterPopup filter={(colFilters[colKey] as DateFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
-          </>
+          </div>
         )}
       </th>
     );
@@ -447,8 +457,9 @@ export default function CustomersPage() {
           <thead>
             <tr>
               {canDelete && (
-                <th style={{ ...thStyle, width: 40, textAlign: "center" }}>
+                <th style={{ ...thStyle, width: 60, textAlign: "center" }}>
                   <input type="checkbox"
+                    className="rounded text-brand"
                     checked={finalFiltered.length > 0 && finalFiltered.every(r => selectedIds.has(r.id))}
                     onChange={e => {
                       if (e.target.checked) setSelectedIds(new Set(finalFiltered.map(r => r.id)));
@@ -457,10 +468,10 @@ export default function CustomersPage() {
                   />
                 </th>
               )}
-              <ThCell label="Code" colKey="code" sortable colType="text" />
+              <ThCell label="Mã KH" colKey="code" sortable colType="text" w="140px" />
               <ThCell label="Tên khách hàng" colKey="name" sortable colType="text" />
-              <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" />
-              <th style={thStyle}>Hành động</th>
+              <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />
+              <th style={{ ...thStyle, textAlign: "center", width: 110 }}>Thao tác</th>
             </tr>
           </thead>
           <tbody>

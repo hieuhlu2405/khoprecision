@@ -24,11 +24,11 @@ export function computeSnapshotBounds(qStart: string, qEnd: string, openings: { 
     openings.map(o => o.period_month.slice(0, 10))
   )).sort();
 
-  // Find S: largest snapshot strictly < qEnd
+  // Find S: largest snapshot <= qEnd
   let S: string | null = null;
   let sIndex = -1;
   for (let i = distinctDates.length - 1; i >= 0; i--) {
-    if (distinctDates[i] < qEnd) {
+    if (distinctDates[i] <= qEnd) {
       S = distinctDates[i];
       sIndex = i;
       break;
@@ -44,7 +44,9 @@ export function computeSnapshotBounds(qStart: string, qEnd: string, openings: { 
   let effectiveStart = qStart;
   if (S && S >= qStart) {
     const sDate = new Date(S);
-    sDate.setDate(sDate.getDate() + 1);
+    if (S < qEnd) {
+      sDate.setDate(sDate.getDate() + 1);
+    }
     const y = sDate.getFullYear();
     const m = String(sDate.getMonth() + 1).padStart(2, "0");
     const d = String(sDate.getDate()).padStart(2, "0");

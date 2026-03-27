@@ -967,55 +967,54 @@ export default function InventoryAgingReportPage() {
   const activeFilterCount = Object.keys(colFilters).length;
 
   function SortIcon({ col }: { col: SortableCol }) {
-    const active = sortCol === col;
+    const isSortTarget = sortCol === col;
     return (
-      <span
+      <button
         onClick={(e) => { e.stopPropagation(); toggleSort(col); }}
-        style={{ cursor: "pointer", marginLeft: 2, fontSize: 10, opacity: active ? 1 : 0.35, userSelect: "none" }}
+        className={`p-1.5 hover:bg-slate-200 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/5" : "text-slate-300"}`}
         title="Sắp xếp"
       >
-        {active && sortDir === "asc" ? "▲" : active && sortDir === "desc" ? "▼" : "⇅"}
-      </span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
+        </svg>
+      </button>
     );
   }
 
   function FilterBtn({ colKey }: { colKey: string }) {
     const active = hasActiveFilter(colKey);
     return (
-      <span
+      <button
         onClick={(e) => { e.stopPropagation(); setOpenPopup(openPopup === colKey ? null : colKey); }}
-        style={{
-          cursor: "pointer", marginLeft: 3, fontSize: 11, display: "inline-block",
-          width: 16, height: 16, lineHeight: "16px", textAlign: "center", borderRadius: 3,
-          background: active ? "#0f172a" : "#e2e8f0", color: active ? "white" : "#475569",
-          userSelect: "none", verticalAlign: "middle",
-        }}
+        className={`p-1.5 hover:bg-slate-200 rounded-md transition-all ${active ? "bg-brand text-white hover:bg-brand-hover shadow-sm shadow-brand/20" : "text-slate-300"}`}
         title="Lọc cột"
       >
-        ▾
-      </span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      </button>
     );
   }
 
-  function ThCell({ label, colKey, sortable, isNum, align, extra }: {
+  function ThCell({ label, colKey, sortable, isNum, align, w, extra }: {
     label: string; colKey: string; sortable: boolean; isNum: boolean;
-    align?: "left" | "right" | "center"; extra?: React.CSSProperties;
+    align?: "left" | "right" | "center"; w?: string; extra?: React.CSSProperties;
   }) {
-    const baseStyle: React.CSSProperties = {
-      ...thStyle,
-      textAlign: align || "left",
-      position: "relative",
-      ...extra,
-    };
+    const baseStyle: React.CSSProperties = { ...thStyle, textAlign: align || "left", position: "relative", width: w, ...extra };
     return (
       <th style={baseStyle}>
-        <span>{label}</span>
-        {sortable && <SortIcon col={colKey as SortableCol} />}
-        <FilterBtn colKey={colKey} />
+        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+          <span className="text-slate-500 font-bold text-xs uppercase tracking-wider">{label}</span>
+          <div className="flex items-center gap-0.5">
+            {sortable && <SortIcon col={colKey as SortableCol} />}
+            <FilterBtn colKey={colKey} />
+          </div>
+        </div>
         {openPopup === colKey && (
-          isNum
-            ? <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />
-            : <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />
+          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+            {isNum
+              ? <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />
+              : <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />
+            }
+          </div>
         )}
       </th>
     );
@@ -1407,24 +1406,24 @@ export default function InventoryAgingReportPage() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th className="text-center" style={{ width: 60 }}>STT</th>
-                    <th>Khách hàng</th>
+                    <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" w="60px" />
+                    <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} />
                     {reportMode === "current" ? (
                       <>
-                        <th className="text-right">Số mã Aging</th>
-                        <th className="text-right">Số lượng</th>
-                        <th className="text-right">Giá trị tồn (VNĐ)</th>
-                        <th className="text-right">% Aging</th>
-                        <th className="text-right">% Tổng kho</th>
+                        <ThCell label="Số mã Aging" colKey="count" sortable isNum align="right" />
+                        <ThCell label="Số lượng" colKey="qty" sortable isNum align="right" />
+                        <ThCell label="Giá trị tồn (VNĐ)" colKey="value" sortable isNum align="right" />
+                        <ThCell label="% Aging" colKey="pct_aging" sortable={false} isNum align="right" />
+                        <ThCell label="% Tổng kho" colKey="pct_global" sortable={false} isNum align="right" />
                       </>
                     ) : (
                       <>
-                        <th className="text-right highlight-slate">Số mã (K1)</th>
-                        <th className="text-right highlight-brand">Số mã (K2)</th>
-                        <th className="text-right highlight-slate">Giá trị (K1)</th>
-                        <th className="text-right highlight-brand">Giá trị (K2)</th>
-                        <th className="text-right">Biến động</th>
-                        <th className="text-right">% Thay đổi</th>
+                        <ThCell label="Số mã (K1)" colKey="count1" sortable isNum align="right" extra={{ backgroundColor: "var(--slate-50)" }} />
+                        <ThCell label="Số mã (K2)" colKey="count2" sortable isNum align="right" extra={{ backgroundColor: "var(--brand-50)" }} />
+                        <ThCell label="Giá trị (K1)" colKey="val1" sortable isNum align="right" extra={{ backgroundColor: "var(--slate-50)" }} />
+                        <ThCell label="Giá trị (K2)" colKey="val2" sortable isNum align="right" extra={{ backgroundColor: "var(--brand-50)" }} />
+                        <ThCell label="Biến động" colKey="valDiff" sortable isNum align="right" />
+                        <ThCell label="% Thay đổi" colKey="pctDiff" sortable isNum align="right" />
                       </>
                     )}
                   </tr>
@@ -1478,7 +1477,7 @@ export default function InventoryAgingReportPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th className="text-center" style={{ width: 50 }}>STT</th>
+                      <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" w="50px" />
                       <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} />
                       <ThCell label="Tên hàng" colKey="name" sortable isNum={false} />
                       <ThCell label="Quy cách" colKey="spec" sortable={false} isNum={false} />
@@ -1516,15 +1515,15 @@ export default function InventoryAgingReportPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th className="text-center" style={{ width: 50 }}>STT</th>
-                      <th>Mã hàng</th>
-                      <th>Tên hàng</th>
-                      <th>Quy cách</th>
-                      <th className="text-right highlight-slate">Giá trị Aging (K1)</th>
-                      <th className="text-right highlight-brand">Giá trị Aging (K2)</th>
-                      <th className="text-right">Biến động</th>
-                      <th className="text-right">% Thay đổi</th>
-                      <th>Ghi chú</th>
+                      <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" w="50px" />
+                      <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} />
+                      <ThCell label="Tên hàng" colKey="name" sortable isNum={false} />
+                      <ThCell label="Quy cách" colKey="spec" sortable={false} isNum={false} />
+                      <ThCell label="Giá trị Aging (K1)" colKey="val1" sortable isNum align="right" extra={{ backgroundColor: "var(--slate-50)" }} />
+                      <ThCell label="Giá trị Aging (K2)" colKey="val2" sortable isNum align="right" extra={{ backgroundColor: "var(--brand-50)" }} />
+                      <ThCell label="Biến động" colKey="valDiff" sortable isNum align="right" />
+                      <ThCell label="% Thay đổi" colKey="pctDiff" sortable isNum align="right" />
+                      <ThCell label="Ghi chú" colKey="note" sortable={false} isNum={false} />
                     </tr>
                   </thead>
                   <tbody>

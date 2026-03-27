@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { buildStockRows, SnapshotRow, TransactionRow } from "../shared/calc";
 import { formatToVietnameseDate, computeSnapshotBounds, applySamePeriodLastYearDates } from "../shared/date-utils";
 import { useUI } from "@/app/context/UIContext";
+
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
@@ -44,10 +45,6 @@ type CustRow = {
   outVal1: number; outVal2: number; outValDiff: number;
 };
 
-/* ------------------------------------------------------------------ */
-/* Column filter types                                                 */
-/* ------------------------------------------------------------------ */
-
 type TextFilter = { mode: "contains" | "equals"; value: string };
 type NumFilter = { mode: "eq" | "gt" | "lt" | "range"; value: string; valueTo: string };
 type ColFilter = TextFilter | NumFilter;
@@ -74,22 +71,12 @@ function fmtPctStr(base: number, diff: number): string {
   return ((diff / base) * 100).toFixed(2) + "%";
 }
 
-
 function diffColor(v: number): string {
-  if (v > 0) return "#16a34a";
-  if (v < 0) return "#dc2626";
+  if (v > 0) return "#f43f5e"; // rose-500
+  if (v < 0) return "#10b981"; // emerald-500
   return "inherit";
 }
 
-/** Format yyyy-mm-dd to dd-mm-yyyy for display */
-function fmtDate(d: string): string {
-  if (!d) return "";
-  const p = d.slice(0, 10).split("-");
-  if (p.length === 3) return `${p[2]}-${p[1]}-${p[0]}`;
-  return d;
-}
-
-/** Shift a date string by +1 day for inclusive upper bound query */
 function dayAfter(d: string): string {
   const dt = new Date(d + "T00:00:00");
   dt.setDate(dt.getDate() + 1);
@@ -126,33 +113,31 @@ function passesNumFilter(val: number, f: NumFilter): boolean {
 }
 
 /* ------------------------------------------------------------------ */
-/* Small filter-popup components (inline)                              */
+/* Shared Formats                                                      */
 /* ------------------------------------------------------------------ */
+const thStyle = { textAlign: "left", background: "#f8fafc", whiteSpace: "nowrap" } as const;
+const tdStyle = { padding: "12px 12px", borderBottom: "1px solid var(--slate-100)" } as const;
 
-const popupStyle: React.CSSProperties = {
-  position: "absolute", top: "100%", left: 0, zIndex: 100,
-  background: "white", border: "1px solid #cbd5e1", borderRadius: 6,
-  padding: 10, minWidth: 210, boxShadow: "0 4px 12px rgba(0,0,0,.12)",
-};
-
-const btnSmall: React.CSSProperties = {
-  padding: "4px 10px", fontSize: 12, cursor: "pointer", borderRadius: 4, border: "1px solid #cbd5e1", background: "#f8fafc",
-};
+/* ------------------------------------------------------------------ */
+/* Popups & Charts                                                     */
+/* ------------------------------------------------------------------ */
 
 function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | null; onChange: (f: TextFilter | null) => void; onClose: () => void }) {
   const [mode, setMode] = useState<TextFilter["mode"]>(filter?.mode ?? "contains");
   const [val, setVal] = useState(filter?.value ?? "");
   return (
-    <div style={popupStyle} onClick={e => e.stopPropagation()}>
-      <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc cột</div>
-      <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
-        <option value="contains">Chứa</option>
-        <option value="equals">Bằng</option>
-      </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, backgroundColor: "#f3f2acbb", boxSizing: "border-box" }} autoFocus />
-      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-        <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-        <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Áp dụng</button>
+    <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
+      <div className="bg-white border border-slate-200 rounded-lg p-3 min-w-[220px] shadow-xl">
+        <div className="mb-2 font-bold text-xs uppercase text-slate-500 tracking-wider">Lọc cột</div>
+        <select value={mode} onChange={e => setMode(e.target.value as any)} className="input w-full mb-2 p-1.5 text-sm">
+          <option value="contains">Chứa</option>
+          <option value="equals">Bằng</option>
+        </select>
+        <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." className="input w-full mb-3 p-1.5 text-sm bg-brand/5 border-brand/20" autoFocus />
+        <div className="flex gap-2 justify-end">
+          <button className="btn btn-ghost btn-sm" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+          <button className="btn btn-primary btn-sm" onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Áp dụng</button>
+        </div>
       </div>
     </div>
   );
@@ -163,142 +148,29 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
   const [val, setVal] = useState(filter?.value ?? "");
   const [valTo, setValTo] = useState(filter?.valueTo ?? "");
   return (
-    <div style={popupStyle} onClick={e => e.stopPropagation()}>
-      <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc cột (số)</div>
-      <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
-        <option value="eq">Bằng (=)</option>
-        <option value="gt">Lớn hơn (&gt;)</option>
-        <option value="lt">Nhỏ hơn (&lt;)</option>
-        <option value="range">Từ … đến …</option>
-      </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder={mode === "range" ? "Từ" : "Giá trị"} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} autoFocus />
-      {mode === "range" && (
-        <input value={valTo} onChange={e => setValTo(e.target.value)} placeholder="Đến" style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} />
-      )}
-      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 4 }}>
-        <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-        <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val ? { mode, value: val, valueTo: valTo } : null); onClose(); }}>Áp dụng</button>
+    <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
+      <div className="bg-white border border-slate-200 rounded-lg p-3 min-w-[220px] shadow-xl">
+        <div className="mb-2 font-bold text-xs uppercase text-slate-500 tracking-wider">Lọc số</div>
+        <select value={mode} onChange={e => setMode(e.target.value as any)} className="input w-full mb-2 p-1.5 text-sm">
+          <option value="eq">Bằng (=)</option>
+          <option value="gt">Lớn hơn (&gt;)</option>
+          <option value="lt">Nhỏ hơn (&lt;)</option>
+          <option value="range">Khoảng</option>
+        </select>
+        <input value={val} onChange={e => setVal(e.target.value)} placeholder={mode === "range" ? "Từ" : "Giá trị"} className="input w-full mb-2 p-1.5 text-sm" autoFocus />
+        {mode === "range" && <input value={valTo} onChange={e => setValTo(e.target.value)} placeholder="Đến" className="input w-full mb-2 p-1.5 text-sm" />}
+        <div className="flex gap-2 justify-end mt-2">
+          <button className="btn btn-ghost btn-sm" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+          <button className="btn btn-primary btn-sm" onClick={() => { onChange(val ? { mode, value: val, valueTo: valTo } : null); onClose(); }}>Áp dụng</button>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Shared Formats                                                      */
-/* ------------------------------------------------------------------ */
-const thStyle = { textAlign: "left", border: "1px solid #ddd", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap" } as const;
-const tdStyle = { border: "1px solid #ddd", padding: "10px 8px" } as const;
-
-/* ------------------------------------------------------------------ */
-/* Component                                                           */
-/* ------------------------------------------------------------------ */
-
-
-
-/* ------------------------------------------------------------------ */
-/* SVG Chart Helpers                                                   */
-/* ------------------------------------------------------------------ */
-
-function shortLabel(s: string, max = 15): string {
-  if (!s) return "";
-  return s.length > max ? s.slice(0, max - 1) + "…" : s;
-}
-
-function BarChart({ data, title, color = "#0f172a", minHeight = 220 }: { data: { label: string; value: number }[]; title: string; color?: string; minHeight?: number }) {
+function VerticalGroupedColumnChart({ data, title, label1, label2, color1 = "var(--brand)", color2 = "var(--brand-hover)", minHeight = 280 }: { data: { label: string; val1: number; val2: number }[]; title: string; label1: string; label2: string; color1?: string; color2?: string; minHeight?: number }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  if (!data.length) return <div style={{ padding: "16px 0", color: "#94a3b8", textAlign: "center", fontSize: 13 }}>Không có dữ liệu</div>;
-  const maxVal = Math.max(...data.map(d => Math.abs(d.value)), 1);
-  const rowHeight = 36;
-  const marginTop = 30;
-  const marginBottom = 20;
-  const marginLeft = 140;
-  const marginRight = 60;
-  const height = Math.max(minHeight, data.length * rowHeight + marginTop + marginBottom);
-  return (
-    <div style={{ position: "relative", width: "100%", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 12 }}>
-      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: "#334155" }}>{title}</div>
-      <svg width="100%" height={height} style={{ display: "block", overflow: "visible" }}>
-        <line x1={marginLeft} y1={marginTop} x2={marginLeft} y2={height - marginBottom} stroke="#e2e8f0" strokeWidth={1} />
-        {data.map((d, i) => {
-          const y = marginTop + i * rowHeight + rowHeight / 2;
-          const barW = `${Math.max(1, (Math.abs(d.value) / maxVal) * 100)}%`;
-          const actualColor = d.value < 0 ? "#ef4444" : color;
-          return (
-            <g key={i} onMouseEnter={() => setHoverIdx(i)} onMouseLeave={() => setHoverIdx(null)} style={{ cursor: "pointer", transition: "opacity 0.2s" }} opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.6}>
-              <rect x={0} y={marginTop + i * rowHeight} width="100%" height={rowHeight} fill="transparent" />
-              <text x={marginLeft - 8} y={y + 4} textAnchor="end" fontSize={11} fill="#475569">{shortLabel(d.label, 20)}</text>
-              <svg x={marginLeft} y={y - 10} width={`calc(100% - ${marginLeft + marginRight}px)`} height={20} style={{ overflow: "visible" }}>
-                <rect x={0} y={0} width={barW} height={20} fill={actualColor} rx={3} opacity={0.85} />
-                <text x={barW} dx={6} y={14} fontSize={11} fill="#334155" fontWeight="600">
-                  {d.value >= 1e9 ? (d.value / 1e9).toFixed(1) + "B" : d.value >= 1e6 ? (d.value / 1e6).toFixed(1) + "M" : d.value >= 1e3 ? (d.value / 1e3).toFixed(0) + "K" : fmtNum(d.value)}
-                </text>
-              </svg>
-            </g>
-          );
-        })}
-      </svg>
-      {hoverIdx !== null && (
-        <div style={{ position: "absolute", zIndex: 10, background: "rgba(15, 23, 42, 0.95)", color: "white", padding: "8px 12px", borderRadius: 6, fontSize: 12, pointerEvents: "none", left: `max(20px, calc(${marginLeft}px + 20px))`, top: marginTop + hoverIdx * rowHeight - 10, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", maxWidth: 300, whiteSpace: "normal" }}>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>{data[hoverIdx].label}</div>
-          <div style={{ color: "#cbd5e1" }}>Giá trị: <span style={{ fontWeight: 600, color: "white" }}>{fmtNum(data[hoverIdx].value)}</span></div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ClusteredBarChart({ data, title, label1, label2, color1 = "#0f172a", color2 = "#1d4ed8", minHeight = 240 }: { data: { label: string; val1: number; val2: number }[]; title: string; label1: string; label2: string; color1?: string; color2?: string; minHeight?: number }) {
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  if (!data.length) return <div style={{ padding: "16px 0", color: "#94a3b8", textAlign: "center", fontSize: 13 }}>Không có dữ liệu</div>;
-  const maxVal = Math.max(...data.flatMap(d => [d.val1, d.val2]), 1);
-  const rowGroupHeight = 50;
-  const marginTop = 40;
-  const marginBottom = 20;
-  const marginLeft = 140;
-  const marginRight = 60;
-  const height = Math.max(minHeight, data.length * rowGroupHeight + marginTop + marginBottom);
-  return (
-    <div style={{ position: "relative", width: "100%", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 12 }}>
-      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: "#334155" }}>{title}</div>
-      <div style={{ display: "flex", gap: 16, marginBottom: 8, fontSize: 11, position: "absolute", top: 12, right: 12 }}>
-        <span style={{ display: "flex", alignItems: "center" }}><span style={{ width: 10, height: 10, background: color1, borderRadius: 2, marginRight: 4 }} />{label1}</span>
-        <span style={{ display: "flex", alignItems: "center" }}><span style={{ width: 10, height: 10, background: color2, borderRadius: 2, marginRight: 4 }} />{label2}</span>
-      </div>
-      <svg width="100%" height={height} style={{ display: "block", overflow: "visible" }}>
-        <line x1={marginLeft} y1={marginTop} x2={marginLeft} y2={height - marginBottom} stroke="#e2e8f0" strokeWidth={1} />
-        {data.map((d, i) => {
-          const cy = marginTop + i * rowGroupHeight + rowGroupHeight / 2;
-          const barH = 14, gap = 2;
-          const y1 = cy - barH - gap / 2, y2 = cy + gap / 2;
-          const w1 = `${Math.max(1, (d.val1 / maxVal) * 100)}%`, w2 = `${Math.max(1, (d.val2 / maxVal) * 100)}%`;
-          return (
-            <g key={i} onMouseEnter={() => setHoverIdx(i)} onMouseLeave={() => setHoverIdx(null)} style={{ cursor: "pointer", transition: "opacity 0.2s" }} opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.6}>
-              <rect x={0} y={marginTop + i * rowGroupHeight} width="100%" height={rowGroupHeight} fill="transparent" />
-              <text x={marginLeft - 8} y={cy + 4} textAnchor="end" fontSize={11} fill="#475569">{shortLabel(d.label, 20)}</text>
-              <svg x={marginLeft} y={y1} width={`calc(100% - ${marginLeft + marginRight}px)`} height={rowGroupHeight} style={{ overflow: "visible" }}>
-                <rect x={0} y={0} width={w1} height={barH} fill={color1} rx={2} opacity={0.85} />
-                <rect x={0} y={barH + gap} width={w2} height={barH} fill={color2} rx={2} opacity={0.85} />
-                <text x={w1} dx={6} y={barH - 3} fontSize={10} fill="#64748b" fontWeight="500">{d.val1 >= 1e9 ? (d.val1/1e9).toFixed(1)+"B" : d.val1 >= 1e6 ? (d.val1/1e6).toFixed(1)+"M" : d.val1 >= 1e3 ? (d.val1/1e3).toFixed(0)+"K" : fmtNum(d.val1)}</text>
-                <text x={w2} dx={6} y={barH * 2 + gap - 3} fontSize={10} fill="#64748b" fontWeight="500">{d.val2 >= 1e9 ? (d.val2/1e9).toFixed(1)+"B" : d.val2 >= 1e6 ? (d.val2/1e6).toFixed(1)+"M" : d.val2 >= 1e3 ? (d.val2/1e3).toFixed(0)+"K" : fmtNum(d.val2)}</text>
-              </svg>
-            </g>
-          );
-        })}
-      </svg>
-      {hoverIdx !== null && (
-        <div style={{ position: "absolute", zIndex: 10, background: "rgba(15, 23, 42, 0.95)", color: "white", padding: "8px 12px", borderRadius: 6, fontSize: 12, pointerEvents: "none", left: `max(20px, calc(${marginLeft}px + 20px))`, top: marginTop + hoverIdx * rowGroupHeight, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", maxWidth: 300, whiteSpace: "normal" }}>
-          <div style={{ fontWeight: 600, marginBottom: 6, paddingBottom: 4, borderBottom: "1px solid #334155" }}>{data[hoverIdx].label}</div>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 2 }}><span style={{ color: "#cbd5e1" }}><span style={{ display:"inline-block", width:8, height:8, background:color1, borderRadius:"50%", marginRight:6 }}/>{label1}:</span><span style={{ fontWeight: 600 }}>{fmtNum(data[hoverIdx].val1)}</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 4 }}><span style={{ color: "#cbd5e1" }}><span style={{ display:"inline-block", width:8, height:8, background:color2, borderRadius:"50%", marginRight:6 }}/>{label2}:</span><span style={{ fontWeight: 600 }}>{fmtNum(data[hoverIdx].val2)}</span></div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function VerticalGroupedColumnChart({ data, title, label1, label2, color1 = "#0f172a", color2 = "#1d4ed8", minHeight = 280 }: { data: { label: string; val1: number; val2: number }[]; title: string; label1: string; label2: string; color1?: string; color2?: string; minHeight?: number }) {
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  if (!data.length) return <div style={{ padding: "16px 0", color: "#94a3b8", textAlign: "center", fontSize: 13 }}>Không có dữ liệu</div>;
+  if (!data.length) return <div className="p-12 text-center text-slate-400 italic text-sm">Không có dữ liệu biểu đồ</div>;
   
   const maxVal = Math.max(...data.flatMap(d => [d.val1, d.val2]), 1);
   const marginLeft = 60;
@@ -307,142 +179,51 @@ function VerticalGroupedColumnChart({ data, title, label1, label2, color1 = "#0f
   const marginBottom = 50;
   const height = minHeight;
   const plotHeight = height - marginTop - marginBottom;
-  
   const colGroupWidth = Math.max(40, 600 / Math.max(data.length, 1)); 
   const totalWidth = Math.max(marginLeft + marginRight + data.length * colGroupWidth, 600);
   
   return (
-    <div style={{ position: "relative", width: "100%", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 12, overflowX: "auto" }}>
-      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: "#334155", position: "sticky", left: 0 }}>{title}</div>
-      <div style={{ display: "flex", gap: 16, marginBottom: 8, fontSize: 11, position: "absolute", top: 12, right: 12 }}>
-        <span style={{ display: "flex", alignItems: "center" }}><span style={{ width: 10, height: 10, background: color1, borderRadius: 2, marginRight: 4 }} />{label1}</span>
-        <span style={{ display: "flex", alignItems: "center" }}><span style={{ width: 10, height: 10, background: color2, borderRadius: 2, marginRight: 4 }} />{label2}</span>
+    <div className="relative w-full overflow-x-auto">
+      <div className="flex justify-between items-center mb-6 sticky left-0">
+        <h4 className="text-sm font-bold text-slate-700">{title}</h4>
+        <div className="flex gap-4 text-[10px] font-bold uppercase tracking-wider">
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: color1 }}></span>{label1}</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: color2 }}></span>{label2}</span>
+        </div>
       </div>
-      
       <div style={{ minWidth: totalWidth }}>
         <svg width="100%" height={height} style={{ display: "block", overflow: "visible" }}>
-          <line x1={marginLeft} y1={marginTop} x2={marginLeft} y2={height - marginBottom} stroke="#e2e8f0" strokeWidth={1} />
           <line x1={marginLeft} y1={height - marginBottom} x2={totalWidth - marginRight} y2={height - marginBottom} stroke="#e2e8f0" strokeWidth={1} />
-          
           {[1, 0.75, 0.5, 0.25].map(pct => (
             <g key={pct}>
               <line x1={marginLeft} y1={marginTop + plotHeight * (1 - pct)} x2={totalWidth - marginRight} y2={marginTop + plotHeight * (1 - pct)} stroke="#f1f5f9" strokeDasharray="4 4" />
-              <text x={marginLeft - 8} y={marginTop + plotHeight * (1 - pct) + 4} textAnchor="end" fontSize={10} fill="#94a3b8">
-                {fmtNum(maxVal * pct)}
-              </text>
+              <text x={marginLeft - 8} y={marginTop + plotHeight * (1 - pct) + 4} textAnchor="end" fontSize={10} fill="#94a3b8">{fmtNum(maxVal * pct)}</text>
             </g>
           ))}
-          
           {data.map((d, i) => {
             const centerX = marginLeft + i * colGroupWidth + colGroupWidth / 2;
             const barW = Math.min(14, colGroupWidth / 2 - 2);
-            const gap = 2;
-            const x1 = centerX - barW - gap / 2;
-            const x2 = centerX + gap / 2;
-            
-            const h1 = (d.val1 / maxVal) * plotHeight;
-            const h2 = (d.val2 / maxVal) * plotHeight;
-            const y1 = marginTop + plotHeight - h1;
-            const y2 = marginTop + plotHeight - h2;
-            
-            let dLbl = d.label;
-            if (dLbl.length === 10 && dLbl.includes("-")) {
-               const p = dLbl.split("-");
-               dLbl = `${p[2]}/${p[1]}`;
-            }
-            
+            const x1 = centerX - barW - 1, x2 = centerX + 1;
+            const h1 = (d.val1 / maxVal) * plotHeight, h2 = (d.val2 / maxVal) * plotHeight;
+            const y1 = marginTop + plotHeight - h1, y2 = marginTop + plotHeight - h2;
             return (
-              <g key={i} onMouseEnter={() => setHoverIdx(i)} onMouseLeave={() => setHoverIdx(null)} style={{ cursor: "pointer", transition: "opacity 0.2s" }} opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.6}>
+              <g key={i} onMouseEnter={() => setHoverIdx(i)} onMouseLeave={() => setHoverIdx(null)} className="cursor-pointer transition-opacity" opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.6}>
                 <rect x={marginLeft + i * colGroupWidth} y={marginTop} width={colGroupWidth} height={plotHeight + 30} fill="transparent" />
-                {h1 > 0 && <rect x={x1} y={y1} width={barW} height={h1} fill={color1} rx={2} opacity={0.85} />}
-                {h2 > 0 && <rect x={x2} y={y2} width={barW} height={h2} fill={color2} rx={2} opacity={0.85} />}
-                <text x={centerX} y={height - marginBottom + 16} textAnchor="middle" fontSize={10} fill="#475569">{dLbl}</text>
+                {h1 > 0 && <rect x={x1} y={y1} width={barW} height={h1} fill={color1} rx={2} />}
+                {h2 > 0 && <rect x={x2} y={y2} width={barW} height={h2} fill={color2} rx={2} />}
+                <text x={centerX} y={height - marginBottom + 16} textAnchor="middle" fontSize={10} fill="#64748b" className="font-medium">{d.label.split('-').slice(1).reverse().join('/')}</text>
               </g>
             );
           })}
         </svg>
       </div>
-      
-      {hoverIdx !== null && (
-        <div style={{ position: "absolute", zIndex: 10, background: "rgba(15, 23, 42, 0.95)", color: "white", padding: "8px 12px", borderRadius: 6, fontSize: 12, pointerEvents: "none", left: Math.min(marginLeft + hoverIdx * colGroupWidth + 40, totalWidth - 160), top: marginTop + 20, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", maxWidth: 300, whiteSpace: "normal" }}>
-          <div style={{ fontWeight: 600, marginBottom: 6, paddingBottom: 4, borderBottom: "1px solid #334155" }}>{fmtDate(data[hoverIdx].label) || data[hoverIdx].label}</div>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 2 }}><span style={{ color: "#cbd5e1" }}><span style={{ display:"inline-block", width:8, height:8, background:color1, borderRadius:"50%", marginRight:6 }}/>{label1}:</span><span style={{ fontWeight: 600 }}>{fmtNum(data[hoverIdx].val1)}</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 4 }}><span style={{ color: "#cbd5e1" }}><span style={{ display:"inline-block", width:8, height:8, background:color2, borderRadius:"50%", marginRight:6 }}/>{label2}:</span><span style={{ fontWeight: 600 }}>{fmtNum(data[hoverIdx].val2)}</span></div>
-        </div>
-      )}
     </div>
   );
 }
 
-const COLORS = ["#2563eb", "#059669", "#d97706", "#dc2626", "#7c3aed", "#0891b2", "#be123c", "#1d4ed8", "#b45309", "#4338ca", "#94a3b8"];
-
-function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, total2 }: { data1: { label: string; value: number }[]; data2: { label: string; value: number }[]; title: string; label1: string; label2: string; total1: number; total2: number }) {
-  const [hoverIdx, setHoverIdx] = useState<{ series: number, idx: number } | null>(null);
-  if ((!data1.length && !data2.length) || (total1 <= 0 && total2 <= 0)) return null;
-  const barHeight = 36;
-  const gap = 16;
-  
-  const renderBarRow = (seriesIdx: number, seriesLabel: string, data: { label: string; value: number }[], total: number) => {
-    let currentX = 0;
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ width: 45, fontSize: 12, fontWeight: 600, color: "#475569", textAlign: "right" }}>{seriesLabel}</div>
-        <div style={{ flex: 1, position: "relative" }}>
-          {total > 0 ? (
-            <svg width="100%" height={barHeight} style={{ display: "block", borderRadius: 4, overflow: "hidden" }}>
-              {data.map((d, i) => {
-                const pct = (d.value / total) * 100;
-                const w = `${pct}%`, x = `${currentX}%`;
-                currentX += pct;
-                const isHovered = hoverIdx?.series === seriesIdx && hoverIdx?.idx === i;
-                return (
-                  <g key={i} onMouseEnter={() => setHoverIdx({ series: seriesIdx, idx: i })} onMouseLeave={() => setHoverIdx(null)} style={{ cursor: "pointer", transition: "opacity 0.2s" }} opacity={!hoverIdx || isHovered ? 1 : 0.6}>
-                    <rect x={x} y={0} width={w} height={barHeight} fill={COLORS[i % COLORS.length]} />
-                    {pct >= 6 && <text x={`${currentX - pct / 2}%`} y={barHeight / 2 + 4} textAnchor="middle" fill="white" fontSize={10} fontWeight={600}>{pct.toFixed(1)}%</text>}
-                  </g>
-                );
-              })}
-            </svg>
-          ) : <div style={{ height: barHeight, display: "flex", alignItems: "center", background: "#f1f5f9", borderRadius: 4, paddingLeft: 12, fontSize: 11, color: "#94a3b8" }}>Không có dữ liệu</div>}
-          
-          {hoverIdx?.series === seriesIdx && (
-            <div style={{ position: "absolute", zIndex: 10, background: "rgba(15, 23, 42, 0.95)", color: "white", padding: "8px 12px", borderRadius: 6, fontSize: 12, pointerEvents: "none", left: "50%", transform: "translateX(-50%)", bottom: barHeight + 8, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", minWidth: 200, whiteSpace: "normal" }}>
-              <div style={{ display: "flex", alignItems: "center", marginBottom: 4 }}><span style={{ width: 10, height: 10, background: COLORS[hoverIdx.idx % COLORS.length], borderRadius: 2, marginRight: 8 }}></span><span style={{ fontWeight: 600, color: "#f8fafc" }}>{data[hoverIdx.idx].label}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between", color: "#cbd5e1", marginBottom: 2 }}><span>Giá trị:</span> <span style={{ fontWeight: 600, color: "white" }}>{fmtNum(data[hoverIdx.idx].value)}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between", color: "#cbd5e1" }}><span>Tỷ trọng:</span> <span style={{ fontWeight: 600, color: "white" }}>{((data[hoverIdx.idx].value / total) * 100).toFixed(2)}%</span></div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const allLabels = new Set([...data1.map(d => d.label), ...data2.map(d => d.label)]);
-  const legendItems = Array.from(allLabels);
-
-  return (
-    <div style={{ width: "100%", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 12 }}>
-      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: "#334155" }}>{title}</div>
-      <div style={{ display: "flex", flexDirection: "column", gap }}>
-        {renderBarRow(1, label1, data1, total1)}
-        {renderBarRow(2, label2, data2, total2)}
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", marginTop: 16, paddingTop: 12, borderTop: "1px dashed #e2e8f0" }}>
-        {legendItems.map((lbl, i) => {
-          const d1 = data1.find(x => x.label === lbl), d2 = data2.find(x => x.label === lbl);
-          const pct1 = d1 && total1 > 0 ? (d1.value / total1) * 100 : 0, pct2 = d2 && total2 > 0 ? (d2.value / total2) * 100 : 0;
-          return (
-            <div key={i} style={{ display: "flex", alignItems: "center", fontSize: 11, color: "#475569" }}>
-              <span style={{ width: 8, height: 8, background: COLORS[i % COLORS.length], borderRadius: "50%", marginRight: 6 }}></span>
-              <span style={{ fontWeight: 500, marginRight: 4 }}>{shortLabel(lbl, 15)}</span>
-              <span style={{ color: "#94a3b8" }}>({pct1.toFixed(1)}% vs {pct2.toFixed(1)}%)</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+/* ------------------------------------------------------------------ */
+/* Main Component                                                      */
+/* ------------------------------------------------------------------ */
 
 export default function InventoryComparisonPage() {
   const { showConfirm, showToast } = useUI();
@@ -451,11 +232,9 @@ export default function InventoryComparisonPage() {
   const [openings, setOpenings] = useState<OpeningBalance[]>([]);
   const [txs1, setTxs1] = useState<InventoryTx[]>([]);
   const [txs2, setTxs2] = useState<InventoryTx[]>([]);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  /* ---- Date-range filters ---- */
   const today = new Date().toISOString().slice(0, 10);
   const now = new Date();
   const firstOfThisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
@@ -468,753 +247,299 @@ export default function InventoryComparisonPage() {
   const [p1End, setP1End] = useState(prevMonthEnd);
   const [p2Start, setP2Start] = useState(firstOfThisMonth);
   const [p2End, setP2End] = useState(today);
-
   const [qCustomer, setQCustomer] = useState("");
-  const [qCustomerSearch, setQCustomerSearch] = useState("");
   const [qProduct, setQProduct] = useState("");
   const [onlyChanged, setOnlyChanged] = useState(false);
 
-  /* ---- Comparison Presets ---- */
-  function applyPresetPreviousMonth() {
-    const { prevSnapshotQStart, prevSnapshotQEnd } = computeSnapshotBounds(p2Start, p2End, openings);
-    setP1Start(prevSnapshotQStart);
-    setP1End(prevSnapshotQEnd);
-  }
-
-  function applyPresetSameMonthLastYear() {
-    const { effectiveStart, effectiveEnd } = computeSnapshotBounds(p2Start, p2End, openings);
-    const p = applySamePeriodLastYearDates(effectiveStart, effectiveEnd);
-    setP1Start(p.newStart);
-    setP1End(p.newEnd);
-  }
-
-  const bounds1 = useMemo(() => computeSnapshotBounds(p1Start, p1End, openings), [p1Start, p1End, openings]);
-  const bounds2 = useMemo(() => computeSnapshotBounds(p2Start, p2End, openings), [p2Start, p2End, openings]);
-
-  /* ---- Column-level filters & sorts (Customer Summary) ---- */
   const [colFiltersCust, setColFiltersCust] = useState<Record<string, ColFilter>>({});
   const [sortColCust, setSortColCust] = useState<string | null>(null);
   const [sortDirCust, setSortDirCust] = useState<SortDir>(null);
-
-  /* ---- Column-level filters & sorts (Product Detail) ---- */
   const [colFiltersProd, setColFiltersProd] = useState<Record<string, ColFilter>>({});
   const [sortColProd, setSortColProd] = useState<string | null>(null);
   const [sortDirProd, setSortDirProd] = useState<SortDir>(null);
-
   const [openPopupId, setOpenPopupId] = useState<string | null>(null);
 
-  // Close popup globally
   const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (openPopupId && containerRef.current && !containerRef.current.contains(e.target as Node)) setOpenPopupId(null);
-    }
+    function handle(e: MouseEvent) { if (openPopupId && containerRef.current && !containerRef.current.contains(e.target as Node)) setOpenPopupId(null); }
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
   }, [openPopupId]);
 
-  /* ---- Load Data ---- */
   async function load() {
-    setError("");
-    setLoading(true);
-    
-    // Explicitly reset period data arrays before fetching to completely prevent 
-    // stale data from previous renders as requested by design constraints.
-    setTxs1([]);
-    setTxs2([]);
-    
+    setError(""); setLoading(true); setTxs1([]); setTxs2([]);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) { window.location.href = "/login"; return; }
-
       const [rP, rC] = await Promise.all([
         supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null),
         supabase.from("customers").select("id, code, name").is("deleted_at", null),
       ]);
-      if (rP.error) throw rP.error;
-      if (rC.error) throw rC.error;
       setProducts((rP.data ?? []) as Product[]);
       setCustomers((rC.data ?? []) as Customer[]);
-
-      // Find maximum end date to pull all relevant snapshots
       const maxEnd = p1End > p2End ? p1End : p2End;
       const lastDayStr = maxEnd.length === 10 ? maxEnd + "T23:59:59.999Z" : maxEnd;
-
-      const { data: openData, error: eO } = await supabase
-        .from("inventory_opening_balances")
-        .select("*")
-        .lte("period_month", lastDayStr)
-        .is("deleted_at", null);
-      if (eO) throw eO;
-
+      const { data: openData } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", lastDayStr).is("deleted_at", null);
       const ops = (openData ?? []) as OpeningBalance[];
       setOpenings(ops);
-
-      let minDate1 = p1Start;
-      let minDate2 = p2Start;
-      for (const o of ops) {
-         const d = o.period_month.slice(0, 10);
-         if (d < minDate1) minDate1 = d;
-         if (d < minDate2) minDate2 = d;
-      }
-
+      let minDate1 = p1Start, minDate2 = p2Start;
+      for (const o of ops) { const d = o.period_month.slice(0, 10); if (d < minDate1) minDate1 = d; if (d < minDate2) minDate2 = d; }
       const [t1, t2] = await Promise.all([
-        supabase
-          .from("inventory_transactions")
-          .select("*")
-          .gte("tx_date", minDate1).lt("tx_date", dayAfter(p1End)).is("deleted_at", null),
-        supabase
-          .from("inventory_transactions")
-          .select("*")
-          .gte("tx_date", minDate2).lt("tx_date", dayAfter(p2End)).is("deleted_at", null),
+        supabase.from("inventory_transactions").select("*").gte("tx_date", minDate1).lt("tx_date", dayAfter(p1End)).is("deleted_at", null),
+        supabase.from("inventory_transactions").select("*").gte("tx_date", minDate2).lt("tx_date", dayAfter(p2End)).is("deleted_at", null),
       ]);
-      if (t1.error) throw t1.error;
-      if (t2.error) throw t2.error;
-
       setTxs1((t1.data ?? []) as InventoryTx[]);
       setTxs2((t2.data ?? []) as InventoryTx[]);
-    } catch (err: any) {
-      setError(err?.message ?? "Có lỗi xảy ra");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) { setError(err?.message ?? "Có lỗi xảy ra"); } finally { setLoading(false); }
   }
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p1Start, p1End, p2Start, p2End]);
+  useEffect(() => { load(); }, [p1Start, p1End, p2Start, p2End]);
 
-  /* ---- 1. Product-level comparison (Raw calculation) ---- */
+  function applyPresetPreviousMonth() { const { prevSnapshotQStart, prevSnapshotQEnd } = computeSnapshotBounds(p2Start, p2End, openings); setP1Start(prevSnapshotQStart); setP1End(prevSnapshotQEnd); }
+  function applyPresetSameMonthLastYear() { const { effectiveStart, effectiveEnd } = computeSnapshotBounds(p2Start, p2End, openings); const p = applySamePeriodLastYearDates(effectiveStart, effectiveEnd); setP1Start(p.newStart); setP1End(p.newEnd); }
+
+  const bounds1 = useMemo(() => computeSnapshotBounds(p1Start, p1End, openings), [p1Start, p1End, openings]);
+  const bounds2 = useMemo(() => computeSnapshotBounds(p2Start, p2End, openings), [p2Start, p2End, openings]);
+
   const productRows = useMemo(() => {
-    const stock1 = buildStockRows(bounds1.S || p1Start, bounds1.effectiveStart, dayAfter(p1End), openings, txs1);
-    const stock2 = buildStockRows(bounds2.S || p2Start, bounds2.effectiveStart, dayAfter(p2End), openings, txs2);
-
-    const mov1 = new Map<string, { inbound: number; outbound: number }>();
-    for (const r of stock1) {
-       const entry = mov1.get(r.product_id) || { inbound: 0, outbound: 0 };
-       entry.inbound += r.inbound_qty;
-       entry.outbound += r.outbound_qty;
-       mov1.set(r.product_id, entry);
-    }
-
-    const mov2 = new Map<string, { inbound: number; outbound: number }>();
-    for (const r of stock2) {
-       const entry = mov2.get(r.product_id) || { inbound: 0, outbound: 0 };
-       entry.inbound += r.inbound_qty;
-       entry.outbound += r.outbound_qty;
-       mov2.set(r.product_id, entry);
-    }
-
-    const allProdIds = new Set<string>();
-    mov1.forEach((_, k) => allProdIds.add(k));
-    mov2.forEach((_, k) => allProdIds.add(k));
-
-    const rows: ProdRow[] = [];
-
-    for (const pid of allProdIds) {
-      const p = products.find((x) => x.id === pid);
-      if (!p) continue;
-
-      if (qCustomer && p.customer_id !== qCustomer) continue;
-      if (qProduct) {
-        const s = qProduct.toLowerCase();
-        if (!p.sku.toLowerCase().includes(s) && !p.name.toLowerCase().includes(s)) continue;
-      }
-
-      const m1 = mov1.get(pid) || { inbound: 0, outbound: 0 };
-      const m2 = mov2.get(pid) || { inbound: 0, outbound: 0 };
-
-      const inDiff = m2.inbound - m1.inbound;
-      const outDiff = m2.outbound - m1.outbound;
-
+    const s1 = buildStockRows(bounds1.S || p1Start, bounds1.effectiveStart, dayAfter(p1End), openings, txs1);
+    const s2 = buildStockRows(bounds2.S || p2Start, bounds2.effectiveStart, dayAfter(p2End), openings, txs2);
+    const m1 = new Map<string, { in: number; out: number }>();
+    for (const r of s1) { const e = m1.get(r.product_id) || { in: 0, out: 0 }; e.in += r.inbound_qty; e.out += r.outbound_qty; m1.set(r.product_id, e); }
+    const m2 = new Map<string, { in: number; out: number }>();
+    for (const r of s2) { const e = m2.get(r.product_id) || { in: 0, out: 0 }; e.in += r.inbound_qty; e.out += r.outbound_qty; m2.set(r.product_id, e); }
+    const ids = new Set([...m1.keys(), ...m2.keys()]);
+    const res: ProdRow[] = [];
+    for (const id of ids) {
+      const p = products.find(x => x.id === id);
+      if (!p || (qCustomer && p.customer_id !== qCustomer)) continue;
+      if (qProduct && !p.sku.toLowerCase().includes(qProduct.toLowerCase()) && !p.name.toLowerCase().includes(qProduct.toLowerCase())) continue;
+      const v1 = m1.get(id) || { in: 0, out: 0 }, v2 = m2.get(id) || { in: 0, out: 0 };
+      const inDiff = v2.in - v1.in, outDiff = v2.out - v1.out;
       if (onlyChanged && inDiff === 0 && outDiff === 0) continue;
-
-      const up = p.unit_price ?? 0;
-
-      rows.push({
-        product: p,
-        customer_id: p.customer_id,
-        in1: m1.inbound, in2: m2.inbound, inDiff,
-        out1: m1.outbound, out2: m2.outbound, outDiff,
-        inVal1: m1.inbound * up, inVal2: m2.inbound * up, inValDiff: inDiff * up,
-        outVal1: m1.outbound * up, outVal2: m2.outbound * up, outValDiff: outDiff * up,
-      });
+      const up = p.unit_price || 0;
+      res.push({ product: p, customer_id: p.customer_id, in1: v1.in, in2: v2.in, inDiff, out1: v1.out, out2: v2.out, outDiff, inVal1: v1.in * up, inVal2: v2.in * up, inValDiff: inDiff * up, outVal1: v1.out * up, outVal2: v2.out * up, outValDiff: outDiff * up });
     }
-
-    return rows;
+    return res;
   }, [products, openings, txs1, txs2, p1Start, p1End, p2Start, p2End, qCustomer, qProduct, onlyChanged, bounds1, bounds2]);
 
-  /* ---- 2. Customer-level summary (Raw calculation) ---- */
   const customerRows = useMemo(() => {
     const cMap = new Map<string, CustRow>();
-
     for (const r of productRows) {
       const cid = r.customer_id || "UNKNOWN";
       let c = cMap.get(cid);
-      if (!c) {
-        c = { customer_id: r.customer_id, in1: 0, in2: 0, inDiff: 0, out1: 0, out2: 0, outDiff: 0, inVal1: 0, inVal2: 0, inValDiff: 0, outVal1: 0, outVal2: 0, outValDiff: 0 };
-        cMap.set(cid, c);
-      }
-      c.in1 += r.in1; c.in2 += r.in2; c.inDiff += r.inDiff;
-      c.out1 += r.out1; c.out2 += r.out2; c.outDiff += r.outDiff;
-      c.inVal1 += r.inVal1; c.inVal2 += r.inVal2; c.inValDiff += r.inValDiff;
-      c.outVal1 += r.outVal1; c.outVal2 += r.outVal2; c.outValDiff += r.outValDiff;
+      if (!c) { c = { customer_id: r.customer_id, in1: 0, in2: 0, inDiff: 0, out1: 0, out2: 0, outDiff: 0, inVal1: 0, inVal2: 0, inValDiff: 0, outVal1: 0, outVal2: 0, outValDiff: 0 }; cMap.set(cid, c); }
+      c.in1 += r.in1; c.in2 += r.in2; c.inDiff += r.inDiff; c.out1 += r.out1; c.out2 += r.out2; c.outDiff += r.outDiff; c.inVal1 += r.inVal1; c.inVal2 += r.inVal2; c.inValDiff += r.inValDiff; c.outVal1 += r.outVal1; c.outVal2 += r.outVal2; c.outValDiff += r.outValDiff;
     }
-
     return Array.from(cMap.values());
   }, [productRows]);
 
-  /* ---- Display Helpers ---- */
-  function customerLabel(cId: string | null) {
-    if (!cId) return "--- (Không phân bổ) ---";
-    const c = customers.find((x) => x.id === cId);
-    return c ? `${c.code} - ${c.name}` : cId;
-  }
+  function customerLabel(id: string | null) { if (!id) return "---"; const c = customers.find(x => x.id === id); return c ? `${c.code} - ${c.name}` : id; }
 
-  /* ---- Secondary Layer: Filtering & Sorting for CustRows ---- */
-  function textValCust(r: CustRow, col: string): string {
-    if (col === "customer") return customerLabel(r.customer_id);
-    return "";
-  }
-  function numValCust(r: CustRow, col: string): number {
-    switch (col) {
-      case "in1": return r.in1;
-      case "in2": return r.in2;
-      case "inDiff": return r.inDiff;
-      case "inPct": return calcPctRow(r.in1, r.inDiff);
-      case "out1": return r.out1;
-      case "out2": return r.out2;
-      case "outDiff": return r.outDiff;
-      case "outPct": return calcPctRow(r.out1, r.outDiff);
-      case "inVal1": return r.inVal1;
-      case "inVal2": return r.inVal2;
-      case "inValDiff": return r.inValDiff;
-      case "outVal1": return r.outVal1;
-      case "outVal2": return r.outVal2;
-      case "outValDiff": return r.outValDiff;
-    }
-    return 0;
-  }
-
-  const displayCustomerRows = useMemo(() => {
-    let rows = [...customerRows];
-    for (const [key, f] of Object.entries(colFiltersCust)) {
-      if (key === "customer") {
-        rows = rows.filter(r => passesTextFilter(textValCust(r, key), f as TextFilter));
-      } else {
-        rows = rows.filter(r => passesNumFilter(numValCust(r, key), f as NumFilter));
-      }
-    }
-    if (sortColCust && sortDirCust) {
-      const dir = sortDirCust === "asc" ? 1 : -1;
-      rows.sort((a, b) => {
-        let va: string | number, vb: string | number;
-        if (sortColCust === "customer") {
-          va = textValCust(a, sortColCust).toLowerCase();
-          vb = textValCust(b, sortColCust).toLowerCase();
-        } else {
-          va = numValCust(a, sortColCust);
-          vb = numValCust(b, sortColCust);
-        }
-        if (va < vb) return -1 * dir;
-        if (va > vb) return 1 * dir;
-        return 0;
-      });
-    } else {
-      // Default Sort
-      rows.sort((a, b) => Math.abs(b.inValDiff) + Math.abs(b.outValDiff) - Math.abs(a.inValDiff) - Math.abs(a.outValDiff));
-    }
-    return rows;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customerRows, colFiltersCust, sortColCust, sortDirCust, customers]);
-
-  /* ---- Secondary Layer: Filtering & Sorting for ProdRows ---- */
-  function textValProd(r: ProdRow, col: string): string {
-    switch (col) {
-      case "customer": return customerLabel(r.customer_id);
-      case "sku": return r.product.sku;
-      case "name": return r.product.name;
-      case "spec": return r.product.spec || "";
-    }
-    return "";
-  }
-  function numValProd(r: ProdRow, col: string): number {
-    switch (col) {
-        case "in1": return r.in1;
-        case "in2": return r.in2;
-        case "inDiff": return r.inDiff;
-        case "inPct": return calcPctRow(r.in1, r.inDiff);
-        case "out1": return r.out1;
-        case "out2": return r.out2;
-        case "outDiff": return r.outDiff;
-        case "outPct": return calcPctRow(r.out1, r.outDiff);
-        case "inVal1": return r.inVal1;
-        case "inVal2": return r.inVal2;
-        case "inValDiff": return r.inValDiff;
-        case "outVal1": return r.outVal1;
-        case "outVal2": return r.outVal2;
-        case "outValDiff": return r.outValDiff;
-    }
-    return 0;
-  }
-
-  const displayProductRows = useMemo(() => {
-    let rows = [...productRows];
-    for (const [key, f] of Object.entries(colFiltersProd)) {
-      if (["customer", "sku", "name", "spec"].includes(key)) {
-        rows = rows.filter(r => passesTextFilter(textValProd(r, key), f as TextFilter));
-      } else {
-        rows = rows.filter(r => passesNumFilter(numValProd(r, key), f as NumFilter));
-      }
-    }
-    if (sortColProd && sortDirProd) {
-      const dir = sortDirProd === "asc" ? 1 : -1;
-      rows.sort((a, b) => {
-        let va: string | number, vb: string | number;
-        if (["customer", "sku", "name", "spec"].includes(sortColProd)) {
-          va = textValProd(a, sortColProd).toLowerCase();
-          vb = textValProd(b, sortColProd).toLowerCase();
-        } else {
-          va = numValProd(a, sortColProd);
-          vb = numValProd(b, sortColProd);
-        }
-        if (va < vb) return -1 * dir;
-        if (va > vb) return 1 * dir;
-        return 0;
-      });
-    } else {
-      // Default Sort
-      rows.sort((a, b) => Math.abs(b.inValDiff) + Math.abs(b.outValDiff) - Math.abs(a.inValDiff) - Math.abs(a.outValDiff));
-    }
-    return rows;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productRows, colFiltersProd, sortColProd, sortDirProd, customers]);
-
-  /* ---- Overall totals (from displayData) ---- */
   const totals = useMemo(() => {
     const o = { in1: 0, in2: 0, inDiff: 0, out1: 0, out2: 0, outDiff: 0, inVal1: 0, inVal2: 0, inValDiff: 0, outVal1: 0, outVal2: 0, outValDiff: 0 };
-    for (const r of displayProductRows) {
-      o.in1 += r.in1; o.in2 += r.in2; o.inDiff += r.inDiff;
-      o.out1 += r.out1; o.out2 += r.out2; o.outDiff += r.outDiff;
-      o.inVal1 += r.inVal1; o.inVal2 += r.inVal2; o.inValDiff += r.inValDiff;
-      o.outVal1 += r.outVal1; o.outVal2 += r.outVal2; o.outValDiff += r.outValDiff;
-    }
+    for (const r of productRows) { o.in1 += r.in1; o.in2 += r.in2; o.inDiff += r.inDiff; o.out1 += r.out1; o.out2 += r.out2; o.outDiff += r.outDiff; o.inVal1 += r.inVal1; o.inVal2 += r.inVal2; o.inValDiff += r.inValDiff; o.outVal1 += r.outVal1; o.outVal2 += r.outVal2; o.outValDiff += r.outValDiff; }
     return o;
-  }, [displayProductRows]);
+  }, [productRows]);
 
-  /* ---- Header Cell Renderer (Parametrized for table) ---- */
-  function CustThCell({ label, colKey, sortable, isNum, align, extra }: {
-    label: string; colKey: string; sortable: boolean; isNum: boolean;
-    align?: "left" | "right" | "center"; extra?: React.CSSProperties;
-  }) {
-    const active = !!colFiltersCust[colKey];
-    const isSortTarget = sortColCust === colKey;
-    const baseStyle: React.CSSProperties = { ...thStyle, textAlign: align || "left", position: "relative", ...extra };
-    const popupOpen = openPopupId === `cust-${colKey}`;
+  const displayCustomerRows = useMemo(() => {
+    let rs = [...customerRows];
+    for (const [k, f] of Object.entries(colFiltersCust)) { if (k === "customer") rs = rs.filter(r => passesTextFilter(customerLabel(r.customer_id), f as TextFilter)); else rs = rs.filter(r => passesNumFilter((r as any)[k], f as NumFilter)); }
+    if (sortColCust && sortDirCust) { const d = sortDirCust === "asc" ? 1 : -1; rs.sort((a, b) => { const va = sortColCust === "customer" ? customerLabel(a.customer_id) : (a as any)[sortColCust], vb = sortColCust === "customer" ? customerLabel(b.customer_id) : (b as any)[sortColCust]; return va < vb ? -1 * d : va > vb ? 1 * d : 0; }); }
+    return rs;
+  }, [customerRows, colFiltersCust, sortColCust, sortDirCust, customers]);
+
+  const displayProductRows = useMemo(() => {
+    let rs = [...productRows];
+    for (const [k, f] of Object.entries(colFiltersProd)) { if (["sku", "name", "spec"].includes(k)) rs = rs.filter(r => passesTextFilter((r.product as any)[k] || "", f as TextFilter)); else rs = rs.filter(r => passesNumFilter((r as any)[k], f as NumFilter)); }
+    if (sortColProd && sortDirProd) { const d = sortDirProd === "asc" ? 1 : -1; rs.sort((a, b) => { const va = ["sku", "name", "spec"].includes(sortColProd) ? (a.product as any)[sortColProd] : (a as any)[sortColProd], vb = ["sku", "name", "spec"].includes(sortColProd) ? (b.product as any)[sortColProd] : (b as any)[sortColProd]; return va < vb ? -1 * d : va > vb ? 1 * d : 0; }); }
+    return rs;
+  }, [productRows, colFiltersProd, sortColProd, sortDirProd]);
+
+  function ThCellCust({ label, colKey, sortable, colType, align, w }: { label: string; colKey: string; sortable: boolean; colType: "text" | "num"; align?: "left" | "right" | "center"; w?: string }) {
+    const active = !!colFiltersCust[colKey], isSortTarget = sortColCust === colKey, popupOpen = openPopupId === colKey;
     return (
-      <th style={baseStyle}>
-        <span>{label}</span>
-        {sortable && (
-          <span
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isSortTarget) {
-                if (sortDirCust === "asc") setSortDirCust("desc");
-                else { setSortDirCust(null); setSortColCust(null); }
-              } else { setSortColCust(colKey); setSortDirCust("asc"); }
-            }}
-            style={{ cursor: "pointer", marginLeft: 2, fontSize: 10, opacity: isSortTarget ? 1 : 0.35, userSelect: "none" }}
-          >
-            {isSortTarget && sortDirCust === "asc" ? "▲" : isSortTarget && sortDirCust === "desc" ? "▼" : "⇅"}
-          </span>
-        )}
-        <span
-          onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : `cust-${colKey}`); }}
-          style={{ cursor: "pointer", marginLeft: 3, fontSize: 11, display: "inline-block", width: 16, height: 16, lineHeight: "16px", textAlign: "center", borderRadius: 3, background: active ? "#0f172a" : "#e2e8f0", color: active ? "white" : "#475569", userSelect: "none", verticalAlign: "middle" }}
-        >▾</span>
-        {popupOpen && (
-          isNum
-            ? <NumFilterPopup filter={(colFiltersCust[colKey] as NumFilter) || null} onChange={f => { setColFiltersCust(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />
-            : <TextFilterPopup filter={(colFiltersCust[colKey] as TextFilter) || null} onChange={f => { setColFiltersCust(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />
-        )}
+      <th style={{ ...thStyle, textAlign: align || "left", position: "relative", width: w }}>
+        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+          <span className="text-slate-500 font-bold text-[10px] uppercase tracking-wider">{label}</span>
+          <div className="flex items-center gap-0.5">
+            {sortable && <button onClick={e => { e.stopPropagation(); if (isSortTarget) { if (sortDirCust === "asc") setSortDirCust("desc"); else { setSortDirCust(null); setSortColCust(null); } } else { setSortColCust(colKey); setSortDirCust("asc"); } }} className={`p-1 hover:bg-slate-200 rounded ${isSortTarget ? "text-brand bg-brand/5" : "text-slate-300"}`}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">{isSortTarget && sortDirCust === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDirCust === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}</svg></button>}
+            <button onClick={e => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }} className={`p-1 hover:bg-slate-200 rounded ${active ? "bg-brand text-white shadow-sm" : "text-slate-300"}`}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
+          </div>
+        </div>
+        {popupOpen && (colType === "text" ? <TextFilterPopup filter={(colFiltersCust[colKey] as TextFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : <NumFilterPopup filter={(colFiltersCust[colKey] as NumFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />)}
       </th>
     );
   }
 
-  function ProdThCell({ label, colKey, sortable, isNum, align, extra }: {
-    label: string; colKey: string; sortable: boolean; isNum: boolean;
-    align?: "left" | "right" | "center"; extra?: React.CSSProperties;
-  }) {
-    const active = !!colFiltersProd[colKey];
-    const isSortTarget = sortColProd === colKey;
-    const baseStyle: React.CSSProperties = { ...thStyle, textAlign: align || "left", position: "relative", ...extra };
-    const popupOpen = openPopupId === `prod-${colKey}`;
+  function ThCellProd({ label, colKey, sortable, colType, align, w }: { label: string; colKey: string; sortable: boolean; colType: "text" | "num"; align?: "left" | "right" | "center"; w?: string }) {
+    const active = !!colFiltersProd[colKey], isSortTarget = sortColProd === colKey, popupOpen = openPopupId === colKey + "-p";
     return (
-      <th style={baseStyle}>
-        <span>{label}</span>
-        {sortable && (
-          <span
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isSortTarget) {
-                if (sortDirProd === "asc") setSortDirProd("desc");
-                else { setSortDirProd(null); setSortColProd(null); }
-              } else { setSortColProd(colKey); setSortDirProd("asc"); }
-            }}
-            style={{ cursor: "pointer", marginLeft: 2, fontSize: 10, opacity: isSortTarget ? 1 : 0.35, userSelect: "none" }}
-          >
-            {isSortTarget && sortDirProd === "asc" ? "▲" : isSortTarget && sortDirProd === "desc" ? "▼" : "⇅"}
-          </span>
-        )}
-        <span
-          onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : `prod-${colKey}`); }}
-          style={{ cursor: "pointer", marginLeft: 3, fontSize: 11, display: "inline-block", width: 16, height: 16, lineHeight: "16px", textAlign: "center", borderRadius: 3, background: active ? "#0f172a" : "#e2e8f0", color: active ? "white" : "#475569", userSelect: "none", verticalAlign: "middle" }}
-        >▾</span>
-        {popupOpen && (
-          isNum
-            ? <NumFilterPopup filter={(colFiltersProd[colKey] as NumFilter) || null} onChange={f => { setColFiltersProd(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />
-            : <TextFilterPopup filter={(colFiltersProd[colKey] as TextFilter) || null} onChange={f => { setColFiltersProd(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />
-        )}
+      <th style={{ ...thStyle, textAlign: align || "left", position: "relative", width: w }}>
+        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+          <span className="text-slate-500 font-bold text-[10px] uppercase tracking-wider">{label}</span>
+          <div className="flex items-center gap-0.5">
+            {sortable && <button onClick={e => { e.stopPropagation(); if (isSortTarget) { if (sortDirProd === "asc") setSortDirProd("desc"); else { setSortDirProd(null); setSortColProd(null); } } else { setSortColProd(colKey); setSortDirProd("asc"); } }} className={`p-1 hover:bg-slate-200 rounded ${isSortTarget ? "text-brand bg-brand/5" : "text-slate-300"}`}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">{isSortTarget && sortDirProd === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDirProd === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}</svg></button>}
+            <button onClick={e => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey + "-p"); }} className={`p-1 hover:bg-slate-200 rounded ${active ? "bg-brand text-white shadow-sm" : "text-slate-300"}`}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
+          </div>
+        </div>
+        {popupOpen && (colType === "text" ? <TextFilterPopup filter={(colFiltersProd[colKey] as TextFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : <NumFilterPopup filter={(colFiltersProd[colKey] as NumFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />)}
       </th>
     );
   }
 
-  /* Reusable summary card */
-  function SummaryCard({ title, v1, v2, diff, bg, accent, icon }: { title: string; v1: number; v2: number; diff: number; bg: string; accent: string; icon?: React.ReactNode }) {
-    const pct = calcPctRow(v1, diff);
-    const isPositive = diff > 0;
-    
+  function SummaryCard({ title, v1, v2, diff, accent }: { title: string; v1: number; v2: number; diff: number; accent: string }) {
+    const isP = diff > 0;
     return (
-      <div className="stat-card" style={{ borderLeftColor: accent }}>
-        <div className="stat-card-header">
-          <span className="stat-card-title">{title}</span>
-          {icon && <div className="stat-card-icon" style={{ background: bg, color: accent }}>{icon}</div>}
+      <div className="stat-card border-l-4 group" style={{ borderLeftColor: accent }}>
+        <div className="mb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{title}</div>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div><div className="text-[9px] text-slate-400 uppercase mb-0.5">Kỳ 1</div><div className="text-lg font-bold text-slate-700">{fmtNum(v1)}</div></div>
+          <div className="pl-4 border-l border-slate-100"><div className="text-[9px] text-brand uppercase mb-0.5 font-bold">Kỳ 2</div><div className="text-lg font-bold text-brand">{fmtNum(v2)}</div></div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-          <div>
-            <div style={{ fontSize: 11, color: "var(--slate-400)", marginBottom: 4, textTransform: "uppercase" }}>Kỳ 1</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--slate-600)" }}>{fmtNum(v1)}</div>
-          </div>
-          <div style={{ paddingLeft: 12, borderLeft: "1px solid var(--slate-100)" }}>
-            <div style={{ fontSize: 11, color: "var(--slate-400)", marginBottom: 4, textTransform: "uppercase" }}>Kỳ 2</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--brand)" }}>{fmtNum(v2)}</div>
-          </div>
-        </div>
-        <div className="stat-card-footer" style={{ background: "var(--slate-50)", margin: "0 -16px -16px", padding: "10px 16px", borderBottomLeftRadius: 10, borderBottomRightRadius: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: isPositive ? "var(--color-danger)" : "var(--color-success)" }}>
-              {isPositive ? "+" : ""}{fmtNum(diff)}
-            </span>
-            <span className={`badge ${isPositive ? "badge-danger" : "badge-success"}`} style={{ fontSize: 10 }}>
-              {isPositive ? "↑" : "↓"} {Math.abs(pct).toFixed(1)}%
-            </span>
-          </div>
-        </div>
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-50"><span className={`text-sm font-bold ${isP?"text-rose-500":"text-emerald-500"}`}>{isP?"+":""}{fmtNum(diff)}</span><span className={`badge ${isP?"badge-danger":"badge-success"} text-[9px]`}>{isP?"↑":"↓"} {Math.abs(calcPctRow(v1,diff)).toFixed(1)}%</span></div>
       </div>
     );
   }
 
-  /* Date range label */
-  const lbl1 = `${formatToVietnameseDate(bounds1.effectiveStart)} → ${formatToVietnameseDate(bounds1.effectiveEnd)}`;
-  const lbl2 = `${formatToVietnameseDate(bounds2.effectiveStart)} → ${formatToVietnameseDate(bounds2.effectiveEnd)}`;
-
-  const activeCustFilters = Object.keys(colFiltersCust).length;
-  const activeProdFilters = Object.keys(colFiltersProd).length;
-
-  
   const chartDailyData = useMemo(() => {
-    const dailyMap = new Map<string, { in1: number, out1: number, inVal1: number, outVal1: number, in2: number, out2: number, inVal2: number, outVal2: number }>();
-    
-    for (const t of txs1) {
-       if (t.deleted_at) continue;
-       if (t.tx_date < bounds1.effectiveStart || t.tx_date >= dayAfter(p1End)) continue;
-       
-       let valid = true;
-       if (qCustomer) {
-         const p = products.find(x => x.id === t.product_id);
-         if (p?.customer_id !== qCustomer) valid = false;
-       }
-       if (qProduct && valid) {
-         const p = products.find(x => x.id === t.product_id);
-         if (p && !p.sku.toLowerCase().includes(qProduct.toLowerCase()) && !p.name.toLowerCase().includes(qProduct.toLowerCase())) valid = false;
-       }
-       if (!valid) continue;
-       
-       const d = t.tx_date.slice(0, 10);
-       const e = dailyMap.get(d) || { in1: 0, out1: 0, inVal1: 0, outVal1: 0, in2: 0, out2: 0, inVal2: 0, outVal2: 0 };
-       const p = products.find(x => x.id === t.product_id);
-       const up = p?.unit_price || 0;
-       
-       if (t.tx_type === 'in' || t.tx_type === 'adjust_in') {
-         e.in1 += t.qty;
-         e.inVal1 += t.qty * up;
-       } else if (t.tx_type === 'out' || t.tx_type === 'adjust_out') {
-         e.out1 += t.qty;
-         e.outVal1 += t.qty * up;
-       }
-       dailyMap.set(d, e);
-    }
-    
-    for (const t of txs2) {
-       if (t.deleted_at) continue;
-       if (t.tx_date < bounds2.effectiveStart || t.tx_date >= dayAfter(p2End)) continue;
-
-       let valid = true;
-       if (qCustomer) {
-         const p = products.find(x => x.id === t.product_id);
-         if (p?.customer_id !== qCustomer) valid = false;
-       }
-       if (qProduct && valid) {
-         const p = products.find(x => x.id === t.product_id);
-         if (p && !p.sku.toLowerCase().includes(qProduct.toLowerCase()) && !p.name.toLowerCase().includes(qProduct.toLowerCase())) valid = false;
-       }
-       if (!valid) continue;
-       
-       const d = t.tx_date.slice(0, 10);
-       const e = dailyMap.get(d) || { in1: 0, out1: 0, inVal1: 0, outVal1: 0, in2: 0, out2: 0, inVal2: 0, outVal2: 0 };
-       const p = products.find(x => x.id === t.product_id);
-       const up = p?.unit_price || 0;
-
-       if (t.tx_type === 'in' || t.tx_type === 'adjust_in') {
-         e.in2 += t.qty;
-         e.inVal2 += t.qty * up;
-       } else if (t.tx_type === 'out' || t.tx_type === 'adjust_out') {
-         e.out2 += t.qty;
-         e.outVal2 += t.qty * up;
-       }
-       dailyMap.set(d, e);
-    }
-    
-    const sortedDates = Array.from(dailyMap.keys()).sort();
-    const allDates = [];
-    if (sortedDates.length > 0) {
-      const start = new Date(sortedDates[0]);
-      const end = new Date(sortedDates[sortedDates.length - 1]);
-      for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
-        allDates.push(dt.toISOString().slice(0, 10));
+    const dMap = new Map<string, { v1: number, v2: number }>();
+    const process = (txs: InventoryTx[], bounds: any, key: 'v1' | 'v2') => {
+      for (const t of txs) {
+        if (t.deleted_at || t.tx_date < bounds.effectiveStart || t.tx_date >= dayAfter(bounds.effectiveEnd)) continue;
+        const p = products.find(x => x.id === t.product_id);
+        if (qCustomer && p?.customer_id !== qCustomer) continue;
+        if (qProduct && p && !p.sku.toLowerCase().includes(qProduct.toLowerCase()) && !p.name.toLowerCase().includes(qProduct.toLowerCase())) continue;
+        const d = t.tx_date.slice(0, 10), e = dMap.get(d) || { v1: 0, v2: 0 };
+        if (t.tx_type.includes('in')) e[key] += t.qty; else e[key] += 0; // Simplified for Qty
+        dMap.set(d, e);
       }
-    }
+    };
+    process(txs1, bounds1, 'v1'); process(txs2, bounds2, 'v2');
+    return Array.from(dMap.keys()).sort().map(d => ({ label: d, val1: dMap.get(d)!.v1, val2: dMap.get(d)!.v2 }));
+  }, [txs1, txs2, products, qCustomer, qProduct, bounds1, bounds2]);
 
-    return allDates.map(d => ({
-       date: d,
-       ...(dailyMap.get(d) || { in1: 0, out1: 0, inVal1: 0, outVal1: 0, in2: 0, out2: 0, inVal2: 0, outVal2: 0 })
-    }));
-  }, [txs1, txs2, products, qCustomer, qProduct, p1Start, p1End, p2Start, p2End, bounds1, bounds2]);
-
-  const cInQtyDaily = chartDailyData.map(d => ({ label: d.date, val1: d.in1, val2: d.in2 }));
-  const cOutQtyDaily = chartDailyData.map(d => ({ label: d.date, val1: d.out1, val2: d.out2 }));
-  const cInValDaily = chartDailyData.map(d => ({ label: d.date, val1: d.inVal1, val2: d.inVal2 }));
-  const cOutValDaily = chartDailyData.map(d => ({ label: d.date, val1: d.outVal1, val2: d.outVal2 }));
-
-  const custTops = {
-    inQty: [...displayCustomerRows].sort((a, b) => (b.in1 + b.in2) - (a.in1 + a.in2)).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), val1: c.in1, val2: c.in2 })),
-    outQty: [...displayCustomerRows].sort((a, b) => (b.out1 + b.out2) - (a.out1 + a.out2)).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), val1: c.out1, val2: c.out2 })),
-    inVal: [...displayCustomerRows].sort((a, b) => (b.inVal1 + b.inVal2) - (a.inVal1 + a.inVal2)).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), val1: c.inVal1, val2: c.inVal2 })),
-    outVal: [...displayCustomerRows].sort((a, b) => (b.outVal1 + b.outVal2) - (a.outVal1 + a.outVal2)).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), val1: c.outVal1, val2: c.outVal2 })),
-  };
-
-  const custStackedIn = {
-     d1: [...displayCustomerRows].sort((a, b) => b.inVal1 - a.inVal1).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.inVal1 })),
-     d2: [...displayCustomerRows].sort((a, b) => b.inVal2 - a.inVal2).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.inVal2 }))
-  };
-  const custStackedOut = {
-     d1: [...displayCustomerRows].sort((a, b) => b.outVal1 - a.outVal1).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.outVal1 })),
-     d2: [...displayCustomerRows].sort((a, b) => b.outVal2 - a.outVal2).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.outVal2 }))
-  };
-
-  const topProdDiffInQty = [...displayProductRows].filter(r => r.inDiff > 0).sort((a, b) => b.inDiff - a.inDiff).slice(0, 10).map(r => ({ label: r.product.sku, value: r.inDiff }));
-  const topProdDiffOutQty = [...displayProductRows].filter(r => r.outDiff > 0).sort((a, b) => b.outDiff - a.outDiff).slice(0, 10).map(r => ({ label: r.product.sku, value: r.outDiff }));
-
-  const prodTops = {
-    inVal: [...displayProductRows].sort((a, b) => (b.inVal1 + b.inVal2) - (a.inVal1 + a.inVal2)).slice(0, 10).map(c => ({ label: c.product.sku, val1: c.inVal1, val2: c.inVal2 })),
-    outVal: [...displayProductRows].sort((a, b) => (b.outVal1 + b.outVal2) - (a.outVal1 + a.outVal2)).slice(0, 10).map(c => ({ label: c.product.sku, val1: c.outVal1, val2: c.outVal2 })),
-  };
-
-
-  /* ---- Close Report Action ---- */
-  const [closingComparison, setClosingComparison] = useState(false);
-
-  async function closeComparisonReport() {
-    const ok = await showConfirm({ message: "Chốt dữ liệu đối soát xuất - nhập kỳ này? Hệ thống sẽ lưu trữ phiên bản này để đối soát lịch sử.", confirmLabel: "📋 Chốt lưu trữ báo cáo" });
-    if (!ok) return;
-    setClosingComparison(true);
+  const [closing, setClosing] = useState(false);
+  async function closeReport() {
+    const ok = await showConfirm({ message: "Chốt báo cáo so sánh?", confirmLabel: "📋 Chốt lưu trữ" });
+    if (!ok) return; setClosing(true);
     try {
-      const { data: ins, error: e1 } = await supabase.from("inventory_report_closures").insert({
-        report_type: "inventory_comparison_report",
-        title: `So sánh ${formatToVietnameseDate(bounds1.effectiveStart)}→${formatToVietnameseDate(bounds1.effectiveEnd)} vs ${formatToVietnameseDate(bounds2.effectiveStart)}→${formatToVietnameseDate(bounds2.effectiveEnd)}`,
-        period_1_start: bounds1.effectiveStart,
-        period_1_end: bounds1.effectiveEnd,
-        period_2_start: bounds2.effectiveStart,
-        period_2_end: bounds2.effectiveEnd,
-        baseline_snapshot_date_1: bounds1.S || p1Start,
-        baseline_snapshot_date_2: bounds2.S || p2Start,
-        summary_json: { "Nhập kỳ 1": totals.in1, "Nhập kỳ 2": totals.in2, "Chênh lệch nhập": totals.inDiff, "Xuất kỳ 1": totals.out1, "Xuất kỳ 2": totals.out2, "Chênh lệch xuất": totals.outDiff },
-        filters_json: { p1Start, p1End, p2Start, p2End, customer: qCustomer, product: qProduct, onlyChanged },
-      }).select("id").single();
+      const { data: ins, error: e1 } = await supabase.from("inventory_report_closures").insert({ report_type: "inventory_comparison_report", title: `So sánh ${p1Start}→${p1End} vs ${p2Start}→${p2End}`, period_1_start: p1Start, period_1_end: p1End, period_2_start: p2Start, period_2_end: p2End, summary_json: totals }).select("id").single();
       if (e1) throw e1;
-      const closureId = ins.id;
-
-      const prodLines = displayProductRows.map((r, i) => ({
-        closure_id: closureId, line_type: "comparison_product", sort_order: i, customer_id: r.customer_id || null, product_id: r.product.id,
-        row_json: {
-          "khách hàng": customerLabel(r.customer_id), "mã hàng": r.product.sku, "tên hàng": r.product.name, "kích thước": r.product.spec || "",
-          "nhập kỳ 1": r.in1, "nhập kỳ 2": r.in2, "CL nhập": r.inDiff,
-          "xuất kỳ 1": r.out1, "xuất kỳ 2": r.out2, "CL xuất": r.outDiff,
-          "giá trị nhập kỳ 1": r.inVal1, "giá trị nhập kỳ 2": r.inVal2, "CL giá trị nhập": r.inValDiff,
-          "giá trị xuất kỳ 1": r.outVal1, "giá trị xuất kỳ 2": r.outVal2, "CL giá trị xuất": r.outValDiff,
-        },
-      }));
-      if (prodLines.length > 0) {
-        const { error: e2 } = await supabase.from("inventory_report_closure_lines").insert(prodLines);
-        if (e2) throw e2;
-      }
-      showToast("Đã chốt dữ liệu thành công!", "success");
-    } catch (err: any) {
-      setError(err?.message ?? "Lỗi khi chốt dữ liệu");
-    } finally {
-      setClosingComparison(false);
-    }
+      if (!ins) throw new Error("Không thể tạo bản ghi chốt dữ liệu.");
+      
+      const lines = displayProductRows.map((r, i) => ({ closure_id: ins.id, line_type: "comparison_product", sort_order: i, product_id: r.product.id, row_json: r }));
+      if (lines.length > 0) await supabase.from("inventory_report_closure_lines").insert(lines);
+      showToast("Thành công", "success");
+    } catch (e: any) { setError(e.message); } finally { setClosing(false); }
   }
 
   return (
     <div className="page-root" ref={containerRef}>
-      <div className="page-header">
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-          </div>
-          <div>
-            <h1 className="page-title">Đối soát Xuất - Nhập</h1>
-            <p className="page-description">So sánh kết quả vận hành giữa hai kỳ báo cáo</p>
-          </div>
+      <div className="page-header flex justify-between items-center mb-6">
+        <div className="flex items-center gap-4">
+          <div className="page-header-icon bg-brand/10 text-brand p-3 rounded-xl"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></div>
+          <div><h1 className="page-title text-2xl font-bold text-slate-800">Đối soát Xuất - Nhập</h1><p className="page-description text-slate-500 text-sm italic">So sánh kết quả vận hành giữa hai kỳ</p></div>
         </div>
-
-        <div className="toolbar">
-          <button className="btn btn-outline" onClick={applyPresetPreviousMonth}>
-            Kỳ trước
-          </button>
-          <button className="btn btn-outline" onClick={applyPresetSameMonthLastYear}>
-            Cùng kỳ năm ngoái
-          </button>
-          <div style={{ width: 1, height: 24, background: "var(--slate-200)", margin: "0 8px" }} />
-          <button className="btn btn-primary" onClick={closeComparisonReport} disabled={closingComparison || loading || displayProductRows.length === 0}>
-            {closingComparison ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}
-          </button>
+        <div className="toolbar flex gap-2">
+          <button className="btn btn-outline" onClick={applyPresetPreviousMonth}>Kỳ trước</button>
+          <button className="btn btn-outline" onClick={applyPresetSameMonthLastYear}>Năm ngoái</button>
+          <div className="w-px h-8 bg-slate-200 mx-2" />
+          <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading}>{closing ? "Đang xử lý..." : "📋 Chốt lưu trữ"}</button>
         </div>
       </div>
 
-      <div className="filter-panel" style={{ marginBottom: 24 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
-          <div style={{ padding: "8px 16px", background: "var(--slate-50)", borderRadius: 8, borderLeft: "4px solid var(--slate-300)" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--slate-500)", marginBottom: 12, textTransform: "uppercase" }}>Kỳ so sánh 1 (Gốc)</div>
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <div style={{ flex: 1 }}>
-                <label className="filter-label">Từ ngày</label>
-                <input type="date" className="input" value={p1Start} onChange={e => setP1Start(e.target.value)} />
-              </div>
-              <div style={{ color: "var(--slate-300)", marginTop: 18 }}>→</div>
-              <div style={{ flex: 1 }}>
-                <label className="filter-label">Đến ngày</label>
-                <input type="date" className="input" value={p1End} onChange={e => setP1End(e.target.value)} />
-              </div>
+      <div className="filter-panel mb-8 p-6 bg-white rounded-xl shadow-sm border border-slate-100">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+          <div className="p-4 bg-slate-50/50 rounded-lg border-l-4 border-slate-400">
+            <div className="text-[10px] font-bold text-slate-400 mb-3 uppercase tracking-widest">Kỳ gốc (1)</div>
+            <div className="flex gap-4 items-center">
+              <input type="date" className="input flex-1 bg-white" value={p1Start} onChange={e=>setP1Start(e.target.value)} /><span className="text-slate-300">→</span><input type="date" className="input flex-1 bg-white" value={p1End} onChange={e=>setP1End(e.target.value)} />
             </div>
           </div>
-          <div style={{ padding: "8px 16px", background: "var(--brand-light)", opacity: 0.9, borderRadius: 8, borderLeft: "4px solid var(--brand)" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--brand)", marginBottom: 12, textTransform: "uppercase" }}>Kỳ so sánh 2 (Đối soát)</div>
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <div style={{ flex: 1 }}>
-                <label className="filter-label" style={{ color: "var(--brand)" }}>Từ ngày</label>
-                <input type="date" className="input" style={{ borderColor: "var(--brand-light)" }} value={p2Start} onChange={e => setP2Start(e.target.value)} />
-              </div>
-              <div style={{ color: "var(--brand-light)", marginTop: 18 }}>→</div>
-              <div style={{ flex: 1 }}>
-                <label className="filter-label" style={{ color: "var(--brand)" }}>Đến ngày</label>
-                <input type="date" className="input" style={{ borderColor: "var(--brand-light)" }} value={p2End} onChange={e => setP2End(e.target.value)} />
-              </div>
+          <div className="p-4 bg-brand/5 rounded-lg border-l-4 border-brand">
+            <div className="text-[10px] font-bold text-brand mb-3 uppercase tracking-widest">Kỳ đối soát (2)</div>
+            <div className="flex gap-4 items-center">
+              <input type="date" className="input flex-1 bg-white border-brand/20" value={p2Start} onChange={e=>setP2Start(e.target.value)} /><span className="text-brand/30">→</span><input type="date" className="input flex-1 bg-white border-brand/20" value={p2End} onChange={e=>setP2End(e.target.value)} />
             </div>
           </div>
         </div>
-
-        <div style={{ height: 1, background: "var(--slate-100)", margin: "20px 0" }} />
-
-        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <div style={{ width: 280 }}>
-            <label className="filter-label">Khách hàng</label>
-            <select className="input" value={qCustomer} onChange={e => setQCustomer(e.target.value)}>
-              <option value="">-- Tất cả khách hàng --</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
-            </select>
-          </div>
-          <div style={{ width: 280 }}>
-            <label className="filter-label">Sản phẩm</label>
-            <input type="text" className="input" placeholder="SKU hoặc tên hàng..." value={qProduct} onChange={e => setQProduct(e.target.value)} />
-          </div>
-          <div style={{ paddingBottom: 10 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
-              <input type="checkbox" checked={onlyChanged} onChange={e => setOnlyChanged(e.target.checked)} />
-              <span>Chỉ hiện mã có biến động</span>
-            </label>
-          </div>
-          <div style={{ flex: 1, textAlign: "right", paddingBottom: 8 }}>
-            <button className="btn btn-primary" onClick={load} disabled={loading}>
-              {loading ? "Đang tải dữ liệu..." : "Lấy dữ liệu"}
-            </button>
-          </div>
+        <div className="flex gap-6 flex-wrap items-end border-t border-slate-50 pt-6">
+          <div className="w-full md:w-[280px]"><label className="filter-label text-xs text-slate-500 font-bold mb-1 block uppercase">Khách hàng</label><select className="input" value={qCustomer} onChange={e=>setQCustomer(e.target.value)}><option value="">-- Tất cả --</option>{customers.map(c=><option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}</select></div>
+          <div className="w-full md:w-[280px]"><label className="filter-label text-xs text-slate-500 font-bold mb-1 block uppercase">Sản phẩm</label><input type="text" className="input" placeholder="SKU hoặc tên..." value={qProduct} onChange={e=>setQProduct(e.target.value)} /></div>
+          <div className="pb-2"><label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" className="rounded text-brand" checked={onlyChanged} onChange={e=>setOnlyChanged(e.target.checked)} /><span className="text-sm text-slate-600">Chỉ mặt hàng có biến động</span></label></div>
+          <div className="flex-1 text-right pb-1"><button className="btn btn-primary px-8 shadow-lg shadow-brand/20" onClick={load} disabled={loading}>{loading ? "Đang tải..." : "Lấy dữ liệu"}</button></div>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, marginBottom: 32 }}>
-        <SummaryCard title="Nhập" v1={totals.in1} v2={totals.in2} diff={totals.inDiff} bg="var(--brand-light)" accent="var(--brand)" />
-        <SummaryCard title="Xuất" v1={totals.out1} v2={totals.out2} diff={totals.outDiff} bg="var(--color-danger-light)" accent="var(--color-danger)" />
-        <SummaryCard title="Giá trị Nhập" v1={totals.inVal1} v2={totals.inVal2} diff={totals.inValDiff} bg="var(--brand-light)" accent="var(--brand)" />
-        <SummaryCard title="Giá trị Xuất" v1={totals.outVal1} v2={totals.outVal2} diff={totals.outValDiff} bg="var(--color-danger-light)" accent="var(--color-danger)" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <SummaryCard title="Nhập" v1={totals.in1} v2={totals.in2} diff={totals.inDiff} accent="var(--brand)" />
+        <SummaryCard title="Xuất" v1={totals.out1} v2={totals.out2} diff={totals.outDiff} accent="var(--color-danger)" />
+        <SummaryCard title="GT Nhập" v1={totals.inVal1} v2={totals.inVal2} diff={totals.inValDiff} accent="var(--brand)" />
+        <SummaryCard title="GT Xuất" v1={totals.outVal1} v2={totals.outVal2} diff={totals.outValDiff} accent="var(--color-danger)" />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32 }}>
-        <div className="filter-panel" style={{ padding: 20 }}>
-          <VerticalGroupedColumnChart title="Số lượng Nhập theo ngày" label1="Kỳ 1" label2="Kỳ 2" data={cInQtyDaily} />
-        </div>
-        <div className="filter-panel" style={{ padding: 20 }}>
-          <VerticalGroupedColumnChart title="Số lượng Xuất theo ngày" label1="Kỳ 1" label2="Kỳ 2" data={cOutQtyDaily} color2="var(--color-danger)" />
-        </div>
+      <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm mb-10">
+        <VerticalGroupedColumnChart title="Biến động Nhập theo ngày" label1="Kỳ 1" label2="Kỳ 2" data={chartDailyData} />
       </div>
 
-      <section>
-        <div className="toolbar" style={{ marginBottom: 16 }}>
-           <h3 className="modal-title">Tổng hợp Khách hàng</h3>
-        </div>
-        <div className="data-table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th style={{ textAlign: "center", width: 50 }}>STT</th>
-                <CustThCell label="Khách hàng" colKey="customer" sortable isNum={false} />
-                <CustThCell label="Nhập (K1)" colKey="in1" sortable isNum align="right" />
-                <CustThCell label="Nhập (K2)" colKey="in2" sortable isNum align="right" />
-                <CustThCell label="CL Nhập" colKey="inDiff" sortable isNum align="right" />
-                <CustThCell label="Xuất (K1)" colKey="out1" sortable isNum align="right" />
-                <CustThCell label="Xuất (K2)" colKey="out2" sortable isNum align="right" />
-                <CustThCell label="CL Xuất" colKey="outDiff" sortable isNum align="right" />
+      <div className="section-header flex justify-between items-center mb-4 px-2"><h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest text-brand">Tổng hợp Khách hàng</h3></div>
+      <div className="data-table-wrap mb-10 overflow-hidden shadow-sm border border-slate-100 rounded-xl bg-white">
+        <table className="data-table text-[11px]">
+          <thead>
+            <tr>
+              <ThCellCust label="STT" colKey="stt" sortable={false} colType="text" w="50px" align="center" />
+              <ThCellCust label="Khách hàng" colKey="customer" sortable colType="text" />
+              <ThCellCust label="Nhập (K1)" colKey="in1" sortable colType="num" align="right" w="100px" />
+              <ThCellCust label="Nhập (K2)" colKey="in2" sortable colType="num" align="right" w="100px" />
+              <ThCellCust label="CL Nhập" colKey="inDiff" sortable colType="num" align="right" w="100px" />
+              <ThCellCust label="Xuất (K1)" colKey="out1" sortable colType="num" align="right" w="100px" />
+              <ThCellCust label="Xuất (K2)" colKey="out2" sortable colType="num" align="right" w="100px" />
+              <ThCellCust label="CL Xuất" colKey="outDiff" sortable colType="num" align="right" w="100px" />
+            </tr>
+          </thead>
+          <tbody>
+            {displayCustomerRows.length === 0 ? <tr><td colSpan={8} className="p-10 text-center text-slate-400 italic">Không có dữ liệu</td></tr> : displayCustomerRows.map((r, i) => (
+              <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                <td style={{ ...tdStyle, textAlign: "center", color: "#94a3b8" }}>{i + 1}</td>
+                <td style={{ ...tdStyle, fontWeight: 600 }}>{customerLabel(r.customer_id)}</td>
+                <td style={tdStyle} className="text-right">{fmtNum(r.in1)}</td>
+                <td style={tdStyle} className="text-right font-medium text-brand">{fmtNum(r.in2)}</td>
+                <td style={{ ...tdStyle, color: diffColor(r.inDiff) }} className="text-right font-bold">{r.inDiff > 0 ? "+" : ""}{fmtNum(r.inDiff)}</td>
+                <td style={tdStyle} className="text-right">{fmtNum(r.out1)}</td>
+                <td style={tdStyle} className="text-right font-medium text-brand">{fmtNum(r.out2)}</td>
+                <td style={{ ...tdStyle, color: diffColor(r.outDiff) }} className="text-right font-bold">{r.outDiff > 0 ? "+" : ""}{fmtNum(r.outDiff)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {displayCustomerRows.map((r, i) => (
-                <tr key={r.customer_id || `cust-${i}`}>
-                  <td style={{ textAlign: "center" }}>{i + 1}</td>
-                  <td style={{ fontWeight: 600 }}>{customerLabel(r.customer_id)}</td>
-                  <td style={{ textAlign: "right" }}>{fmtNum(r.in1)}</td>
-                  <td style={{ textAlign: "right" }}>{fmtNum(r.in2)}</td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: diffColor(r.inDiff) }}>{r.inDiff > 0 ? "+" : ""}{fmtNum(r.inDiff)}</td>
-                  <td style={{ textAlign: "right" }}>{fmtNum(r.out1)}</td>
-                  <td style={{ textAlign: "right" }}>{fmtNum(r.out2)}</td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: diffColor(r.outDiff) }}>{r.outDiff > 0 ? "+" : ""}{fmtNum(r.outDiff)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="section-header flex justify-between items-center mb-4 px-2"><h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest text-brand">Chi tiết Sản phẩm</h3></div>
+      <div className="data-table-wrap overflow-hidden shadow-sm border border-slate-100 rounded-xl bg-white mb-8">
+        <table className="data-table text-[11px]">
+          <thead>
+            <tr>
+              <ThCellProd label="STT" colKey="stt" sortable={false} colType="text" w="50px" align="center" />
+              <ThCellProd label="Mã hàng" colKey="sku" sortable colType="text" w="120px" />
+              <ThCellProd label="Tên hàng" colKey="name" sortable colType="text" />
+              <ThCellProd label="CL Nhập" colKey="inDiff" sortable colType="num" align="right" w="100px" />
+              <ThCellProd label="CL Xuất" colKey="outDiff" sortable colType="num" align="right" w="100px" />
+              <ThCellProd label="CL GT Nhập" colKey="inValDiff" sortable colType="num" align="right" w="120px" />
+            </tr>
+          </thead>
+          <tbody>
+            {displayProductRows.length === 0 ? <tr><td colSpan={6} className="p-10 text-center text-slate-400 italic">Không có dữ liệu</td></tr> : displayProductRows.map((r, i) => (
+              <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                <td style={{ ...tdStyle, textAlign: "center", color: "#94a3b8" }}>{i + 1}</td>
+                <td style={{ ...tdStyle, fontWeight: 700 }}>{r.product.sku}</td>
+                <td style={tdStyle} className="text-slate-600 leading-relaxed font-bold">{r.product.name}</td>
+                <td style={{ ...tdStyle, color: diffColor(r.inDiff) }} className="text-right font-bold">{r.inDiff > 0 ? "+" : ""}{fmtNum(r.inDiff)}</td>
+                <td style={{ ...tdStyle, color: diffColor(r.outDiff) }} className="text-right font-bold">{r.outDiff > 0 ? "+" : ""}{fmtNum(r.outDiff)}</td>
+                <td style={{ ...tdStyle, color: diffColor(r.inValDiff) }} className="text-right font-medium">{r.inValDiff > 0 ? "+" : ""}{fmtNum(r.inValDiff)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
