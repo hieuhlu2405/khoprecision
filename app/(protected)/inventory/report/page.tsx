@@ -565,7 +565,7 @@ export default function InventoryReportPage() {
           <div className="stat-card border-none bg-white/70 backdrop-blur-md shadow-sm border border-slate-200/50 hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-500 rounded-2xl p-6">
             <div className="flex justify-between items-start mb-3">
               <div className="p-2 bg-blue-100/80 rounded-lg text-blue-600">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               </div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nhập</span>
             </div>
@@ -579,7 +579,7 @@ export default function InventoryReportPage() {
           <div className="stat-card border-none bg-white/70 backdrop-blur-md shadow-sm border border-slate-200/50 hover:shadow-xl hover:shadow-red-500/10 transition-all duration-500 rounded-2xl p-6">
             <div className="flex justify-between items-start mb-3">
               <div className="p-2 bg-red-100/80 rounded-lg text-red-600">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               </div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Xuất</span>
             </div>
@@ -600,22 +600,31 @@ export default function InventoryReportPage() {
             <div className="w-40"><label className="filter-label text-slate-500 font-bold uppercase text-[9px] mb-1.5 block tracking-widest">Từ ngày</label><input type="date" value={qStart} onChange={e => setQStart(e.target.value)} className="input border-slate-200/60 bg-white/50 focus:bg-white transition-all rounded-lg h-10" /></div>
             <div className="w-40"><label className="filter-label text-slate-500 font-bold uppercase text-[9px] mb-1.5 block tracking-widest">Đến ngày</label><input type="date" value={qEnd} onChange={e => setQEnd(e.target.value)} className="input border-slate-200/60 bg-white/50 focus:bg-white transition-all rounded-lg h-10" /></div>
           </div>
-          <div className="w-48">
-            <label className="filter-label">Khách hàng</label>
-            <input list="dl-cust" placeholder="Tìm khách..." value={qCustomerSearch} onChange={e => { setQCustomerSearch(e.target.value); const m = customers.find(c => `${c.code} - ${c.name}` === e.target.value); setQCustomer(m ? m.id : ""); }} className="input" />
+          <div className="w-56 relative group">
+            <label className="filter-label text-slate-500 font-bold uppercase text-[9px] mb-1.5 block tracking-widest">Khách hàng</label>
+            <input list="dl-cust" placeholder="Nhập tên khách hàng..." value={qCustomerSearch} onChange={e => { setQCustomerSearch(e.target.value); const m = customers.find(c => `${c.code} - ${c.name}` === e.target.value); setQCustomer(m ? m.id : ""); }} className="input pl-10 border-slate-200/60 transition-all rounded-lg h-10 w-full focus:bg-white" />
             <datalist id="dl-cust">{customers.map(c => <option key={c.id} value={`${c.code} - ${c.name}`} />)}</datalist>
+            <div className="absolute left-3.5 top-[31px] text-slate-400 group-focus-within:text-brand transition-colors"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
           </div>
-          <div className="w-48 relative">
-            <label className="filter-label">Tên / SKU hàng</label>
-            <input value={qProduct} onChange={e => setQProduct(e.target.value)} placeholder="Tìm mã hoặc tên..." className="input pl-8" />
-            <div className="absolute left-2.5 bottom-2.5 text-slate-400"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
+          <div className="w-56 relative group">
+            <label className="filter-label text-slate-500 font-bold uppercase text-[9px] mb-1.5 block tracking-widest">Mã hàng</label>
+            <input value={qProduct} onChange={e => setQProduct(e.target.value)} placeholder="Nhập mã hàng..." className="input pl-10 border-slate-200/60 transition-all rounded-lg h-10 w-full focus:bg-white" />
+            <div className="absolute left-3.5 top-[31px] text-slate-400 group-focus-within:text-brand transition-colors"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
           </div>
-          <div className="pb-2.5 flex items-center gap-2"><input type="checkbox" checked={onlyInStock} onChange={e => setOnlyInStock(e.target.checked)} className="rounded text-brand" /> <span className="text-xs font-semibold text-slate-600 cursor-pointer" onClick={() => setOnlyInStock(!onlyInStock)}>Còn hàng</span></div>
-          <div className="ml-auto flex gap-2">
-            <button onClick={load} className="btn btn-secondary h-9 px-4 shadow-sm">Làm mới</button>
-            {(qCustomer || qProduct || onlyInStock || activeFilterCount > 0) && (
-              <button onClick={() => { setQCustomer(""); setQCustomerSearch(""); setQProduct(""); setOnlyInStock(false); setColFilters({}); setSortCol(null); setSortDir(null); }} className="btn btn-clear-filter h-9">Xóa lọc</button>
-            )}
+          <div className="ml-auto flex items-center gap-6">
+            <div className="flex items-center gap-3 py-1 cursor-pointer group unselectable" onClick={() => setOnlyInStock(!onlyInStock)}>
+              <div className={`w-9 h-5 rounded-full transition-all relative ${onlyInStock ? "bg-emerald-500 shadow-inner" : "bg-slate-200"}`}>
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${onlyInStock ? "left-4.5" : "left-0.5"}`} />
+              </div>
+              <span className={`text-[10px] font-black tracking-tighter uppercase transition-colors ${onlyInStock ? "text-emerald-600" : "text-slate-400 group-hover:text-slate-500"}`}>CHỈ HIỆN NHỮNG MÃ CÒN HÀNG</span>
+              <input type="checkbox" checked={onlyInStock} readOnly className="hidden" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={load} className="btn bg-white/50 border-slate-200/60 hover:bg-white text-slate-600 font-bold h-10 px-4 shadow-sm transition-all rounded-lg">Làm mới</button>
+              {(qCustomer || qProduct || onlyInStock || activeFilterCount > 0) && (
+                <button onClick={() => { setQCustomer(""); setQCustomerSearch(""); setQProduct(""); setOnlyInStock(false); setColFilters({}); setSortCol(null); setSortDir(null); }} className="btn btn-ghost text-red-500 hover:bg-red-50 font-bold h-10 px-4 transition-all rounded-lg">Xóa lọc</button>
+              )}
+            </div>
           </div>
         </div>
       </motion.div>
