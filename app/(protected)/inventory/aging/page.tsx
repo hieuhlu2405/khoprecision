@@ -962,54 +962,95 @@ export default function InventoryAgingReportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredLongAgingData, colFilters, sortCol, sortDir, overallTotals, overallTally]);
 
-  /* ---- Header cell helpers ---- */
-  const hasActiveFilter = (key: string) => !!colFilters[key];
+  /* ---- Column resizing ---- */
   const activeFilterCount = Object.keys(colFilters).length;
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("inventory_aging_col_widths");
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
 
-  function SortIcon({ col }: { col: SortableCol }) {
-    const isSortTarget = sortCol === col;
-    return (
-      <button
-        onClick={(e) => { e.stopPropagation(); toggleSort(col); }}
-        className={`p-1.5 hover:bg-slate-200 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/5" : "text-slate-300"}`}
-        title="Sắp xếp"
-      >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-          {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-        </svg>
-      </button>
-    );
-  }
-
-  function FilterBtn({ colKey }: { colKey: string }) {
-    const active = hasActiveFilter(colKey);
-    return (
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpenPopup(openPopup === colKey ? null : colKey); }}
-        className={`p-1.5 hover:bg-slate-200 rounded-md transition-all ${active ? "bg-brand text-white hover:bg-brand-hover shadow-sm shadow-brand/20" : "text-slate-300"}`}
-        title="Lọc cột"
-      >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-      </button>
-    );
-  }
+  const onResize = (key: string, width: number) => {
+    setColWidths(prev => {
+      const next = { ...prev, [key]: width };
+      localStorage.setItem("inventory_aging_col_widths", JSON.stringify(next));
+      return next;
+    });
+  };
 
   function ThCell({ label, colKey, sortable, isNum, align, w, extra }: {
     label: string; colKey: string; sortable: boolean; isNum: boolean;
     align?: "left" | "right" | "center"; w?: string; extra?: React.CSSProperties;
   }) {
-    const baseStyle: React.CSSProperties = { ...thStyle, textAlign: align || "left", position: "relative", width: w, ...extra };
+    const isSortTarget = sortCol === colKey;
+    const active = !!colFilters[colKey];
+    const width = colWidths[colKey] || (w ? parseInt(w) : undefined);
+    const thRef = useRef<HTMLTableCellElement>(null);
+
+    const startResizing = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const startX = e.pageX;
+      const startWidth = thRef.current?.offsetWidth || 0;
+
+      const onMouseMove = (me: MouseEvent) => {
+        const newW = Math.max(50, startWidth + (me.pageX - startX));
+        onResize(colKey, newW);
+      };
+      const onMouseUp = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    };
+
+    const baseStyle: React.CSSProperties = {
+      ...thStyle,
+      textAlign: align || "left",
+      position: "relative",
+      width: width ? `${width}px` : w,
+      minWidth: width ? `${width}px` : "50px",
+      ...extra
+    };
+
     return (
-      <th style={baseStyle}>
+      <th style={baseStyle} ref={thRef} className="group">
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-500 font-bold text-xs uppercase tracking-wider">{label}</span>
+          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
-            {sortable && <SortIcon col={colKey as SortableCol} />}
-            <FilterBtn colKey={colKey} />
+            {sortable && (
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleSort(colKey as SortableCol); }}
+                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
+                title="Sắp xếp"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setOpenPopup(openPopup === colKey ? null : colKey); }}
+              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+              title="Bộ lọc"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            </button>
           </div>
         </div>
+
+        {/* Resize Handle */}
+        <div
+          onMouseDown={startResizing}
+          onDoubleClick={() => onResize(colKey, 150)}
+          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
+          title="Kéo để chỉnh độ rộng"
+        />
+
         {openPopup === colKey && (
-          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
             {isNum
               ? <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />
               : <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />

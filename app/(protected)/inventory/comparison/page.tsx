@@ -354,12 +354,59 @@ export default function InventoryComparisonPage() {
     return rs;
   }, [productRows, colFiltersProd, sortColProd, sortDirProd]);
 
+  /* ---- Column resizing ---- */
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("inventory_comparison_col_widths");
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
+
+  const onResize = (key: string, width: number) => {
+    setColWidths(prev => {
+      const next = { ...prev, [key]: width };
+      localStorage.setItem("inventory_comparison_col_widths", JSON.stringify(next));
+      return next;
+    });
+  };
+
   function ThCellCust({ label, colKey, sortable, colType, align, w }: { label: string; colKey: string; sortable: boolean; colType: "text" | "num"; align?: "left" | "right" | "center"; w?: string }) {
-    const active = !!colFiltersCust[colKey], isSortTarget = sortColCust === colKey, popupOpen = openPopupId === colKey;
+    const active = !!colFiltersCust[colKey];
+    const isSortTarget = sortColCust === colKey;
+    const popupOpen = openPopupId === colKey;
+    const width = colWidths["c_" + colKey] || (w ? parseInt(w) : undefined);
+    const thRef = useRef<HTMLTableCellElement>(null);
+
+    const startResizing = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const startX = e.pageX;
+      const startWidth = thRef.current?.offsetWidth || 0;
+      const onMouseMove = (me: MouseEvent) => {
+        const newW = Math.max(50, startWidth + (me.pageX - startX));
+        onResize("c_" + colKey, newW);
+      };
+      const onMouseUp = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    };
+
+    const baseStyle: React.CSSProperties = {
+      ...thStyle,
+      textAlign: align || "left",
+      position: "relative",
+      whiteSpace: "nowrap",
+      width: width ? `${width}px` : w,
+      minWidth: width ? `${width}px` : "50px"
+    };
+
     return (
-      <th style={{ ...thStyle, textAlign: align || "left", position: "relative", width: w }} className="group">
+      <th style={baseStyle} ref={thRef} className="group">
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-500 font-bold text-[10px] uppercase tracking-wider">{label}</span>
+          <span className="text-slate-900 font-bold text-[10px] uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
             {sortable && (
               <button
@@ -387,17 +434,60 @@ export default function InventoryComparisonPage() {
             </button>
           </div>
         </div>
-        {popupOpen && (colType === "text" ? <TextFilterPopup filter={(colFiltersCust[colKey] as TextFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : <NumFilterPopup filter={(colFiltersCust[colKey] as NumFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />)}
+
+        {/* Resize Handle */}
+        <div
+          onMouseDown={startResizing}
+          onDoubleClick={() => onResize("c_" + colKey, 150)}
+          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
+          title="Kéo để chỉnh độ rộng"
+        />
+
+        {popupOpen && (
+          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
+            {colType === "text" ? <TextFilterPopup filter={(colFiltersCust[colKey] as TextFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : <NumFilterPopup filter={(colFiltersCust[colKey] as NumFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />}
+          </div>
+        )}
       </th>
     );
   }
 
   function ThCellProd({ label, colKey, sortable, colType, align, w }: { label: string; colKey: string; sortable: boolean; colType: "text" | "num"; align?: "left" | "right" | "center"; w?: string }) {
-    const active = !!colFiltersProd[colKey], isSortTarget = sortColProd === colKey, popupOpen = openPopupId === colKey + "-p";
+    const active = !!colFiltersProd[colKey];
+    const isSortTarget = sortColProd === colKey;
+    const popupOpen = openPopupId === colKey + "-p";
+    const width = colWidths["p_" + colKey] || (w ? parseInt(w) : undefined);
+    const thRef = useRef<HTMLTableCellElement>(null);
+
+    const startResizing = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const startX = e.pageX;
+      const startWidth = thRef.current?.offsetWidth || 0;
+      const onMouseMove = (me: MouseEvent) => {
+        const newW = Math.max(50, startWidth + (me.pageX - startX));
+        onResize("p_" + colKey, newW);
+      };
+      const onMouseUp = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    };
+
+    const baseStyle: React.CSSProperties = {
+      ...thStyle,
+      textAlign: align || "left",
+      position: "relative",
+      whiteSpace: "nowrap",
+      width: width ? `${width}px` : w,
+      minWidth: width ? `${width}px` : "50px"
+    };
+
     return (
-      <th style={{ ...thStyle, textAlign: align || "left", position: "relative", width: w }} className="group">
+      <th style={baseStyle} ref={thRef} className="group">
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-500 font-bold text-[10px] uppercase tracking-wider">{label}</span>
+          <span className="text-slate-900 font-bold text-[10px] uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
             {sortable && (
               <button
@@ -425,7 +515,20 @@ export default function InventoryComparisonPage() {
             </button>
           </div>
         </div>
-        {popupOpen && (colType === "text" ? <TextFilterPopup filter={(colFiltersProd[colKey] as TextFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : <NumFilterPopup filter={(colFiltersProd[colKey] as NumFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />)}
+
+        {/* Resize Handle */}
+        <div
+          onMouseDown={startResizing}
+          onDoubleClick={() => onResize("p_" + colKey, 150)}
+          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
+          title="Kéo để chỉnh độ rộng"
+        />
+
+        {popupOpen && (
+          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
+            {colType === "text" ? <TextFilterPopup filter={(colFiltersProd[colKey] as TextFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : <NumFilterPopup filter={(colFiltersProd[colKey] as NumFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />}
+          </div>
+        )}
       </th>
     );
   }

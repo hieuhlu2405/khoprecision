@@ -404,29 +404,69 @@ export default function InventoryReportPage() {
 
   const cellStyle = { border: "1px solid #ddd", padding: "10px 8px" } as const;
 
+  /* ---- Column resizing ---- */
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("inventory_report_col_widths");
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
+
+  const onResize = (key: string, width: number) => {
+    setColWidths(prev => {
+      const next = { ...prev, [key]: width };
+      localStorage.setItem("inventory_report_col_widths", JSON.stringify(next));
+      return next;
+    });
+  };
+
   /* ---- Header cell renderer with filter + sort ---- */
   const hasActiveFilter = (key: string) => !!colFilters[key];
 
   /* ---- Column filter active count badge ---- */
   const activeFilterCount = Object.keys(colFilters).length;
 
-  function ThCell({ label, colKey, sortable, isNum, align, extra }: {
+  function ThCell({ label, colKey, sortable, isNum, align, extra, w }: {
     label: string; colKey: string; sortable: boolean; isNum: boolean;
-    align?: "left" | "right" | "center"; extra?: React.CSSProperties;
+    align?: "left" | "right" | "center"; extra?: React.CSSProperties; w?: string;
   }) {
     const active = !!colFilters[colKey];
     const isSortTarget = sortCol === colKey;
     const popupOpen = openPopup === colKey;
+    const width = colWidths[colKey] || (w ? parseInt(w) : undefined);
+    const thRef = useRef<HTMLTableCellElement>(null);
+
+    const startResizing = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const startX = e.pageX;
+      const startWidth = thRef.current?.offsetWidth || 0;
+
+      const onMouseMove = (me: MouseEvent) => {
+        const newW = Math.max(50, startWidth + (me.pageX - startX));
+        onResize(colKey, newW);
+      };
+      const onMouseUp = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    };
+
     const baseStyle: React.CSSProperties = {
       textAlign: align || "left", border: "1px solid #ddd", padding: "10px 8px",
       background: "#f8fafc", whiteSpace: "nowrap", borderBottom: "2px solid #ddd",
-      position: "relative", ...extra,
+      position: "relative",
+      width: width ? `${width}px` : w,
+      minWidth: width ? `${width}px` : "50px",
+      ...extra,
     };
 
     return (
-      <th style={baseStyle} className="group">
+      <th style={baseStyle} className="group" ref={thRef}>
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-500 font-bold text-xs uppercase tracking-wider">{label}</span>
+          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
             {sortable && (
               <button
@@ -451,8 +491,17 @@ export default function InventoryReportPage() {
             </button>
           </div>
         </div>
+
+        {/* Resize Handle */}
+        <div
+          onMouseDown={startResizing}
+          onDoubleClick={() => onResize(colKey, 150)}
+          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
+          title="Kéo để chỉnh độ rộng"
+        />
+
         {popupOpen && (
-          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
             {isNum
               ? <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />
               : <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />

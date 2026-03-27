@@ -216,30 +216,92 @@ function SummaryCard({ title, v1, v2, diff, bg, accent, icon, unit = "đ" }: { t
   );
 }
 
-const thStyle: React.CSSProperties = { padding: "10px 12px", border: "1px solid #ddd", fontSize: 13, fontWeight: 600, background: "#f8fafc", whiteSpace: "nowrap", position: "relative" };
-const tdStyle: React.CSSProperties = { padding: "8px 12px", border: "1px solid #ddd", fontSize: 13 };
+  /* ---- Column resizing ---- */
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("inventory_value_report_col_widths");
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
 
-function ThCell({ label, colKey, sortable, isNum, align, active, isSortTarget, sortDir, onSort, onOpenFilter }: {
-  label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left" | "right" | "center";
-  active: boolean; isSortTarget: boolean; sortDir: SortDir;
-  onSort: (key: string) => void; onOpenFilter: (key: string) => void;
-}) {
-  return (
-    <th style={{ ...thStyle, textAlign: align || "left" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: align === "right" ? "flex-end" : "flex-start", gap: 4 }}>
-        <span>{label}</span>
-        <div style={{ display: "flex", alignItems: "center" }}>
-          {sortable && (
-            <span onClick={() => onSort(colKey)} style={{ cursor: "pointer", fontSize: 10, opacity: isSortTarget ? 1 : 0.3 }}>
-              {isSortTarget && sortDir === "asc" ? "▲" : isSortTarget && sortDir === "desc" ? "▼" : "⇅"}
-            </span>
-          )}
-          <span onClick={() => onOpenFilter(colKey)} style={{ cursor: "pointer", marginLeft: 4, fontSize: 11, color: active ? "var(--brand)" : "var(--slate-400)" }}>▾</span>
+  const onResize = (key: string, width: number) => {
+    setColWidths(prev => {
+      const next = { ...prev, [key]: width };
+      localStorage.setItem("inventory_value_report_col_widths", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const thStyle: React.CSSProperties = { padding: "10px 12px", border: "1px solid #ddd", fontSize: 13, fontWeight: 600, background: "#f8fafc", whiteSpace: "nowrap", position: "relative" };
+
+  function ThCell({ label, colKey, sortable, isNum, align, active, isSortTarget, sortDir, onSort, onOpenFilter, w }: {
+    label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left" | "right" | "center";
+    active: boolean; isSortTarget: boolean; sortDir: SortDir;
+    onSort: (key: string) => void; onOpenFilter: (key: string) => void; w?: string;
+  }) {
+    const width = colWidths[colKey] || (w ? parseInt(w) : undefined);
+    const thRef = useRef<HTMLTableCellElement>(null);
+
+    const startResizing = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const startX = e.pageX;
+      const startWidth = thRef.current?.offsetWidth || 0;
+      const onMouseMove = (me: MouseEvent) => {
+        const newW = Math.max(50, startWidth + (me.pageX - startX));
+        onResize(colKey, newW);
+      };
+      const onMouseUp = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    };
+
+    const baseStyle: React.CSSProperties = {
+      ...thStyle,
+      textAlign: align || "left",
+      width: width ? `${width}px` : w,
+      minWidth: width ? `${width}px` : "50px"
+    };
+
+    return (
+      <th style={baseStyle} ref={thRef} className="group">
+        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
+          <div className="flex items-center gap-0.5">
+            {sortable && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onSort(colKey); }}
+                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
+                title="Sắp xếp"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenFilter(colKey); }}
+              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+              title="Lọc dữ liệu"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            </button>
+          </div>
         </div>
-      </div>
-    </th>
-  );
-}
+
+        {/* Resize Handle */}
+        <div
+          onMouseDown={startResizing}
+          onDoubleClick={() => onResize(colKey, 150)}
+          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
+          title="Kéo để chỉnh độ rộng"
+        />
+      </th>
+    );
+  }
 
 /* ------------------------------------------------------------------ */
 /* SVG Chart Helpers                                                   */
