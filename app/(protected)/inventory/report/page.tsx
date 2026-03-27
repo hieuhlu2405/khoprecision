@@ -602,13 +602,13 @@ export default function InventoryReportPage() {
           </div>
           <div className="w-56 relative group">
             <label className="filter-label text-slate-500 font-bold uppercase text-[9px] mb-1.5 block tracking-widest">Khách hàng</label>
-            <input list="dl-cust" placeholder="Nhập tên khách hàng..." value={qCustomerSearch} onChange={e => { setQCustomerSearch(e.target.value); const m = customers.find(c => `${c.code} - ${c.name}` === e.target.value); setQCustomer(m ? m.id : ""); }} className="input pl-10 border-slate-200/60 transition-all rounded-lg h-10 w-full focus:bg-white" />
+            <input list="dl-cust" placeholder="Nhập tên khách hàng..." value={qCustomerSearch} onChange={e => { setQCustomerSearch(e.target.value); const m = customers.find(c => `${c.code} - ${c.name}` === e.target.value); setQCustomer(m ? m.id : ""); }} className="input pl-12 border-slate-200/60 transition-all rounded-lg h-10 w-full focus:bg-white" />
             <datalist id="dl-cust">{customers.map(c => <option key={c.id} value={`${c.code} - ${c.name}`} />)}</datalist>
             <div className="absolute left-3.5 top-[31px] text-slate-400 group-focus-within:text-brand transition-colors"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
           </div>
           <div className="w-56 relative group">
             <label className="filter-label text-slate-500 font-bold uppercase text-[9px] mb-1.5 block tracking-widest">Mã hàng</label>
-            <input value={qProduct} onChange={e => setQProduct(e.target.value)} placeholder="Nhập mã hàng..." className="input pl-10 border-slate-200/60 transition-all rounded-lg h-10 w-full focus:bg-white" />
+            <input value={qProduct} onChange={e => setQProduct(e.target.value)} placeholder="Nhập mã hàng..." className="input pl-12 border-slate-200/60 transition-all rounded-lg h-10 w-full focus:bg-white" />
             <div className="absolute left-3.5 top-[31px] text-slate-400 group-focus-within:text-brand transition-colors"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
           </div>
           <div className="ml-auto flex items-center gap-6">
