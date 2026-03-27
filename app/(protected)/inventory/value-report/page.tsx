@@ -1066,16 +1066,43 @@ export default function InventoryValueReportPage() {
 
         <div className="toolbar">
           <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading || productData.length === 0}>
-            {closing ? "Đang chốt..." : "Chốt báo cáo"}
+            {closing ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}
           </button>
         </div>
       </div>
 
-      <div className="tabs" style={{ marginBottom: 24 }}>
-        <button className={`tab-item ${reportMode === "current" ? "active" : ""}`} onClick={() => setReportMode("current")}>
+      <div className="tabs" style={{ display: "flex", gap: 0, marginBottom: 24, border: "1px solid var(--slate-200)", borderRadius: 8, overflow: "hidden", alignSelf: "flex-start", width: "fit-content" }}>
+        <button 
+          className={`tab-item ${reportMode === "current" ? "active" : ""}`} 
+          onClick={() => setReportMode("current")}
+          style={{ 
+            padding: "10px 20px",
+            border: "none",
+            borderRadius: 0,
+            background: reportMode === "current" ? "var(--brand)" : "white",
+            color: reportMode === "current" ? "white" : "var(--slate-600)",
+            fontWeight: 600,
+            cursor: "pointer",
+            transition: "all 0.2s"
+          }}
+        >
           📊 Báo cáo hiện tại
         </button>
-        <button className={`tab-item ${reportMode === "compare" ? "active" : ""}`} onClick={() => setReportMode("compare")}>
+        <button 
+          className={`tab-item ${reportMode === "compare" ? "active" : ""}`} 
+          onClick={() => setReportMode("compare")}
+          style={{ 
+            padding: "10px 20px",
+            border: "none",
+            borderLeft: "1px solid var(--slate-200)",
+            borderRadius: 0,
+            background: reportMode === "compare" ? "var(--brand)" : "white",
+            color: reportMode === "compare" ? "white" : "var(--slate-600)",
+            fontWeight: 600,
+            cursor: "pointer",
+            transition: "all 0.2s"
+          }}
+        >
           🔄 So sánh 2 kỳ
         </button>
       </div>

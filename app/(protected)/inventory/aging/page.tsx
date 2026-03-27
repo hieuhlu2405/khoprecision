@@ -1025,7 +1025,7 @@ export default function InventoryAgingReportPage() {
   const [closingAging, setClosingAging] = useState(false);
 
   async function closeAgingReport() {
-    const ok = await showConfirm({ message: "Chốt dữ liệu tồn dài kỳ kỳ này?", confirmLabel: "Chốt dữ liệu" });
+    const ok = await showConfirm({ message: "Chốt lưu trữ báo cáo tồn lâu ngày kỳ này? Dữ liệu sẽ được đóng băng để đối soát sau này.", confirmLabel: "📋 Chốt lưu trữ báo cáo" });
     if (!ok) return;
     setClosingAging(true);
     try {
@@ -1125,13 +1125,13 @@ export default function InventoryAgingReportPage() {
           </>
         ) : (
           <>
-            <div className="stat-card">
+            <div className="stat-card" style={{ borderLeft: "4px solid var(--slate-400)" }}>
               <div className="label">Giá trị Aging (Kỳ 1)</div>
               <div className="value" style={{ fontSize: 20 }}>{fmtNum(compareTotals.v1)}</div>
             </div>
-            <div className="stat-card">
+            <div className="stat-card" style={{ borderLeft: "4px solid var(--brand-light)" }}>
               <div className="label">Giá trị Aging (Kỳ 2)</div>
-              <div className="value" style={{ fontSize: 20 }}>{fmtNum(compareTotals.v2)}</div>
+              <div className="value" style={{ fontSize: 20, color: "var(--brand)" }}>{fmtNum(compareTotals.v2)}</div>
             </div>
             <div className="stat-card" style={{ borderLeft: `4px solid ${compareTotals.diff > 0 ? "var(--color-danger)" : "var(--color-success)"}` }}>
               <div className="label">Chênh lệch giá trị</div>

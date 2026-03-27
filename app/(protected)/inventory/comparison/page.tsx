@@ -1036,7 +1036,7 @@ export default function InventoryComparisonPage() {
   const [closingComparison, setClosingComparison] = useState(false);
 
   async function closeComparisonReport() {
-    const ok = await showConfirm({ message: "Chốt dữ liệu biến động tồn kho?", confirmLabel: "Chốt dữ liệu" });
+    const ok = await showConfirm({ message: "Chốt dữ liệu đối soát xuất - nhập kỳ này? Hệ thống sẽ lưu trữ phiên bản này để đối soát lịch sử.", confirmLabel: "📋 Chốt lưu trữ báo cáo" });
     if (!ok) return;
     setClosingComparison(true);
     try {
@@ -1099,7 +1099,7 @@ export default function InventoryComparisonPage() {
           </button>
           <div style={{ width: 1, height: 24, background: "var(--slate-200)", margin: "0 8px" }} />
           <button className="btn btn-primary" onClick={closeComparisonReport} disabled={closingComparison || loading || displayProductRows.length === 0}>
-            {closingComparison ? "Đang chốt..." : "Chốt báo cáo"}
+            {closingComparison ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}
           </button>
         </div>
       </div>

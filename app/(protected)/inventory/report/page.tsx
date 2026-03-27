@@ -536,23 +536,26 @@ export default function InventoryReportPage() {
   return (
     <div className="page-root">
       <div className="page-header">
-        <div>
-          <h1>Tồn Kho Hiện Tại</h1>
-          <p className="page-subtitle">
-            Kỳ dữ liệu: <strong>{formatToVietnameseDate(bounds.effectiveStart)}</strong> đến <strong>{formatToVietnameseDate(bounds.effectiveEnd)}</strong>
-          </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+          </div>
+          <div>
+            <h1 className="page-title">Tồn Kho Hiện Tại</h1>
+            <p className="page-description">Báo cáo chi tiết số lượng và giá trị tồn kho theo thời gian thực.</p>
+          </div>
         </div>
-        <div className="toolbar" style={{ margin: 0 }}>
-          <button 
-            onClick={closeReport} 
-            disabled={closing || loading || displayData.length === 0} 
-            className="btn btn-primary"
-            style={{ minWidth: 140 }}
-          >
-            {closing ? "Đang chốt..." : "📋 Chốt dữ liệu"}
+        <div className="toolbar">
+          <button className="btn btn-secondary" onClick={handleExportExcel}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Xuất Excel
           </button>
-          <button onClick={handleExportExcel} className="btn btn-secondary">
-            📊 Xuất Excel
+          <button 
+            className="btn btn-primary" 
+            onClick={closeReport} 
+            disabled={closing || loading || displayData.length === 0}
+          >
+            {closing ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}
           </button>
         </div>
       </div>
@@ -561,127 +564,93 @@ export default function InventoryReportPage() {
 
       {/* ---- Cards ---- */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 24 }}>
-        <div style={{ 
-          background: "white", borderRadius: 12, padding: "20px", 
-          border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,.04)",
-          borderLeft: "5px solid #f17b0b"
-        }}>
-          <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>Tổng số lượng tồn</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{fmtNum(totals.qty)}</div>
+        <div className="stat-card" style={{ borderLeft: "4px solid var(--color-warning)" }}>
+          <div className="label">Tổng số lượng tồn</div>
+          <div className="value" style={{ color: "var(--color-warning)" }}>{fmtNum(totals.qty)}</div>
         </div>
         
-        <div style={{ 
-          background: "white", borderRadius: 12, padding: "20px", 
-          border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,.04)",
-          borderLeft: "5px solid #16a34a"
-        }}>
-          <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>Tổng giá trị tồn kho (VNĐ)</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{fmtNum(totals.val)}</div>
+        <div className="stat-card" style={{ borderLeft: "4px solid var(--color-success)" }}>
+          <div className="label">Tổng giá trị tồn kho (VNĐ)</div>
+          <div className="value" style={{ color: "var(--color-success)" }}>{fmtNum(totals.val)}</div>
         </div>
 
-        <div style={{ 
-          background: "white", borderRadius: 12, padding: "20px", 
-          border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,.04)",
-          borderLeft: "5px solid #0284c7"
-        }}>
-          <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>Tổng nhập (Đã điều chỉnh)</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{fmtNum(totals.srcIn)}</div>
+        <div className="stat-card" style={{ borderLeft: "4px solid var(--brand)" }}>
+          <div className="label">Tổng nhập (Điều chỉnh)</div>
+          <div className="value" style={{ color: "var(--brand)" }}>{fmtNum(totals.srcIn)}</div>
         </div>
 
-        <div style={{ 
-          background: "white", borderRadius: 12, padding: "20px", 
-          border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,.04)",
-          borderLeft: "5px solid #e11d48"
-        }}>
-          <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>Tổng xuất (Đã điều chỉnh)</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{fmtNum(totals.srcOut)}</div>
+        <div className="stat-card" style={{ borderLeft: "4px solid var(--color-danger)" }}>
+          <div className="label">Tổng xuất (Điều chỉnh)</div>
+          <div className="value" style={{ color: "var(--color-danger)" }}>{fmtNum(totals.srcOut)}</div>
         </div>
       </div>
 
       {/* ---- Top-level Filters ---- */}
-      <div className="filter-panel toolbar" style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <span style={{ fontSize: 13, fontWeight: 500, color: "#64748b" }}>Từ</span>
-            <input type="date" value={qStart} onChange={(e) => setQStart(e.target.value)} className="input" style={{ width: 140 }} />
-            <span style={{ fontSize: 13, fontWeight: 500, color: "#64748b" }}>đến</span>
-            <input type="date" value={qEnd} onChange={(e) => setQEnd(e.target.value)} className="input" style={{ width: 140 }} />
+      <div className="filter-panel" style={{ marginBottom: 24 }}>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+            <div style={{ width: 140 }}>
+              <label className="filter-label">Từ ngày</label>
+              <input type="date" value={qStart} onChange={(e) => setQStart(e.target.value)} className="input" />
+            </div>
+            <div style={{ width: 140 }}>
+              <label className="filter-label">Đến ngày</label>
+              <input type="date" value={qEnd} onChange={(e) => setQEnd(e.target.value)} className="input" />
+            </div>
           </div>
           
-          <div className="btn-group" style={{ display: "flex", gap: 4 }}>
-            <button 
-              onClick={() => { setQStart(bounds.prevSnapshotQStart); setQEnd(bounds.prevSnapshotQEnd); }} 
-              className="btn btn-secondary btn-sm"
-            >
-              So với kỳ trước
-            </button>
-            <button 
-              onClick={() => { const p = applySamePeriodLastYearDates(bounds.effectiveStart, bounds.effectiveEnd); setQStart(p.newStart); setQEnd(p.newEnd); }} 
-              className="btn btn-secondary btn-sm"
-            >
-              So cùng kỳ năm trước
-            </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => { setQStart(bounds.prevSnapshotQStart); setQEnd(bounds.prevSnapshotQEnd); }} className="btn btn-secondary btn-sm">So với kỳ trước</button>
+            <button onClick={() => { const p = applySamePeriodLastYearDates(bounds.effectiveStart, bounds.effectiveEnd); setQStart(p.newStart); setQEnd(p.newEnd); }} className="btn btn-secondary btn-sm">So cùng kỳ năm trước</button>
           </div>
-        </div>
 
-        <div style={{ display: "flex", gap: 12, alignItems: "center", marginLeft: 8 }}>
-          <input
-            list="dl-filter-customer"
-            placeholder="Tìm mã / tên Khách hàng..."
-            value={qCustomerSearch}
-            onChange={(e) => {
-              const val = e.target.value;
-              setQCustomerSearch(val);
-              const matched = customers.find((c) => `${c.code} - ${c.name}` === val);
-              setQCustomer(matched ? matched.id : "");
-            }}
-            className="input"
-            style={{ width: 220 }}
-          />
-          <datalist id="dl-filter-customer">
-            {customers.map((c) => (
-              <option key={c.id} value={`${c.code} - ${c.name}`} />
-            ))}
-          </datalist>
+          <div style={{ width: 220 }}>
+            <label className="filter-label">Khách hàng</label>
+            <input
+              list="dl-filter-customer"
+              placeholder="Tìm khách hàng..."
+              value={qCustomerSearch}
+              onChange={(e) => {
+                const val = e.target.value;
+                setQCustomerSearch(val);
+                const matched = customers.find((c) => `${c.code} - ${c.name}` === val);
+                setQCustomer(matched ? matched.id : "");
+              }}
+              className="input"
+            />
+            <datalist id="dl-filter-customer">
+              {customers.map((c) => (<option key={c.id} value={`${c.code} - ${c.name}`} />))}
+            </datalist>
+          </div>
 
-          <input
-            value={qProduct}
-            onChange={(e) => setQProduct(e.target.value)}
-            className="input"
-            placeholder="Tìm Mã / Tên hàng..."
-            style={{ width: 200 }}
-          />
-        </div>
+          <div style={{ width: 200 }}>
+            <label className="filter-label">Sản phẩm</label>
+            <input
+              value={qProduct}
+              onChange={(e) => setQProduct(e.target.value)}
+              className="input"
+              placeholder="Tìm Mã / Tên hàng..."
+            />
+          </div>
 
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", marginLeft: 8, color: "var(--slate-600)" }}>
-          <input
-            type="checkbox"
-            checked={onlyInStock}
-            onChange={(e) => setOnlyInStock(e.target.checked)}
-            style={{ cursor: "pointer" }}
-          />
-          Chỉ hiện hàng còn tồn
-        </label>
+          <div style={{ paddingBottom: 8 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", color: "var(--slate-600)" }}>
+              <input type="checkbox" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} />
+              <span>Chỉ hiện hàng còn tồn</span>
+            </label>
+          </div>
 
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          {(qStart !== defStart || qEnd !== defEnd || qCustomer || qProduct) && (
-            <button onClick={() => { setQStart(defStart); setQEnd(defEnd); setQCustomer(""); setQCustomerSearch(""); setQProduct(""); }} className="btn btn-ghost btn-sm">
-              Xóa lọc
-            </button>
-          )}
-
-          <button onClick={load} className="btn btn-secondary">
-            Làm mới
-          </button>
-
-          {activeFilterCount > 0 && (
-            <button
-              onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-              className="btn btn-clear-filter"
-            >
-              Xóa lọc cột ({activeFilterCount})
-            </button>
-          )}
+          <div style={{ display: "flex", gap: 8, marginLeft: "auto", paddingBottom: 4 }}>
+            <button onClick={load} className="btn btn-secondary">Làm mới</button>
+            {activeFilterCount > 0 && (
+              <button
+                onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
+                className="btn btn-clear-filter"
+              >
+                Xóa lọc cột ({activeFilterCount})
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

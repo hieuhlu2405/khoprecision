@@ -305,12 +305,18 @@ export default function ReportHistoryListPage() {
   return (
     <div className="page-root">
       <div className="page-header">
-        <div>
-          <h1>Lịch sử chốt báo cáo</h1>
-          <p className="page-subtitle">Xem lại các bản báo cáo tồn kho đã được lưu trữ trong hệ thống.</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+          </div>
+          <div>
+            <h1 className="page-title">Lịch sử chốt báo cáo</h1>
+            <p className="page-description">Xem lại và quản lý các bản báo cáo tồn kho đã được lưu trữ.</p>
+          </div>
         </div>
-        <div className="toolbar" style={{ margin: 0 }}>
+        <div className="toolbar">
           <button onClick={load} className="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
             Làm mới
           </button>
         </div>
@@ -319,14 +325,17 @@ export default function ReportHistoryListPage() {
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
       <div className="toolbar" style={{ marginBottom: 16 }}>
-        {Object.keys(colFilters).length > 0 && (
-          <button
-            onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-            className="btn btn-clear-filter"
-          >
-            Xóa lọc cột ({Object.keys(colFilters).length})
-          </button>
-        )}
+        <h3 className="modal-title" style={{ margin: 0 }}>Danh sách báo cáo đã chốt</h3>
+        <div style={{ marginLeft: "auto" }}>
+          {Object.keys(colFilters).length > 0 && (
+            <button
+              onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
+              className="btn btn-clear-filter"
+            >
+              Xóa lọc cột ({Object.keys(colFilters).length})
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="data-table-wrap" ref={containerRef}>
@@ -347,7 +356,7 @@ export default function ReportHistoryListPage() {
               <tr key={r.id}>
                 <td style={{ textAlign: "center" }}>{i + 1}</td>
                 <td>
-                  <span className="badge badge-info" style={{ fontWeight: 600 }}>
+                  <span className={`badge ${r.report_type === 'inventory_aging_report' ? 'badge-warning' : r.report_type === 'inventory_comparison_report' ? 'badge-danger' : 'badge-info'}`} style={{ fontWeight: 600 }}>
                     {REPORT_TYPE_LABELS[r.report_type] || r.report_type}
                   </span>
                 </td>

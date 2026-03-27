@@ -409,17 +409,24 @@ export default function StocktakeListPage() {
   return (
     <div className="page-root">
       <div className="page-header">
-        <div>
-          <h1>Kiểm kê kho (Stocktake)</h1>
-          <p className="page-subtitle">Quản lý và theo dõi các phiếu kiểm kê hàng hóa định kỳ.</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="m9 14 2 2 4-4"/></svg>
+          </div>
+          <div>
+            <h1 className="page-title">Kiểm kê kho (Stocktake)</h1>
+            <p className="page-description">Quản lý và theo dõi các phiên kiểm kê hàng hóa định kỳ.</p>
+          </div>
         </div>
-        <div className="toolbar" style={{ margin: 0 }}>
+        <div className="toolbar">
           <button onClick={loadData} className="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
             Làm mới
           </button>
           {isAdminOrManager && (
             <button onClick={handleCreateNew} className="btn btn-primary">
-              + Tạo phiếu kiểm kê mới
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Tạo phiên kiểm kê mới
             </button>
           )}
         </div>
@@ -427,36 +434,36 @@ export default function StocktakeListPage() {
 
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
-      <div className="filter-panel toolbar" style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 500, color: "var(--slate-600)" }}>
-            Ngày kiểm kê
-            <input type="date" value={qDateStr} onChange={(e) => setQDateStr(e.target.value)} className="input" />
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 500, color: "var(--slate-600)" }}>
-            Trạng thái
-            <select value={qStatus} onChange={(e) => setQStatus(e.target.value)} className="input">
+      <div className="filter-panel" style={{ marginBottom: 24 }}>
+        <div style={{ display: "flex", gap: 20, alignItems: "flex-end" }}>
+          <div>
+            <label className="filter-label">Ngày kiểm kê</label>
+            <input type="date" value={qDateStr} onChange={(e) => setQDateStr(e.target.value)} className="input" style={{ width: 160 }} />
+          </div>
+          <div>
+            <label className="filter-label">Trạng thái</label>
+            <select value={qStatus} onChange={(e) => setQStatus(e.target.value)} className="input" style={{ width: 180 }}>
               <option value="all">Tất cả trạng thái</option>
               <option value="draft">Bản nháp</option>
-              <option value="confirmed">Đã xác nhận</option>
+              <option value="confirmed">Đã chốt (Xác nhận)</option>
             </select>
-          </label>
-        </div>
+          </div>
 
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          {(qDateStr || qStatus !== "all") && (
-            <button onClick={() => { setQDateStr(""); setQStatus("all"); }} className="btn btn-ghost btn-sm">
-              Xóa lọc tổng
-            </button>
-          )}
-          {Object.keys(colFilters).length > 0 && (
-            <button
-               onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-               className="btn btn-clear-filter"
-            >
-               Xóa lọc cột ({Object.keys(colFilters).length})
-            </button>
-          )}
+          <div style={{ display: "flex", gap: 8, marginLeft: "auto", paddingBottom: 4 }}>
+            {(qDateStr || qStatus !== "all") && (
+              <button onClick={() => { setQDateStr(""); setQStatus("all"); }} className="btn btn-ghost btn-sm">
+                Xóa lọc tổng
+              </button>
+            )}
+            {Object.keys(colFilters).length > 0 && (
+              <button
+                 onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
+                 className="btn btn-clear-filter"
+              >
+                 Xóa lọc cột ({Object.keys(colFilters).length})
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

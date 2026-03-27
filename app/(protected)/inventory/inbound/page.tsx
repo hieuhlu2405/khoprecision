@@ -821,24 +821,35 @@ export default function InventoryInboundPage() {
   return (
     <div className="page-root">
       <div className="page-header">
-        <h1>Nhập kho (Inbound)</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21 15-9-6-9 6"/><path d="m21 9-9-6-9 6"/></svg>
+          </div>
+          <div>
+            <h1 className="page-title">Nhập Kho (Inbound)</h1>
+            <p className="page-description">Quản lý và theo dõi các giao dịch nhập hàng vào kho.</p>
+          </div>
+        </div>
+        <div className="toolbar">
+          <button className="btn btn-secondary" onClick={handleExportExcel}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Xuất Excel
+          </button>
+          <button onClick={load} className="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+            Làm mới
+          </button>
+          {canCreateEdit && (
+            <button onClick={() => { resetCreateForm(); setShowCreate(true); }} className="btn btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Tạo phiếu nhập mới
+            </button>
+          )}
+        </div>
       </div>
 
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
-      {/* ============================================================ */}
-      {/* Multi-line create form                                        */}
-      {/* ============================================================ */}
-      {canCreateEdit && !showCreate && (
-        <div className="toolbar">
-          <button
-            onClick={() => { resetCreateForm(); setShowCreate(true); }}
-            className="btn btn-primary"
-          >
-            + Tạo phiếu nhập mới
-          </button>
-        </div>
-      )}
 
       {showCreate && (
         <div className="filter-panel" style={{ marginTop: 12 }}>
@@ -1026,69 +1037,79 @@ export default function InventoryInboundPage() {
       {/* ============================================================ */}
       {/* Filters                                                       */}
       {/* ============================================================ */}
-      <div style={{ display: "flex", gap: 12, marginTop: 20, flexWrap: "wrap", alignItems: "center" }}>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Tìm theo mã hàng / tên..."
-          style={{ padding: 10, minWidth: 260 }}
-        />
-        <select
-          value={qCustomer}
-          onChange={(e) => setQCustomer(e.target.value)}
-          style={{ padding: 10 }}
-        >
-          <option value="">-- Tất cả khách hàng --</option>
-          {customers.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.code} - {c.name}
-            </option>
-          ))}
-        </select>
-        <input
-          type="date"
-          value={qDate}
-          onChange={(e) => setQDate(e.target.value)}
-          className="input"
-          title="Lọc theo ngày nhập"
-        />
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          {(qDate || qCustomer || q) && (
-            <button onClick={() => { setQDate(""); setQCustomer(""); setQ(""); }} className="btn btn-clear-filter">
-              Xóa tổng
-            </button>
-          )}
-          <button onClick={load} className="btn btn-secondary">
-            Làm mới
-          </button>
-          <button onClick={handleExportExcel} className="btn btn-secondary">
-            📋 Xuất Excel
-          </button>
-          {Object.keys(colFilters).length > 0 && (
-            <button
-               onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-               className="btn btn-clear-filter"
+      <div className="filter-panel" style={{ marginTop: 20, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div style={{ width: 220 }}>
+            <label className="filter-label">Khách hàng</label>
+            <select
+              value={qCustomer}
+              onChange={(e) => setQCustomer(e.target.value)}
+              className="input"
             >
-               Xóa lọc cột ({Object.keys(colFilters).length})
-            </button>
-          )}
-          {canDelete && selectedIds.size > 0 && (
-            <button onClick={bulkDelete} className="btn btn-danger">
-              Xóa đã chọn ({selectedIds.size})
-            </button>
-          )}
+              <option value="">Tất cả khách hàng</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} - {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ width: 160 }}>
+            <label className="filter-label">Ngày nhập</label>
+            <input
+              type="date"
+              value={qDate}
+              onChange={(e) => setQDate(e.target.value)}
+              className="input"
+            />
+          </div>
+
+          <div style={{ width: 260 }}>
+            <label className="filter-label">Tìm kiếm</label>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Mã hàng, tên sản phẩm..."
+              className="input"
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: 8, marginLeft: "auto", paddingBottom: 4 }}>
+            {(qDate || qCustomer || q) && (
+              <button 
+                onClick={() => { setQDate(""); setQCustomer(""); setQ(""); }} 
+                className="btn btn-ghost btn-sm"
+              >
+                Xóa lọc tổng
+              </button>
+            )}
+            {Object.keys(colFilters).length > 0 && (
+              <button
+                 onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
+                 className="btn btn-clear-filter"
+              >
+                 Xóa lọc cột ({Object.keys(colFilters).length})
+              </button>
+            )}
+            {canDelete && selectedIds.size > 0 && (
+              <button onClick={bulkDelete} className="btn btn-danger">
+                Xóa {selectedIds.size} đã chọn
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* ============================================================ */}
       {/* Existing transactions table                                   */}
       {/* ============================================================ */}
-      <div className="data-table-wrap" style={{ marginTop: 16 }}>
-        <table className="data-table" style={{ minWidth: 1300 }}>
+      <div className="data-table-wrap" style={{ marginTop: 24 }}>
+        <table className="data-table">
           <thead>
             <tr>
               {canDelete && (
-                <th style={{ ...thStyle, width: 40, textAlign: "center" }}>
+                <th style={{ width: 44, textAlign: "center" }}>
                   <input type="checkbox"
                     checked={finalFiltered.length > 0 && finalFiltered.every(r => selectedIds.has(r.id))}
                     onChange={e => {
@@ -1098,18 +1119,18 @@ export default function InventoryInboundPage() {
                   />
                 </th>
               )}
-              <th style={{ ...thStyle, textAlign: "center", width: 50 }}>STT</th>
+              <th style={{ width: 50, textAlign: "center" }}>STT</th>
               <ThCell label="Ngày nhập" colKey="date" sortable colType="date" />
               <ThCell label="Khách hàng" colKey="customer" sortable colType="text" />
               <ThCell label="Mã hàng" colKey="sku" sortable colType="text" />
               <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
               <ThCell label="Kích thước" colKey="spec" sortable colType="text" />
-              <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" />
-              <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" />
+              <ThCell label="Đã chốt (Final)" colKey="qty" sortable colType="num" align="right" />
+              <ThCell label="Giá nhập" colKey="price" sortable colType="num" align="right" />
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" />
               <ThCell label="Tạo lúc" colKey="createdAt" sortable colType="date" />
-              <ThCell label="Cập nhật lúc" colKey="updatedAt" sortable colType="date" />
-              <th style={thStyle}>Hành động</th>
+              <ThCell label="Cập nhật" colKey="updatedAt" sortable colType="date" />
+              <th style={{ textAlign: "center", minWidth: 160 }}>Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -1135,46 +1156,46 @@ export default function InventoryInboundPage() {
                         />
                       </td>
                     )}
-                    <td style={{...tdStyle, textAlign: "center"}}>{i + 1}</td>
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{fmtDate(r.tx_date)}</td>
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{customerLabel(r.customer_id)}</td>
-                    <td style={{ ...tdStyle, fontWeight: "bold" }}>{skuFor(r)}</td>
-                    <td style={tdStyle}>{r.product_name_snapshot}</td>
-                    <td style={tdStyle}>{r.product_spec_snapshot ?? ""}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: hasAdjs ? "bold" : "normal" }}>
+                    <td style={{...tdStyle, textAlign: "center", verticalAlign: "top"}}>{i + 1}</td>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap", verticalAlign: "top" }}>{fmtDate(r.tx_date)}</td>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap", verticalAlign: "top" }}>{customerLabel(r.customer_id)}</td>
+                    <td style={{ ...tdStyle, fontWeight: "700", verticalAlign: "top", color: "var(--slate-700)" }}>{skuFor(r)}</td>
+                    <td style={{ ...tdStyle, verticalAlign: "top" }}>{r.product_name_snapshot}</td>
+                    <td style={{ ...tdStyle, verticalAlign: "top" }}>{r.product_spec_snapshot ?? ""}</td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: hasAdjs ? "700" : "500", color: hasAdjs ? "var(--brand)" : "inherit", verticalAlign: "top" }}>
                       {fmtNum(finalQty)}
                       {hasAdjs && (
                         <div style={{ marginTop: 4 }}>
                           <button
                             onClick={() => toggleExpanded(r.id)}
-                            className={`badge ${isExpanded ? 'badge-info' : 'badge-warning'}`}
-                            style={{ cursor: "pointer", border: "none" }}
+                            className={`badge ${isExpanded ? 'badge-active' : 'badge-warning'}`}
+                            style={{ cursor: "pointer", border: "1px solid transparent", fontSize: 10, padding: "2px 6px" }}
                             title="Xem chi tiết điều chỉnh"
                           >
-                            ĐÃ ĐƯỢC ĐIỀU CHỈNH {isExpanded ? '▲' : '▼'}
+                            {isExpanded ? 'Ẩn điều chỉnh ▲' : 'CÓ ĐIỀU CHỈNH ▼'}
                           </button>
                         </div>
                       )}
                     </td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(r.unit_cost)}</td>
-                    <td style={{ ...tdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{r.note ?? ""}</td>
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{mounted ? fmtDatetime(r.created_at) : "..."}</td>
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{mounted ? fmtDatetime(r.updated_at) : "..."}</td>
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                      <div className="toolbar" style={{ margin: 0, gap: 4 }}>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 500 }}>{fmtNum(r.unit_cost)}</td>
+                    <td style={{ ...tdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", fontSize: 13, color: "var(--slate-600)" }}>{r.note ?? ""}</td>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap", fontSize: 12, color: "var(--slate-500)" }}>{mounted ? fmtDatetime(r.created_at) : "..."}</td>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap", fontSize: 12, color: "var(--slate-500)" }}>{mounted ? fmtDatetime(r.updated_at) : "..."}</td>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap", textAlign: "center" }}>
+                      <div className="toolbar" style={{ margin: 0, gap: 4, justifyContent: "center" }}>
                         {canCreateEdit && (
                           <>
-                            <button onClick={() => openEdit(r)} className="btn btn-secondary btn-sm">
-                              Sửa
+                            <button onClick={() => openEdit(r)} className="btn btn-secondary btn-sm" title="Sửa thông tin">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                             </button>
-                            <button onClick={() => openAdjustment(r)} className="btn btn-secondary btn-sm">
-                              Điều chỉnh
+                            <button onClick={() => openAdjustment(r)} className="btn btn-secondary btn-sm" title="Điều chỉnh số lượng">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                             </button>
                           </>
                         )}
                         {canDelete && (
-                          <button onClick={() => del(r)} className="btn btn-danger btn-sm">
-                            Xóa
+                          <button onClick={() => del(r)} className="btn btn-ghost btn-sm" style={{ color: "var(--color-danger)" }} title="Xóa">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                           </button>
                         )}
                       </div>

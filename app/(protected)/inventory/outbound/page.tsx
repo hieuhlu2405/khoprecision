@@ -820,24 +820,34 @@ export default function InventoryOutboundPage() {
   return (
     <div className="page-root">
       <div className="page-header">
-        <h1>Xuất kho (Outbound)</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          </div>
+          <div>
+            <h1 className="page-title">Xuất Kho (Outbound)</h1>
+            <p className="page-description">Quản lý và theo dõi các giao dịch xuất hàng khỏi kho.</p>
+          </div>
+        </div>
+        <div className="toolbar">
+          <button className="btn btn-secondary" onClick={handleExportExcel}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Xuất Excel
+          </button>
+          <button onClick={load} className="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+            Làm mới
+          </button>
+          {canCreateEdit && (
+            <button onClick={() => { resetCreateForm(); setShowCreate(true); }} className="btn btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Tạo phiếu xuất mới
+            </button>
+          )}
+        </div>
       </div>
 
       <ErrorBanner message={error} onDismiss={() => setError("")} />
-
-      {/* ============================================================ */}
-      {/* Multi-line create form                                        */}
-      {/* ============================================================ */}
-      {canCreateEdit && !showCreate && (
-        <div className="toolbar">
-          <button
-            onClick={() => { resetCreateForm(); setShowCreate(true); }}
-            className="btn btn-primary"
-          >
-            + Tạo phiếu xuất mới
-          </button>
-        </div>
-      )}
 
       {showCreate && (
         <div className="filter-panel" style={{ marginTop: 12 }}>
@@ -1024,90 +1034,97 @@ export default function InventoryOutboundPage() {
       {/* ============================================================ */}
       {/* Filters                                                       */}
       {/* ============================================================ */}
-      <div style={{ display: "flex", gap: 12, marginTop: 20, flexWrap: "wrap", alignItems: "center" }}>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Tìm theo mã hàng / tên..."
-          style={{ padding: 10, minWidth: 260 }}
-        />
-        <select
-          value={qCustomer}
-          onChange={(e) => setQCustomer(e.target.value)}
-          style={{ padding: 10 }}
-        >
-          <option value="">-- Tất cả khách hàng --</option>
-          {customers.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.code} - {c.name}
-            </option>
-          ))}
-        </select>
-        <input
-          type="date"
-          value={qDate}
-          onChange={(e) => setQDate(e.target.value)}
-          style={{ padding: 10 }}
-          title="Lọc theo ngày xuất"
-        />
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          {(qDate || qCustomer || q) && (
-            <button onClick={() => { setQDate(""); setQCustomer(""); setQ(""); }} className="btn btn-clear-filter">
-              Xóa tổng
-            </button>
-          )}
-          <button onClick={load} className="btn btn-secondary">
-            Làm mới
-          </button>
-          <button onClick={handleExportExcel} className="btn btn-secondary">
-            📋 Xuất Excel
-          </button>
-          {Object.keys(colFilters).length > 0 && (
-            <button
-               onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-               className="btn btn-clear-filter"
+      <div className="filter-panel" style={{ marginTop: 20, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div style={{ width: 220 }}>
+            <label className="filter-label">Khách hàng</label>
+            <select
+              value={qCustomer}
+              onChange={(e) => setQCustomer(e.target.value)}
+              className="input"
             >
-               Xóa lọc cột ({Object.keys(colFilters).length})
-            </button>
-          )}
-          {canDelete && selectedIds.size > 0 && (
-            <button onClick={bulkDelete} className="btn btn-danger">
-              Xóa đã chọn ({selectedIds.size})
-            </button>
-          )}
+              <option value="">Tất cả khách hàng</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} - {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ width: 160 }}>
+            <label className="filter-label">Ngày xuất</label>
+            <input
+              type="date"
+              value={qDate}
+              onChange={(e) => setQDate(e.target.value)}
+              className="input"
+            />
+          </div>
+
+          <div style={{ width: 260 }}>
+            <label className="filter-label">Tìm kiếm</label>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Mã hàng, tên sản phẩm..."
+              className="input"
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: 8, marginLeft: "auto", paddingBottom: 4 }}>
+            {(qDate || qCustomer || q) && (
+              <button 
+                onClick={() => { setQDate(""); setQCustomer(""); setQ(""); }} 
+                className="btn btn-ghost btn-sm"
+              >
+                Xóa lọc tổng
+              </button>
+            )}
+            {Object.keys(colFilters).length > 0 && (
+              <button
+                 onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
+                 className="btn btn-clear-filter"
+              >
+                 Xóa lọc cột ({Object.keys(colFilters).length})
+              </button>
+            )}
+            {canDelete && selectedIds.size > 0 && (
+              <button onClick={bulkDelete} className="btn btn-danger">
+                Xóa {selectedIds.size} đã chọn
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* ============================================================ */}
-      {/* Existing transactions table                                   */}
-      {/* ============================================================ */}
-      <div className="data-table-wrap" style={{ marginTop: 16 }}>
-        <table className="data-table" style={{ minWidth: 1300 }}>
+      <div className="data-table-wrap" style={{ marginTop: 24 }}>
+        <table className="data-table">
           <thead>
             <tr>
-               {canDelete && (
-                 <th style={{ ...thStyle, width: 40, textAlign: "center" }}>
-                   <input type="checkbox"
-                     checked={finalFiltered.length > 0 && finalFiltered.every(r => selectedIds.has(r.id))}
-                     onChange={e => {
-                       if (e.target.checked) setSelectedIds(new Set(finalFiltered.map(r => r.id)));
-                       else setSelectedIds(new Set());
-                     }}
-                   />
-                 </th>
-               )}
-              <th style={{ ...thStyle, textAlign: "center", width: 50 }}>STT</th>
+              {canDelete && (
+                <th style={{ width: 44, textAlign: "center" }}>
+                  <input type="checkbox"
+                    checked={finalFiltered.length > 0 && finalFiltered.every(r => selectedIds.has(r.id))}
+                    onChange={e => {
+                      if (e.target.checked) setSelectedIds(new Set(finalFiltered.map(r => r.id)));
+                      else setSelectedIds(new Set());
+                    }}
+                  />
+                </th>
+              )}
+              <th style={{ width: 50, textAlign: "center" }}>STT</th>
               <ThCell label="Ngày xuất" colKey="date" sortable colType="date" />
               <ThCell label="Khách hàng" colKey="customer" sortable colType="text" />
               <ThCell label="Mã hàng" colKey="sku" sortable colType="text" />
               <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
               <ThCell label="Kích thước" colKey="spec" sortable colType="text" />
-              <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" />
-              <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" />
+              <ThCell label="Đã chốt (Final)" colKey="qty" sortable colType="num" align="right" />
+              <ThCell label="Giá xuất" colKey="price" sortable colType="num" align="right" />
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" />
               <ThCell label="Tạo lúc" colKey="createdAt" sortable colType="date" />
-              <ThCell label="Cập nhật lúc" colKey="updatedAt" sortable colType="date" />
-              <th style={thStyle}>Hành động</th>
+              <ThCell label="Cập nhật" colKey="updatedAt" sortable colType="date" />
+              <th style={{ textAlign: "center", minWidth: 160 }}>Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -1250,124 +1267,121 @@ export default function InventoryOutboundPage() {
       {/* ============================================================ */}
       {editOpen && editing ? (
         <div className="modal-overlay" onClick={() => setEditOpen(false)}>
-          <div className="modal-box" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Sửa phiếu xuất</h2>
+          <div className="modal-box" style={{ maxWidth: 640 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Sửa phiếu xuất</h2>
+            </div>
 
-            <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-              <label style={{ display: "grid", gap: 6 }}>
-                Ngày xuất
-                <input
-                  type="date"
-                  value={eDate}
-                  onChange={(e) => setEDate(e.target.value)}
-                  style={{ padding: 10 }}
-                />
-              </label>
+            <div style={{ display: "grid", gap: 16, marginTop: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <label className="filter-label">
+                  Ngày xuất *
+                  <input
+                    type="date"
+                    value={eDate}
+                    onChange={(e) => setEDate(e.target.value)}
+                    className="input"
+                    style={{ marginTop: 4 }}
+                  />
+                </label>
 
-              <label style={{ display: "grid", gap: 6, position: "relative" }}>
-                Sản phẩm
-                <input
-                  placeholder="Gõ tìm mã, tên hàng, tên khách..."
-                  value={eProductSearch}
-                  onChange={(e) => {
-                    setEProductSearch(e.target.value);
-                    setEShowSuggestions(true);
-                    setEProductId("");
-                  }}
-                  onFocus={() => setEShowSuggestions(true)}
-                  onBlur={() => setTimeout(() => setEShowSuggestions(false), 200)}
-                  style={{ padding: 10 }}
-                />
-                {eShowSuggestions && (
-                  <div style={{
-                    position: "absolute", zIndex: 10, background: "#fff",
-                    border: "1px solid #ccc", width: "100%", maxHeight: 250,
-                    overflowY: "auto", boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-                    left: 0, top: "100%"
-                  }}>
-                    {products.filter(p => {
-                      const s = (eProductSearch || "").toLowerCase();
-                      if (!s) return true;
-                      const c = customers.find(x => x.id === p.customer_id);
-                      return p.sku.toLowerCase().includes(s) || 
-                             p.name.toLowerCase().includes(s) || 
-                             (c?.name || "").toLowerCase().includes(s) ||
-                             (c?.code || "").toLowerCase().includes(s);
-                    }).slice(0, 50).map(p => {
-                      const c = customers.find(x => x.id === p.customer_id);
-                      return (
-                        <div
-                          key={p.id}
-                          style={{ padding: "6px 8px", cursor: "pointer", borderBottom: "1px solid #eee" }}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            setEProductId(p.id);
-                            setEProductSearch(`${p.sku} - ${p.name}`);
-                            setEShowSuggestions(false);
-                            if (p.unit_price != null && !eCost) {
-                              setECost(String(p.unit_price));
-                            }
-                          }}
-                        >
-                          <div style={{ fontWeight: "bold" }}>{p.sku} - {p.name}</div>
-                          <div style={{ fontSize: "0.85em", color: "#666" }}>
-                            Khách hàng: {c ? `${c.code} - ${c.name}` : "---"}
-                            {p.spec ? ` | Kích thước: ${p.spec}` : ""}
+                <label className="filter-label" style={{ position: "relative" }}>
+                  Sản phẩm *
+                  <input
+                    placeholder="Tìm mã hoặc tên..."
+                    value={eProductSearch}
+                    onChange={(e) => {
+                      setEProductSearch(e.target.value);
+                      setEShowSuggestions(true);
+                      setEProductId("");
+                    }}
+                    onFocus={() => setEShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setEShowSuggestions(false), 200)}
+                    className="input"
+                    style={{ marginTop: 4 }}
+                  />
+                  {eShowSuggestions && (
+                    <div className="dropdown-panel" style={{ top: "100%", width: "160%", left: "-30%" }}>
+                      {products.filter(p => {
+                        const s = (eProductSearch || "").toLowerCase();
+                        if (!s) return true;
+                        const c = customers.find(x => x.id === p.customer_id);
+                        return p.sku.toLowerCase().includes(s) || 
+                               p.name.toLowerCase().includes(s) || 
+                               (c?.name || "").toLowerCase().includes(s);
+                      }).slice(0, 50).map(p => {
+                        const c = customers.find(x => x.id === p.customer_id);
+                        return (
+                          <div
+                            key={p.id}
+                            className="dropdown-item"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setEProductId(p.id);
+                              setEProductSearch(`${p.sku} - ${p.name}`);
+                              setEShowSuggestions(false);
+                              if (p.unit_price != null && !eCost) setECost(String(p.unit_price));
+                            }}
+                          >
+                            <div style={{ fontWeight: "700" }}>{p.sku} - {p.name}</div>
+                            <div style={{ fontSize: 11, color: "var(--slate-500)" }}>
+                              Khách: {c?.name ?? "---"} | {p.spec ?? "No spec"}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </label>
+              </div>
               
               {eProductId && (() => {
                 const p = products.find(x => x.id === eProductId);
                 if (!p) return null;
-                const cLabel = customerLabel(p.customer_id);
                 return (
-                  <div style={{ fontSize: "0.85em", color: "#666", padding: "8px 10px", background: "#f9f9f9", borderRadius: 4, lineHeight: 1.5 }}>
-                    <strong>Khách hàng:</strong> {cLabel || "---"}<br/>
-                    <strong>Tên hàng:</strong> {p.name}<br/>
-                    <strong>Kích thước:</strong> {p.spec || "---"}<br/>
-                    <strong>Đơn giá:</strong> {p.unit_price != null ? fmtNum(p.unit_price) : "---"}
+                  <div style={{ fontSize: 12, color: "var(--slate-600)", padding: 12, background: "var(--slate-50)", borderRadius: 8, border: "1px dashed var(--slate-200)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <span><strong>Khách hàng:</strong> {customerLabel(p.customer_id)}</span>
+                      <span><strong>Quy cách:</strong> {p.spec || "---"}</span>
+                    </div>
                   </div>
                 );
               })()}
 
-              <label style={{ display: "grid", gap: 6 }}>
-                Số lượng
-                <input
-                  type="number"
-                  value={eQty}
-                  onChange={(e) => setEQty(e.target.value)}
-                  style={{ padding: 10 }}
-                  min="0"
-                  step="any"
-                />
-              </label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <label className="filter-label">
+                  Số lượng *
+                  <input
+                    type="number"
+                    value={eQty}
+                    onChange={(e) => setEQty(e.target.value)}
+                    className="input"
+                    style={{ marginTop: 4 }}
+                    min="0"
+                  />
+                </label>
 
-              <label style={{ display: "grid", gap: 6 }}>
-                Đơn giá
-                <input
-                  type="number"
-                  value={eCost}
-                  onChange={(e) => setECost(e.target.value)}
-                  style={{ padding: 10 }}
-                  min="0"
-                  step="any"
-                  placeholder="Không bắt buộc"
-                />
-              </label>
+                <label className="filter-label">
+                  Đơn giá
+                  <input
+                    type="number"
+                    value={eCost}
+                    onChange={(e) => setECost(e.target.value)}
+                    className="input"
+                    style={{ marginTop: 4 }}
+                    min="0"
+                  />
+                </label>
+              </div>
 
-              <label style={{ display: "grid", gap: 6 }}>
+              <label className="filter-label">
                 Ghi chú
                 <textarea
                   value={eNote}
                   onChange={(e) => setENote(e.target.value)}
                   className="input"
-                  style={{ minHeight: 60 }}
-                  placeholder="Không bắt buộc"
+                  style={{ marginTop: 4, minHeight: 80 }}
+                  placeholder="Ghi chú cho phiếu xuất này..."
                 />
               </label>
 
@@ -1388,75 +1402,81 @@ export default function InventoryOutboundPage() {
       {/* ============================================================ */}
       {adjOpen && adjBaseTx ? (() => {
         const p = products.find((x) => x.id === adjBaseTx.product_id);
-        const cLabel = p ? customerLabel(p.customer_id) : "";
         return (
           <div className="modal-overlay" onClick={() => setAdjOpen(false)}>
-            <div className="modal-box" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
-              <h2 className="modal-title">Điều chỉnh kho</h2>
-
-              <div style={{ fontSize: "13px", color: "var(--slate-600)", padding: "12px", background: "var(--slate-50)", borderRadius: 8, lineHeight: 1.6, marginBottom: 16 }}>
-                <strong>Sản phẩm:</strong> <span style={{ color: "var(--slate-900)" }}>{p?.sku} - {p?.name}</span><br/>
-                <strong>Kích thước:</strong> {p?.spec || "---"}<br/>
-                <strong>Khách hàng:</strong> {cLabel || "---"}
+            <div className="modal-box" style={{ maxWidth: 640 }} onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title">Điều chỉnh kho</h2>
               </div>
 
-              <div style={{ display: "grid", gap: 12 }}>
-                <label style={{ display: "grid", gap: 6 }}>
-                  Loại điều chỉnh *
-                  <select
-                    value={aType}
-                    onChange={(e) => setAType(e.target.value as any)}
-                    className="input"
-                  >
-                    <option value="adjust_in">Điều chỉnh tăng (In)</option>
-                    <option value="adjust_out">Điều chỉnh giảm (Out)</option>
-                  </select>
-                </label>
+              <div style={{ fontSize: 13, color: "var(--slate-600)", padding: 12, background: "var(--slate-50)", borderRadius: 8, lineHeight: 1.6, marginBottom: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <span><strong>Sản phẩm:</strong> <span style={{ color: "var(--slate-900)" }}>{p?.sku} - {p?.name}</span></span>
+                  <span><strong>Khách hàng:</strong> {customerLabel(p?.customer_id ?? null)}</span>
+                  <span><strong>Quy cách:</strong> {p?.spec || "---"}</span>
+                </div>
+              </div>
 
-                <label style={{ display: "grid", gap: 6 }}>
-                  Ngày điều chỉnh *
-                  <input
-                    type="date"
-                    value={aDate}
-                    onChange={(e) => setADate(e.target.value)}
-                    className="input"
-                  />
-                </label>
+              <div style={{ display: "grid", gap: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <label className="filter-label">
+                    Loại điều chỉnh *
+                    <select
+                      value={aType}
+                      onChange={(e) => setAType(e.target.value as any)}
+                      className="input"
+                      style={{ marginTop: 4 }}
+                    >
+                      <option value="adjust_in">Điều chỉnh tăng (In)</option>
+                      <option value="adjust_out">Điều chỉnh giảm (Out)</option>
+                    </select>
+                  </label>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <label style={{ display: "grid", gap: 6 }}>
+                  <label className="filter-label">
+                    Ngày điều chỉnh *
+                    <input
+                      type="date"
+                      value={aDate}
+                      onChange={(e) => setADate(e.target.value)}
+                      className="input"
+                      style={{ marginTop: 4 }}
+                    />
+                  </label>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <label className="filter-label">
                     Số lượng *
                     <input
                       type="number"
                       value={aQty}
                       onChange={(e) => setAQty(e.target.value)}
                       className="input"
+                      style={{ marginTop: 4 }}
                       min="0"
-                      step="any"
                     />
                   </label>
 
-                  <label style={{ display: "grid", gap: 6 }}>
+                  <label className="filter-label">
                     Đơn giá
                     <input
                       type="number"
                       value={aCost}
                       onChange={(e) => setACost(e.target.value)}
                       className="input"
+                      style={{ marginTop: 4 }}
                       min="0"
-                      step="any"
-                      placeholder="Không bắt buộc"
                     />
                   </label>
                 </div>
 
-                <label style={{ display: "grid", gap: 6 }}>
+                <label className="filter-label">
                   Lý do điều chỉnh *
                   <textarea
                     value={aNote}
                     onChange={(e) => setANote(e.target.value)}
                     className="input"
-                    style={{ minHeight: 80 }}
+                    style={{ marginTop: 4, minHeight: 80 }}
                     placeholder="Bắt buộc nhập lý do điều chỉnh..."
                   />
                 </label>

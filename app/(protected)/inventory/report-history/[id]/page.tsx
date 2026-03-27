@@ -352,40 +352,84 @@ export default function ReportHistoryDetailPage() {
   const summary = closure.summary_json || {};
 
   return (
-    <div style={{ fontFamily: "sans-serif" }} ref={containerRef}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16 }}>
-        <button onClick={() => router.push("/inventory/report-history")} style={{ padding: "8px 14px", cursor: "pointer", background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 4 }}>← Quay lại</button>
-        <h1 style={{ margin: 0 }}>Chi tiết Chốt báo cáo</h1>
+    <div className="page-root" ref={containerRef} style={{ paddingBottom: 60 }}>
+      <div className="page-header">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <button 
+                onClick={() => router.push("/inventory/report-history")} 
+                className="btn btn-ghost btn-sm"
+                style={{ padding: "4px 8px", marginLeft: -8 }}
+              >
+                ← Lịch sử
+              </button>
+              <span style={{ color: "var(--slate-300)" }}>/</span>
+              <span style={{ fontSize: 13, color: "var(--slate-500)", fontWeight: 500 }}>Chi tiết bản chốt</span>
+            </div>
+            <h1 className="page-title">
+              {closure.title || REPORT_TYPE_LABELS[closure.report_type] || "Chi tiết bản chốt"}
+            </h1>
+          </div>
+        </div>
+        <div className="toolbar">
+          <button onClick={() => window.print()} className="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            In báo cáo
+          </button>
+        </div>
       </div>
 
       {/* Info cards */}
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
-        <div style={cardStyle}><div style={{ fontSize: 11, color: "#666" }}>Loại báo cáo</div><div style={{ fontWeight: 700 }}>{REPORT_TYPE_LABELS[closure.report_type] || closure.report_type}</div></div>
-        {closure.title && <div style={cardStyle}><div style={{ fontSize: 11, color: "#666" }}>Tiêu đề</div><div style={{ fontWeight: 700 }}>{closure.title}</div></div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
+        <div className="stat-card">
+          <div className="label">Loại báo cáo</div>
+          <div className="value" style={{ fontSize: 16 }}>{REPORT_TYPE_LABELS[closure.report_type] || closure.report_type}</div>
+        </div>
+        
         {closure.report_type === "inventory_comparison_report" ? (
           <>
-            <div style={cardStyle}><div style={{ fontSize: 11, color: "#666" }}>Kỳ 1</div><div style={{ fontWeight: 700 }}>{periodDisplay(closure.period_1_start, closure.period_1_end)}</div></div>
-            {closure.period_2_start && <div style={cardStyle}><div style={{ fontSize: 11, color: "#666" }}>Kỳ 2</div><div style={{ fontWeight: 700 }}>{periodDisplay(closure.period_2_start, closure.period_2_end)}</div></div>}
+            <div className="stat-card">
+              <div className="label">Kỳ 1 (Inclusive)</div>
+              <div className="value" style={{ fontSize: 16 }}>{periodDisplay(closure.period_1_start, closure.period_1_end)}</div>
+            </div>
+            {closure.period_2_start && (
+              <div className="stat-card">
+                <div className="label">Kỳ 2 (Inclusive)</div>
+                <div className="value" style={{ fontSize: 16 }}>{periodDisplay(closure.period_2_start, closure.period_2_end)}</div>
+              </div>
+            )}
           </>
         ) : (
-          <div style={cardStyle}><div style={{ fontSize: 11, color: "#666" }}>Kỳ báo cáo</div><div style={{ fontWeight: 700 }}>{periodDisplay(closure.period_1_start, closure.period_1_end)}</div></div>
+          <div className="stat-card">
+            <div className="label">Kỳ báo cáo</div>
+            <div className="value" style={{ fontSize: 16 }}>{periodDisplay(closure.period_1_start, closure.period_1_end)}</div>
+          </div>
         )}
-        {closure.baseline_snapshot_date_1 && <div style={cardStyle}><div style={{ fontSize: 11, color: "#666" }}>{closure.report_type === "inventory_comparison_report" ? "Mốc tồn kỳ 1" : "Mốc tồn"}</div><div style={{ fontWeight: 700 }}>{fmtDate(closure.baseline_snapshot_date_1)}</div></div>}
-        {closure.baseline_snapshot_date_2 && <div style={cardStyle}><div style={{ fontSize: 11, color: "#666" }}>Mốc tồn kỳ 2</div><div style={{ fontWeight: 700 }}>{fmtDate(closure.baseline_snapshot_date_2)}</div></div>}
-        {closure.snapshot_source_note && <div style={cardStyle}><div style={{ fontSize: 11, color: "#666" }}>Nguồn mốc tồn</div><div>{closure.snapshot_source_note}</div></div>}
-        <div style={cardStyle}><div style={{ fontSize: 11, color: "#666" }}>Ngày chốt</div><div style={{ fontWeight: 700 }}>{mounted ? fmtDatetimeLocal(closure.created_at) : "..."}</div></div>
-        <div style={cardStyle}><div style={{ fontSize: 11, color: "#666" }}>Người chốt</div><div style={{ fontWeight: 700 }}>{getCreator(closure.created_by)}</div></div>
+
+        <div className="stat-card">
+          <div className="label">Ngày chốt</div>
+          <div className="value" style={{ fontSize: 16 }}>{mounted ? fmtDatetimeLocal(closure.created_at) : "..."}</div>
+        </div>
+
+        <div className="stat-card">
+          <div className="label">Người thực hiện</div>
+          <div className="value" style={{ fontSize: 16 }}>{getCreator(closure.created_by)}</div>
+        </div>
       </div>
 
       {/* Summary cards from summary_json */}
       {Object.keys(summary).length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <h3 style={{ marginBottom: 8 }}>Tổng hợp</h3>
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ marginBottom: 32 }}>
+          <h3 className="modal-title" style={{ marginBottom: 16 }}>Tổng số quy đổi</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
             {Object.entries(summary).map(([k, v]) => (
-              <div key={k} style={{ ...cardStyle, background: "#eef2ff" }}>
-                <div style={{ fontSize: 11, color: "#666" }}>{k}</div>
-                <div style={{ fontWeight: 700, fontSize: 18 }}>{typeof v === "number" ? fmtNum(v) : String(v)}</div>
+              <div key={k} className="stat-card" style={{ borderLeft: "4px solid var(--brand)", background: "var(--brand-light-50)" }}>
+                <div className="label">{k}</div>
+                <div className="value" style={{ color: "var(--brand)" }}>{typeof v === "number" ? fmtNum(v) : String(v)}</div>
               </div>
             ))}
           </div>
@@ -406,10 +450,10 @@ export default function ReportHistoryDetailPage() {
         const filtered = filterAndSort(groupLines, cols);
 
         return (
-          <div key={lineType} style={{ marginBottom: 28 }}>
-            <h3 style={{ marginBottom: 8 }}>{LINE_TYPE_LABELS[lineType] || lineType}</h3>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ borderCollapse: "collapse", width: "100%", border: "1px solid #ddd", background: "white" }}>
+          <div key={lineType} style={{ marginBottom: 32 }}>
+            <h3 className="modal-title" style={{ marginBottom: 12 }}>{LINE_TYPE_LABELS[lineType] || lineType}</h3>
+            <div className="data-table-wrap">
+              <table className="data-table">
                 <thead>
                   <tr>
                     <th style={{ ...thStyle, width: 50, textAlign: "center" }}>STT</th>

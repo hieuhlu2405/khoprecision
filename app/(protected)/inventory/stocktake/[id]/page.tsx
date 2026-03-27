@@ -797,33 +797,63 @@ export default function StocktakeDetailPage() {
 
   return (
     <div className="page-root" style={{ paddingBottom: 80 }}>
-      {/* ── Page Header ── */}
       <div className="page-header">
-        <div>
-          <h1>
-            Chi tiết Kiểm kê {" "}
-            {isConfirmed ? (
-              <span className="badge badge-success" style={{ fontSize: 14, marginLeft: 8 }}>Đã xác nhận (Confirmed)</span>
-            ) : (
-              <span className="badge badge-warning" style={{ fontSize: 14, marginLeft: 8 }}>Bản nháp (Draft)</span>
-            )}
-          </h1>
-          <p className="page-subtitle">ID: {id}</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="m9 14 2 2 4-4"/></svg>
+          </div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <button 
+                onClick={() => router.push("/inventory/stocktake")} 
+                className="btn btn-ghost btn-sm"
+                style={{ padding: "4px 8px", marginLeft: -8 }}
+              >
+                ← Danh sách
+              </button>
+              <span style={{ color: "var(--slate-300)" }}>/</span>
+              <span style={{ fontSize: 13, color: "var(--slate-500)", fontWeight: 500 }}>Chi tiết kiểm kê</span>
+            </div>
+            <h1 className="page-title">
+              {id ? `Phiếu kiểm kê #${id.toString().slice(-6).toUpperCase()}` : "Chi tiết kiểm kê"}
+              {isConfirmed ? (
+                <span className="badge badge-success" style={{ marginLeft: 12 }}>Đã chốt (Xác nhận)</span>
+              ) : (
+                <span className="badge badge-warning" style={{ marginLeft: 12 }}>Bản nháp (Draft)</span>
+              )}
+            </h1>
+          </div>
         </div>
-        <div className="toolbar" style={{ margin: 0 }}>
-          <button onClick={() => router.push("/inventory/stocktake")} className="btn btn-secondary">
-            ← Quay lại danh sách
-          </button>
+        <div className="toolbar">
+          {canEditDraft && (
+            <button onClick={handleSaveLinesAndApply} disabled={saving} className="btn btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Lưu bản nháp
+            </button>
+          )}
+          {canEditDraft && (
+            <button onClick={handleConfirm} disabled={saving} className="btn btn-primary">
+              🚀 Chốt kiểm kê
+            </button>
+          )}
+          {canEditConfirmed && (
+            <button 
+              onClick={handleSaveLinesAndApply} 
+              disabled={saving || !editReason.trim()} 
+              className="btn btn-danger"
+            >
+              ⚠️ Cập nhật sau chốt
+            </button>
+          )}
         </div>
       </div>
 
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
       <div className="filter-panel" style={{ marginBottom: 24 }}>
-        <h3 className="modal-title" style={{ marginTop: 0, marginBottom: 16 }}>Thông tin chung</h3>
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <label className="input-label" style={{ minWidth: 160 }}>
-            Ngày kiểm kê *
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          <div>
+            <label className="filter-label">Ngày kiểm kê *</label>
             <input
               type="date"
               value={header.stocktake_date}
@@ -831,9 +861,9 @@ export default function StocktakeDetailPage() {
               disabled={!canEdit || isConfirmed}
               className="input"
             />
-          </label>
-          <label className="input-label" style={{ flex: 1 }}>
-            Ghi chú phiếu
+          </div>
+          <div>
+            <label className="filter-label">Ghi chú phiếu</label>
             <input
               value={header.note || ""}
               onChange={e => setHeader({ ...header, note: e.target.value })}
@@ -841,36 +871,27 @@ export default function StocktakeDetailPage() {
               className="input"
               placeholder="Ghi chú thêm về đợt kiểm kê này..."
             />
-          </label>
+          </div>
         </div>
 
         {isConfirmed && (
-          <div style={{ padding: 16, background: "var(--color-danger-light)", border: "1px solid var(--color-danger)", borderRadius: 8, marginTop: 12 }}>
-            <label className="input-label" style={{ color: "var(--color-danger)", fontWeight: 700 }}>
-              Lý do sửa sau chốt <span style={{ fontSize: 12, fontWeight: 400 }}>(Mã hàng đã được chốt, cần lý do để chỉnh sửa)</span>
-              <input
-                value={editReason}
-                onChange={e => setEditReason(e.target.value)}
-                disabled={!canEditConfirmed}
-                className="input"
-                style={{ marginTop: 4, background: canEditConfirmed ? "white" : "transparent" }}
-                placeholder="Ví dụ: Kiểm tra lại thấy nhập nhầm số lượng, hiệu chỉnh theo biên bản..."
-              />
+          <div style={{ padding: 16, background: "rgba(239, 68, 68, 0.05)", border: "1px solid var(--color-danger)", borderRadius: 8, marginTop: 16 }}>
+            <label className="filter-label" style={{ color: "var(--color-danger)", fontWeight: 700, marginBottom: 8, display: "block" }}>
+              Lý do hiệu chỉnh sau khi chốt *
             </label>
+            <input
+              value={editReason}
+              onChange={e => setEditReason(e.target.value)}
+              disabled={!canEditConfirmed}
+              className="input"
+              placeholder="Nhập lý do tại sao bạn cần thay đổi dữ liệu đã chốt..."
+            />
             {header.post_confirm_edit_reason && (
-              <div style={{ marginTop: 8, fontSize: 13, color: "#991b1b" }}>
-                <strong>Lý do sửa đổi trước đó:</strong> {header.post_confirm_edit_reason}
-                {header.post_confirm_edited_at && ` (lúc ${new Date(header.post_confirm_edited_at).toLocaleString('vi-VN')})`}
+              <div style={{ marginTop: 12, fontSize: 12, color: "var(--color-danger)", opacity: 0.8 }}>
+                <strong>Lịch sử sửa đổi:</strong> {header.post_confirm_edit_reason}
+                {header.post_confirm_edited_at && ` (${new Date(header.post_confirm_edited_at).toLocaleString('vi-VN')})`}
               </div>
             )}
-          </div>
-        )}
-
-        {canEdit && !isConfirmed && (
-          <div style={{ marginTop: 20 }}>
-            <button onClick={handleSaveHeader} disabled={saving} className="btn btn-primary">
-              {saving ? "Đang lưu..." : "💾 Lưu thông tin chung"}
-            </button>
           </div>
         )}
       </div>
