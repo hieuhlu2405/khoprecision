@@ -1025,9 +1025,9 @@ export default function InventoryAgingReportPage() {
   const [closingAging, setClosingAging] = useState(false);
 
   async function closeAgingReport() {
-    const ok = await showConfirm({ 
-      message: "Chốt lưu trữ báo cáo tồn lâu ngày kỳ này? Dữ liệu sẽ được đóng băng để đối soát sau này.", 
-      confirmLabel: "📋 Chốt lưu trữ báo cáo" 
+    const ok = await showConfirm({
+      message: "Chốt lưu trữ báo cáo tồn lâu ngày kỳ này? Dữ liệu sẽ được đóng băng để đối soát sau này.",
+      confirmLabel: "📋 Chốt lưu trữ báo cáo"
     });
     if (!ok) return;
 
@@ -1039,10 +1039,10 @@ export default function InventoryAgingReportPage() {
         period_1_start: bounds.effectiveStart,
         period_1_end: bounds.effectiveEnd,
         baseline_snapshot_date_1: bounds.S || qStart,
-        summary_json: { 
-          "% trên tổng tồn kho": overallTotals.pctGlobal, 
-          "Giá trị tồn dài kỳ": overallTotals.tValLongAging, 
-          "Số khách hàng": overallTotals.customerCount 
+        summary_json: {
+          "% trên tổng tồn kho": overallTotals.pctGlobal,
+          "Giá trị tồn dài kỳ": overallTotals.tValLongAging,
+          "Số khách hàng": overallTotals.customerCount
         },
         filters_json: { qStart, qEnd, customer: qCustomer, product: qProduct, onlyInStock },
       }).select("id").single();
@@ -1056,14 +1056,14 @@ export default function InventoryAgingReportPage() {
         sort_order: i,
         customer_id: r.customer_id || null,
         product_id: r.product.id,
-        row_json: { 
-          "khách hàng": customerLabel(r.customer_id), 
-          "mã hàng": r.product.sku, 
-          "tên hàng": r.product.name, 
-          "kích thước": r.product.spec || "", 
-          "tồn hiện tại": r.current_qty, 
-          "đơn giá": r.product.unit_price ?? 0, 
-          "giá trị tồn dài kỳ": r.inventory_value ?? 0 
+        row_json: {
+          "khách hàng": customerLabel(r.customer_id),
+          "mã hàng": r.product.sku,
+          "tên hàng": r.product.name,
+          "kích thước": r.product.spec || "",
+          "tồn hiện tại": r.current_qty,
+          "đơn giá": r.product.unit_price ?? 0,
+          "giá trị tồn dài kỳ": r.inventory_value ?? 0
         },
       }));
 
@@ -1072,11 +1072,11 @@ export default function InventoryAgingReportPage() {
         line_type: "aging_customer",
         sort_order: i,
         customer_id: c.customer_id || null,
-        row_json: { 
-          "khách hàng": customerLabel(c.customer_id), 
-          "số mã": c.productCount, 
-          "số lượng": c.qty, 
-          "giá trị": c.value 
+        row_json: {
+          "khách hàng": customerLabel(c.customer_id),
+          "số mã": c.productCount,
+          "số lượng": c.qty,
+          "giá trị": c.value
         },
       }));
 
@@ -1099,14 +1099,13 @@ export default function InventoryAgingReportPage() {
       <div className="page-header">
         <div>
           <h1>Báo cáo tồn lâu ngày (Aging)</h1>
-          <p className="page-subtitle">Phân tích các sản phẩm có thời gian tồn kho vượt ngưỡng để tối ưu hóa dòng vốn.</p>
+          <p className="page-subtitle text-slate">Phân tích các sản phẩm có thời gian tồn kho vượt ngưỡng để tối ưu hóa dòng vốn.</p>
         </div>
         <div className="toolbar" style={{ margin: 0 }}>
           <button
             onClick={closeAgingReport}
             disabled={closingAging || loading || filteredLongAgingData.length === 0}
             className="btn btn-primary"
-            style={{ opacity: closingAging ? 0.6 : 1 }}
           >
             {closingAging ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}
           </button>
@@ -1123,11 +1122,8 @@ export default function InventoryAgingReportPage() {
             className={`tab-item ${reportMode === m ? "active" : ""}`}
             onClick={() => setReportMode(m)}
           >
-            {m === "current" ? (
-              <><span className="tab-icon">📊</span> Báo cáo hiện tại</>
-            ) : (
-              <><span className="tab-icon">🔄</span> So sánh đối soát 2 kỳ</>
-            )}
+            <span className="tab-icon">{m === "current" ? "📊" : "🔄"}</span>
+            {m === "current" ? "Báo cáo hiện tại" : "So sánh đối soát 2 kỳ"}
           </button>
         ))}
       </div>
@@ -1204,13 +1200,13 @@ export default function InventoryAgingReportPage() {
               </div>
               <div className="filter-info">
                 <span><strong>Kỳ dữ liệu:</strong> {formatToVietnameseDate(bounds.effectiveStart)} – {formatToVietnameseDate(bounds.effectiveEnd)}</span>
-                {bounds.S && <span className="sub-info">Mốc tồn gần nhất: {formatToVietnameseDate(bounds.S)}</span>}
+                {bounds.S && <span className="text-xs italic">Mốc tồn gần nhất: {formatToVietnameseDate(bounds.S)}</span>}
               </div>
             </div>
           ) : (
-            <div className="filter-group compare">
+            <div className="filter-group">
               <div className="compare-periods">
-                <div className="period-box p1">
+                <div className="period-box">
                   <span className="period-tag">KỲ 1</span>
                   <div className="field-group">
                     <label className="field-label">Từ</label>
@@ -1221,7 +1217,8 @@ export default function InventoryAgingReportPage() {
                     <input type="date" value={p1End} onChange={e => setP1End(e.target.value)} className="input-field" />
                   </div>
                 </div>
-                <div className="period-box p2">
+                <div style={{ color: "var(--slate-300)", fontWeight: 800 }}>VS</div>
+                <div className="period-box">
                   <span className="period-tag active">KỲ 2</span>
                   <div className="field-group">
                     <label className="field-label">Từ</label>
@@ -1241,48 +1238,62 @@ export default function InventoryAgingReportPage() {
           )}
 
           <div className="filter-group">
-            <div className="field-group" style={{ minWidth: 220 }}>
+            <div className="field-group">
               <label className="field-label">Khách hàng</label>
-              <input list="dl-aging-customer" placeholder="Mã / Tên khách..." value={qCustomerSearch} onChange={(e) => { const val = e.target.value; setQCustomerSearch(val); const matched = customers.find((c) => `${c.code} - ${c.name}` === val); setQCustomer(matched ? matched.id : ""); }} className="input-field" />
-              <datalist id="dl-aging-customer">{customers.map((c) => (<option key={c.id} value={`${c.code} - ${c.name}`} />))}</datalist>
-            </div>
-            <div className="field-group" style={{ minWidth: 220 }}>
-              <label className="field-label">Mã / Tên hàng</label>
-              <input value={qProduct} onChange={(e) => setQProduct(e.target.value)} className="input-field" placeholder="Tìm sản phẩm..." />
+              <input
+                list="dl-aging-customer"
+                placeholder="Mã / Tên khách..."
+                value={qCustomerSearch}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setQCustomerSearch(val);
+                  const matched = customers.find((c) => `${c.code} - ${c.name}` === val);
+                  setQCustomer(matched ? matched.id : "");
+                }}
+                className="input-field"
+                style={{ minWidth: 260 }}
+              />
+              <datalist id="dl-aging-customer">
+                {customers.map((c) => (<option key={c.id} value={`${c.code} - ${c.name}`} />))}
+              </datalist>
             </div>
           </div>
 
-          <div className="filter-group checkbox-group">
+          <div className="filter-group">
+            <div className="field-group">
+              <label className="field-label">Mã / Tên hàng</label>
+              <input
+                value={qProduct}
+                onChange={(e) => setQProduct(e.target.value)}
+                className="input-field"
+                placeholder="Tìm sản phẩm..."
+                style={{ minWidth: 220 }}
+              />
+            </div>
+          </div>
+
+          <div className="checkbox-group">
             <label className="checkbox-container">
               <input type="checkbox" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} />
               <span className="checkbox-label">Chỉ hiện hàng còn tồn</span>
             </label>
           </div>
 
-          <div className="filter-actions">
-            {(qCustomer || qProduct) && (
+          <div style={{ marginLeft: "auto", display: "flex", gap: 12 }}>
+            {(qCustomer || qProduct || activeFilterCount > 0) && (
               <button
-                onClick={() => { setQCustomer(""); setQCustomerSearch(""); setQProduct(""); }}
+                onClick={() => { setQCustomer(""); setQCustomerSearch(""); setQProduct(""); setColFilters({}); setSortCol(null); setSortDir(null); }}
                 className="btn btn-ghost"
               >
-                Xóa lọc nhanh
+                🔄 Xóa tất cả lọc
               </button>
             )}
-            <button onClick={load} className="btn btn-brand">
-              🔄 Làm mới
+            <button onClick={load} className="btn btn-primary" disabled={loading}>
+              {loading ? "..." : "🔄 Làm mới"}
             </button>
-            {activeFilterCount > 0 && (
-              <button
-                onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-                className="btn btn-danger btn-ghost"
-              >
-                Xóa lọc cột ({activeFilterCount})
-              </button>
-            )}
           </div>
         </div>
       </div>
-
 
       {loading ? (
         <LoadingInline text="Đang tính toán dữ liệu báo cáo..." />
@@ -1294,7 +1305,7 @@ export default function InventoryAgingReportPage() {
               <div className="charts-grid-3">
                 <div className="chart-card">
                   <BarChart
-                    title="Top 10 khách hàng theo giá trị tồn lâu ngày"
+                    title="Top 10 khách hàng (Giá trị tồn)"
                     data={[...customerSummary].sort((a,b) => b.value - a.value).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.value }))}
                     color="var(--color-success)"
                     minHeight={250}
@@ -1302,7 +1313,7 @@ export default function InventoryAgingReportPage() {
                 </div>
                 <div className="chart-card">
                   <BarChart
-                    title="Top 10 mã hàng theo giá trị tồn (VNĐ)"
+                    title="Top 10 mã hàng (Giá trị VNĐ)"
                     data={[...filteredLongAgingData].sort((a,b) => (b.inventory_value||0) - (a.inventory_value||0)).slice(0, 10).map(p => ({ label: p.product.sku, value: p.inventory_value || 0 }))}
                     color="var(--brand)"
                     minHeight={250}
@@ -1310,7 +1321,7 @@ export default function InventoryAgingReportPage() {
                 </div>
                 <div className="chart-card">
                   <BarChart
-                    title="Top 10 mã hàng theo số lượng (Qty)"
+                    title="Top 10 mã hàng (Số lượng)"
                     data={[...filteredLongAgingData].sort((a,b) => (b.current_qty||0) - (a.current_qty||0)).slice(0, 10).map(p => ({ label: p.product.sku, value: p.current_qty || 0 }))}
                     color="var(--color-warning)"
                     minHeight={250}
@@ -1403,8 +1414,8 @@ export default function InventoryAgingReportPage() {
                         <th className="text-right">Số mã Aging</th>
                         <th className="text-right">Số lượng</th>
                         <th className="text-right">Giá trị tồn (VNĐ)</th>
-                        <th className="text-right">% trên Aging</th>
-                        <th className="text-right">% trên tổng kho</th>
+                        <th className="text-right">% Aging</th>
+                        <th className="text-right">% Tổng kho</th>
                       </>
                     ) : (
                       <>
@@ -1426,8 +1437,8 @@ export default function InventoryAgingReportPage() {
                       <td className="text-right">{fmtNum(c.productCount)}</td>
                       <td className="text-right">{fmtNum(c.qty)}</td>
                       <td className="text-right font-bold color-danger">{fmtNum(c.value)}</td>
-                      <td className="text-right text-slate">{overallTotals.tValLongAging > 0 ? fmtPercent((c.value / overallTotals.tValLongAging) * 100) : "0.00%"}</td>
-                      <td className="text-right text-slate">{overallTally > 0 ? fmtPercent((c.value / overallTally) * 100) : "0.00%"}</td>
+                      <td className="text-right text-slate text-xs">{overallTotals.tValLongAging > 0 ? fmtPercent((c.value / overallTotals.tValLongAging) * 100) : "0.00%"}</td>
+                      <td className="text-right text-slate text-xs">{overallTally > 0 ? fmtPercent((c.value / overallTally) * 100) : "0.00%"}</td>
                     </tr>
                   )) : compareCustomerSummary.map((c, i) => (
                     <tr key={c.customer_id || `cc-${i}`}>
@@ -1484,7 +1495,7 @@ export default function InventoryAgingReportPage() {
                       <tr key={`${p.product.id}-${p.customer_id}`}>
                         <td className="text-center">{i + 1}</td>
                         <td className="font-bold">{p.product.sku}</td>
-                        <td>{p.product.name}</td>
+                        <td className="font-medium">{p.product.name}</td>
                         <td className="text-xs text-slate">{p.product.spec || "—"}</td>
                         <td className="text-right font-semibold">{fmtNum(p.current_qty)}</td>
                         <td className="text-right text-slate">{fmtNum(p.product.unit_price)}</td>
@@ -1535,7 +1546,9 @@ export default function InventoryAgingReportPage() {
                       </tr>
                     ))}
                     {compareAgingData.length === 0 && (
-                      <tr><td colSpan={11} style={{ padding: 48, textAlign: "center", color: "var(--slate-500)" }}>Không có dữ liệu tồn lâu để so sánh.</td></tr>
+                      <tr>
+                        <td colSpan={11} className="empty-state">Không có dữ liệu tồn lâu để so sánh.</td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
