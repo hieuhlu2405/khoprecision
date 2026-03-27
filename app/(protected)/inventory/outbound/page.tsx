@@ -430,8 +430,14 @@ export default function InventoryOutboundPage() {
   /* ---- Column resizing ---- */
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("inventory_outbound_col_widths");
-      return saved ? JSON.parse(saved) : {};
+      try {
+        const saved = localStorage.getItem("inventory_outbound_col_widths");
+        const parsed = saved ? JSON.parse(saved) : {};
+        return (parsed && typeof parsed === "object") ? parsed : {};
+      } catch (e) {
+        console.error("Failed to parse colWidths", e);
+        return {};
+      }
     }
     return {};
   });

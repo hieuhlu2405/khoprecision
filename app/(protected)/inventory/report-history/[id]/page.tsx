@@ -143,9 +143,6 @@ function passesNumFilter(val: number, f: NumFilter): boolean {
   return true;
 }
 
-const thStyle = { textAlign: "left", border: "1px solid #ddd", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap" } as const;
-const tdStyle = { border: "1px solid #ddd", padding: "10px 8px" } as const;
-const cardStyle: React.CSSProperties = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 16px", minWidth: 160 };
 
 const popupStyle: React.CSSProperties = {
   position: "absolute", top: "100%", left: 0, zIndex: 100,
@@ -200,6 +197,10 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
     </div>
   );
 }
+
+const thStyle = { textAlign: "left", border: "1px solid #ddd", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap" } as const;
+const tdStyle = { border: "1px solid #ddd", padding: "10px 8px" } as const;
+const cardStyle: React.CSSProperties = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 16px", minWidth: 160 };
 
 /* ------------------------------------------------------------------ */
 /* Detail Page                                                        */

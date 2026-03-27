@@ -101,9 +101,6 @@ function passesDateFilter(val: string | null, f: DateFilter): boolean {
   return true;
 }
 
-const thStyle = { textAlign: "left", border: "1px solid #ddd", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap" } as const;
-const tdStyle = { border: "1px solid #ddd", padding: "10px 8px" } as const;
-
 const popupStyle: React.CSSProperties = {
   position: "absolute", top: "100%", left: 0, zIndex: 100,
   background: "white", border: "1px solid #cbd5e1", borderRadius: 6,
@@ -126,7 +123,7 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
         <option value="contains">Chứa</option>
         <option value="equals">Bằng</option>
       </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, backgroundColor: "#f3f2acbb", boxSizing: "border-box" }} autoFocus />
+      <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, boxSizing: "border-box" }} autoFocus />
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
         <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
         <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Áp dụng</button>
@@ -160,12 +157,14 @@ function DateFilterPopup({ filter, onChange, onClose }: { filter: DateFilter | n
   );
 }
 
+const thStyle = { textAlign: "left", background: "#f8fafc", whiteSpace: "nowrap" } as const;
+
 /* ------------------------------------------------------------------ */
 /* Main Page                                                           */
 /* ------------------------------------------------------------------ */
 export default function ReportHistoryListPage() {
   const router = useRouter();
-  const { showConfirm } = useUI();
+  const { showConfirm, showToast } = useUI();
   const [rows, setRows] = useState<Closure[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -178,6 +177,31 @@ export default function ReportHistoryListPage() {
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [openPopupId, setOpenPopupId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  /* ---- Column resizing ---- */
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("inventory_report_history_col_widths");
+        const parsed = saved ? JSON.parse(saved) : {};
+        return (parsed && typeof parsed === "object") ? parsed : {};
+      } catch (e) {
+        console.error("Failed to parse colWidths", e);
+        return {};
+      }
+    }
+    return {};
+  });
+
+  const onResize = (key: string, width: number) => {
+    setColWidths(prev => {
+      const next = { ...prev, [key]: width };
+      if (typeof window !== "undefined") {
+        localStorage.setItem("inventory_report_history_col_widths", JSON.stringify(next));
+      }
+      return next;
+    });
+  };
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -264,22 +288,6 @@ export default function ReportHistoryListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, colFilters, sortCol, sortDir, profiles]);
 
-  /* ---- Column resizing ---- */
-  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("inventory_report_history_col_widths");
-      return saved ? JSON.parse(saved) : {};
-    }
-    return {};
-  });
-
-  const onResize = (key: string, width: number) => {
-    setColWidths(prev => {
-      const next = { ...prev, [key]: width };
-      localStorage.setItem("inventory_report_history_col_widths", JSON.stringify(next));
-      return next;
-    });
-  };
 
   // ThCell component
   function ThCell({ label, colKey, sortable, colType, w }: { label: string; colKey: string; sortable: boolean; colType: "text" | "date"; w?: string }) {

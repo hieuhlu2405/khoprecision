@@ -170,14 +170,14 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
 }
 
 function BoolFilterPopup({ filter, onChange, onClose }: { filter: BoolFilter | null; onChange: (f: BoolFilter | null) => void; onClose: () => void }) {
-  const [val, setVal] = useState<"all"|"yes"|"no">(filter?.value ?? "all");
+  const [val, setVal] = useState<BoolFilter["value"]>(filter?.value ?? "all");
   return (
     <div style={popupStyle} onClick={e => e.stopPropagation()}>
-      <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc cảnh báo</div>
-      <select value={val} onChange={e => setVal(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8 }} autoFocus>
+      <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc trạng thái</div>
+      <select value={val} onChange={e => setVal(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8 }}>
         <option value="all">Tất cả</option>
-        <option value="yes">Có cảnh báo</option>
-        <option value="no">Không cảnh báo</option>
+        <option value="yes">Có</option>
+        <option value="no">Không</option>
       </select>
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
         <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
@@ -188,9 +188,10 @@ function BoolFilterPopup({ filter, onChange, onClose }: { filter: BoolFilter | n
 }
 
 export default function StocktakeDetailPage() {
-  const { id } = useParams();
+  const params = useParams();
   const router = useRouter();
   const { showConfirm, showToast } = useUI();
+  const stocktakeId = params?.id as string;
 
   const [me, setMe] = useState<Profile | null>(null);
   const [isAdminOrManager, setIsAdminOrManager] = useState(false);
@@ -233,10 +234,10 @@ export default function StocktakeDetailPage() {
   const canEdit = canEditDraft || canEditConfirmed;
 
   useEffect(() => {
-    if (!id || typeof id !== "string") return;
-    loadAll(id);
+    if (!stocktakeId || typeof stocktakeId !== "string") return;
+    loadAll(stocktakeId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [stocktakeId]);
 
   async function loadAll(stkId: string) {
     setLoading(true);
@@ -753,8 +754,14 @@ export default function StocktakeDetailPage() {
   /* ---- Column resizing ---- */
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("inventory_stocktake_detail_col_widths");
-      return saved ? JSON.parse(saved) : {};
+      try {
+        const saved = localStorage.getItem("inventory_stocktake_detail_col_widths");
+        const parsed = saved ? JSON.parse(saved) : {};
+        return (parsed && typeof parsed === "object") ? parsed : {};
+      } catch (e) {
+        console.error("Failed to parse colWidths", e);
+        return {};
+      }
     }
     return {};
   });
@@ -877,7 +884,7 @@ export default function StocktakeDetailPage() {
               <span style={{ fontSize: 13, color: "var(--slate-500)", fontWeight: 500 }}>Chi tiết kiểm kê</span>
             </div>
             <h1 className="page-title">
-              {id ? `Phiếu kiểm kê #${id.toString().slice(-6).toUpperCase()}` : "Chi tiết kiểm kê"}
+              {stocktakeId ? `Phiếu kiểm kê #${stocktakeId.toString().slice(-6).toUpperCase()}` : "Chi tiết kiểm kê"}
               {isConfirmed ? (
                 <span className="badge badge-success" style={{ marginLeft: 12 }}>Đã chốt (Xác nhận)</span>
               ) : (
