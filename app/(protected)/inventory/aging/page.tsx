@@ -1215,13 +1215,13 @@ export default function InventoryAgingReportPage() {
     >
 
       <div className="page-header sticky top-0 bg-white/80 backdrop-blur-md z-50 py-4 px-6 -mx-6 mb-6 border-b border-slate-200/60 shadow-sm">
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)", boxShadow: "0 0 15px var(--brand-glow)" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div className="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center shadow-sm">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           </div>
           <div>
-            <h1 className="page-title !m-0 !text-xl !font-extrabold tracking-tight">Báo cáo tồn lâu ngày (Aging)</h1>
-            <p className="page-description !m-0 text-slate text-xs font-medium">Theo dõi và phân tích các mã hàng tồn kho quá hạn định kỳ</p>
+            <h1 className="text-xl font-extrabold text-slate-900 leading-tight">Báo cáo tồn lâu ngày (Aging)</h1>
+            <p className="text-xs font-medium text-slate-500">Theo dõi và phân tích các mã hàng tồn kho quá hạn định kỳ</p>
           </div>
         </div>
         <div className="toolbar" style={{ margin: 0, gap: 12, marginLeft: "auto" }}>

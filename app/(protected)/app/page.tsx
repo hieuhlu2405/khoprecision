@@ -17,12 +17,12 @@ const ROLE_LABELS: Record<string, string> = { admin: "Admin", manager: "Quản l
 const DEPT_LABELS: Record<string, string> = { sales: "Kinh doanh", warehouse: "Kho", production: "Sản xuất", purchasing: "Mua hàng", accounting: "Kế toán" };
 
 const quickLinks = [
-  { href: "/inventory/inbound", icon: "📥", label: "Nhập kho", desc: "Ghi nhận hàng thành phẩm đầu vào" },
-  { href: "/inventory/outbound", icon: "📦", label: "Xuất kho", desc: "Ghi nhận hàng thành phẩm đầu ra" },
-  { href: "/inventory/report", icon: "📊", label: "Tồn kho hiện tại", desc: "Xem tồn kho thành phẩm" },
-  { href: "/inventory/stocktake", icon: "🔍", label: "Kiểm kê", desc: "Tạo phiếu kiểm kê kho" },
-  { href: "/inventory/phoi", icon: "🧱", label: "Nhập phôi", desc: "Ghi nhận hàng phôi nguyên vật liệu" },
-  { href: "/products", icon: "🏷️", label: "Mã hàng", desc: "Quản lý danh mục hàng" },
+  { href: "/inventory/inbound", icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>, label: "Nhập kho", desc: "Ghi nhận hàng thành phẩm đầu vào" },
+  { href: "/inventory/outbound", icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>, label: "Xuất kho", desc: "Ghi nhận hàng thành phẩm đầu ra" },
+  { href: "/inventory/report", icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>, label: "Tồn kho hiện tại", desc: "Xem tồn kho thành phẩm" },
+  { href: "/inventory/stocktake", icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>, label: "Kiểm kê", desc: "Tạo phiếu kiểm kê kho" },
+  { href: "/inventory/phoi", icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.82 6.51a1 1 0 0 0 0 1.79l8.35 4.33a2 2 0 0 0 1.66 0l8.35-4.33a1 1 0 0 0 0-1.79Z"/><path d="m2 12.33 9.17 4.76a2 2 0 0 0 1.66 0l9.17-4.76"/><path d="m2 16.67 9.17 4.76a2 2 0 0 0 1.66 0l9.17-4.76"/></svg>, label: "Nhập phôi", desc: "Ghi nhận hàng phôi nguyên vật liệu" },
+  { href: "/products", icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>, label: "Mã hàng", desc: "Quản lý danh mục hàng" },
 ];
 
 export default function AppHome() {
@@ -78,10 +78,10 @@ export default function AppHome() {
   const deptLabel = profile ? (DEPT_LABELS[profile.department] ?? profile.department) : "";
 
   const statCards = [
-    { label: "Mã hàng đang hoạt động", value: stats?.products ?? "—", icon: "🏷️", color: "#2487C8" },
-    { label: "Khách hàng", value: stats?.customers ?? "—", icon: "🤝", color: "#16a34a" },
-    { label: "Phiếu nhập tháng này", value: stats?.inboundThisMonth ?? "—", icon: "📥", color: "#d97706" },
-    { label: "Phiếu xuất tháng này", value: stats?.outboundThisMonth ?? "—", icon: "📦", color: "#dc2626" },
+    { label: "Mã hàng đang hoạt động", value: stats?.products ?? "—", icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>, color: "var(--brand)" },
+    { label: "Khách hàng", value: stats?.customers ?? "—", icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, color: "var(--color-success)" },
+    { label: "Phiếu nhập tháng này", value: stats?.inboundThisMonth ?? "—", icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>, color: "#d97706" },
+    { label: "Phiếu xuất tháng này", value: stats?.outboundThisMonth ?? "—", icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>, color: "var(--color-danger)" },
   ];
 
   return (
@@ -120,7 +120,9 @@ export default function AppHome() {
             minHeight: 140
           }}>
             <div>
-              <div style={{ fontSize: 28, marginBottom: 12 }}>{card.icon}</div>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-all" style={{ background: `${card.color}15`, color: card.color, boxShadow: `0 4px 12px ${card.color}10` }}>
+                {card.icon}
+              </div>
               <div style={{ fontSize: 32, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.03em", lineHeight: 1 }}>
                 {loading ? <span style={{ color: "#cbd5e1" }}>—</span> : card.value}
               </div>
@@ -155,7 +157,9 @@ export default function AppHome() {
                   (e.currentTarget as HTMLDivElement).style.transform = "none";
                 }}
               >
-                <span style={{ fontSize: 24, flexShrink: 0 }}>{link.icon}</span>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-all" style={{ background: "var(--slate-100)", color: "var(--slate-600)" }}>
+                  {link.icon}
+                </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a", marginBottom: 2 }}>{link.label}</div>
                   <div style={{ fontSize: 12, color: "#64748b" }}>{link.desc}</div>
