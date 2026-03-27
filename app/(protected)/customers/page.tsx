@@ -460,8 +460,8 @@ export default function CustomersPage() {
     <div className="page-root">
       <div className="page-header">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center shadow-sm">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 22V4c0-.5.2-1 .6-1.4C7 2.2 7.5 2 8 2h8c.5 0 1 .2 1.4.6.4.4.6.9.6 1.4v18"/><path d="M6 18h12"/><path d="M10 22v-4"/><path d="M14 22v-4"/><path d="M9 6h2"/><path d="M13 6h2"/><path d="M9 10h2"/><path d="M13 10h2"/><path d="M9 14h2"/><path d="M13 14h2"/></svg>
+          <div className="w-10 h-10 rounded-xl bg-[#16a34a]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
+            🤝
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900 leading-tight">Khách hàng (Customers)</h1>
