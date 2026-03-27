@@ -38,7 +38,7 @@ function fmtDatetime(d: string | null): string {
   return d.replace("T", " ").slice(0, 19);
 }
 function fmtNum(n: number | null | undefined): string {
-  if (n == null) return "";
+  if (n == null) return "0";
   const parts = String(n).split(".");
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   return parts.join(".");
@@ -82,7 +82,7 @@ export default function PhoiPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  /* ---- filters ---- */
+  /* ---- global filters ---- */
   const [q, setQ] = useState("");
   const [qDate, setQDate] = useState("");
   const [qCustomer, setQCustomer] = useState("");
@@ -143,7 +143,7 @@ export default function PhoiPage() {
   }
   function addLine() { setLines(p => [...p, { key: nextKey(), productId: "", qty: "", unitCost: "" }]); }
   function removeLine(key: number) { setLines(p => p.length <= 1 ? p : p.filter(l => l.key !== key)); }
-  function updateLine(key: number, field: keyof Omit<FormLine, "key">, value: string) {
+  function updateLine(key: number, field: keyof FormLine, value: any) {
     setLines(prev => prev.map(l => l.key === key ? { ...l, [field]: value } : l));
   }
 
@@ -156,9 +156,9 @@ export default function PhoiPage() {
     const validLines = lines.filter(l => l.productId || l.qty);
     if (validLines.length === 0) { setError("Chưa có dòng nào."); return; }
     for (let i = 0; i < validLines.length; i++) {
-      const l = validLines[i];
-      if (!l.productId) { setError(`Dòng ${i + 1}: chưa chọn sản phẩm.`); return; }
-      if (!l.qty || Number(l.qty) <= 0) { setError(`Dòng ${i + 1}: số lượng phải > 0.`); return; }
+        const l = validLines[i];
+        if (!l.productId) { setError(`Dòng ${i + 1}: chưa chọn sản phẩm.`); return; }
+        if (!l.qty || Number(l.qty) <= 0) { setError(`Dòng ${i + 1}: số lượng phải > 0.`); return; }
     }
     setSaving(true);
     try {
@@ -263,40 +263,261 @@ export default function PhoiPage() {
   }
 
   /* ------------------------------------------------------------------ */
+  /* Column Filters                                                      */
+  /* ------------------------------------------------------------------ */
+  type TextFilter = { mode: "contains" | "equals"; value: string };
+  type NumFilter = { mode: "eq" | "gt" | "lt" | "range"; value: string; valueTo: string };
+  type DateFilter = { mode: "eq" | "before" | "after" | "range"; value: string; valueTo: string };
+  type ColFilter = TextFilter | NumFilter | DateFilter;
+  type SortDir = "asc" | "desc" | null;
+
+  function parseNum(s: string): number | null {
+    const v = Number(s.replace(/,/g, ""));
+    return isNaN(v) ? null : v;
+  }
+  function passesTextFilter(val: string, f: TextFilter): boolean {
+    if (!f.value) return true;
+    const v = f.value.toLowerCase();
+    if (f.mode === "contains") return val.toLowerCase().includes(v);
+    return val.toLowerCase() === v;
+  }
+  function passesNumFilter(val: number, f: NumFilter): boolean {
+    if (f.mode === "eq") { const n = parseNum(f.value); return n == null ? true : val === n; }
+    if (f.mode === "gt") { const n = parseNum(f.value); return n == null ? true : val > n; }
+    if (f.mode === "lt") { const n = parseNum(f.value); return n == null ? true : val < n; }
+    if (f.mode === "range") {
+      const lo = parseNum(f.value);
+      const hi = parseNum(f.valueTo);
+      if (lo != null && val < lo) return false;
+      if (hi != null && val > hi) return false;
+      return true;
+    }
+    return true;
+  }
+  function passesDateFilter(val: string | null, f: DateFilter): boolean {
+    if (!val) return false;
+    const dStr = val.substring(0, 10);
+    if (f.mode === "eq") return dStr === f.value;
+    if (f.mode === "before") return dStr < f.value;
+    if (f.mode === "after") return dStr > f.value;
+    if (f.mode === "range") {
+      if (f.value && dStr < f.value) return false;
+      if (f.valueTo && dStr > f.valueTo) return false;
+      return true;
+    }
+    return true;
+  }
+
+  const popupStyle: React.CSSProperties = {
+    position: "absolute", top: "100%", left: 0, zIndex: 100,
+    background: "white", border: "1px solid var(--slate-200)", borderRadius: 8,
+    padding: 12, minWidth: 220, boxShadow: "var(--shadow-lg)",
+  };
+
+  function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | null; onChange: (f: TextFilter | null) => void; onClose: () => void }) {
+    const [mode, setMode] = useState<TextFilter["mode"]>(filter?.mode ?? "contains");
+    const [val, setVal] = useState(filter?.value ?? "");
+    return (
+      <div style={popupStyle} onClick={e => e.stopPropagation()}>
+        <div className="font-bold text-xs uppercase mb-2 text-slate-500">Lọc văn bản</div>
+        <select value={mode} onChange={e => setMode(e.target.value as any)} className="input mb-2 w-full text-sm">
+          <option value="contains">Chứa</option>
+          <option value="equals">Bằng</option>
+        </select>
+        <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." className="input mb-3 w-full text-sm" autoFocus />
+        <div className="flex justify-end gap-2">
+          <button className="btn btn-ghost btn-sm" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+          <button className="btn btn-primary btn-sm" onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Áp dụng</button>
+        </div>
+      </div>
+    );
+  }
+
+  function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | null; onChange: (f: NumFilter | null) => void; onClose: () => void }) {
+    const [mode, setMode] = useState<NumFilter["mode"]>(filter?.mode ?? "eq");
+    const [v, setV] = useState(filter?.value ?? "");
+    const [vTo, setVTo] = useState(filter?.valueTo ?? "");
+    return (
+      <div style={popupStyle} onClick={e => e.stopPropagation()}>
+        <div className="font-bold text-xs uppercase mb-2 text-slate-500">Lọc số lượng</div>
+        <select value={mode} onChange={e => setMode(e.target.value as any)} className="input mb-2 w-full text-sm">
+          <option value="eq">Bằng</option>
+          <option value="gt">Lớn hơn</option>
+          <option value="lt">Nhỏ hơn</option>
+          <option value="range">Khoảng</option>
+        </select>
+        <input value={v} onChange={e => setV(e.target.value)} placeholder={mode === "range" ? "Từ" : "Giá trị"} className="input mb-2 w-full text-sm" autoFocus />
+        {mode === "range" && <input value={vTo} onChange={e => setVTo(e.target.value)} placeholder="Đến" className="input mb-2 w-full text-sm" />}
+        <div className="flex justify-end gap-2">
+          <button className="btn btn-ghost btn-sm" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+          <button className="btn btn-primary btn-sm" onClick={() => { onChange(v ? { mode, value: v, valueTo: vTo } : null); onClose(); }}>Áp dụng</button>
+        </div>
+      </div>
+    );
+  }
+
+  function DateFilterPopup({ filter, onChange, onClose }: { filter: DateFilter | null; onChange: (f: DateFilter | null) => void; onClose: () => void }) {
+    const [mode, setMode] = useState<DateFilter["mode"]>(filter?.mode ?? "eq");
+    const [v, setV] = useState(filter?.value ?? "");
+    const [vTo, setVTo] = useState(filter?.valueTo ?? "");
+    return (
+      <div style={popupStyle} onClick={e => e.stopPropagation()}>
+        <div className="font-bold text-xs uppercase mb-2 text-slate-500">Lọc ngày</div>
+        <select value={mode} onChange={e => setMode(e.target.value as any)} className="input mb-2 w-full text-sm">
+          <option value="eq">Bằng</option>
+          <option value="before">Trước</option>
+          <option value="after">Sau</option>
+          <option value="range">Khoảng</option>
+        </select>
+        <input type="date" value={v} onChange={e => setV(e.target.value)} className="input mb-2 w-full text-sm" autoFocus />
+        {mode === "range" && <input type="date" value={vTo} onChange={e => setVTo(e.target.value)} className="input mb-2 w-full text-sm" />}
+        <div className="flex justify-end gap-2">
+          <button className="btn btn-ghost btn-sm" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+          <button className="btn btn-primary btn-sm" onClick={() => { onChange(v ? { mode, value: v, valueTo: vTo } : null); onClose(); }}>Áp dụng</button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---- Filter State ---- */
+  const [colFilters, setColFilters] = useState<Record<string, ColFilter>>({});
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>(null);
+  const [openPopupId, setOpenPopupId] = useState<string | null>(null);
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (openPopupId && containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpenPopupId(null);
+      }
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [openPopupId]);
+
+  /* ------------------------------------------------------------------ */
   /* Filtered rows                                                       */
   /* ------------------------------------------------------------------ */
   const filtered = useMemo(() => {
-    let list = rows;
-    const s = q.trim().toLowerCase();
-    if (s) list = list.filter(r => r.product_name_snapshot.toLowerCase().includes(s) || skuFor(r).toLowerCase().includes(s));
+    let list = [...rows];
+
+    // Global filters
+    const sGlobal = q.trim().toLowerCase();
+    if (sGlobal) {
+      list = list.filter(r => r.product_name_snapshot.toLowerCase().includes(sGlobal) || skuFor(r).toLowerCase().includes(sGlobal));
+    }
     if (qDate) list = list.filter(r => r.tx_date.slice(0, 10) === qDate);
     if (qCustomer) list = list.filter(r => r.customer_id === qCustomer);
+
+    // Column filters
+    for (const [key, f] of Object.entries(colFilters)) {
+      list = list.filter(r => {
+        if (key === "tx_date") return passesDateFilter(r.tx_date, f as DateFilter);
+        if (key === "sku") return passesTextFilter(skuFor(r), f as TextFilter);
+        if (key === "name") return passesTextFilter(r.product_name_snapshot, f as TextFilter);
+        if (key === "spec") return passesTextFilter(r.product_spec_snapshot || "", f as TextFilter);
+        if (key === "customer") return passesTextFilter(customerLabel(r.customer_id), f as TextFilter);
+        if (key === "qty") return passesNumFilter(r.qty, f as NumFilter);
+        if (key === "cost") return passesNumFilter(r.unit_cost ?? 0, f as NumFilter);
+        if (key === "note") return passesTextFilter(r.note || "", f as TextFilter);
+        if (key === "createdAt") return passesDateFilter(r.created_at, f as DateFilter);
+        return true;
+      });
+    }
+
+    // Sort
+    if (sortCol && sortDir) {
+      const dir = sortDir === "asc" ? 1 : -1;
+      list.sort((a, b) => {
+        let va: any, vb: any;
+        if (sortCol === "tx_date") { va = a.tx_date; vb = b.tx_date; }
+        else if (sortCol === "sku") { va = skuFor(a); vb = skuFor(b); }
+        else if (sortCol === "name") { va = a.product_name_snapshot; vb = b.product_name_snapshot; }
+        else if (sortCol === "qty") { va = a.qty; vb = b.qty; }
+        else if (sortCol === "cost") { va = a.unit_cost ?? 0; vb = b.unit_cost ?? 0; }
+        else if (sortCol === "createdAt") { va = a.created_at; vb = b.created_at; }
+        else { va = (a as any)[sortCol] || ""; vb = (b as any)[sortCol] || ""; }
+
+        if (va < vb) return -1 * dir;
+        if (va > vb) return 1 * dir;
+        return 0;
+      });
+    }
+
     return list;
-  }, [rows, q, qDate, qCustomer, products]);
+  }, [rows, q, qDate, qCustomer, products, colFilters, sortCol, sortDir]);
+
+  /* ---- Table Header Cell Component ---- */
+  function ThCell({ label, colKey, sortable, colType, align, w, extra }: {
+    label: string; colKey: string; sortable: boolean; colType: "text" | "num" | "date";
+    align?: "left" | "right" | "center"; w?: string; extra?: React.CSSProperties;
+  }) {
+    const active = !!colFilters[colKey];
+    const isSortTarget = sortCol === colKey;
+    const baseStyle: React.CSSProperties = { textAlign: align || "left", position: "relative", whiteSpace: "nowrap", width: w, ...extra };
+    const popupOpen = openPopupId === colKey;
+
+    return (
+      <th style={baseStyle} className="group">
+        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+          <span className="text-slate-500 font-bold text-xs uppercase tracking-wider">{label}</span>
+          <div className="flex items-center gap-0.5">
+            {sortable && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isSortTarget) {
+                    if (sortDir === "asc") setSortDir("desc");
+                    else { setSortDir(null); setSortCol(null); }
+                  } else { setSortCol(colKey); setSortDir("asc"); }
+                }}
+                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
+                title="Sắp xếp"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
+              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+              title="Lọc dữ liệu"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            </button>
+          </div>
+        </div>
+        {popupOpen && (
+          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+            {colType === "text" && <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
+            {colType === "num" && <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
+            {colType === "date" && <DateFilterPopup filter={(colFilters[colKey] as DateFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
+          </div>
+        )}
+      </th>
+    );
+  }
 
   const allSelectableIds = filtered.map(r => r.id);
   const allChecked = allSelectableIds.length > 0 && allSelectableIds.every(id => selectedIds.has(id));
 
-  /* ------------------------------------------------------------------ */
-  /* Render                                                              */
-  /* ------------------------------------------------------------------ */
   function handleExportExcel() {
-    const data = filtered.map((r, i) => {
-      return {
-        "STT": i + 1,
-        "Ngày nhập": fmtDate(r.tx_date),
-        "Khách hàng": customerLabel(r.customer_id),
-        "Mã hàng (SKU)": skuFor(r),
-        "Tên hàng": r.product_name_snapshot,
-        "Kích thước": r.product_spec_snapshot ?? "",
-        "Số lượng": r.qty,
-        "Đơn giá": r.unit_cost ?? "",
-        "Ghi chú": r.note ?? "",
-        "Tạo lúc": fmtDatetime(r.created_at)
-      };
-    });
+    const data = filtered.map((r, i) => ({
+      "STT": i + 1,
+      "Ngày nhập": fmtDate(r.tx_date),
+      "Khách hàng": customerLabel(r.customer_id),
+      "Mã hàng (SKU)": skuFor(r),
+      "Tên hàng": r.product_name_snapshot,
+      "Kích thước": r.product_spec_snapshot ?? "",
+      "Số lượng": r.qty,
+      "Đơn giá": r.unit_cost ?? "",
+      "Ghi chú": r.note ?? "",
+      "Tạo lúc": fmtDatetime(r.created_at)
+    }));
     exportToExcel(data, `Lich_su_nhap_phoi_${new Date().toISOString().slice(0,10)}`, "Phoi");
   }
+
   if (loading) return <LoadingPage text="Đang tải dữ liệu nhập phôi..." />;
 
   const eSuggestions = eProductSearch.trim()
@@ -304,24 +525,31 @@ export default function PhoiPage() {
     : [];
 
   return (
-    <div className="page-root">
+    <div className="page-root" ref={containerRef}>
       {/* ── Header ── */}
       <div className="page-header">
-        <div>
-          <h1>Nhập phôi nguyên liệu</h1>
-          <p>
-            Tổng: <strong>{rows.length}</strong> phiếu · Đang hiển thị: <strong>{filtered.length}</strong>
-            {selectedIds.size > 0 && <span style={{ marginLeft: 8, color: "var(--slate-800)" }}>· Đã chọn: <strong>{selectedIds.size}</strong></span>}
-          </p>
+        <div className="flex items-center gap-4">
+          <div className="page-header-icon bg-brand/10 text-brand p-3 rounded-xl">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">Nhập phôi nguyên liệu</h1>
+            <p className="text-slate-500 text-sm">Quản lý và theo dõi lịch sử nhập phôi hàng hóa.</p>
+          </div>
         </div>
         <div className="toolbar" style={{ margin: 0 }}>
           {selectedIds.size > 0 && (
             <button onClick={bulkDelete} disabled={bulkDeleting} className="btn btn-danger">
+              <svg className="mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
               {bulkDeleting ? "Đang xóa..." : `Xóa ${selectedIds.size} đã chọn`}
             </button>
           )}
+          <button onClick={handleExportExcel} className="btn btn-outline border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+            <svg className="mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Xuất Excel
+          </button>
           {canCreateEdit && (
-            <button onClick={() => { resetCreateForm(); setShowCreate(!showCreate); }} className="btn btn-primary">
+            <button onClick={() => { resetCreateForm(); setShowCreate(!showCreate); }} className="btn btn-primary shadow-lg shadow-brand/20">
               {showCreate ? "✕ Đóng form" : "+ Thêm phiếu nhập"}
             </button>
           )}
@@ -332,82 +560,82 @@ export default function PhoiPage() {
 
       {/* ── Create form ── */}
       {showCreate && (
-        <div className="filter-panel" style={{ marginBottom: 24 }}>
-          <h3 className="modal-title" style={{ marginTop: 0 }}>Thêm phiếu nhập phôi</h3>
+        <div className="filter-panel animate-in fade-in slide-in-from-top-4 duration-300" style={{ marginBottom: 24, padding: 24, borderRadius: 16 }}>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 rounded-full bg-brand/10 text-brand flex items-center justify-center font-bold text-sm">1</div>
+            <h3 className="text-lg font-bold text-slate-800 m-0">Thêm phiếu nhập phôi mới</h3>
+          </div>
 
-          {/* Header fields */}
-          <div className="toolbar" style={{ margin: "0 0 16px 0", gap: 16 }}>
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: "0 0 180px" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Ngày nhập *</span>
-              <input type="date" value={hDate} onChange={e => setHDate(e.target.value)} className="input" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <label className="flex flex-col gap-2">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ngày nhập *</span>
+              <input type="date" value={hDate} onChange={e => setHDate(e.target.value)} className="input h-11" />
             </label>
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: "1 1 240px" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Khách hàng</span>
-              <select value={hCustomerId} onChange={e => setHCustomerId(e.target.value)} className="input">
+            <label className="flex flex-col gap-2">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Khách hàng</span>
+              <select value={hCustomerId} onChange={e => setHCustomerId(e.target.value)} className="input h-11">
                 <option value="">— Chọn KH (ghi đè theo dòng) —</option>
                 {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
               </select>
             </label>
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, flex: "2 1 300px" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Ghi chú phiếu</span>
-              <input value={hNote} onChange={e => setHNote(e.target.value)} placeholder="Ghi chú chung..." className="input" />
+            <label className="flex flex-col gap-2">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ghi chú phiếu</span>
+              <input value={hNote} onChange={e => setHNote(e.target.value)} placeholder="Ghi chú cho phiếu..." className="input h-11" />
             </label>
           </div>
 
-          {/* Lines table */}
-          <div className="data-table-wrap" style={{ marginBottom: 12 }}>
+          <div className="data-table-wrap mb-6" style={{ borderRadius: 12, border: "1px solid var(--slate-200)" }}>
             <table className="data-table" style={{ minWidth: 680 }}>
-              <thead>
+              <thead className="bg-slate-50">
                 <tr>
-                  {["#", "Sản phẩm *", "Số lượng *", "Đơn giá", ""].map((h, i) => (
-                    <th key={i}>{h}</th>
-                  ))}
+                  <th className="w-10 text-center">#</th>
+                  <th>Sản phẩm *</th>
+                  <th className="w-40 text-right">Số lượng *</th>
+                  <th className="w-48 text-right">Đơn giá</th>
+                  <th className="w-16 text-center"></th>
                 </tr>
               </thead>
               <tbody>
                 {lines.map((l, idx) => {
                   const lSuggestions = l.productSearch?.trim()
-                    ? products.filter(p => `${p.sku} ${p.name}`.toLowerCase().includes((l.productSearch ?? "").toLowerCase())).slice(0, 8)
+                    ? products.filter(p => `${p.sku} ${p.name}`.toLowerCase().includes(l.productSearch!.toLowerCase())).slice(0, 8)
                     : [];
                   return (
-                    <tr key={l.key}>
-                      <td style={{ color: "var(--slate-400)", fontSize: 12, width: 30 }}>{idx + 1}</td>
-                      <td style={{ minWidth: 280, position: "relative" }}>
+                    <tr key={l.key} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="text-center font-medium text-slate-400 text-sm">{idx + 1}</td>
+                      <td className="relative">
                         <input
                           value={l.productSearch ?? (products.find(p => p.id === l.productId) ? `${products.find(p => p.id === l.productId)!.sku} - ${products.find(p => p.id === l.productId)!.name}` : "")}
                           onChange={e => updateLine(l.key, "productSearch", e.target.value)}
-                          onFocus={() => updateLine(l.key, "showSuggestions", "true")}
-                          onBlur={() => setTimeout(() => updateLine(l.key, "showSuggestions", ""), 150)}
-                          placeholder="Tìm SKU hoặc tên SP..."
-                          className="input"
-                          style={{ width: "100%" }}
+                          onFocus={() => updateLine(l.key, "showSuggestions", true)}
+                          onBlur={() => setTimeout(() => updateLine(l.key, "showSuggestions", false), 150)}
+                          placeholder="Tìm SKU hoặc tên hàng..."
+                          className="input w-full bg-slate-50 focus:bg-white border-transparent focus:border-brand"
                         />
                         {l.showSuggestions && lSuggestions.length > 0 && (
-                          <div style={{ position: "absolute", left: 0, right: 0, zIndex: 100, background: "white", border: "1px solid var(--slate-200)", borderRadius: 8, boxShadow: "var(--shadow-lg)", maxHeight: 220, overflowY: "auto", marginTop: 4 }}>
+                          <div className="absolute left-0 right-0 z-[100] mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-[300px] overflow-y-auto">
                             {lSuggestions.map(p => (
                               <div key={p.id} onMouseDown={() => {
                                 updateLine(l.key, "productId", p.id);
                                 updateLine(l.key, "productSearch", `${p.sku} - ${p.name}`);
-                                updateLine(l.key, "showSuggestions", "");
+                                updateLine(l.key, "showSuggestions", false);
                                 if (p.unit_price != null) updateLine(l.key, "unitCost", String(p.unit_price));
-                              }}
-                                style={{ padding: "10px 12px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid var(--slate-100)" }}
-                                className="suggestion-item"
-                              >
-                                <strong>{p.sku}</strong> · {p.name} {p.spec ? `· ${p.spec}` : ""}
+                              }} className="p-3 cursor-pointer hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors">
+                                <div className="font-bold text-brand">{p.sku}</div>
+                                <div className="text-sm text-slate-600">{p.name} {p.spec ? `· ${p.spec}` : ""}</div>
                               </div>
                             ))}
                           </div>
                         )}
                       </td>
-                      <td style={{ width: 120 }}>
-                        <input type="number" value={l.qty} onChange={e => updateLine(l.key, "qty", e.target.value)} min="0" className="input" style={{ width: "100%" }} placeholder="Số lượng" />
+                      <td>
+                        <input type="number" value={l.qty} onChange={e => updateLine(l.key, "qty", e.target.value)} className="input w-full text-right font-bold h-10 border-transparent bg-slate-50 focus:bg-white focus:border-brand" placeholder="0" />
                       </td>
-                      <td style={{ width: 140 }}>
-                        <input type="number" value={l.unitCost} onChange={e => updateLine(l.key, "unitCost", e.target.value)} min="0" className="input" style={{ width: "100%" }} placeholder="Đơn giá" />
+                      <td>
+                        <input type="number" value={l.unitCost} onChange={e => updateLine(l.key, "unitCost", e.target.value)} className="input w-full text-right h-10 border-transparent bg-slate-50 focus:bg-white focus:border-brand" placeholder="Đơn giá" />
                       </td>
-                      <td style={{ width: 40, textAlign: "center" }}>
-                        <button onClick={() => removeLine(l.key)} className="btn btn-ghost btn-sm" style={{ color: "var(--color-danger)" }} title="Xóa dòng">✕</button>
+                      <td className="text-center">
+                        <button onClick={() => removeLine(l.key)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">✕</button>
                       </td>
                     </tr>
                   );
@@ -416,149 +644,160 @@ export default function PhoiPage() {
             </table>
           </div>
 
-          <div className="toolbar" style={{ margin: 0, gap: 12 }}>
-            <button onClick={addLine} className="btn btn-secondary">+ Thêm dòng</button>
-            <button onClick={saveMulti} disabled={saving} className="btn btn-primary">
-              {saving ? "Đang lưu..." : "💾 Lưu phiếu nhập"}
+          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl">
+            <button onClick={addLine} className="btn btn-outline border-slate-300 bg-white">
+              + Thêm dòng sản phẩm
             </button>
-            <button onClick={() => setShowCreate(false)} className="btn btn-ghost">Hủy</button>
+            <div className="flex gap-3">
+              <button onClick={() => setShowCreate(false)} className="btn btn-ghost">Hủy bỏ</button>
+              <button onClick={saveMulti} disabled={saving} className="btn btn-primary px-8 shadow-lg shadow-brand/20">
+                {saving ? "Đang lưu..." : "💾 Xác nhận & Lưu phiếu"}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* ── Filters ── */}
-      <div className="filter-panel toolbar" style={{ marginBottom: 16 }}>
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm SKU / tên hàng..." className="input" style={{ minWidth: 260 }} />
-        <input type="date" value={qDate} onChange={e => setQDate(e.target.value)} className="input" />
-        <select value={qCustomer} onChange={e => setQCustomer(e.target.value)} className="input">
-          <option value="">Tất cả KH</option>
-          {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
-        </select>
-        {(q || qDate || qCustomer) && (
-          <button onClick={() => { setQ(""); setQDate(""); setQCustomer(""); }} className="btn btn-clear-filter">✕ Xóa lọc</button>
+      <div className="filter-panel p-4 rounded-2xl mb-6 flex flex-wrap gap-4 items-end bg-slate-50/50">
+        <div className="flex-1 min-w-[280px]">
+          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-1 block">Tìm kiếm chung</label>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Mã SKU hoặc tên sản phẩm..." className="input h-11 w-full bg-white border-slate-200" />
+        </div>
+        <div className="w-48">
+          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-1 block">Ngày nhập</label>
+          <input type="date" value={qDate} onChange={e => setQDate(e.target.value)} className="input h-11 w-full bg-white border-slate-200" />
+        </div>
+        <div className="w-64">
+          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-1 block">Khách hàng</label>
+          <select value={qCustomer} onChange={e => setQCustomer(e.target.value)} className="input h-11 w-full bg-white border-slate-200">
+            <option value="">Tất cả khách hàng</option>
+            {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+          </select>
+        </div>
+        {(q || qDate || qCustomer || Object.keys(colFilters).length > 0) && (
+          <button onClick={() => { setQ(""); setQDate(""); setQCustomer(""); setColFilters({}); setSortCol(null); setSortDir(null); }} className="btn btn-ghost text-red-500 h-11">✕ Xóa lọc</button>
         )}
-        <button onClick={load} className="btn btn-secondary" style={{ marginLeft: "auto" }}>Làm mới</button>
-        <button onClick={handleExportExcel} className="btn btn-secondary">📋 Xuất Excel</button>
+        <button onClick={load} className="btn btn-secondary h-11 border-slate-200" title="Làm mới">Refresh</button>
       </div>
 
       {/* ── Table ── */}
-      <div className="data-table-wrap" ref={containerRef}>
-        <table className="data-table" style={{ minWidth: 840 }}>
+      <div className="data-table-wrap overflow-visible shadow-xl rounded-2xl border-slate-200/60">
+        <table className="data-table" style={{ minWidth: 1000 }}>
           <thead>
             <tr>
-              <th style={{ width: 40, textAlign: "center" }}>
+              <th className="w-12 text-center">
                 <input type="checkbox" checked={allChecked}
                   ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && !allChecked; }}
-                  onChange={e => setSelectedIds(e.target.checked ? new Set(allSelectableIds) : new Set())} />
+                  onChange={e => setSelectedIds(e.target.checked ? new Set(allSelectableIds) : new Set())}
+                  className="rounded border-slate-300 text-brand focus:ring-brand" />
               </th>
-              <th>Ngày nhập</th>
-              <th>SKU</th>
-              <th>Tên hàng</th>
-              <th>Spec</th>
-              <th>Khách hàng</th>
-              <th style={{ textAlign: "right" }}>SL</th>
-              <th style={{ textAlign: "right" }}>Đơn giá</th>
-              <th>Ghi chú</th>
-              <th>Ngày tạo</th>
-              <th style={{ textAlign: "center" }}>Hành động</th>
+              <ThCell label="Ngày nhập" colKey="tx_date" sortable colType="date" w="140px" />
+              <ThCell label="Mã hàng (SKU)" colKey="sku" sortable colType="text" w="150px" />
+              <ThCell label="Tên sản phẩm" colKey="name" sortable colType="text" />
+              <ThCell label="Quy cách" colKey="spec" sortable colType="text" w="140px" />
+              <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="180px" />
+              <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" w="120px" />
+              <ThCell label="Đơn giá" colKey="cost" sortable colType="num" align="right" w="140px" />
+              <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="180px" />
+              <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="160px" />
+              <th className="w-24"></th>
             </tr>
           </thead>
           <tbody>
             {filtered.map(r => (
-              <Fragment key={r.id}>
-                <tr>
-                  <td style={{ textAlign: "center" }}>
-                    <input type="checkbox" checked={selectedIds.has(r.id)}
-                      onChange={() => setSelectedIds(prev => { const s = new Set(prev); s.has(r.id) ? s.delete(r.id) : s.add(r.id); return s; })} />
-                  </td>
-                  <td style={{ whiteSpace: "nowrap" }}>{fmtDate(r.tx_date)}</td>
-                  <td style={{ fontWeight: 600 }}>{skuFor(r)}</td>
-                  <td>{r.product_name_snapshot}</td>
-                  <td style={{ color: "#64748b" }}>{r.product_spec_snapshot ?? "—"}</td>
-                  <td>{customerLabel(r.customer_id)}</td>
-                  <td style={{ textAlign: "right", fontWeight: 600 }}>{fmtNum(r.qty)}</td>
-                  <td style={{ textAlign: "right" }}>{r.unit_cost != null ? fmtNum(r.unit_cost) : "—"}</td>
-                  <td style={{ color: "#64748b", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.note ?? "—"}</td>
-                  <td style={{ color: "#94a3b8", fontSize: 12, whiteSpace: "nowrap" }}>{mounted ? fmtDatetime(r.created_at) : "..."}</td>
-                  <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                      {canCreateEdit && (
-                        <button onClick={() => openEdit(r)} className="btn btn-secondary btn-sm">Sửa</button>
-                      )}
-                      {canDelete && (
-                        <button onClick={() => del(r)} className="btn btn-danger btn-sm">Xóa</button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              </Fragment>
+              <tr key={r.id} className="hover:bg-indigo-50/30 transition-colors group">
+                <td className="text-center">
+                  <input type="checkbox" checked={selectedIds.has(r.id)}
+                    onChange={() => setSelectedIds(prev => { const s = new Set(prev); s.has(r.id) ? s.delete(r.id) : s.add(r.id); return s; })}
+                    className="rounded border-slate-300 text-brand focus:ring-brand" />
+                </td>
+                <td className="font-medium text-slate-600">{fmtDate(r.tx_date)}</td>
+                <td className="font-bold text-brand uppercase">{skuFor(r)}</td>
+                <td className="font-semibold text-slate-700">{r.product_name_snapshot}</td>
+                <td className="text-slate-500 italic text-sm">{r.product_spec_snapshot ?? "—"}</td>
+                <td className="text-slate-600">{customerLabel(r.customer_id)}</td>
+                <td className="text-right font-black text-slate-800">{fmtNum(r.qty)}</td>
+                <td className="text-right font-medium text-slate-600">{r.unit_cost != null ? fmtNum(r.unit_cost) : "—"}</td>
+                <td className="text-slate-400 text-sm italic truncate" style={{ maxWidth: 180 }} title={r.note ?? ""}>{r.note ?? "—"}</td>
+                <td className="text-[11px] text-slate-400 font-medium">{mounted ? fmtDatetime(r.created_at) : "..."}</td>
+                <td className="text-center">
+                  <div className="flex gap-1 justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    {canCreateEdit && <button onClick={() => openEdit(r)} className="p-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Sửa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>}
+                    {canDelete && <button onClick={() => del(r)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Xóa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>}
+                  </div>
+                </td>
+              </tr>
             ))}
-            {filtered.length === 0 && (
-              <tr><td colSpan={11} style={{ padding: "32px 24px", textAlign: "center", color: "#94a3b8" }}>
-                {rows.length === 0 ? "Chưa có phiếu nhập phôi nào." : "Không tìm thấy dữ liệu khớp bộ lọc."}
-              </td></tr>
-            )}
           </tbody>
         </table>
       </div>
 
-      {/* ── Edit modal ── */}
+      {/* ── Edit Modal ── */}
       {editOpen && editing && (
-        <div className="modal-overlay" onClick={() => setEditOpen(false)}>
-          <div className="modal-box" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
-            <h2 className="modal-title">Sửa phiếu nhập phôi</h2>
-
-            <div style={{ display: "flex", gap: 12, flexDirection: "column" }}>
-              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Ngày nhập *</span>
-                <input type="date" value={eDate} onChange={e => setEDate(e.target.value)} className="input" />
-              </label>
-              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Khách hàng</span>
-                <select value={eCustomerId} onChange={e => setECustomerId(e.target.value)} className="input">
-                  <option value="">— Không liên kết —</option>
-                  {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
-                </select>
-              </label>
-              <label style={{ display: "flex", flexDirection: "column", gap: 6, position: "relative" }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Sản phẩm *</span>
-                <input value={eProductSearch}
-                  onChange={e => { setEProductSearch(e.target.value); setEShowSuggestions(true); }}
-                  onFocus={() => setEShowSuggestions(true)}
-                  onBlur={() => setTimeout(() => setEShowSuggestions(false), 150)}
-                  placeholder="Tìm SKU hoặc tên SP..."
-                  className="input" />
-                {eShowSuggestions && eSuggestions.length > 0 && (
-                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "white", border: "1px solid var(--slate-200)", borderRadius: 8, boxShadow: "var(--shadow-lg)", maxHeight: 200, overflowY: "auto", marginTop: 4 }}>
-                    {eSuggestions.map(p => (
-                      <div key={p.id} onMouseDown={() => { setEProductId(p.id); setEProductSearch(`${p.sku} - ${p.name}`); setEShowSuggestions(false); if (p.unit_price != null) setECost(String(p.unit_price)); }}
-                        style={{ padding: "10px 12px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid var(--slate-100)" }}
-                        className="suggestion-item">
-                        <strong>{p.sku}</strong> · {p.name}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </label>
-              <div style={{ display: "flex", gap: 12 }}>
-                <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Số lượng *</span>
-                  <input type="number" value={eQty} onChange={e => setEQty(e.target.value)} min="0" className="input" />
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setEditOpen(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-brand p-6 text-white flex justify-between items-center">
+              <h3 className="text-xl font-bold m-0">Chỉnh sửa phiếu nhập</h3>
+              <button onClick={() => setEditOpen(false)} className="text-white/60 hover:text-white">✕</button>
+            </div>
+            <div className="p-8 space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <label className="flex flex-col gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Ngày nhập</span>
+                  <input type="date" value={eDate} onChange={e => setEDate(e.target.value)} className="input h-11" />
                 </label>
-                <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Đơn giá</span>
-                  <input type="number" value={eCost} onChange={e => setECost(e.target.value)} min="0" className="input" />
+                <label className="flex flex-col gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Khách hàng</span>
+                  <select value={eCustomerId} onChange={e => setECustomerId(e.target.value)} className="input h-11">
+                    <option value="">— Chọn KH —</option>
+                    {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+                  </select>
                 </label>
               </div>
-              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--slate-700)" }}>Ghi chú</span>
-                <input value={eNote} onChange={e => setENote(e.target.value)} className="input" />
-              </label>
-            </div>
 
-            <div className="modal-footer">
-              <button onClick={() => setEditOpen(false)} className="btn btn-secondary">Hủy</button>
-              <button onClick={saveEdit} className="btn btn-primary">Lưu chỉnh sửa</button>
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Sản phẩm</span>
+                <div className="relative">
+                  <input
+                    value={eProductSearch}
+                    onChange={e => { setEProductSearch(e.target.value); setEShowSuggestions(true); }}
+                    onFocus={() => setEShowSuggestions(true)}
+                    className="input h-11 w-full font-bold"
+                  />
+                  {eShowSuggestions && eSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 z-[100] mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-[220px] overflow-y-auto">
+                      {eSuggestions.map(p => (
+                        <div key={p.id} onClick={() => { setEProductId(p.id); setEProductSearch(`${p.sku} - ${p.name}`); setEShowSuggestions(false); if (p.unit_price) setECost(String(p.unit_price)) }} className="p-3 cursor-pointer hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                          <div className="font-bold text-brand">{p.sku}</div>
+                          <div className="text-sm text-slate-600">{p.name}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <label className="flex flex-col gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Số lượng</span>
+                  <input type="number" value={eQty} onChange={e => setEQty(e.target.value)} className="input h-11 font-black" />
+                </label>
+                <label className="flex flex-col gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Đơn giá</span>
+                  <input type="number" value={eCost} onChange={e => setECost(e.target.value)} className="input h-11" />
+                </label>
+              </div>
+
+              <label className="flex flex-col gap-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Ghi chú</span>
+                <input value={eNote} onChange={e => setENote(e.target.value)} className="input h-11" />
+              </label>
+
+              <div className="pt-4 flex gap-3">
+                <button onClick={() => setEditOpen(false)} className="btn btn-ghost flex-1">Hủy</button>
+                <button onClick={saveEdit} className="btn btn-primary flex-[2] h-12 shadow-lg shadow-brand/20">💾 Lưu thay đổi</button>
+              </div>
             </div>
           </div>
         </div>

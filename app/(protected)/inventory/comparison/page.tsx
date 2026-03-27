@@ -357,12 +357,34 @@ export default function InventoryComparisonPage() {
   function ThCellCust({ label, colKey, sortable, colType, align, w }: { label: string; colKey: string; sortable: boolean; colType: "text" | "num"; align?: "left" | "right" | "center"; w?: string }) {
     const active = !!colFiltersCust[colKey], isSortTarget = sortColCust === colKey, popupOpen = openPopupId === colKey;
     return (
-      <th style={{ ...thStyle, textAlign: align || "left", position: "relative", width: w }}>
+      <th style={{ ...thStyle, textAlign: align || "left", position: "relative", width: w }} className="group">
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
           <span className="text-slate-500 font-bold text-[10px] uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
-            {sortable && <button onClick={e => { e.stopPropagation(); if (isSortTarget) { if (sortDirCust === "asc") setSortDirCust("desc"); else { setSortDirCust(null); setSortColCust(null); } } else { setSortColCust(colKey); setSortDirCust("asc"); } }} className={`p-1 hover:bg-slate-200 rounded ${isSortTarget ? "text-brand bg-brand/5" : "text-slate-300"}`}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">{isSortTarget && sortDirCust === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDirCust === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}</svg></button>}
-            <button onClick={e => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }} className={`p-1 hover:bg-slate-200 rounded ${active ? "bg-brand text-white shadow-sm" : "text-slate-300"}`}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
+            {sortable && (
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  if (isSortTarget) {
+                    if (sortDirCust === "asc") setSortDirCust("desc");
+                    else { setSortDirCust(null); setSortColCust(null); }
+                  } else { setSortColCust(colKey); setSortDirCust("asc"); }
+                }}
+                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
+                title="Sắp xếp"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  {isSortTarget && sortDirCust === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDirCust === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={e => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
+              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+              title="Lọc dữ liệu"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            </button>
           </div>
         </div>
         {popupOpen && (colType === "text" ? <TextFilterPopup filter={(colFiltersCust[colKey] as TextFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : <NumFilterPopup filter={(colFiltersCust[colKey] as NumFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />)}
@@ -373,12 +395,34 @@ export default function InventoryComparisonPage() {
   function ThCellProd({ label, colKey, sortable, colType, align, w }: { label: string; colKey: string; sortable: boolean; colType: "text" | "num"; align?: "left" | "right" | "center"; w?: string }) {
     const active = !!colFiltersProd[colKey], isSortTarget = sortColProd === colKey, popupOpen = openPopupId === colKey + "-p";
     return (
-      <th style={{ ...thStyle, textAlign: align || "left", position: "relative", width: w }}>
+      <th style={{ ...thStyle, textAlign: align || "left", position: "relative", width: w }} className="group">
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
           <span className="text-slate-500 font-bold text-[10px] uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
-            {sortable && <button onClick={e => { e.stopPropagation(); if (isSortTarget) { if (sortDirProd === "asc") setSortDirProd("desc"); else { setSortDirProd(null); setSortColProd(null); } } else { setSortColProd(colKey); setSortDirProd("asc"); } }} className={`p-1 hover:bg-slate-200 rounded ${isSortTarget ? "text-brand bg-brand/5" : "text-slate-300"}`}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">{isSortTarget && sortDirProd === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDirProd === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}</svg></button>}
-            <button onClick={e => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey + "-p"); }} className={`p-1 hover:bg-slate-200 rounded ${active ? "bg-brand text-white shadow-sm" : "text-slate-300"}`}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
+            {sortable && (
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  if (isSortTarget) {
+                    if (sortDirProd === "asc") setSortDirProd("desc");
+                    else { setSortDirProd(null); setSortColProd(null); }
+                  } else { setSortColProd(colKey); setSortDirProd("asc"); }
+                }}
+                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
+                title="Sắp xếp"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  {isSortTarget && sortDirProd === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDirProd === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={e => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey + "-p"); }}
+              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+              title="Lọc dữ liệu"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            </button>
           </div>
         </div>
         {popupOpen && (colType === "text" ? <TextFilterPopup filter={(colFiltersProd[colKey] as TextFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : <NumFilterPopup filter={(colFiltersProd[colKey] as NumFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />)}

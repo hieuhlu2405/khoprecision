@@ -407,62 +407,61 @@ export default function InventoryReportPage() {
   /* ---- Header cell renderer with filter + sort ---- */
   const hasActiveFilter = (key: string) => !!colFilters[key];
 
-  function SortIcon({ col }: { col: SortableCol }) {
-    const active = sortCol === col;
-    return (
-      <span
-        onClick={(e) => { e.stopPropagation(); toggleSort(col); }}
-        style={{ cursor: "pointer", marginLeft: 2, fontSize: 10, opacity: active ? 1 : 0.35, userSelect: "none" }}
-        title="Sắp xếp"
-      >
-        {active && sortDir === "asc" ? "▲" : active && sortDir === "desc" ? "▼" : "⇅"}
-      </span>
-    );
-  }
-
-  function FilterBtn({ colKey }: { colKey: string }) {
-    const active = hasActiveFilter(colKey);
-    return (
-      <span
-        onClick={(e) => { e.stopPropagation(); setOpenPopup(openPopup === colKey ? null : colKey); }}
-        style={{
-          cursor: "pointer", marginLeft: 3, fontSize: 11, display: "inline-block",
-          width: 16, height: 16, lineHeight: "16px", textAlign: "center", borderRadius: 3,
-          background: active ? "#0f172a" : "#e2e8f0", color: active ? "white" : "#475569",
-          userSelect: "none", verticalAlign: "middle",
-        }}
-        title="Lọc cột"
-      >
-        ▾
-      </span>
-    );
-  }
+  /* ---- Column filter active count badge ---- */
+  const activeFilterCount = Object.keys(colFilters).length;
 
   function ThCell({ label, colKey, sortable, isNum, align, extra }: {
     label: string; colKey: string; sortable: boolean; isNum: boolean;
     align?: "left" | "right" | "center"; extra?: React.CSSProperties;
   }) {
+    const active = !!colFilters[colKey];
+    const isSortTarget = sortCol === colKey;
+    const popupOpen = openPopup === colKey;
     const baseStyle: React.CSSProperties = {
       textAlign: align || "left", border: "1px solid #ddd", padding: "10px 8px",
       background: "#f8fafc", whiteSpace: "nowrap", borderBottom: "2px solid #ddd",
       position: "relative", ...extra,
     };
+
     return (
-      <th style={baseStyle}>
-        <span>{label}</span>
-        {sortable && <SortIcon col={colKey as SortableCol} />}
-        <FilterBtn colKey={colKey} />
-        {openPopup === colKey && (
-          isNum
-            ? <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />
-            : <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />
+      <th style={baseStyle} className="group">
+        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+          <span className="text-slate-500 font-bold text-xs uppercase tracking-wider">{label}</span>
+          <div className="flex items-center gap-0.5">
+            {sortable && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleSort(colKey as SortableCol);
+                }}
+                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
+                title="Sắp xếp"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setOpenPopup(popupOpen ? null : colKey); }}
+              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+              title="Lọc cột"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            </button>
+          </div>
+        </div>
+        {popupOpen && (
+          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+            {isNum
+              ? <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />
+              : <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />
+            }
+          </div>
         )}
       </th>
     );
   }
-
-  /* ---- Column filter active count badge ---- */
-  const activeFilterCount = Object.keys(colFilters).length;
 
   /* ---- Close Report Action ---- */
   const [closing, setClosing] = useState(false);

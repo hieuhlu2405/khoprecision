@@ -949,30 +949,34 @@ export default function InventoryValueReportPage() {
     const isSortTarget = sortColCust === colKey;
     const popupOpen = openPopupId === `cust-${colKey}`;
     return (
-      <th style={{ ...thStyle, textAlign: align || "left", ...extra }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: align === "right" ? "flex-end" : "flex-start", gap: 4 }}>
-          <span>{label}</span>
-          <div style={{ display: "flex", alignItems: "center" }}>
+      <th style={{ ...thStyle, textAlign: align || "left", position: "relative", ...extra }} className="group">
+        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+          <span className="text-slate-500 font-bold text-xs uppercase tracking-wider">{label}</span>
+          <div className="flex items-center gap-0.5">
             {sortable && (
-              <span 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  if (isSortTarget) { 
-                    if (sortDirCust === "asc") setSortDirCust("desc"); 
-                    else { setSortDirCust(null); setSortColCust(null); } 
-                  } else { setSortColCust(colKey); setSortDirCust("asc"); } 
-                }} 
-                style={{ cursor: "pointer", fontSize: 10, opacity: isSortTarget ? 1 : 0.3 }}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isSortTarget) {
+                    if (sortDirCust === "asc") setSortDirCust("desc");
+                    else { setSortDirCust(null); setSortColCust(null); }
+                  } else { setSortColCust(colKey); setSortDirCust("asc"); }
+                }}
+                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
+                title="Sắp xếp"
               >
-                {isSortTarget && sortDirCust === "asc" ? "▲" : isSortTarget && sortDirCust === "desc" ? "▼" : "⇅"}
-              </span>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  {isSortTarget && sortDirCust === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDirCust === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
+                </svg>
+              </button>
             )}
-            <span 
-              onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : `cust-${colKey}`); }} 
-              style={{ cursor: "pointer", marginLeft: 4, fontSize: 11, color: active ? "var(--brand)" : "var(--slate-400)" }}
+            <button
+              onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : `cust-${colKey}`); }}
+              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+              title="Lọc dữ liệu"
             >
-              %{active ? " (filtered)" : ""}▾
-            </span>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            </button>
           </div>
         </div>
         {popupOpen && (
@@ -989,30 +993,34 @@ export default function InventoryValueReportPage() {
     const isSortTarget = sortColProd === colKey;
     const popupOpen = openPopupId === `prod-${colKey}`;
     return (
-      <th style={{ ...thStyle, textAlign: align || "left", ...extra }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: align === "right" ? "flex-end" : "flex-start", gap: 4 }}>
-          <span>{label}</span>
-          <div style={{ display: "flex", alignItems: "center" }}>
+      <th style={{ ...thStyle, textAlign: align || "left", position: "relative", ...extra }} className="group">
+        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+          <span className="text-slate-500 font-bold text-xs uppercase tracking-wider">{label}</span>
+          <div className="flex items-center gap-0.5">
             {sortable && (
-              <span 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  if (isSortTarget) { 
-                    if (sortDirProd === "asc") setSortDirProd("desc"); 
-                    else { setSortDirProd(null); setSortColProd(null); } 
-                  } else { setSortColProd(colKey); setSortDirProd("asc"); } 
-                }} 
-                style={{ cursor: "pointer", fontSize: 10, opacity: isSortTarget ? 1 : 0.3 }}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isSortTarget) {
+                    if (sortDirProd === "asc") setSortDirProd("desc");
+                    else { setSortDirProd(null); setSortColProd(null); }
+                  } else { setSortColProd(colKey); setSortDirProd("asc"); }
+                }}
+                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
+                title="Sắp xếp"
               >
-                {isSortTarget && sortDirProd === "asc" ? "▲" : isSortTarget && sortDirProd === "desc" ? "▼" : "⇅"}
-              </span>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  {isSortTarget && sortDirProd === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDirProd === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
+                </svg>
+              </button>
             )}
-            <span 
-              onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : `prod-${colKey}`); }} 
-              style={{ cursor: "pointer", marginLeft: 4, fontSize: 11, color: active ? "var(--brand)" : "var(--slate-400)" }}
+            <button
+              onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : `prod-${colKey}`); }}
+              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+              title="Lọc dữ liệu"
             >
-              %{active ? " (filtered)" : ""}▾
-            </span>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            </button>
           </div>
         </div>
         {popupOpen && (
