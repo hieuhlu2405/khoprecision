@@ -204,6 +204,31 @@ export default function InventoryOpeningBalancesPage() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  /* ---- Column resizing ---- */
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("inventory_opening_col_widths");
+        const parsed = saved ? JSON.parse(saved) : {};
+        return (parsed && typeof parsed === "object") ? parsed : {};
+      } catch (e) {
+        console.error("Failed to parse colWidths", e);
+        return {};
+      }
+    }
+    return {};
+  });
+
+  const onResize = (key: string, width: number) => {
+    setColWidths(prev => {
+      const next = { ...prev, [key]: width };
+      if (typeof window !== "undefined") {
+        localStorage.setItem("inventory_opening_col_widths", JSON.stringify(next));
+      }
+      return next;
+    });
+  };
+
   useEffect(() => {
     setMounted(true);
     checkAuth();
@@ -892,32 +917,6 @@ export default function InventoryOpeningBalancesPage() {
       )}
     </div>
   );
-
-  /* ---- Column resizing ---- */
-  /* ---- Column resizing ---- */
-  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("inventory_opening_col_widths");
-        const parsed = saved ? JSON.parse(saved) : {};
-        return (parsed && typeof parsed === "object") ? parsed : {};
-      } catch (e) {
-        console.error("Failed to parse colWidths", e);
-        return {};
-      }
-    }
-    return {};
-  });
-
-  const onResize = (key: string, width: number) => {
-    setColWidths(prev => {
-      const next = { ...prev, [key]: width };
-      if (typeof window !== "undefined") {
-        localStorage.setItem("inventory_opening_col_widths", JSON.stringify(next));
-      }
-      return next;
-    });
-  };
 
   /* ---- Table Header Cell Component (Defined inside for state access) ---- */
   function ThCell({ label, colKey, sortable, colType, align, w, extra }: {

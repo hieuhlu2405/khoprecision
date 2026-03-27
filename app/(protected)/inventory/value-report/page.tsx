@@ -216,29 +216,17 @@ function SummaryCard({ title, v1, v2, diff, bg, accent, icon, unit = "đ" }: { t
   );
 }
 
-  /* ---- Column resizing ---- */
-  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("inventory_value_report_col_widths");
-      return saved ? JSON.parse(saved) : {};
-    }
-    return {};
-  });
+/* ------------------------------------------------------------------ */
+/* Shared components                                                   */
+/* ------------------------------------------------------------------ */
 
-  const onResize = (key: string, width: number) => {
-    setColWidths(prev => {
-      const next = { ...prev, [key]: width };
-      localStorage.setItem("inventory_value_report_col_widths", JSON.stringify(next));
-      return next;
-    });
-  };
+const thStyle: React.CSSProperties = { padding: "10px 12px", border: "1px solid #ddd", fontSize: 13, fontWeight: 600, background: "#f8fafc", whiteSpace: "nowrap", position: "relative" };
 
-  const thStyle: React.CSSProperties = { padding: "10px 12px", border: "1px solid #ddd", fontSize: 13, fontWeight: 600, background: "#f8fafc", whiteSpace: "nowrap", position: "relative" };
-
-  function ThCell({ label, colKey, sortable, isNum, align, active, isSortTarget, sortDir, onSort, onOpenFilter, w }: {
+function ThCell({ label, colKey, sortable, isNum, align, active, isSortTarget, sortDir, onSort, onOpenFilter, w, colWidths, onResize }: {
     label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left" | "right" | "center";
     active: boolean; isSortTarget: boolean; sortDir: SortDir;
     onSort: (key: string) => void; onOpenFilter: (key: string) => void; w?: string;
+    colWidths: Record<string, number>; onResize: (key: string, width: number) => void;
   }) {
     const width = colWidths[colKey] || (w ? parseInt(w) : undefined);
     const thRef = useRef<HTMLTableCellElement>(null);
@@ -766,6 +754,31 @@ export default function InventoryValueReportPage() {
   const [sortColProd, setSortColProd] = useState<string | null>(null);
   const [sortDirProd, setSortDirProd] = useState<SortDir>(null);
   const [openPopupId, setOpenPopupId] = useState<string | null>(null);
+
+  /* ---- Column resizing ---- */
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("inventory_value_report_col_widths");
+        const parsed = saved ? JSON.parse(saved) : {};
+        return (parsed && typeof parsed === "object") ? parsed : {};
+      } catch (e) {
+        console.error("Failed to parse colWidths", e);
+        return {};
+      }
+    }
+    return {};
+  });
+
+  const onResize = (key: string, width: number) => {
+    setColWidths(prev => {
+      const next = { ...prev, [key]: width };
+      if (typeof window !== "undefined") {
+        localStorage.setItem("inventory_value_report_col_widths", JSON.stringify(next));
+      }
+      return next;
+    });
+  };
 
   const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
