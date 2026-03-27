@@ -17,12 +17,12 @@ const ROLE_LABELS: Record<string, string> = { admin: "Admin", manager: "Quản l
 const DEPT_LABELS: Record<string, string> = { sales: "Kinh doanh", warehouse: "Kho", production: "Sản xuất", purchasing: "Mua hàng", accounting: "Kế toán" };
 
 const quickLinks = [
-  { href: "/inventory/inbound",   icon: "📥", label: "Nhập kho",          desc: "Ghi nhận hàng đầu vào" },
-  { href: "/inventory/outbound",  icon: "📦", label: "Xuất kho",          desc: "Ghi nhận hàng bàn giao" },
-  { href: "/inventory/report",    icon: "📊", label: "Tồn kho hiện tại", desc: "Xem tồn kho theo kỳ"   },
-  { href: "/inventory/stocktake", icon: "🔍", label: "Kiểm kê",          desc: "Tạo phiếu kiểm kê kho"  },
-  { href: "/inventory/phoi",      icon: "🧱", label: "Nhập phôi",         desc: "Ghi nhận nhập phôi NVL" },
-  { href: "/products",            icon: "🏷️", label: "Mã hàng",          desc: "Quản lý danh mục hàng"  },
+  { href: "/inventory/inbound", icon: "📥", label: "Nhập kho", desc: "Ghi nhận hàng thành phẩm đầu vào" },
+  { href: "/inventory/outbound", icon: "📦", label: "Xuất kho", desc: "Ghi nhận hàng thành phẩm đầu ra" },
+  { href: "/inventory/report", icon: "📊", label: "Tồn kho hiện tại", desc: "Xem tồn kho thành phẩm" },
+  { href: "/inventory/stocktake", icon: "🔍", label: "Kiểm kê", desc: "Tạo phiếu kiểm kê kho" },
+  { href: "/inventory/phoi", icon: "🧱", label: "Nhập phôi", desc: "Ghi nhận hàng phôi nguyên vật liệu" },
+  { href: "/products", icon: "🏷️", label: "Mã hàng", desc: "Quản lý danh mục hàng" },
 ];
 
 export default function AppHome() {
