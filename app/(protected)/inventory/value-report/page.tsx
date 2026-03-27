@@ -1005,15 +1005,76 @@ export default function InventoryValueReportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compareTopProducts, colFiltersProd, sortColProd, sortDirProd, customers]);
 
+  /* ---- Column resizing ---- */
+  const [colWidthsCust, setColWidthsCust] = useState<Record<string, number>>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("inventory_value_cust_col_widths");
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
+  const [colWidthsProd, setColWidthsProd] = useState<Record<string, number>>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("inventory_value_prod_col_widths");
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
+
+  const onResizeCust = (key: string, width: number) => {
+    setColWidthsCust(prev => {
+      const next = { ...prev, [key]: width };
+      localStorage.setItem("inventory_value_cust_col_widths", JSON.stringify(next));
+      return next;
+    });
+  };
+  const onResizeProd = (key: string, width: number) => {
+    setColWidthsProd(prev => {
+      const next = { ...prev, [key]: width };
+      localStorage.setItem("inventory_value_prod_col_widths", JSON.stringify(next));
+      return next;
+    });
+  };
+
   /* ---- Header Cell Components ---- */
-  function CustThCell({ label, colKey, sortable, isNum, align, extra }: { label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left" | "right" | "center"; extra?: React.CSSProperties; }) {
+  function CustThCell({ label, colKey, sortable, isNum, align, extra, w }: { 
+    label: string; colKey: string; sortable: boolean; isNum: boolean; 
+    align?: "left" | "right" | "center"; extra?: React.CSSProperties; w?: string;
+  }) {
     const active = !!colFiltersCust[colKey];
     const isSortTarget = sortColCust === colKey;
     const popupOpen = openPopupId === `cust-${colKey}`;
+    const width = colWidthsCust[colKey] || (w ? parseInt(w) : undefined);
+    const thRef = useRef<HTMLTableCellElement>(null);
+
+    const startResizing = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const startX = e.pageX;
+      const startWidth = thRef.current?.offsetWidth || 0;
+      const onMouseMove = (me: MouseEvent) => {
+        const newW = Math.max(50, startWidth + (me.pageX - startX));
+        onResizeCust(colKey, newW);
+      };
+      const onMouseUp = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    };
+
     return (
-      <th style={{ ...thStyle, textAlign: align || "left", position: "relative", ...extra }} className="group">
+      <th 
+        style={{ 
+          textAlign: align || "left", position: "relative", whiteSpace: "nowrap",
+          width: width ? `${width}px` : w, minWidth: width ? `${width}px` : "50px",
+          ...extra 
+        }} 
+        ref={thRef}
+        className="group"
+      >
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-500 font-bold text-xs uppercase tracking-wider">{label}</span>
+          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
             {sortable && (
               <button
@@ -1041,23 +1102,65 @@ export default function InventoryValueReportPage() {
             </button>
           </div>
         </div>
+
+        {/* Resize Handle */}
+        <div
+          onMouseDown={startResizing}
+          onDoubleClick={() => onResizeCust(colKey, 150)}
+          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
+          title="Kéo để chỉnh độ rộng"
+        />
+
         {popupOpen && (
-          isNum ? 
-            <NumFilterPopup filter={(colFiltersCust[colKey] as NumFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : 
-            <TextFilterPopup filter={(colFiltersCust[colKey] as TextFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />
+          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
+            {isNum ? 
+              <NumFilterPopup filter={(colFiltersCust[colKey] as NumFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : 
+              <TextFilterPopup filter={(colFiltersCust[colKey] as TextFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />
+            }
+          </div>
         )}
       </th>
     );
   }
 
-  function ProdThCell({ label, colKey, sortable, isNum, align, extra }: { label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left" | "right" | "center"; extra?: React.CSSProperties; }) {
+  function ProdThCell({ label, colKey, sortable, isNum, align, extra, w }: { 
+    label: string; colKey: string; sortable: boolean; isNum: boolean; 
+    align?: "left" | "right" | "center"; extra?: React.CSSProperties; w?: string;
+  }) {
     const active = !!colFiltersProd[colKey];
     const isSortTarget = sortColProd === colKey;
     const popupOpen = openPopupId === `prod-${colKey}`;
+    const width = colWidthsProd[colKey] || (w ? parseInt(w) : undefined);
+    const thRef = useRef<HTMLTableCellElement>(null);
+
+    const startResizing = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const startX = e.pageX;
+      const startWidth = thRef.current?.offsetWidth || 0;
+      const onMouseMove = (me: MouseEvent) => {
+        const newW = Math.max(50, startWidth + (me.pageX - startX));
+        onResizeProd(colKey, newW);
+      };
+      const onMouseUp = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    };
+
     return (
-      <th style={{ ...thStyle, textAlign: align || "left", position: "relative", ...extra }} className="group">
+      <th 
+        style={{ 
+          textAlign: align || "left", position: "relative", whiteSpace: "nowrap",
+          width: width ? `${width}px` : w, minWidth: width ? `${width}px` : "50px",
+          ...extra 
+        }} 
+        ref={thRef}
+        className="group"
+      >
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-500 font-bold text-xs uppercase tracking-wider">{label}</span>
+          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
             {sortable && (
               <button
@@ -1085,10 +1188,22 @@ export default function InventoryValueReportPage() {
             </button>
           </div>
         </div>
+
+        {/* Resize Handle */}
+        <div
+          onMouseDown={startResizing}
+          onDoubleClick={() => onResizeProd(colKey, 150)}
+          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
+          title="Kéo để chỉnh độ rộng"
+        />
+
         {popupOpen && (
-          isNum ? 
-            <NumFilterPopup filter={(colFiltersProd[colKey] as NumFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : 
-            <TextFilterPopup filter={(colFiltersProd[colKey] as TextFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />
+          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
+            {isNum ? 
+              <NumFilterPopup filter={(colFiltersProd[colKey] as NumFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : 
+              <TextFilterPopup filter={(colFiltersProd[colKey] as TextFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />
+            }
+          </div>
         )}
       </th>
     );

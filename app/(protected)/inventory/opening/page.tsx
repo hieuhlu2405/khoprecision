@@ -894,10 +894,17 @@ export default function InventoryOpeningBalancesPage() {
   );
 
   /* ---- Column resizing ---- */
+  /* ---- Column resizing ---- */
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("inventory_opening_col_widths");
-      return saved ? JSON.parse(saved) : {};
+      try {
+        const saved = localStorage.getItem("inventory_opening_col_widths");
+        const parsed = saved ? JSON.parse(saved) : {};
+        return (parsed && typeof parsed === "object") ? parsed : {};
+      } catch (e) {
+        console.error("Failed to parse colWidths", e);
+        return {};
+      }
     }
     return {};
   });
@@ -905,7 +912,9 @@ export default function InventoryOpeningBalancesPage() {
   const onResize = (key: string, width: number) => {
     setColWidths(prev => {
       const next = { ...prev, [key]: width };
-      localStorage.setItem("inventory_opening_col_widths", JSON.stringify(next));
+      if (typeof window !== "undefined") {
+        localStorage.setItem("inventory_opening_col_widths", JSON.stringify(next));
+      }
       return next;
     });
   };
@@ -992,7 +1001,6 @@ export default function InventoryOpeningBalancesPage() {
             {colType === "text" && <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
             {colType === "num" && <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
             {colType === "date" && <DateFilterPopup filter={(colFilters[colKey] as DateFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
-            {colType === "bool" && <BoolFilterPopup filter={(colFilters[colKey] as BoolFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
           </div>
         )}
       </th>
