@@ -7,6 +7,7 @@ import { formatToVietnameseDate, computeSnapshotBounds, applySamePeriodLastYearD
 import { useUI } from "@/app/context/UIContext";
 import { LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
+import { useDebounce } from "@/app/hooks/useDebounce";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -68,6 +69,7 @@ function fmtNum(n: number | null | undefined): string {
 }
 
 function parseNum(s: string): number | null {
+  if (!s) return null;
   const v = Number(s.replace(/,/g, ""));
   return isNaN(v) ? null : v;
 }
@@ -114,7 +116,7 @@ function passesNumFilter(val: number, f: NumFilter): boolean {
 }
 
 /* ------------------------------------------------------------------ */
-/* Small filter-popup components (inline)                              */
+/* UI Components                                                       */
 /* ------------------------------------------------------------------ */
 
 const popupStyle: React.CSSProperties = {
@@ -137,7 +139,17 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
         <option value="contains">Chứa</option>
         <option value="equals">Bằng</option>
       </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, backgroundColor: "#f3f2acbb", boxSizing: "border-box" }} autoFocus />
+      <input 
+        value={val} 
+        onChange={e => setVal(e.target.value)} 
+        onKeyDown={e => {
+          if (e.key === "Enter") { onChange(val ? { mode, value: val } : null); onClose(); }
+          else if (e.key === "Escape") onClose();
+        }}
+        placeholder="Nhập giá trị..." 
+        style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, backgroundColor: "#f3f2acbb", boxSizing: "border-box" }} 
+        autoFocus 
+      />
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
         <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
         <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Áp dụng</button>
@@ -159,9 +171,28 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
         <option value="lt">Nhỏ hơn (&lt;)</option>
         <option value="range">Từ … đến …</option>
       </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder={mode === "range" ? "Từ" : "Giá trị"} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} autoFocus />
+      <input 
+        value={val} 
+        onChange={e => setVal(e.target.value)} 
+        onKeyDown={e => {
+          if (e.key === "Enter" && mode !== "range") { onChange(val ? { mode, value: val, valueTo: valTo } : null); onClose(); }
+          else if (e.key === "Escape") onClose();
+        }}
+        placeholder={mode === "range" ? "Từ" : "Giá trị"} 
+        style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} 
+        autoFocus 
+      />
       {mode === "range" && (
-        <input value={valTo} onChange={e => setValTo(e.target.value)} placeholder="Đến" style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} />
+        <input 
+          value={valTo} 
+          onChange={e => setValTo(e.target.value)} 
+          onKeyDown={e => {
+            if (e.key === "Enter") { onChange(val ? { mode, value: val, valueTo: valTo } : null); onClose(); }
+            else if (e.key === "Escape") onClose();
+          }}
+          placeholder="Đến" 
+          style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} 
+        />
       )}
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 4 }}>
         <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
@@ -172,7 +203,7 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
 }
 
 /* ------------------------------------------------------------------ */
-/* Component                                                           */
+/* Main Component                                                      */
 /* ------------------------------------------------------------------ */
 
 export default function InventoryReportPage() {
@@ -185,29 +216,26 @@ export default function InventoryReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  /* ---- Top-level Filters ---- */
+  /* ---- Filters ---- */
   const currD = new Date();
   const defStart = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-01`;
   const defEnd = currD.toISOString().slice(0, 10);
   
   const [qStart, setQStart] = useState(defStart);
   const [qEnd, setQEnd] = useState(defEnd);
-  
   const [qCustomer, setQCustomer] = useState("");
   const [qProduct, setQProduct] = useState("");
+  const debouncedQProduct = useDebounce(qProduct, 300);
   const [qCustomerSearch, setQCustomerSearch] = useState("");
   const [onlyInStock, setOnlyInStock] = useState(false);
 
-  // Derived snapshot bounds based on selected UI dates and loaded openings
   const bounds = useMemo(() => computeSnapshotBounds(qStart, qEnd, openings), [qStart, qEnd, openings]);
 
-  /* ---- Column-level filters ---- */
   const [colFilters, setColFilters] = useState<Record<string, ColFilter>>({});
   const [sortCol, setSortCol] = useState<SortableCol | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [openPopup, setOpenPopup] = useState<string | null>(null);
 
-  // Close popup on outside click
   const tableRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     function handle(e: MouseEvent) {
@@ -239,15 +267,10 @@ export default function InventoryReportPage() {
   async function load() {
     setError("");
     setLoading(true);
-
     try {
       const { data: u } = await supabase.auth.getUser();
-      if (!u.user) {
-        window.location.href = "/login";
-        return;
-      }
+      if (!u.user) return window.location.href = "/login";
 
-      // Load products & customers
       const [rP, rC] = await Promise.all([
         supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null),
         supabase.from("customers").select("id, code, name").is("deleted_at", null),
@@ -255,41 +278,26 @@ export default function InventoryReportPage() {
       if (rP.error) throw rP.error;
       if (rC.error) throw rC.error;
 
-      setProducts((rP.data ?? []) as Product[]);
-      setCustomers((rC.data ?? []) as Customer[]);
+      setProducts(rP.data as Product[]);
+      setCustomers(rC.data as Customer[]);
 
-      // Load openings up to the end boundary
       const lastDayStr = qEnd.length === 10 ? qEnd + "T23:59:59.999Z" : qEnd;
-      const { data: openData, error: eO } = await supabase
-        .from("inventory_opening_balances")
-        .select("*")
-        .lte("period_month", lastDayStr)
-        .is("deleted_at", null);
+      const { data: openData, error: eO } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", lastDayStr).is("deleted_at", null);
       if (eO) throw eO;
-      setOpenings((openData ?? []) as OpeningBalance[]);
+      setOpenings(openData as OpeningBalance[]);
 
       let minDate = qStart;
-      if (openData && openData.length > 0) {
-        for (const o of openData) {
-          const d = o.period_month.slice(0, 10);
-          if (d < minDate) minDate = d;
-        }
+      if (openData) {
+        openData.forEach(o => { if (o.period_month.slice(0, 10) < minDate) minDate = o.period_month.slice(0, 10); });
       }
 
-      // Load transactions
       const endPlus1 = new Date(qEnd);
       endPlus1.setDate(endPlus1.getDate() + 1);
       const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
 
-      const { data: txData, error: eT } = await supabase
-        .from("inventory_transactions")
-        .select("*")
-        .gte("tx_date", minDate)
-        .lt("tx_date", nextD)
-        .is("deleted_at", null);
+      const { data: txData, error: eT } = await supabase.from("inventory_transactions").select("*").gte("tx_date", minDate).lt("tx_date", nextD).is("deleted_at", null);
       if (eT) throw eT;
-
-      setTxs((txData ?? []) as InventoryTx[]);
+      setTxs(txData as InventoryTx[]);
     } catch (err: any) {
       setError(err?.message ?? "Có lỗi xảy ra");
     } finally {
@@ -297,17 +305,13 @@ export default function InventoryReportPage() {
     }
   }
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qStart, qEnd]);
+  useEffect(() => { load(); }, [qStart, qEnd]);
 
-  /* ---- Calculations (UNCHANGED business logic) ---- */
+  /* ---- Calculations ---- */
   const reportData = useMemo(() => {
     const endPlus1 = new Date(qEnd);
     endPlus1.setDate(endPlus1.getDate() + 1);
     const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
-
     const baselineDate = bounds.S || qStart;
     const stockRows = buildStockRows(baselineDate, bounds.effectiveStart, nextD, openings, txs);
 
@@ -317,18 +321,14 @@ export default function InventoryReportPage() {
       const p = products.find(x => x.id === r.product_id);
       if (!p) continue;
 
-      if (qProduct) {
-        const s = qProduct.toLowerCase();
-        if (!p.sku.toLowerCase().includes(s) && !p.name.toLowerCase().includes(s)) {
-          continue;
-        }
+      if (debouncedQProduct) {
+        const s = debouncedQProduct.toLowerCase();
+        if (!p.sku.toLowerCase().includes(s) && !p.name.toLowerCase().includes(s)) continue;
       }
-
-      const val = p.unit_price != null ? r.current_qty * p.unit_price : null;
 
       if (onlyInStock && r.current_qty <= 0) continue;
 
-      if (r.opening_qty > 0 || r.inbound_qty > 0 || r.outbound_qty > 0 || r.current_qty > 0) {
+      if (r.opening_qty !== 0 || r.inbound_qty !== 0 || r.outbound_qty !== 0 || r.current_qty !== 0) {
         results.push({
           product: p,
           customer_id: r.customer_id,
@@ -336,79 +336,52 @@ export default function InventoryReportPage() {
           inbound_qty: r.inbound_qty,
           outbound_qty: r.outbound_qty,
           current_qty: r.current_qty,
-          inventory_value: val
+          inventory_value: p.unit_price != null ? r.current_qty * p.unit_price : null
         });
       }
     }
-
     return results;
-  }, [products, openings, txs, qCustomer, qProduct, onlyInStock, qStart, qEnd]);
+  }, [products, openings, txs, qCustomer, debouncedQProduct, onlyInStock, qStart, qEnd, bounds]);
 
-  /* ---- Display Helpers ---- */
   function customerLabel(cId: string | null) {
     if (!cId) return "";
-    const c = customers.find((x) => x.id === cId);
+    const c = customers.find(x => x.id === cId);
     return c ? `${c.code} - ${c.name}` : "";
   }
 
-  /* ---- Second layer: column filter + sort (post-calculation) ---- */
   const displayData = useMemo(() => {
     let rows = [...reportData];
+    Object.entries(colFilters).forEach(([key, f]) => {
+      if ((TEXT_COLS as readonly string[]).includes(key)) rows = rows.filter(r => passesTextFilter(textVal(r, key as TextColKey, customerLabel), f as TextFilter));
+      else if ((NUM_COLS as readonly string[]).includes(key)) rows = rows.filter(r => passesNumFilter(numVal(r, key as NumColKey), f as NumFilter));
+    });
 
-    // Apply column filters
-    for (const [key, f] of Object.entries(colFilters)) {
-      if ((TEXT_COLS as readonly string[]).includes(key)) {
-        rows = rows.filter(r => passesTextFilter(textVal(r, key as TextColKey, customerLabel), f as TextFilter));
-      } else if ((NUM_COLS as readonly string[]).includes(key)) {
-        rows = rows.filter(r => passesNumFilter(numVal(r, key as NumColKey), f as NumFilter));
-      }
-    }
-
-    // Apply sort
     if (sortCol && sortDir) {
       const dir = sortDir === "asc" ? 1 : -1;
       rows.sort((a, b) => {
-        let va: string | number, vb: string | number;
-        if ((TEXT_COLS as readonly string[]).includes(sortCol)) {
-          va = textVal(a, sortCol as TextColKey, customerLabel).toLowerCase();
-          vb = textVal(b, sortCol as TextColKey, customerLabel).toLowerCase();
-        } else {
-          va = numVal(a, sortCol as NumColKey);
-          vb = numVal(b, sortCol as NumColKey);
-        }
-        if (va < vb) return -1 * dir;
-        if (va > vb) return 1 * dir;
-        return 0;
+        const va = (TEXT_COLS as readonly string[]).includes(sortCol) ? textVal(a, sortCol as TextColKey, customerLabel).toLowerCase() : numVal(a, sortCol as NumColKey);
+        const vb = (TEXT_COLS as readonly string[]).includes(sortCol) ? textVal(b, sortCol as TextColKey, customerLabel).toLowerCase() : numVal(b, sortCol as NumColKey);
+        return va < vb ? -1 * dir : va > vb ? 1 * dir : 0;
       });
     }
-
     return rows;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportData, colFilters, sortCol, sortDir, customers]);
 
-  // Aggregate Totals (from displayData so totals match visible rows)
   const totals = useMemo(() => {
-    let tQty = 0;
-    let tVal = 0;
-    let tIn = 0;
-    let tOut = 0;
-
-    for (const r of displayData) {
-      tQty += r.current_qty || 0;
-      tVal += r.inventory_value || 0;
-      tIn += r.inbound_qty;
-      tOut += r.outbound_qty;
-    }
-    return { qty: tQty, val: tVal, srcIn: tIn, srcOut: tOut };
+    return displayData.reduce((acc, r) => ({
+      qty: acc.qty + (r.current_qty || 0),
+      val: acc.val + (r.inventory_value || 0),
+      srcIn: acc.srcIn + r.inbound_qty,
+      srcOut: acc.srcOut + r.outbound_qty
+    }), { qty: 0, val: 0, srcIn: 0, srcOut: 0 });
   }, [displayData]);
 
-  const cellStyle = { border: "1px solid #ddd", padding: "10px 8px" } as const;
+  /* ---- Column filter active count badge ---- */
+  const activeFilterCount = Object.keys(colFilters).length;
 
-  /* ---- Column resizing ---- */
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("inventory_report_col_widths");
-      return saved ? JSON.parse(saved) : {};
+      try { return JSON.parse(localStorage.getItem("inventory_report_col_widths") || "{}"); } catch { return {}; }
     }
     return {};
   });
@@ -416,21 +389,12 @@ export default function InventoryReportPage() {
   const onResize = (key: string, width: number) => {
     setColWidths(prev => {
       const next = { ...prev, [key]: width };
-      localStorage.setItem("inventory_report_col_widths", JSON.stringify(next));
+      if (typeof window !== "undefined") localStorage.setItem("inventory_report_col_widths", JSON.stringify(next));
       return next;
     });
   };
 
-  /* ---- Header cell renderer with filter + sort ---- */
-  const hasActiveFilter = (key: string) => !!colFilters[key];
-
-  /* ---- Column filter active count badge ---- */
-  const activeFilterCount = Object.keys(colFilters).length;
-
-  function ThCell({ label, colKey, sortable, isNum, align, extra, w }: {
-    label: string; colKey: string; sortable: boolean; isNum: boolean;
-    align?: "left" | "right" | "center"; extra?: React.CSSProperties; w?: string;
-  }) {
+  function ThCell({ label, colKey, sortable, isNum, align, extra, w }: { label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left" | "right" | "center"; extra?: React.CSSProperties; w?: string; }) {
     const active = !!colFilters[colKey];
     const isSortTarget = sortCol === colKey;
     const popupOpen = openPopup === colKey;
@@ -441,79 +405,46 @@ export default function InventoryReportPage() {
       e.stopPropagation();
       const startX = e.pageX;
       const startWidth = thRef.current?.offsetWidth || 0;
-
-      const onMouseMove = (me: MouseEvent) => {
-        const newW = Math.max(50, startWidth + (me.pageX - startX));
-        onResize(colKey, newW);
-      };
-      const onMouseUp = () => {
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
-      };
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
-    };
-
-    const baseStyle: React.CSSProperties = {
-      textAlign: align || "left", border: "1px solid #ddd", padding: "10px 8px",
-      background: "#f8fafc", whiteSpace: "nowrap", borderBottom: "2px solid #ddd",
-      position: "relative",
-      width: width ? `${width}px` : w,
-      minWidth: width ? `${width}px` : "50px",
-      ...extra,
+      const onMM = (me: MouseEvent) => onResize(colKey, Math.max(50, startWidth + (me.pageX - startX)));
+      const onMU = () => { document.removeEventListener("mousemove", onMM); document.removeEventListener("mouseup", onMU); };
+      document.addEventListener("mousemove", onMM);
+      document.addEventListener("mouseup", onMU);
     };
 
     return (
-      <th style={baseStyle} className="group" ref={thRef}>
+      <th 
+        ref={thRef}
+        style={{ 
+          textAlign: align || "left", border: "1px solid #ddd", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap", 
+          position: "sticky", top: 0, zIndex: 30, width: width ? `${width}px` : w, minWidth: width ? `${width}px` : "50px", 
+          boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)", ...extra 
+        }} 
+        className="group"
+      >
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
           <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
             {sortable && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleSort(colKey as SortableCol);
-                }}
-                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
-                title="Sắp xếp"
-              >
+              <button onClick={() => toggleSort(colKey as SortableCol)} className={`p-1 rounded-md ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500 hover:bg-indigo-100"}`}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
                 </svg>
               </button>
             )}
-            <button
-              onClick={(e) => { e.stopPropagation(); setOpenPopup(popupOpen ? null : colKey); }}
-              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
-              title="Lọc cột"
-            >
+            <button onClick={() => setOpenPopup(popupOpen ? null : colKey)} className={`p-1 rounded-md ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
             </button>
           </div>
         </div>
-
-        {/* Resize Handle */}
-        <div
-          onMouseDown={startResizing}
-          onDoubleClick={() => onResize(colKey, 150)}
-          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
-          title="Kéo để chỉnh độ rộng"
-        />
-
+        <div onMouseDown={startResizing} className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20" />
         {popupOpen && (
           <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
-            {isNum
-              ? <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />
-              : <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />
-            }
+            {isNum ? <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} /> : <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />}
           </div>
         )}
       </th>
     );
   }
-
-  /* ---- Close Report Action ---- */
-  const [closing, setClosing] = useState(false);
 
   async function closeReport() {
     const ok = await showConfirm({ message: "Chốt dữ liệu tồn kho hiện tại?\nDữ liệu sẽ được lưu lại vào lịch sử báo cáo.", confirmLabel: "Chốt dữ liệu" });
@@ -523,244 +454,139 @@ export default function InventoryReportPage() {
       const { data: ins, error: e1 } = await supabase.from("inventory_report_closures").insert({
         report_type: "inventory_report",
         title: `Tồn kho hiện tại ${formatToVietnameseDate(bounds.effectiveStart)} -> ${formatToVietnameseDate(bounds.effectiveEnd)}`,
-        period_1_start: bounds.effectiveStart,
-        period_1_end: bounds.effectiveEnd,
-        baseline_snapshot_date_1: bounds.S || qStart,
-        snapshot_source_note: bounds.S ? `Mốc tồn gần nhất: ${formatToVietnameseDate(bounds.S)}` : "Không có mốc tồn",
+        period_1_start: bounds.effectiveStart, period_1_end: bounds.effectiveEnd, baseline_snapshot_date_1: bounds.S || qStart,
         summary_json: { "Tổng tồn": totals.qty, "Giá trị tồn kho": totals.val, "Tổng nhập": totals.srcIn, "Tổng xuất": totals.srcOut },
         filters_json: { qStart, qEnd, customer: qCustomer, product: qProduct, onlyInStock },
       }).select("id").single();
       if (e1) throw e1;
-      const closureId = ins.id;
-
-      const linesToSave = displayData.map((r, i) => ({
-        closure_id: closureId,
-        line_type: "product_detail",
-        sort_order: i,
-        customer_id: r.customer_id || null,
-        product_id: r.product.id,
-        row_json: {
-          "khách hàng": customerLabel(r.customer_id),
-          "mã hàng": r.product.sku,
-          "tên hàng": r.product.name,
-          "kích thước": r.product.spec || "",
-          "tồn đầu kỳ": r.opening_qty,
-          "nhập": r.inbound_qty,
-          "xuất": r.outbound_qty,
-          "tồn còn lại": r.current_qty,
-          "đơn giá": r.product.unit_price ?? 0,
-          "giá trị tồn kho": r.inventory_value ?? 0,
-        },
-      }));
-
-      if (linesToSave.length > 0) {
-        const { error: e2 } = await supabase.from("inventory_report_closure_lines").insert(linesToSave);
-        if (e2) throw e2;
-      }
-
+      const lines = displayData.map((r, i) => ({ closure_id: ins.id, line_type: "product_detail", sort_order: i, customer_id: r.customer_id || null, product_id: r.product.id, row_json: { "khách hàng": customerLabel(r.customer_id), "mã hàng": r.product.sku, "tên hàng": r.product.name, "kích thước": r.product.spec || "", "tồn đầu kỳ": r.opening_qty, "nhập": r.inbound_qty, "xuất": r.outbound_qty, "tồn còn lại": r.current_qty, "đơn giá": r.product.unit_price ?? 0, "giá trị tồn kho": r.inventory_value ?? 0 } }));
+      if (lines.length > 0) { const { error: e2 } = await supabase.from("inventory_report_closure_lines").insert(lines); if (e2) throw e2; }
       showToast("Đã chốt dữ liệu thành công!", "success");
-    } finally {
-      setClosing(false);
-    }
+    } catch (err: any) { setError(err?.message ?? "Lỗi"); } finally { setClosing(false); }
   }
 
   function handleExportExcel() {
-    const data = displayData.map((r, i) => ({
-      "STT": i + 1,
-      "Khách hàng": customerLabel(r.customer_id),
-      "Mã hàng (SKU)": r.product.sku,
-      "Tên hàng": r.product.name,
-      "Kích thước": r.product.spec || "",
-      "Tồn đầu kỳ": r.opening_qty,
-      "Nhập": r.inbound_qty,
-      "Xuất": r.outbound_qty,
-      "Tồn hiện tại": r.current_qty,
-      "Đơn giá": r.product.unit_price ?? 0,
-      "Giá trị tồn kho": r.inventory_value ?? 0
-    }));
+    const data = displayData.map((r, i) => ({ "STT": i + 1, "Khách hàng": customerLabel(r.customer_id), "Mã hàng (SKU)": r.product.sku, "Tên hàng": r.product.name, "Kích thước": r.product.spec || "", "Tồn đầu kỳ": r.opening_qty, "Nhập": r.inbound_qty, "Xuất": r.outbound_qty, "Tồn hiện tại": r.current_qty, "Đơn giá": r.product.unit_price ?? 0, "Giá trị tồn kho": r.inventory_value ?? 0 }));
     exportToExcel(data, `Ton_kho_hien_tai_${new Date().toISOString().slice(0,10)}`, "Inventory");
   }
 
+  const [closing, setClosing] = useState(false);
+
   return (
-    <div className="page-root">
+    <div className="page-root" ref={tableRef}>
       <div className="page-header">
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center shadow-sm">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
           </div>
           <div>
-            <h1 className="page-title">Tồn Kho Hiện Tại</h1>
-            <p className="page-description">Báo cáo chi tiết số lượng và giá trị tồn kho theo thời gian thực.</p>
+            <h1 className="text-xl font-bold text-slate-900 leading-tight">Tồn Kho Hiện Tại</h1>
+            <p className="text-sm text-slate-500">Báo cáo chi tiết số lượng và giá trị tồn kho thời gian thực.</p>
           </div>
         </div>
-        <div className="toolbar">
-          <button className="btn btn-secondary" onClick={handleExportExcel}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Xuất Excel
-          </button>
-          <button 
-            className="btn btn-primary" 
-            onClick={closeReport} 
-            disabled={closing || loading || displayData.length === 0}
-          >
-            {closing ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}
-          </button>
+        <div className="toolbar ml-auto">
+          <button className="btn btn-secondary" onClick={handleExportExcel}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Xuất Excel</button>
+          <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading || displayData.length === 0}>{closing ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}</button>
         </div>
       </div>
 
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
-      {/* ---- Cards ---- */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 24 }}>
-        <div className="stat-card" style={{ borderLeft: "4px solid var(--color-warning)" }}>
-          <div className="label">Tổng số lượng tồn</div>
-          <div className="value" style={{ color: "var(--color-warning)" }}>{fmtNum(totals.qty)}</div>
-        </div>
-        
-        <div className="stat-card" style={{ borderLeft: "4px solid var(--color-success)" }}>
-          <div className="label">Tổng giá trị tồn kho (VNĐ)</div>
-          <div className="value" style={{ color: "var(--color-success)" }}>{fmtNum(totals.val)}</div>
-        </div>
-
-        <div className="stat-card" style={{ borderLeft: "4px solid var(--brand)" }}>
-          <div className="label">Tổng nhập (Điều chỉnh)</div>
-          <div className="value" style={{ color: "var(--brand)" }}>{fmtNum(totals.srcIn)}</div>
-        </div>
-
-        <div className="stat-card" style={{ borderLeft: "4px solid var(--color-danger)" }}>
-          <div className="label">Tổng xuất (Điều chỉnh)</div>
-          <div className="value" style={{ color: "var(--color-danger)" }}>{fmtNum(totals.srcOut)}</div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="stat-card border-l-4 border-amber-500"><div className="stat-card-label">Tổng lượng tồn</div><div className="stat-card-value text-amber-600">{fmtNum(totals.qty)}</div></div>
+        <div className="stat-card border-l-4 border-emerald-500"><div className="stat-card-label">Tổng giá trị (VNĐ)</div><div className="stat-card-value text-emerald-600">{fmtNum(totals.val)}</div></div>
+        <div className="stat-card border-l-4 border-blue-500"><div className="stat-card-label">Tổng nhập</div><div className="stat-card-value text-blue-600">+{fmtNum(totals.srcIn)}</div></div>
+        <div className="stat-card border-l-4 border-red-500"><div className="stat-card-label">Tổng xuất</div><div className="stat-card-value text-red-600">-{fmtNum(totals.srcOut)}</div></div>
       </div>
 
-      {/* ---- Top-level Filters ---- */}
-      <div className="filter-panel" style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-            <div style={{ width: 140 }}>
-              <label className="filter-label">Từ ngày</label>
-              <input type="date" value={qStart} onChange={(e) => setQStart(e.target.value)} className="input" />
-            </div>
-            <div style={{ width: 140 }}>
-              <label className="filter-label">Đến ngày</label>
-              <input type="date" value={qEnd} onChange={(e) => setQEnd(e.target.value)} className="input" />
-            </div>
+      <div className="filter-panel mb-6">
+        <div className="flex flex-wrap gap-4 items-end">
+          <div className="flex gap-2 items-end">
+            <div className="w-32"><label className="filter-label">Từ ngày</label><input type="date" value={qStart} onChange={e => setQStart(e.target.value)} className="input" /></div>
+            <div className="w-32"><label className="filter-label">Đến ngày</label><input type="date" value={qEnd} onChange={e => setQEnd(e.target.value)} className="input" /></div>
           </div>
-          
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => { setQStart(bounds.prevSnapshotQStart); setQEnd(bounds.prevSnapshotQEnd); }} className="btn btn-secondary btn-sm">So với kỳ trước</button>
-            <button onClick={() => { const p = applySamePeriodLastYearDates(bounds.effectiveStart, bounds.effectiveEnd); setQStart(p.newStart); setQEnd(p.newEnd); }} className="btn btn-secondary btn-sm">So cùng kỳ năm trước</button>
+          <div className="flex gap-2">
+            <button onClick={() => { setQStart(bounds.prevSnapshotQStart); setQEnd(bounds.prevSnapshotQEnd); }} className="btn btn-secondary btn-sm h-9">Kỳ trước</button>
+            <button onClick={() => { const p = applySamePeriodLastYearDates(bounds.effectiveStart, bounds.effectiveEnd); setQStart(p.newStart); setQEnd(p.newEnd); }} className="btn btn-secondary btn-sm h-9">Cùng kỳ năm ngoái</button>
           </div>
-
-          <div style={{ width: 220 }}>
+          <div className="w-48">
             <label className="filter-label">Khách hàng</label>
-            <input
-              list="dl-filter-customer"
-              placeholder="Tìm khách hàng..."
-              value={qCustomerSearch}
-              onChange={(e) => {
-                const val = e.target.value;
-                setQCustomerSearch(val);
-                const matched = customers.find((c) => `${c.code} - ${c.name}` === val);
-                setQCustomer(matched ? matched.id : "");
-              }}
-              className="input"
-            />
-            <datalist id="dl-filter-customer">
-              {customers.map((c) => (<option key={c.id} value={`${c.code} - ${c.name}`} />))}
-            </datalist>
+            <input list="dl-cust" placeholder="Tìm khách..." value={qCustomerSearch} onChange={e => { setQCustomerSearch(e.target.value); const m = customers.find(c => `${c.code} - ${c.name}` === e.target.value); setQCustomer(m ? m.id : ""); }} className="input" />
+            <datalist id="dl-cust">{customers.map(c => <option key={c.id} value={`${c.code} - ${c.name}`} />)}</datalist>
           </div>
-
-          <div style={{ width: 200 }}>
-            <label className="filter-label">Sản phẩm</label>
-            <input
-              value={qProduct}
-              onChange={(e) => setQProduct(e.target.value)}
-              className="input"
-              placeholder="Tìm Mã / Tên hàng..."
-            />
+          <div className="w-48 relative">
+            <label className="filter-label">Tên / SKU hàng</label>
+            <input value={qProduct} onChange={e => setQProduct(e.target.value)} placeholder="Tìm mã hoặc tên..." className="input pl-8" />
+            <div className="absolute left-2.5 bottom-2.5 text-slate-400"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
           </div>
-
-          <div style={{ paddingBottom: 8 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", color: "var(--slate-600)" }}>
-              <input type="checkbox" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} />
-              <span>Chỉ hiện hàng còn tồn</span>
-            </label>
-          </div>
-
-          <div style={{ display: "flex", gap: 8, marginLeft: "auto", paddingBottom: 4 }}>
-            <button onClick={load} className="btn btn-secondary">Làm mới</button>
-            {activeFilterCount > 0 && (
-              <button
-                onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-                className="btn btn-clear-filter"
-              >
-                Xóa lọc cột ({activeFilterCount})
-              </button>
+          <div className="pb-2.5 flex items-center gap-2"><input type="checkbox" checked={onlyInStock} onChange={e => setOnlyInStock(e.target.checked)} className="rounded text-brand" /> <span className="text-xs font-semibold text-slate-600 cursor-pointer" onClick={() => setOnlyInStock(!onlyInStock)}>Còn hàng</span></div>
+          <div className="ml-auto flex gap-2">
+            <button onClick={load} className="btn btn-secondary h-9 px-4 shadow-sm">Làm mới</button>
+            {(qCustomer || qProduct || onlyInStock || activeFilterCount > 0) && (
+              <button onClick={() => { setQCustomer(""); setQCustomerSearch(""); setQProduct(""); setOnlyInStock(false); setColFilters({}); setSortCol(null); setSortDir(null); }} className="btn btn-clear-filter h-9">Xóa lọc</button>
             )}
           </div>
         </div>
       </div>
 
-      <div style={{ marginBottom: 16, fontSize: 13, color: "#64748b", display: "flex", gap: 12, alignItems: "center" }}>
-        <span>Kỳ báo cáo: <strong>{formatToVietnameseDate(bounds.effectiveStart)}</strong> → <strong>{formatToVietnameseDate(bounds.effectiveEnd)}</strong></span>
-        {bounds.S && (
-          <span style={{ padding: "2px 8px", background: "var(--slate-100)", borderRadius: 6, fontSize: 12 }}>
-            Mốc tồn snapshot: {formatToVietnameseDate(bounds.S)}
-          </span>
-        )}
+      <div className="text-[11px] mb-2 text-slate-400 flex items-center gap-3">
+        <span>Báo cáo thực tế: <strong className="text-slate-600">{formatToVietnameseDate(bounds.effectiveStart)}</strong> → <strong className="text-slate-600">{formatToVietnameseDate(bounds.effectiveEnd)}</strong></span>
+        {bounds.S && <span className="bg-slate-100 px-2 py-0.5 rounded text-[10px] font-bold">Mốc tồn: {formatToVietnameseDate(bounds.S)}</span>}
       </div>
 
-      {/* ---- Table ---- */}
-      {loading ? (
-        <LoadingInline text="Đang tải báo cáo..." />
-      ) : (
-        <div className="data-table-wrap" ref={tableRef}>
-          <table className="data-table" style={{ minWidth: 1200 }}>
+      <div className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" style={{ maxHeight: "calc(100vh - 350px)" }}>
+        {loading ? <LoadingInline text="Đang tính toán số liệu..." /> : (
+          <table className="data-table !border-separate !border-spacing-0" style={{ minWidth: 1200 }}>
             <thead>
               <tr>
-                <th style={{ textAlign: "center", width: 50 }}>STT</th>
-                <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} />
-                <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} />
+                <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} w="220px" />
+                <ThCell label="Mã hàng (SKU)" colKey="sku" sortable isNum={false} w="150px" />
                 <ThCell label="Tên hàng" colKey="name" sortable isNum={false} />
-                <ThCell label="Kích thước" colKey="spec" sortable={false} isNum={false} />
-                <ThCell label="Tồn đầu kỳ" colKey="opening_qty" sortable isNum align="right" />
-                <ThCell label="Nhập" colKey="inbound_qty" sortable isNum align="right" />
-                <ThCell label="Xuất" colKey="outbound_qty" sortable isNum align="right" />
-                <ThCell label="Tồn còn lại" colKey="current_qty" sortable isNum align="right" />
-                <ThCell label="Đơn giá" colKey="unit_price" sortable isNum align="right" />
-                <ThCell label="Giá trị tồn kho" colKey="inventory_value" sortable isNum align="right" />
+                <ThCell label="Kích thước" colKey="spec" sortable isNum={false} w="140px" />
+                <ThCell label="Tồn đầu" colKey="opening_qty" sortable isNum align="right" w="100px" />
+                <ThCell label="Nhập" colKey="inbound_qty" sortable isNum align="right" w="100px" />
+                <ThCell label="Xuất" colKey="outbound_qty" sortable isNum align="right" w="100px" />
+                <ThCell label="Tồn hiện tại" colKey="current_qty" sortable isNum align="right" w="110px" extra={{ background: "#eef2ff" }} />
+                <ThCell label="Đơn giá" colKey="unit_price" sortable isNum align="right" w="110px" />
+                <ThCell label="Giá trị tồn" colKey="inventory_value" sortable isNum align="right" w="130px" extra={{ background: "#f0fdf4" }} />
               </tr>
             </thead>
             <tbody>
-              {displayData.map((r, i) => (
-                <tr key={`${r.product.id}-${r.customer_id}`}>
-                  <td style={{ textAlign: "center" }}>{i + 1}</td>
-                  <td style={{ whiteSpace: "nowrap" }}>{customerLabel(r.customer_id)}</td>
-                  <td style={{ fontWeight: 600 }}>{r.product.sku}</td>
-                  <td>{r.product.name}</td>
-                  <td style={{ color: "#64748b" }}>{r.product.spec || "—"}</td>
-
-                  <td style={{ textAlign: "right" }}>{fmtNum(r.opening_qty)}</td>
-                  <td style={{ textAlign: "right", color: r.inbound_qty > 0 ? "var(--color-success)" : "inherit" }}>{fmtNum(r.inbound_qty)}</td>
-                  <td style={{ textAlign: "right", color: r.outbound_qty > 0 ? "var(--color-danger)" : "inherit" }}>{fmtNum(r.outbound_qty)}</td>
-
-                  <td style={{ textAlign: "right", color: "var(--color-danger)", fontWeight: 700, backgroundColor: "rgba(239, 68, 68, 0.05)" }}>{fmtNum(r.current_qty)}</td>
-                  <td style={{ textAlign: "right" }}>{fmtNum(r.product.unit_price)}</td>
-                  <td style={{ textAlign: "right", color: "var(--color-danger)", fontWeight: 700, backgroundColor: "rgba(239, 68, 68, 0.05)" }}>{fmtNum(r.inventory_value)}</td>
-                </tr>
-              ))}
-              {displayData.length === 0 && (
-                <tr>
-                  <td colSpan={13} style={{ padding: 48, textAlign: "center", color: "#64748b" }}>
-                    Không có số liệu tồn kho nào khớp với bộ lọc.
-                  </td>
-                </tr>
-              )}
+              {displayData.length === 0 ? (
+                <tr><td colSpan={10} className="py-20 text-center opacity-40 italic">Không có dữ liệu khớp bộ lọc.</td></tr>
+              ) : displayData.map((r, i) => {
+                const isZero = r.current_qty <= 0;
+                const isLow = r.current_qty > 0 && r.current_qty < 5;
+                return (
+                  <tr key={`${r.product.id}-${r.customer_id}`} className="hover:bg-brand/[0.02] transition-colors group odd:bg-white even:bg-slate-50/30">
+                    <td className="text-slate-600">{customerLabel(r.customer_id)}</td>
+                    <td className="font-mono text-slate-900 font-semibold">{r.product.sku}</td>
+                    <td>{r.product.name}</td>
+                    <td className="text-slate-400 italic text-xs">{r.product.spec}</td>
+                    <td className="text-right text-slate-500">{fmtNum(r.opening_qty)}</td>
+                    <td className="text-right text-green-600 font-medium">+{fmtNum(r.inbound_qty)}</td>
+                    <td className="text-right text-red-500 font-medium">-{fmtNum(r.outbound_qty)}</td>
+                    <td className={`text-right font-bold ${isZero ? "bg-red-50 text-red-600" : isLow ? "text-amber-600 bg-amber-50/50" : "text-slate-900"}`}>{fmtNum(r.current_qty)}</td>
+                    <td className="text-right text-slate-400 text-[10px]">{fmtNum(r.product.unit_price)}</td>
+                    <td className="text-right font-bold text-green-700 bg-green-50/30">{fmtNum(r.inventory_value)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
+            <tfoot className="sticky bottom-0 z-20 bg-slate-900 text-white shadow-[0_-2px_4px_rgba(0,0,0,0.1)]">
+              <tr className="font-bold border-none">
+                <td colSpan={4} className="p-4 uppercase tracking-tighter text-xs opacity-70">Tổng cộng ({displayData.length} mã)</td>
+                <td className="text-right p-4 border-l border-white/5"></td>
+                <td className="text-right p-4 border-l border-white/5 text-green-400">+{fmtNum(totals.srcIn)}</td>
+                <td className="text-right p-4 border-l border-white/5 text-red-400">-{fmtNum(totals.srcOut)}</td>
+                <td className="text-right p-4 border-l border-white/5 text-amber-400 text-lg">{fmtNum(totals.qty)}</td>
+                <td className="border-l border-white/5"></td>
+                <td className="text-right p-4 border-l border-white/5 text-emerald-400 text-lg">{fmtNum(totals.val)}</td>
+              </tr>
+            </tfoot>
           </table>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

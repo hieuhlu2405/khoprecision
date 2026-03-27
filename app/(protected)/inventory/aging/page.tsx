@@ -6,6 +6,8 @@ import { useUI } from "@/app/context/UIContext";
 import { LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { buildStockRows, SnapshotRow, TransactionRow } from "../shared/calc";
 import { formatToVietnameseDate, computeSnapshotBounds, applySamePeriodLastYearDates } from "../shared/date-utils";
+import { useDebounce } from "@/app/hooks/useDebounce";
+import { exportToExcel } from "@/lib/excel-utils";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -182,11 +184,101 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
 }
 
 /* ------------------------------------------------------------------ */
-/* Shared styles                                                       */
+/* Shared components                                                   */
 /* ------------------------------------------------------------------ */
 
-const thStyle = { textAlign: "left", border: "1px solid #ddd", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap" } as const;
-const tdStyle = { border: "1px solid #ddd", padding: "10px 8px" } as const;
+const thStyle: React.CSSProperties = { padding: "10px 12px", border: "1px solid #ddd", fontSize: 13, fontWeight: 600, background: "#f8fafc", whiteSpace: "nowrap", position: "relative" };
+const tdStyle: React.CSSProperties = { padding: "12px 12px", borderBottom: "1px solid var(--slate-100)" };
+
+function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilters, sortCol, sortDir, onSort, openPopupId, setOpenPopupId, w, colWidths, onResize, popupPrefix }: {
+    label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left" | "right" | "center";
+    colFilters: Record<string, ColFilter>; setColFilters: React.Dispatch<React.SetStateAction<Record<string, ColFilter>>>;
+    sortCol: string | null; sortDir: SortDir;
+    onSort: (key: any) => void; 
+    openPopupId: string | null; setOpenPopupId: (id: string | null) => void;
+    w?: string; colWidths: Record<string, number>; onResize: (key: string, width: number) => void;
+    popupPrefix: string;
+  }) {
+    const active = !!colFilters[colKey];
+    const isSortTarget = sortCol === colKey;
+    const width = colWidths[colKey] || (w ? parseInt(w) : undefined);
+    const thRef = useRef<HTMLTableCellElement>(null);
+    const popupId = `${popupPrefix}-${colKey}`;
+    const isOpen = openPopupId === popupId;
+
+    const startResizing = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const startX = e.pageX;
+      const startWidth = thRef.current?.offsetWidth || 0;
+      const onMouseMove = (me: MouseEvent) => {
+        const newW = Math.max(50, startWidth + (me.pageX - startX));
+        onResize(colKey, newW);
+      };
+      const onMouseUp = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    };
+
+    const baseStyle: React.CSSProperties = {
+      ...thStyle,
+      textAlign: align || "left",
+      width: width ? `${width}px` : w,
+      minWidth: width ? `${width}px` : "50px",
+      position: "sticky",
+      top: 0,
+      zIndex: 30,
+      boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+      color: "var(--slate-900)",
+    };
+
+    return (
+      <th style={baseStyle} ref={thRef} className="group">
+        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
+          <div className="flex items-center gap-0.5">
+            {sortable && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onSort(colKey); }}
+                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
+                title="Sắp xếp"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setOpenPopupId(isOpen ? null : popupId); }}
+              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+              title="Lọc dữ liệu"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Resize Handle */}
+        <div
+          onMouseDown={startResizing}
+          onDoubleClick={() => onResize(colKey, 150)}
+          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
+          title="Kéo để chỉnh độ rộng"
+        />
+
+        {isOpen && (
+          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
+            {isNum ? 
+              <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => setColFilters(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : 
+              <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => setColFilters(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />
+            }
+          </div>
+        )}
+      </th>
+    );
+  }
 
 /* ------------------------------------------------------------------ */
 /* SVG Chart Helpers                                                   */
@@ -628,6 +720,22 @@ export default function InventoryAgingReportPage() {
 
   const [onlyInStock, setOnlyInStock] = useState(false);
 
+  // Search Debounce
+  const debouncedQProd = useDebounce(qProduct, 400);
+
+  // O(1) Maps
+  const productMap = useMemo(() => {
+    const m = new Map<string, Product>();
+    for (const p of products) m.set(p.id, p);
+    return m;
+  }, [products]);
+
+  const customerMap = useMemo(() => {
+    const m = new Map<string, Customer>();
+    for (const c of customers) m.set(c.id, c);
+    return m;
+  }, [customers]);
+
   const bounds = useMemo(() => computeSnapshotBounds(qStart, qEnd, openings), [qStart, qEnd, openings]);
   const bounds1 = useMemo(() => computeSnapshotBounds(p1Start, p1End, openings), [p1Start, p1End, openings]);
   const bounds2 = useMemo(() => computeSnapshotBounds(p2Start, p2End, openings), [p2Start, p2End, openings]);
@@ -744,7 +852,7 @@ export default function InventoryAgingReportPage() {
 
     const results: AgingRow[] = [];
     for (const r of stockRows) {
-      const p = products.find(x => x.id === r.product_id);
+      const p = productMap.get(r.product_id);
       if (!p) continue;
 
       results.push({
@@ -761,7 +869,7 @@ export default function InventoryAgingReportPage() {
     }
 
     return results;
-  }, [products, openings, txsPeriod, qStart, qEnd]);
+  }, [productMap, openings, txsPeriod, qStart, qEnd, bounds]);
 
   // Overall calculations BEFORE UI filters (except period)
   const overallTally = useMemo(() => {
@@ -855,10 +963,13 @@ export default function InventoryAgingReportPage() {
 
     const results: CompareAgingRow[] = [];
     for (const pid of allPids) {
-      const product = products.find(x => x.id === pid);
+      const product = productMap.get(pid);
       if (!product) continue;
       if (qCustomer && product.customer_id !== qCustomer) continue;
-      if (qProduct) { const s = qProduct.toLowerCase(); if (!product.sku.toLowerCase().includes(s) && !product.name.toLowerCase().includes(s)) continue; }
+      if (debouncedQProd) {
+        const s = debouncedQProd.toLowerCase();
+        if (!product.sku.toLowerCase().includes(s) && !product.name.toLowerCase().includes(s)) continue;
+      }
 
       const r1 = map1.get(pid);
       const r2 = map2.get(pid);
@@ -876,7 +987,7 @@ export default function InventoryAgingReportPage() {
       results.push({ product, customer_id: product.customer_id, qty1, qty2, val1, val2, valDiff, pctDiff, isAging1, isAging2, note1: r1?.long_aging_note ?? null, note2: r2?.long_aging_note ?? null });
     }
     return results.sort((a, b) => Math.abs(b.valDiff) - Math.abs(a.valDiff));
-  }, [reportMode, products, openings, txs1, txs2, bounds1, bounds2, p1Start, p1End, p2Start, p2End, qCustomer, qProduct, onlyInStock]);
+  }, [reportMode, productMap, openings, txs1, txs2, bounds1, bounds2, p1Start, p1End, p2Start, p2End, qCustomer, debouncedQProd, onlyInStock]);
 
   const compareTotals = useMemo(() => {
     let v1 = 0, v2 = 0, count1 = 0, count2 = 0;
@@ -904,8 +1015,40 @@ export default function InventoryAgingReportPage() {
   /* ---- Display Helpers ---- */
   function customerLabel(cId: string | null) {
     if (!cId) return "--- (Không phân bổ) ---";
-    const c = customers.find((x) => x.id === cId);
+    const c = customerMap.get(cId);
     return c ? `${c.code} - ${c.name}` : cId;
+  }
+
+  /* ---- Export Excel ---- */
+  function handleExport() {
+    if (reportMode === "current") {
+      const data = displayDetailData.map((r, i) => ({
+        "STT": i + 1,
+        "Khách hàng": customerLabel(r.customer_id),
+        "SKU": r.product.sku,
+        "Tên hàng": r.product.name,
+        "Quy cách": r.product.spec || "",
+        "Tồn cuối": r.current_qty,
+        "Đơn giá": r.product.unit_price ?? 0,
+        "Giá trị tồn": r.inventory_value,
+        "Ghi chú": r.long_aging_note || ""
+      }));
+      exportToExcel(data, `Bao_cao_Ton_lau_ngay_${qEnd}.xlsx`);
+    } else {
+      const data = compareAgingData.map((r, i) => ({
+        "STT": i + 1,
+        "Khách hàng": customerLabel(r.customer_id),
+        "SKU": r.product.sku,
+        "Tên hàng": r.product.name,
+        "Giá trị (Kỳ 1)": r.val1,
+        "Giá trị (Kỳ 2)": r.val2,
+        "Chênh lệch": r.valDiff,
+        "Ghi chú (K1)": r.note1 || "",
+        "Ghi chú (K2)": r.note2 || ""
+      }));
+      exportToExcel(data, `So_sanh_Ton_lau_ngay_${p1End}_vs_${p2End}.xlsx`);
+    }
+    showToast("Đã xuất file Excel thành công!", "success");
   }
 
   /* ---- Second layer: column filter + sort on detail table ---- */
@@ -975,91 +1118,12 @@ export default function InventoryAgingReportPage() {
   const onResize = (key: string, width: number) => {
     setColWidths(prev => {
       const next = { ...prev, [key]: width };
-      localStorage.setItem("inventory_aging_col_widths", JSON.stringify(next));
+      if (typeof window !== "undefined") {
+        localStorage.setItem("inventory_aging_col_widths", JSON.stringify(next));
+      }
       return next;
     });
   };
-
-  function ThCell({ label, colKey, sortable, isNum, align, w, extra }: {
-    label: string; colKey: string; sortable: boolean; isNum: boolean;
-    align?: "left" | "right" | "center"; w?: string; extra?: React.CSSProperties;
-  }) {
-    const isSortTarget = sortCol === colKey;
-    const active = !!colFilters[colKey];
-    const width = colWidths[colKey] || (w ? parseInt(w) : undefined);
-    const thRef = useRef<HTMLTableCellElement>(null);
-
-    const startResizing = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      const startX = e.pageX;
-      const startWidth = thRef.current?.offsetWidth || 0;
-
-      const onMouseMove = (me: MouseEvent) => {
-        const newW = Math.max(50, startWidth + (me.pageX - startX));
-        onResize(colKey, newW);
-      };
-      const onMouseUp = () => {
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
-      };
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
-    };
-
-    const baseStyle: React.CSSProperties = {
-      ...thStyle,
-      textAlign: align || "left",
-      position: "relative",
-      width: width ? `${width}px` : w,
-      minWidth: width ? `${width}px` : "50px",
-      ...extra
-    };
-
-    return (
-      <th style={baseStyle} ref={thRef} className="group">
-        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
-          <div className="flex items-center gap-0.5">
-            {sortable && (
-              <button
-                onClick={(e) => { e.stopPropagation(); toggleSort(colKey as SortableCol); }}
-                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
-                title="Sắp xếp"
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-                </svg>
-              </button>
-            )}
-            <button
-              onClick={(e) => { e.stopPropagation(); setOpenPopup(openPopup === colKey ? null : colKey); }}
-              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
-              title="Bộ lọc"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            </button>
-          </div>
-        </div>
-
-        {/* Resize Handle */}
-        <div
-          onMouseDown={startResizing}
-          onDoubleClick={() => onResize(colKey, 150)}
-          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
-          title="Kéo để chỉnh độ rộng"
-        />
-
-        {openPopup === colKey && (
-          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
-            {isNum
-              ? <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />
-              : <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => setColFilter(colKey, f)} onClose={() => setOpenPopup(null)} />
-            }
-          </div>
-        )}
-      </th>
-    );
-  }
 
   /* ---- Close Report Action ---- */
   const [closingAging, setClosingAging] = useState(false);
@@ -1141,7 +1205,15 @@ export default function InventoryAgingReportPage() {
           <h1>Báo cáo tồn lâu ngày (Aging)</h1>
           <p className="page-subtitle text-slate">Phân tích các sản phẩm có thời gian tồn kho vượt ngưỡng để tối ưu hóa dòng vốn.</p>
         </div>
-        <div className="toolbar" style={{ margin: 0 }}>
+        <div className="toolbar" style={{ margin: 0, gap: 12 }}>
+          <button
+            onClick={handleExport}
+            disabled={loading || (reportMode === "current" ? displayDetailData.length === 0 : compareAgingData.length === 0)}
+            className="btn btn-secondary"
+          >
+            <span style={{ marginRight: 6 }}>📊</span>
+            Xuất Excel
+          </button>
           <button
             onClick={closeAgingReport}
             disabled={closingAging || loading || filteredLongAgingData.length === 0}
@@ -1447,51 +1519,51 @@ export default function InventoryAgingReportPage() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" w="60px" />
-                    <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} />
+                    <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" w="60px" />
+                    <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
                     {reportMode === "current" ? (
                       <>
-                        <ThCell label="Số mã Aging" colKey="count" sortable isNum align="right" />
-                        <ThCell label="Số lượng" colKey="qty" sortable isNum align="right" />
-                        <ThCell label="Giá trị tồn (VNĐ)" colKey="value" sortable isNum align="right" />
-                        <ThCell label="% Aging" colKey="pct_aging" sortable={false} isNum align="right" />
-                        <ThCell label="% Tổng kho" colKey="pct_global" sortable={false} isNum align="right" />
+                        <ThCell label="Số mã Aging" colKey="count" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
+                        <ThCell label="Số lượng" colKey="qty" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
+                        <ThCell label="Giá trị tồn (VNĐ)" colKey="value" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
+                        <ThCell label="% Aging" colKey="pct_aging" sortable={false} isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
+                        <ThCell label="% Tổng kho" colKey="pct_global" sortable={false} isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
                       </>
                     ) : (
                       <>
-                        <ThCell label="Số mã (K1)" colKey="count1" sortable isNum align="right" extra={{ backgroundColor: "var(--slate-50)" }} />
-                        <ThCell label="Số mã (K2)" colKey="count2" sortable isNum align="right" extra={{ backgroundColor: "var(--brand-50)" }} />
-                        <ThCell label="Giá trị (K1)" colKey="val1" sortable isNum align="right" extra={{ backgroundColor: "var(--slate-50)" }} />
-                        <ThCell label="Giá trị (K2)" colKey="val2" sortable isNum align="right" extra={{ backgroundColor: "var(--brand-50)" }} />
-                        <ThCell label="Biến động" colKey="valDiff" sortable isNum align="right" />
-                        <ThCell label="% Thay đổi" colKey="pctDiff" sortable isNum align="right" />
+                        <ThCell label="Số mã (K1)" colKey="count1" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
+                        <ThCell label="Số mã (K2)" colKey="count2" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
+                        <ThCell label="Giá trị (K1)" colKey="val1" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
+                        <ThCell label="Giá trị (K2)" colKey="val2" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
+                        <ThCell label="Biến động" colKey="valDiff" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
+                        <ThCell label="% Thay đổi" colKey="pctDiff" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="cust" />
                       </>
                     )}
                   </tr>
                 </thead>
                 <tbody>
                   {reportMode === "current" ? customerSummary.map((c, i) => (
-                    <tr key={c.customer_id || `uc-${i}`}>
-                      <td className="text-center">{i + 1}</td>
-                      <td className="font-semibold">{customerLabel(c.customer_id)}</td>
-                      <td className="text-right">{fmtNum(c.productCount)}</td>
-                      <td className="text-right">{fmtNum(c.qty)}</td>
-                      <td className="text-right font-bold color-danger">{fmtNum(c.value)}</td>
-                      <td className="text-right text-slate text-xs">{overallTotals.tValLongAging > 0 ? fmtPercent((c.value / overallTotals.tValLongAging) * 100) : "0.00%"}</td>
-                      <td className="text-right text-slate text-xs">{overallTally > 0 ? fmtPercent((c.value / overallTally) * 100) : "0.00%"}</td>
+                    <tr key={c.customer_id || `uc-${i}`} className="hover:bg-brand/[0.02] transition-colors odd:bg-white even:bg-slate-50/30">
+                      <td style={tdStyle} className="text-center">{i + 1}</td>
+                      <td style={tdStyle} className="font-semibold">{customerLabel(c.customer_id)}</td>
+                      <td style={tdStyle} className="text-right">{fmtNum(c.productCount)}</td>
+                      <td style={tdStyle} className="text-right">{fmtNum(c.qty)}</td>
+                      <td style={{ ...tdStyle, color: "var(--color-danger)" }} className="text-right font-bold color-danger">{fmtNum(c.value)}</td>
+                      <td style={tdStyle} className="text-right text-slate text-xs">{overallTotals.tValLongAging > 0 ? fmtPercent((c.value / overallTotals.tValLongAging) * 100) : "0.00%"}</td>
+                      <td style={tdStyle} className="text-right text-slate text-xs">{overallTally > 0 ? fmtPercent((c.value / overallTally) * 100) : "0.00%"}</td>
                     </tr>
                   )) : compareCustomerSummary.map((c, i) => (
-                    <tr key={c.customer_id || `cc-${i}`}>
-                      <td className="text-center">{i + 1}</td>
-                      <td className="font-semibold">{customerLabel(c.customer_id)}</td>
-                      <td className="text-right highlight-slate">{fmtNum(c.count1)}</td>
-                      <td className="text-right highlight-brand">{fmtNum(c.count2)}</td>
-                      <td className="text-right highlight-slate">{fmtNum(c.val1)}</td>
-                      <td className="text-right highlight-brand font-bold">{fmtNum(c.val2)}</td>
-                      <td className="text-right font-bold" style={{ color: c.valDiff > 0 ? "var(--color-danger)" : c.valDiff < 0 ? "var(--color-success)" : "inherit" }}>
+                    <tr key={c.customer_id || `cc-${i}`} className="hover:bg-brand/[0.02] transition-colors odd:bg-white even:bg-slate-50/30">
+                      <td style={tdStyle} className="text-center">{i + 1}</td>
+                      <td style={tdStyle} className="font-semibold">{customerLabel(c.customer_id)}</td>
+                      <td style={{ ...tdStyle, backgroundColor: "var(--slate-50)" }} className="text-right highlight-slate">{fmtNum(c.count1)}</td>
+                      <td style={{ ...tdStyle, backgroundColor: "var(--brand-50)" }} className="text-right highlight-brand">{fmtNum(c.count2)}</td>
+                      <td style={{ ...tdStyle, backgroundColor: "var(--slate-50)" }} className="text-right highlight-slate">{fmtNum(c.val1)}</td>
+                      <td style={{ ...tdStyle, backgroundColor: "var(--brand-50)" }} className="text-right highlight-brand font-bold">{fmtNum(c.val2)}</td>
+                      <td style={{ ...tdStyle, color: c.valDiff > 0 ? "var(--color-danger)" : c.valDiff < 0 ? "var(--color-success)" : "inherit" }} className="text-right font-bold">
                         {c.valDiff > 0 ? "+" : ""}{fmtNum(c.valDiff)}
                       </td>
-                      <td className="text-right font-bold" style={{ color: c.pctDiff > 0 ? "var(--color-danger)" : c.pctDiff < 0 ? "var(--color-success)" : "inherit" }}>
+                      <td style={{ ...tdStyle, color: c.pctDiff > 0 ? "var(--color-danger)" : c.pctDiff < 0 ? "var(--color-success)" : "inherit" }} className="text-right font-bold">
                         {c.pctDiff > 0 ? "+" : ""}{fmtPercent(c.pctDiff)}
                       </td>
                     </tr>
@@ -1518,31 +1590,31 @@ export default function InventoryAgingReportPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" w="50px" />
-                      <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} />
-                      <ThCell label="Tên hàng" colKey="name" sortable isNum={false} />
-                      <ThCell label="Quy cách" colKey="spec" sortable={false} isNum={false} />
-                      <ThCell label="Số lượng" colKey="current_qty" sortable isNum align="right" />
-                      <ThCell label="Đơn giá" colKey="unit_price" sortable isNum align="right" />
-                      <ThCell label="Giá trị Aging" colKey="inventory_value" sortable isNum align="right" />
-                      <ThCell label="% / Aging" colKey="pct_aging" sortable isNum align="right" />
-                      <ThCell label="% / Tổng" colKey="pct_global" sortable isNum align="right" />
-                      <ThCell label="Ghi chú" colKey="note" sortable={false} isNum={false} />
+                      <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" w="50px" />
+                      <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
+                      <ThCell label="Tên hàng" colKey="name" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
+                      <ThCell label="Quy cách" colKey="spec" sortable={false} isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
+                      <ThCell label="Số lượng" colKey="current_qty" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
+                      <ThCell label="Đơn giá" colKey="unit_price" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
+                      <ThCell label="Giá trị Aging" colKey="inventory_value" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
+                      <ThCell label="% / Aging" colKey="pct_aging" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
+                      <ThCell label="% / Tổng" colKey="pct_global" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
+                      <ThCell label="Ghi chú" colKey="note" sortable={false} isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="det" />
                     </tr>
                   </thead>
                   <tbody>
                     {displayDetailData.map((p, i) => (
-                      <tr key={`${p.product.id}-${p.customer_id}`}>
-                        <td className="text-center">{i + 1}</td>
-                        <td className="font-bold">{p.product.sku}</td>
-                        <td className="font-medium">{p.product.name}</td>
-                        <td className="text-xs text-slate">{p.product.spec || "—"}</td>
-                        <td className="text-right font-semibold">{fmtNum(p.current_qty)}</td>
-                        <td className="text-right text-slate">{fmtNum(p.product.unit_price)}</td>
-                        <td className="text-right font-bold color-danger">{fmtNum(p.inventory_value)}</td>
-                        <td className="text-right text-xs">{overallTotals.tValLongAging > 0 ? fmtPercent((p.inventory_value / overallTotals.tValLongAging) * 100) : "0.00%"}</td>
-                        <td className="text-right text-xs">{overallTally > 0 ? fmtPercent((p.inventory_value / overallTally) * 100) : "0.00%"}</td>
-                        <td className="text-xs italic text-slate">{p.long_aging_note || "—"}</td>
+                      <tr key={`${p.product.id}-${p.customer_id}`} className="hover:bg-brand/[0.02] transition-colors odd:bg-white even:bg-slate-50/30">
+                        <td style={tdStyle} className="text-center">{i + 1}</td>
+                        <td style={tdStyle} className="font-bold">{p.product.sku}</td>
+                        <td style={tdStyle} className="font-medium">{p.product.name}</td>
+                        <td style={tdStyle} className="text-xs text-slate">{p.product.spec || "—"}</td>
+                        <td style={tdStyle} className="text-right font-semibold">{fmtNum(p.current_qty)}</td>
+                        <td style={tdStyle} className="text-right text-slate">{fmtNum(p.product.unit_price)}</td>
+                        <td style={{ ...tdStyle, color: "var(--color-danger)" }} className="text-right font-bold">{fmtNum(p.inventory_value)}</td>
+                        <td style={tdStyle} className="text-right text-xs">{overallTotals.tValLongAging > 0 ? fmtPercent((p.inventory_value / overallTotals.tValLongAging) * 100) : "0.00%"}</td>
+                        <td style={tdStyle} className="text-right text-xs">{overallTally > 0 ? fmtPercent((p.inventory_value / overallTally) * 100) : "0.00%"}</td>
+                        <td style={tdStyle} className="text-xs italic text-slate">{p.long_aging_note || "—"}</td>
                       </tr>
                     ))}
                     {displayDetailData.length === 0 && (
@@ -1556,33 +1628,33 @@ export default function InventoryAgingReportPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" w="50px" />
-                      <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} />
-                      <ThCell label="Tên hàng" colKey="name" sortable isNum={false} />
-                      <ThCell label="Quy cách" colKey="spec" sortable={false} isNum={false} />
-                      <ThCell label="Giá trị Aging (K1)" colKey="val1" sortable isNum align="right" extra={{ backgroundColor: "var(--slate-50)" }} />
-                      <ThCell label="Giá trị Aging (K2)" colKey="val2" sortable isNum align="right" extra={{ backgroundColor: "var(--brand-50)" }} />
-                      <ThCell label="Biến động" colKey="valDiff" sortable isNum align="right" />
-                      <ThCell label="% Thay đổi" colKey="pctDiff" sortable isNum align="right" />
-                      <ThCell label="Ghi chú" colKey="note" sortable={false} isNum={false} />
+                      <ThCell label="STT" colKey="stt" sortable={false} isNum={false} align="center" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" w="50px" />
+                      <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
+                      <ThCell label="Tên hàng" colKey="name" sortable isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
+                      <ThCell label="Quy cách" colKey="spec" sortable={false} isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
+                      <ThCell label="Giá trị Aging (K1)" colKey="val1" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
+                      <ThCell label="Giá trị Aging (K2)" colKey="val2" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
+                      <ThCell label="Biến động" colKey="valDiff" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
+                      <ThCell label="% Thay đổi" colKey="pctDiff" sortable isNum align="right" colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
+                      <ThCell label="Ghi chú" colKey="note" sortable={false} isNum={false} colFilters={colFilters} setColFilters={setColFilters} sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} openPopupId={openPopup} setOpenPopupId={setOpenPopup} colWidths={colWidths} onResize={onResize} popupPrefix="comp" />
                     </tr>
                   </thead>
                   <tbody>
                     {compareAgingData.map((p, i) => (
-                      <tr key={`${p.product.id}-${p.customer_id}`}>
-                        <td className="text-center">{i + 1}</td>
-                        <td className="font-bold">{p.product.sku}</td>
-                        <td className="font-medium">{p.product.name}</td>
-                        <td className="text-xs text-slate">{p.product.spec || "—"}</td>
-                        <td className="text-right highlight-slate">{p.isAging1 ? fmtNum(p.val1) : "–"}</td>
-                        <td className="text-right highlight-brand font-bold">{p.isAging2 ? fmtNum(p.val2) : "–"}</td>
-                        <td className="text-right font-bold" style={{ color: p.valDiff > 0 ? "var(--color-danger)" : p.valDiff < 0 ? "var(--color-success)" : "inherit" }}>
+                      <tr key={`${p.product.id}-${p.customer_id}`} className="hover:bg-brand/[0.02] transition-colors odd:bg-white even:bg-slate-50/30">
+                        <td style={tdStyle} className="text-center">{i + 1}</td>
+                        <td style={tdStyle} className="font-bold">{p.product.sku}</td>
+                        <td style={tdStyle} className="font-medium">{p.product.name}</td>
+                        <td style={tdStyle} className="text-xs text-slate">{p.product.spec || "—"}</td>
+                        <td style={{ ...tdStyle, backgroundColor: "var(--slate-50)" }} className="text-right highlight-slate">{p.isAging1 ? fmtNum(p.val1) : "–"}</td>
+                        <td style={{ ...tdStyle, backgroundColor: "var(--brand-50)" }} className="text-right highlight-brand font-bold">{p.isAging2 ? fmtNum(p.val2) : "–"}</td>
+                        <td style={{ ...tdStyle, color: p.valDiff > 0 ? "var(--color-danger)" : p.valDiff < 0 ? "var(--color-success)" : "inherit" }} className="text-right font-bold">
                           {p.valDiff > 0 ? "+" : ""}{fmtNum(p.valDiff)}
                         </td>
-                        <td className="text-right font-bold" style={{ color: p.pctDiff > 0 ? "var(--color-danger)" : p.pctDiff < 0 ? "var(--color-success)" : "inherit" }}>
+                        <td style={{ ...tdStyle, color: p.pctDiff > 0 ? "var(--color-danger)" : p.pctDiff < 0 ? "var(--color-success)" : "inherit" }} className="text-right font-bold">
                           {p.pctDiff > 0 ? "+" : ""}{fmtPercent(p.pctDiff)}
                         </td>
-                        <td className="text-xs text-slate">{p.isAging2 ? (p.note2 || "") : (p.note1 || "")}</td>
+                        <td style={tdStyle} className="text-xs text-slate">{p.isAging2 ? (p.note2 || "") : (p.note1 || "")}</td>
                       </tr>
                     ))}
                     {compareAgingData.length === 0 && (

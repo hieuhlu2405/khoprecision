@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
+import { useDebounce } from "@/app/hooks/useDebounce";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -103,7 +104,17 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
         <option value="contains">Chứa</option>
         <option value="equals">Bằng tuyệt đối</option>
       </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." className="input w-full mb-3 h-8 text-xs" autoFocus />
+      <input 
+        value={val} 
+        onChange={e => setVal(e.target.value)} 
+        onKeyDown={e => {
+          if (e.key === "Enter") { onChange(val ? { mode, value: val } : null); onClose(); }
+          else if (e.key === "Escape") onClose();
+        }}
+        placeholder="Nhập giá trị..." 
+        className="input w-full mb-3 h-8 text-xs" 
+        autoFocus 
+      />
       <div className="flex justify-end gap-2">
         <button className={btnSmallClass} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
         <button className="btn btn-primary btn-sm" onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Áp dụng</button>
@@ -125,9 +136,28 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
         <option value="lt">Nhỏ hơn (&lt;)</option>
         <option value="range">Trong khoảng</option>
       </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder={mode === "range" ? "Từ" : "Giá trị"} className="input w-full mb-2 h-8 text-xs" autoFocus />
+      <input 
+        value={val} 
+        onChange={e => setVal(e.target.value)} 
+        onKeyDown={e => {
+          if (e.key === "Enter" && mode !== "range") { onChange(val ? { mode, value: val, valueTo: valTo } : null); onClose(); }
+          else if (e.key === "Escape") onClose();
+        }}
+        placeholder={mode === "range" ? "Từ" : "Giá trị"} 
+        className="input w-full mb-2 h-8 text-xs" 
+        autoFocus 
+      />
       {mode === "range" && (
-        <input value={valTo} onChange={e => setValTo(e.target.value)} placeholder="Đến" className="input w-full mb-2 h-8 text-xs" />
+        <input 
+          value={valTo} 
+          onChange={e => setValTo(e.target.value)} 
+          onKeyDown={e => {
+            if (e.key === "Enter") { onChange(val ? { mode, value: val, valueTo: valTo } : null); onClose(); }
+            else if (e.key === "Escape") onClose();
+          }}
+          placeholder="Đến" 
+          className="input w-full mb-2 h-8 text-xs" 
+        />
       )}
       <div className="flex justify-end gap-2 mt-1">
         <button className={btnSmallClass} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
@@ -194,6 +224,7 @@ export default function InventoryOpeningBalancesPage() {
 
   /* ---- Filter & Sort State ---- */
   const [q, setQ] = useState("");
+  const debouncedQ = useDebounce(q, 300);
   const [qPeriod, setQPeriod] = useState("");
   const [qCustomer, setQCustomer] = useState("");
 
@@ -280,15 +311,15 @@ export default function InventoryOpeningBalancesPage() {
     return records.filter(r => {
       if (qPeriod && r.period_month.slice(0, 10) !== qPeriod) return false;
       if (qCustomer && r.customer_id !== qCustomer) return false;
-      if (q) {
-        const s = q.toLowerCase();
+      if (debouncedQ) {
+        const s = debouncedQ.toLowerCase();
         const skuMatch = r.products?.sku.toLowerCase().includes(s);
         const nameMatch = r.products?.name.toLowerCase().includes(s);
         if (!skuMatch && !nameMatch) return false;
       }
       return true;
     });
-  }, [records, q, qPeriod, qCustomer]);
+  }, [records, debouncedQ, qPeriod, qCustomer]);
 
   const finalFiltered = useMemo(() => {
     let list = [...baseFiltered];
@@ -429,6 +460,17 @@ export default function InventoryOpeningBalancesPage() {
     setLines([{ key: Math.random().toString(36).slice(2), productId: "", productSearch: "", qty: "", isLongAging: false, longAgingNote: "", showSuggestions: false }]);
   }
 
+  function handleCancelCreate() {
+    const hasData = lines.some(l => l.productId || l.qty || l.productSearch);
+    if (hasData) {
+      showConfirm({ message: "Các dòng dữ liệu đang nhập dở sẽ bị mất. Bạn có chắc không?", confirmLabel: "Thoát ngay", danger: true }).then(ok => {
+        if (ok) setShowCreate(false);
+      });
+    } else {
+      setShowCreate(false);
+    }
+  }
+
   const addLine = () => setLines([...lines, { key: Math.random().toString(36).slice(2), productId: "", productSearch: "", qty: "", isLongAging: false, longAgingNote: "", showSuggestions: false }]);
   const removeLine = (key: string) => setLines(lines.filter(l => l.key !== key));
   const updateLine = (key: string, field: keyof FormLine, val: any) => setLines(lines.map(l => l.key === key ? { ...l, [field]: val } : l));
@@ -440,6 +482,21 @@ export default function InventoryOpeningBalancesPage() {
 
     setSaving(true);
     try {
+      // Check duplicates in form
+      const seen = new Set();
+      for (const l of validLines) {
+        if (seen.has(l.productId)) return showToast(`Sản phẩm ${l.productSearch} bị nhập trùng trong bảng`, "error");
+        seen.add(l.productId);
+      }
+
+      // Check duplicates against existing records
+      const existing = records.filter(r => r.period_month.slice(0, 10) === hPeriod);
+      for (const l of validLines) {
+        if (existing.some(r => r.product_id === l.productId)) {
+          return showToast(`Mã hàng ${l.productSearch} đã có tồn đầu kỳ trong tháng ${hPeriod.slice(0,7)}`, "error");
+        }
+      }
+
       const payloads = validLines.map(l => {
         const p = products.find(x => x.id === l.productId);
         return {
@@ -672,11 +729,19 @@ export default function InventoryOpeningBalancesPage() {
                         <td className="relative !overflow-visible">
                           <input
                             placeholder="Gõ mã, tên hàng hoặc tên khách..."
+                            autoFocus={idx === 0}
                             value={line.productSearch}
                             onChange={e => {
                               updateLine(line.key, "productSearch", e.target.value);
                               updateLine(line.key, "showSuggestions", true);
                               updateLine(line.key, "productId", "");
+                            }}
+                            onKeyDown={e => {
+                               if (e.key === "Enter" && line.productId) {
+                                 // Focus qty
+                                 const row = e.currentTarget.closest("tr");
+                                 row?.querySelector<HTMLInputElement>("input[type='number']")?.focus();
+                               }
                             }}
                             onFocus={() => updateLine(line.key, "showSuggestions", true)}
                             onBlur={() => setTimeout(() => updateLine(line.key, "showSuggestions", false), 200)}
@@ -724,13 +789,46 @@ export default function InventoryOpeningBalancesPage() {
                           })()}
                         </td>
                         <td>
-                          <input type="number" value={line.qty} onChange={e => updateLine(line.key, "qty", e.target.value)} className="input w-full text-right font-bold !bg-white border-transparent focus:border-brand" min="0" step="any" />
+                          <input 
+                            type="number" 
+                            value={line.qty} 
+                            onChange={e => updateLine(line.key, "qty", e.target.value)} 
+                            onKeyDown={e => {
+                                if (e.key === "Enter") {
+                                    if (!line.isLongAging) {
+                                        if (idx === lines.length - 1 && line.productId && line.qty) {
+                                            addLine();
+                                            // Focus will be handled by autoFocus on the new line's SKU input
+                                        }
+                                    } else {
+                                        const row = e.currentTarget.closest("tr");
+                                        row?.querySelector<HTMLInputElement>("input[style*='disabled: opacity-30']")?.focus();
+                                        // Actually let's use a class or selector for the note input
+                                        row?.querySelectorAll("input")[2]?.focus(); 
+                                    }
+                                }
+                            }}
+                            className="input w-full text-right font-bold !bg-white border-transparent focus:border-brand" 
+                            min="0" 
+                            step="any" 
+                          />
                         </td>
                         <td className="text-center">
                           <input type="checkbox" checked={line.isLongAging} onChange={e => updateLine(line.key, "isLongAging", e.target.checked)} className="rounded text-brand" />
                         </td>
                         <td>
-                          <input value={line.longAgingNote} onChange={e => updateLine(line.key, "longAgingNote", e.target.value)} disabled={!line.isLongAging} className="input w-full !bg-white border-transparent focus:border-brand disabled:opacity-30 disabled:cursor-not-allowed" placeholder="Lý do..." />
+                          <input 
+                            value={line.longAgingNote} 
+                            onChange={e => updateLine(line.key, "longAgingNote", e.target.value)} 
+                            onKeyDown={e => {
+                                if (e.key === "Enter" && idx === lines.length - 1 && line.productId && line.qty) {
+                                    addLine();
+                                }
+                            }}
+                            disabled={!line.isLongAging} 
+                            className="input w-full !bg-white border-transparent focus:border-brand disabled:opacity-30 disabled:cursor-not-allowed" 
+                            placeholder="Lý do..." 
+                          />
                         </td>
                         <td className="text-center">
                           {lines.length > 1 && (
@@ -750,7 +848,7 @@ export default function InventoryOpeningBalancesPage() {
                   Thêm dòng mới
                 </button>
                 <div className="flex gap-3">
-                  <button onClick={() => setShowCreate(false)} className="btn btn-ghost h-10 underline decoration-slate-300 underline-offset-4 hover:decoration-brand hover:text-brand">Hủy bỏ</button>
+                  <button onClick={handleCancelCreate} className="btn btn-ghost h-10 underline decoration-slate-300 underline-offset-4 hover:decoration-brand hover:text-brand">Hủy bỏ</button>
                   <button onClick={saveMulti} disabled={saving} className="btn btn-primary h-10 px-8 shadow-md shadow-brand/20">
                     {saving ? "Đang lưu..." : "Xác nhận lưu"}
                   </button>
@@ -759,8 +857,8 @@ export default function InventoryOpeningBalancesPage() {
             </div>
           )}
 
-          <div className="data-table-wrap">
-            <table className="data-table" style={{ minWidth: 1200 }}>
+          <div className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" style={{ maxHeight: "calc(100vh - 350px)" }}>
+            <table className="data-table !border-separate !border-spacing-0 overflow-visible" style={{ minWidth: 1200 }}>
               <thead>
                   <tr>
                     <th className="!text-center !w-12">
@@ -785,8 +883,10 @@ export default function InventoryOpeningBalancesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {finalFiltered.map(r => (
-                    <tr key={r.id} className={selectedIds.has(r.id) ? "!bg-brand/[0.04]" : ""}>
+                  {finalFiltered.length === 0 ? (
+                    <tr><td colSpan={9} className="py-20 text-center opacity-40 italic">Không có dữ liệu khớp bộ lọc.</td></tr>
+                  ) : finalFiltered.map(r => (
+                    <tr key={r.id} className={`${selectedIds.has(r.id) ? "!bg-brand/[0.04]" : ""} hover:bg-brand/[0.02] transition-colors group odd:bg-white even:bg-slate-50/30`}>
                     <td className="text-center">
                       <input
                         type="checkbox"
@@ -806,21 +906,25 @@ export default function InventoryOpeningBalancesPage() {
                       <span className="font-bold text-slate-900">{r.products?.sku}</span>
                     </td>
                     <td className="text-slate-600 font-medium truncate max-w-[300px]" title={r.products?.name}>{r.products?.name}</td>
-                    <td className="text-right font-bold text-slate-900">{fmtNum(r.opening_qty)}</td>
-                    <td className="text-right text-slate-500 font-medium">{fmtNum(r.opening_unit_cost)}</td>
+                    <td className="text-right">
+                       <div className="flex flex-col items-end">
+                         <span className="font-bold text-slate-900">{fmtNum(r.opening_qty)}</span>
+                         <span className="text-[10px] text-slate-400 italic">pcs</span>
+                       </div>
+                    </td>
+                    <td className="text-right text-slate-500 text-xs italic">{fmtNum(r.opening_unit_cost)}</td>
                     <td className="text-center">
                       {r.is_long_aging ? (
-                        <div className="group relative inline-block">
-                          <span className="badge badge-warning cursor-help">Dài kỳ</span>
+                        <div className="tooltip-wrap group relative inline-block">
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold border border-amber-200">Dài kỳ</span>
                           {r.long_aging_note && (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-slate-800 text-white text-[10px] rounded shadow-xl w-48 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-[100]">
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-slate-800 text-white rounded text-xs shadow-xl z-50">
                               {r.long_aging_note}
-                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-800"></div>
                             </div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-slate-300">—</span>
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[10px] font-medium opacity-50">Thường</span>
                       )}
                     </td>
                     <td className="text-center">
@@ -946,12 +1050,15 @@ export default function InventoryOpeningBalancesPage() {
     };
 
     const baseStyle: React.CSSProperties = {
-      textAlign: align || "left",
-      position: "relative",
-      whiteSpace: "nowrap",
+      textAlign: align || "left", border: "1px solid #ddd", padding: "10px 8px",
+      background: "#f8fafc", whiteSpace: "nowrap", borderBottom: "2px solid #ddd",
+      position: "sticky",
+      top: 0,
+      zIndex: 30,
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
-      ...extra
+      boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+      ...extra,
     };
     const popupOpen = openPopupId === colKey;
 

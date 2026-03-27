@@ -6,6 +6,8 @@ import { useUI } from "@/app/context/UIContext";
 import { LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { buildStockRows, SnapshotRow, TransactionRow } from "../shared/calc";
 import { formatToVietnameseDate, computeSnapshotBounds, applySamePeriodLastYearDates } from "../shared/date-utils";
+import { useDebounce } from "@/app/hooks/useDebounce";
+import { exportToExcel } from "@/lib/excel-utils";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -145,7 +147,17 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
         <option value="contains">Chứa</option>
         <option value="equals">Bằng</option>
       </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, boxSizing: "border-box" }} autoFocus />
+      <input 
+        value={val} 
+        onChange={e => setVal(e.target.value)} 
+        onKeyDown={e => {
+          if (e.key === "Enter") { onChange(val ? { mode, value: val } : null); onClose(); }
+          else if (e.key === "Escape") onClose();
+        }}
+        placeholder="Nhập giá trị..." 
+        style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, boxSizing: "border-box" }} 
+        autoFocus 
+      />
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
         <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
         <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Áp dụng</button>
@@ -221,15 +233,23 @@ function SummaryCard({ title, v1, v2, diff, bg, accent, icon, unit = "đ" }: { t
 /* ------------------------------------------------------------------ */
 
 const thStyle: React.CSSProperties = { padding: "10px 12px", border: "1px solid #ddd", fontSize: 13, fontWeight: 600, background: "#f8fafc", whiteSpace: "nowrap", position: "relative" };
+const tdStyle: React.CSSProperties = { padding: "12px 12px", borderBottom: "1px solid var(--slate-100)" };
 
-function ThCell({ label, colKey, sortable, isNum, align, active, isSortTarget, sortDir, onSort, onOpenFilter, w, colWidths, onResize }: {
+function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilters, sortCol, sortDir, onSort, openPopupId, setOpenPopupId, w, colWidths, onResize, popupPrefix }: {
     label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left" | "right" | "center";
-    active: boolean; isSortTarget: boolean; sortDir: SortDir;
-    onSort: (key: string) => void; onOpenFilter: (key: string) => void; w?: string;
-    colWidths: Record<string, number>; onResize: (key: string, width: number) => void;
+    colFilters: Record<string, ColFilter>; setColFilters: React.Dispatch<React.SetStateAction<Record<string, ColFilter>>>;
+    sortCol: string | null; sortDir: SortDir;
+    onSort: (key: any) => void; 
+    openPopupId: string | null; setOpenPopupId: (id: string | null) => void;
+    w?: string; colWidths: Record<string, number>; onResize: (key: string, width: number) => void;
+    popupPrefix: string;
   }) {
+    const active = !!colFilters[colKey];
+    const isSortTarget = sortCol === colKey;
     const width = colWidths[colKey] || (w ? parseInt(w) : undefined);
     const thRef = useRef<HTMLTableCellElement>(null);
+    const popupId = `${popupPrefix}-${colKey}`;
+    const isOpen = openPopupId === popupId;
 
     const startResizing = (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -251,7 +271,12 @@ function ThCell({ label, colKey, sortable, isNum, align, active, isSortTarget, s
       ...thStyle,
       textAlign: align || "left",
       width: width ? `${width}px` : w,
-      minWidth: width ? `${width}px` : "50px"
+      minWidth: width ? `${width}px` : "50px",
+      position: "sticky",
+      top: 0,
+      zIndex: 30,
+      boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+      color: "var(--slate-900)",
     };
 
     return (
@@ -271,7 +296,7 @@ function ThCell({ label, colKey, sortable, isNum, align, active, isSortTarget, s
               </button>
             )}
             <button
-              onClick={(e) => { e.stopPropagation(); onOpenFilter(colKey); }}
+              onClick={(e) => { e.stopPropagation(); setOpenPopupId(isOpen ? null : popupId); }}
               className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
               title="Lọc dữ liệu"
             >
@@ -287,6 +312,15 @@ function ThCell({ label, colKey, sortable, isNum, align, active, isSortTarget, s
           className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
           title="Kéo để chỉnh độ rộng"
         />
+
+        {isOpen && (
+          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
+            {isNum ? 
+              <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => setColFilters(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : 
+              <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => setColFilters(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />
+            }
+          </div>
+        )}
       </th>
     );
   }
@@ -723,12 +757,27 @@ export default function InventoryValueReportPage() {
   const [p2End, setP2End] = useState(defEnd);
   const [qCustomer, setQCustomer] = useState("");
   const [qCustomerSearch, setQCustomerSearch] = useState("");
+  const debouncedQCust = useDebounce(qCustomerSearch, 300);
   const [qProduct, setQProduct] = useState("");
+  const debouncedQProd = useDebounce(qProduct, 300);
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [onlyChanged, setOnlyChanged] = useState(false);
   const [topN, setTopN] = useState<number>(20);
   const [txs1, setTxs1] = useState<InventoryTx[]>([]);
   const [txs2, setTxs2] = useState<InventoryTx[]>([]);
+
+  // O(1) Lookup Maps
+  const productMap = useMemo(() => {
+    const m = new Map<string, Product>();
+    for (const p of products) m.set(p.id, p);
+    return m;
+  }, [products]);
+
+  const customerMap = useMemo(() => {
+    const m = new Map<string, Customer>();
+    for (const c of customers) m.set(c.id, c);
+    return m;
+  }, [customers]);
 
   const bounds = useMemo(() => computeSnapshotBounds(qStart, qEnd, openings), [qStart, qEnd, openings]);
   const bounds1 = useMemo(() => computeSnapshotBounds(p1Start, p1End, openings), [p1Start, p1End, openings]);
@@ -841,16 +890,27 @@ export default function InventoryValueReportPage() {
     const rows = buildStockRows(bounds.S || qStart, bounds.effectiveStart, bounds.effectiveEnd, openings, txs);
     const results: ProdRow[] = [];
     for (const r of rows) {
-      const p = products.find(x => x.id === r.product_id);
+      const p = productMap.get(r.product_id);
       if (!p) continue;
       if (qCustomer && p.customer_id !== qCustomer) continue;
-      if (qProduct) { const s = qProduct.toLowerCase(); if (!p.sku.toLowerCase().includes(s) && !p.name.toLowerCase().includes(s)) continue; }
+      if (debouncedQProd) {
+        const s = debouncedQProd.toLowerCase();
+        if (!p.sku.toLowerCase().includes(s) && !p.name.toLowerCase().includes(s)) continue;
+      }
       if (onlyInStock && r.current_qty <= 0) continue;
       if (r.current_qty <= 0) continue;
-      results.push({ product: p, customer_id: p.customer_id, opening_qty: r.opening_qty, inbound_qty: r.inbound_qty, outbound_qty: r.outbound_qty, current_qty: r.current_qty, inventory_value: r.current_qty * (p.unit_price ?? 0) });
+      results.push({
+        product: p,
+        customer_id: p.customer_id,
+        opening_qty: r.opening_qty,
+        inbound_qty: r.inbound_qty,
+        outbound_qty: r.outbound_qty,
+        current_qty: r.current_qty,
+        inventory_value: r.current_qty * (p.unit_price ?? 0)
+      });
     }
     return results;
-  }, [products, openings, txs, qCustomer, qProduct, onlyInStock, qStart, qEnd, topN, bounds]);
+  }, [productMap, openings, txs, qCustomer, debouncedQProd, onlyInStock, qStart, qEnd, bounds]);
 
   const overallTotals = useMemo(() => {
     let tVal = 0, tQty = 0, productsWithStock = 0;
@@ -891,9 +951,13 @@ export default function InventoryValueReportPage() {
     const allPids = new Set<string>(); stock1.forEach(r => allPids.add(r.product_id)); stock2.forEach(r => allPids.add(r.product_id));
     const results: CompareProdRow[] = [];
     for (const pid of allPids) {
-      const p = products.find(x => x.id === pid); if (!p) continue;
+      const p = productMap.get(pid);
+      if (!p) continue;
       if (qCustomer && p.customer_id !== qCustomer) continue;
-      if (qProduct) { const s = qProduct.toLowerCase(); if (!p.sku.toLowerCase().includes(s) && !p.name.toLowerCase().includes(s)) continue; }
+      if (debouncedQProd) {
+        const s = debouncedQProd.toLowerCase();
+        if (!p.sku.toLowerCase().includes(s) && !p.name.toLowerCase().includes(s)) continue;
+      }
       const qty1 = m1.get(pid) || 0, qty2 = m2.get(pid) || 0;
       if (onlyInStock && qty1 <= 0 && qty2 <= 0) continue;
       const up = p.unit_price ?? 0, val1 = qty1 * up, val2 = qty2 * up, valDiff = val2 - val1, pctDiff = val1 !== 0 ? (valDiff / val1) * 100 : 0;
@@ -901,7 +965,7 @@ export default function InventoryValueReportPage() {
       if (qty1 > 0 || qty2 > 0) results.push({ product: p, customer_id: p.customer_id, qty1, qty2, val1, val2, valDiff, pctDiff });
     }
     return results;
-  }, [reportMode, products, openings, txs1, txs2, p1Start, p1End, p2Start, p2End, qCustomer, qProduct, onlyInStock, onlyChanged, bounds1, bounds2]);
+  }, [reportMode, productMap, openings, txs1, txs2, p1Start, p1End, p2Start, p2End, qCustomer, debouncedQProd, onlyInStock, onlyChanged, bounds1, bounds2]);
 
   const compareTotals = useMemo(() => {
     let v1 = 0, v2 = 0; const c1 = new Set<string>(), c2 = new Set<string>();
@@ -933,7 +997,7 @@ export default function InventoryValueReportPage() {
   /* ---- Display Helpers ---- */
   function customerLabel(cId: string | null) {
     if (!cId) return "--- (Không phân bổ) ---";
-    const c = customers.find((x) => x.id === cId);
+    const c = customerMap.get(cId);
     return c ? `${c.code} - ${c.name}` : cId;
   }
 
@@ -1050,180 +1114,42 @@ export default function InventoryValueReportPage() {
   };
 
   /* ---- Header Cell Components ---- */
-  function CustThCell({ label, colKey, sortable, isNum, align, extra, w }: { 
-    label: string; colKey: string; sortable: boolean; isNum: boolean; 
-    align?: "left" | "right" | "center"; extra?: React.CSSProperties; w?: string;
-  }) {
-    const active = !!colFiltersCust[colKey];
-    const isSortTarget = sortColCust === colKey;
-    const popupOpen = openPopupId === `cust-${colKey}`;
-    const width = colWidthsCust[colKey] || (w ? parseInt(w) : undefined);
-    const thRef = useRef<HTMLTableCellElement>(null);
 
-    const startResizing = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      const startX = e.pageX;
-      const startWidth = thRef.current?.offsetWidth || 0;
-      const onMouseMove = (me: MouseEvent) => {
-        const newW = Math.max(50, startWidth + (me.pageX - startX));
-        onResizeCust(colKey, newW);
-      };
-      const onMouseUp = () => {
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
-      };
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
-    };
-
-    return (
-      <th 
-        style={{ 
-          textAlign: align || "left", position: "relative", whiteSpace: "nowrap",
-          width: width ? `${width}px` : w, minWidth: width ? `${width}px` : "50px",
-          ...extra 
-        }} 
-        ref={thRef}
-        className="group"
-      >
-        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
-          <div className="flex items-center gap-0.5">
-            {sortable && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isSortTarget) {
-                    if (sortDirCust === "asc") setSortDirCust("desc");
-                    else { setSortDirCust(null); setSortColCust(null); }
-                  } else { setSortColCust(colKey); setSortDirCust("asc"); }
-                }}
-                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
-                title="Sắp xếp"
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  {isSortTarget && sortDirCust === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDirCust === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-                </svg>
-              </button>
-            )}
-            <button
-              onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : `cust-${colKey}`); }}
-              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
-              title="Lọc dữ liệu"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            </button>
-          </div>
-        </div>
-
-        {/* Resize Handle */}
-        <div
-          onMouseDown={startResizing}
-          onDoubleClick={() => onResizeCust(colKey, 150)}
-          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
-          title="Kéo để chỉnh độ rộng"
-        />
-
-        {popupOpen && (
-          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
-            {isNum ? 
-              <NumFilterPopup filter={(colFiltersCust[colKey] as NumFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : 
-              <TextFilterPopup filter={(colFiltersCust[colKey] as TextFilter) || null} onChange={f => setColFiltersCust(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />
-            }
-          </div>
-        )}
-      </th>
-    );
-  }
-
-  function ProdThCell({ label, colKey, sortable, isNum, align, extra, w }: { 
-    label: string; colKey: string; sortable: boolean; isNum: boolean; 
-    align?: "left" | "right" | "center"; extra?: React.CSSProperties; w?: string;
-  }) {
-    const active = !!colFiltersProd[colKey];
-    const isSortTarget = sortColProd === colKey;
-    const popupOpen = openPopupId === `prod-${colKey}`;
-    const width = colWidthsProd[colKey] || (w ? parseInt(w) : undefined);
-    const thRef = useRef<HTMLTableCellElement>(null);
-
-    const startResizing = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      const startX = e.pageX;
-      const startWidth = thRef.current?.offsetWidth || 0;
-      const onMouseMove = (me: MouseEvent) => {
-        const newW = Math.max(50, startWidth + (me.pageX - startX));
-        onResizeProd(colKey, newW);
-      };
-      const onMouseUp = () => {
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
-      };
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
-    };
-
-    return (
-      <th 
-        style={{ 
-          textAlign: align || "left", position: "relative", whiteSpace: "nowrap",
-          width: width ? `${width}px` : w, minWidth: width ? `${width}px` : "50px",
-          ...extra 
-        }} 
-        ref={thRef}
-        className="group"
-      >
-        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
-          <div className="flex items-center gap-0.5">
-            {sortable && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isSortTarget) {
-                    if (sortDirProd === "asc") setSortDirProd("desc");
-                    else { setSortDirProd(null); setSortColProd(null); }
-                  } else { setSortColProd(colKey); setSortDirProd("asc"); }
-                }}
-                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
-                title="Sắp xếp"
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  {isSortTarget && sortDirProd === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDirProd === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-                </svg>
-              </button>
-            )}
-            <button
-              onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : `prod-${colKey}`); }}
-              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
-              title="Lọc dữ liệu"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            </button>
-          </div>
-        </div>
-
-        {/* Resize Handle */}
-        <div
-          onMouseDown={startResizing}
-          onDoubleClick={() => onResizeProd(colKey, 150)}
-          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
-          title="Kéo để chỉnh độ rộng"
-        />
-
-        {popupOpen && (
-          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
-            {isNum ? 
-              <NumFilterPopup filter={(colFiltersProd[colKey] as NumFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : 
-              <TextFilterPopup filter={(colFiltersProd[colKey] as TextFilter) || null} onChange={f => setColFiltersProd(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />
-            }
-          </div>
-        )}
-      </th>
-    );
-  }
 
   const activeCustFilters = Object.keys(colFiltersCust).length;
   const activeProdFilters = Object.keys(colFiltersProd).length;
+  const activeFilterCount = activeCustFilters + activeProdFilters;
+
+  /* ---- Export Excel ---- */
+  function handleExport() {
+    if (reportMode === "current") {
+      const data = displayTopProducts.map((r, i) => ({
+        "STT": i + 1,
+        "Khách hàng": customerLabel(r.customer_id),
+        "SKU": r.product.sku,
+        "Tên hàng": r.product.name,
+        "Quy cách": r.product.spec || "",
+        "Tồn cuối": r.current_qty,
+        "Đơn giá": r.product.unit_price ?? 0,
+        "Giá trị tồn": r.inventory_value
+      }));
+      exportToExcel(data, `Bao_cao_Gia_tri_Ton_kho_${qEnd}.xlsx`);
+    } else {
+      const data = displayCompareTopProducts.map((r, i) => ({
+        "STT": i + 1,
+        "Khách hàng": customerLabel(r.customer_id),
+        "SKU": r.product.sku,
+        "Tên hàng": r.product.name,
+        "Quy cách": r.product.spec || "",
+        "Giá trị (Kỳ 1)": r.val1,
+        "Giá trị (Kỳ 2)": r.val2,
+        "Chênh lệch": r.valDiff,
+        "% Thay đổi": r.pctDiff.toFixed(2) + "%"
+      }));
+      exportToExcel(data, `So_sanh_Gia_tri_Kho_${p1End}_vs_${p2End}.xlsx`);
+    }
+    showToast("Đã xuất file Excel thành công!", "success");
+  }
 
   /* ---- Close Report Action ---- */
   const [closing, setClosing] = useState(false);
@@ -1262,10 +1188,25 @@ export default function InventoryValueReportPage() {
           </div>
         </div>
 
-        <div className="toolbar">
-          <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading || productData.length === 0}>
-            {closing ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}
-          </button>
+        <div className="toolbar" style={{ margin: 0 }}>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button 
+              className="btn btn-outline" 
+              onClick={handleExport} 
+              disabled={loading || (reportMode === "current" ? displayTopProducts.length === 0 : displayCompareTopProducts.length === 0)}
+              style={{ display: "flex", alignItems: "center", gap: 6 }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Xuất Excel
+            </button>
+            <button 
+              className="btn btn-primary" 
+              onClick={closeReport} 
+              disabled={closing || loading || productData.length === 0}
+            >
+              {closing ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1489,58 +1430,66 @@ export default function InventoryValueReportPage() {
             <div className="toolbar" style={{ marginBottom: 16 }}>
               <h3 className="modal-title">Tổng hợp Khách hàng</h3>
             </div>
-            <div className="data-table-wrap">
-              <table className="data-table">
+            <div className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" style={{ maxHeight: "calc(100vh - 350px)" }}>
+              <table className="data-table !border-separate !border-spacing-0 overflow-visible" style={{ minWidth: 1000 }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: "center", width: 50 }}>STT</th>
-                    <CustThCell label="Khách hàng" colKey="customer" sortable isNum={false} />
-                    <CustThCell label="Số mã" colKey="products" sortable isNum align="right" />
-                    {(reportMode as string) === "current" ? (
+                    <th style={{ ...thStyle, textAlign: "center", width: 50, position: "sticky", top: 0, zIndex: 30, color: "var(--slate-900)" }}>STT</th>
+                    <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
+                    {reportMode === "current" ? (
                       <>
-                        <CustThCell label="Số lượng" colKey="qty" sortable isNum align="right" />
-                        <CustThCell label="Giá trị tồn kho" colKey="value" sortable isNum align="right" />
-                        <CustThCell label="Tỷ trọng" colKey="pct" sortable isNum align="right" />
+                        <ThCell label="Số mã" colKey="products" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
+                        <ThCell label="Số lượng" colKey="qty" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
+                        <ThCell label="Giá trị tồn kho" colKey="value" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
+                        <th style={{ ...thStyle, textAlign: "right", position: "sticky", top: 0, zIndex: 30, color: "var(--slate-900)" }} className="text-right">Tỷ trọng</th>
                       </>
                     ) : (
                       <>
-                        <CustThCell label="Giá trị K1" colKey="p1_value" sortable isNum align="right" />
-                        <CustThCell label="Giá trị K2" colKey="p2_value" sortable isNum align="right" />
-                        <CustThCell label="Chênh lệch" colKey="valDiff" sortable isNum align="right" />
-                        <CustThCell label="% CL" colKey="pctDiff" sortable isNum align="right" />
+                        <ThCell label="Số mã" colKey="products" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
+                        <ThCell label="Giá trị K1" colKey="p1_value" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
+                        <ThCell label="Giá trị K2" colKey="p2_value" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
+                        <ThCell label="Chênh lệch" colKey="valDiff" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
+                        <ThCell label="% CL" colKey="pctDiff" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" />
                       </>
                     )}
                   </tr>
                 </thead>
                 <tbody>
-                  {(reportMode as string) === "current" ? (
-                    displayCustomerSummary.map((c, i) => (
-                      <tr key={c.customer_id || `u1-${i}`}>
-                        <td style={{ textAlign: "center" }}>{i + 1}</td>
-                        <td style={{ fontWeight: 600 }}>{customerLabel(c.customer_id)}</td>
-                        <td style={{ textAlign: "right" }}>{fmtNum(c.productCount)}</td>
-                        <td style={{ textAlign: "right" }}>{fmtNum(c.qty)}</td>
-                        <td style={{ textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>{fmtNum(c.value)}</td>
-                        <td style={{ textAlign: "right", fontSize: 12 }}>{overallTotals.totalValue > 0 ? fmtPercent((c.value / overallTotals.totalValue) * 100) : "0.00%"}</td>
+                  {reportMode === "current" ? (
+                    displayCustomerSummary.length === 0 ? (
+                      <tr><td colSpan={6} className="py-20 text-center opacity-40 italic">Không có dữ liệu.</td></tr>
+                    ) : displayCustomerSummary.map((c, i) => (
+                      <tr key={c.customer_id || `u1-${i}`} className="hover:bg-brand/[0.02] transition-colors odd:bg-white even:bg-slate-50/30">
+                        <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
+                        <td style={{ ...tdStyle, fontWeight: 600 }}>{customerLabel(c.customer_id)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.productCount)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.qty)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>{fmtNum(c.value)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right" }}>
+                           <span className="badge badge-brand" style={{ fontSize: 11 }}>
+                             {overallTotals.totalValue > 0 ? fmtPercent((c.value / overallTotals.totalValue) * 100) : "0.00%"}
+                           </span>
+                        </td>
                       </tr>
                     ))
                   ) : (
-                    compareCustomerSummary.map((c, i) => (
-                      <tr key={c.customer_id || `u2-${i}`}>
-                        <td style={{ textAlign: "center" }}>{i + 1}</td>
-                        <td style={{ fontWeight: 600 }}>{customerLabel(c.customer_id)}</td>
-                        <td style={{ textAlign: "right" }}>{fmtNum(c.productCount)}</td>
-                        <td style={{ textAlign: "right" }}>{fmtNum(c.p1_value || 0)}</td>
-                        <td style={{ textAlign: "right", fontWeight: 700 }}>{fmtNum(c.p2_value || 0)}</td>
-                        <td style={{ textAlign: "right", fontWeight: 700, color: (c.valDiff||0) > 0 ? "var(--color-danger)" : (c.valDiff||0)<0 ? "var(--color-success)" : "inherit" }}>{(c.valDiff||0) > 0 ? "+" : ""}{fmtNum(c.valDiff||0)}</td>
-                        <td style={{ textAlign: "right", fontSize: 12, color: (c.pctDiff||0) > 0 ? "var(--color-danger)" : (c.pctDiff||0)<0 ? "var(--color-success)" : "inherit" }}>{(c.pctDiff||0)>0 ? "+":""}{fmtPercent(c.pctDiff||0)}</td>
+                    compareCustomerSummary.length === 0 ? (
+                      <tr><td colSpan={7} className="py-20 text-center opacity-40 italic">Không có dữ liệu so sánh.</td></tr>
+                    ) : compareCustomerSummary.map((c, i) => (
+                      <tr key={c.customer_id || `u2-${i}`} className="hover:bg-brand/[0.02] transition-colors odd:bg-white even:bg-slate-50/30">
+                        <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
+                        <td style={{ ...tdStyle, fontWeight: 600 }}>{customerLabel(c.customer_id)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.productCount)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.p1_value || 0)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>{fmtNum(c.p2_value || 0)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: (c.valDiff||0) > 0 ? "var(--color-danger)" : (c.valDiff||0)<0 ? "var(--color-success)" : "inherit" }}>{(c.valDiff||0) > 0 ? "+" : ""}{fmtNum(c.valDiff||0)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right" }}>
+                           <span className={`badge ${ (c.pctDiff||0) > 0 ? "badge-danger" : (c.pctDiff||0) < 0 ? "badge-success" : "badge-secondary" }`} style={{ fontSize: 11 }}>
+                             {(c.pctDiff||0)>0 ? "+":""}{fmtPercent(c.pctDiff||0)}
+                           </span>
+                        </td>
                       </tr>
                     ))
-                  )}
-                  {((reportMode === "current" ? displayCustomerSummary : compareCustomerSummary).length === 0) && (
-                    <tr>
-                      <td colSpan={10} style={{ padding: 24, textAlign: "center", color: "var(--slate-400)" }}>Không có dữ liệu.</td>
-                    </tr>
                   )}
                 </tbody>
               </table>
@@ -1551,63 +1500,70 @@ export default function InventoryValueReportPage() {
             <div className="toolbar" style={{ marginBottom: 16 }}>
               <h3 className="modal-title">Chi tiết Top {topN} Mã hàng</h3>
             </div>
-            <div className="data-table-wrap">
-              <table className="data-table">
+            <div className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" style={{ maxHeight: "calc(100vh - 350px)" }}>
+              <table className="data-table !border-separate !border-spacing-0 overflow-visible" style={{ minWidth: 1000 }}>
                 <thead>
                   <tr>
-                    <ProdThCell label="Hạng" colKey="rank" sortable isNum align="center" extra={{ width: 60 }} />
-                    <ProdThCell label="Mã hàng" colKey="sku" sortable isNum={false} />
-                    <ProdThCell label="Tên hàng" colKey="name" sortable isNum={false} />
-                    <ProdThCell label="Khách hàng" colKey="customer" sortable isNum={false} />
-                    {(reportMode as string) === "current" ? (
+                    <ThCell label="Hạng" colKey="rank" sortable isNum align="center" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" w="60px" />
+                    <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
+                    <ThCell label="Tên hàng" colKey="name" sortable isNum={false} colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
+                    <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
+                    {reportMode === "current" ? (
                       <>
-                        <ProdThCell label="Tồn còn lại" colKey="qty" sortable isNum align="right" />
-                        <ProdThCell label="Giá trị tồn" colKey="value" sortable isNum align="right" />
-                        <th style={{ ...thStyle, textAlign: "right" }}>Tỷ trọng</th>
+                        <ThCell label="Tồn còn lại" colKey="qty" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
+                        <ThCell label="Giá trị tồn" colKey="value" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
+                        <th style={{ ...thStyle, textAlign: "right", position: "sticky", top: 0, zIndex: 30, color: "var(--slate-900)" }} className="text-right">Tỷ trọng</th>
                       </>
                     ) : (
                       <>
-                        <ProdThCell label="Tồn K1" colKey="qty1" sortable isNum align="right" />
-                        <ProdThCell label="Tồn K2" colKey="qty2" sortable isNum align="right" />
-                        <ProdThCell label="Giá trị K1" colKey="val1" sortable isNum align="right" />
-                        <ProdThCell label="Giá trị K2" colKey="val2" sortable isNum align="right" />
-                        <ProdThCell label="CL Giá trị" colKey="valDiff" sortable isNum align="right" />
+                        <ThCell label="Tồn K1" colKey="qty1" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
+                        <ThCell label="Tồn K2" colKey="qty2" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
+                        <ThCell label="Giá trị K1" colKey="val1" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
+                        <ThCell label="Giá trị K2" colKey="val2" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
+                        <ThCell label="CL Giá trị" colKey="valDiff" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" />
                       </>
                     )}
                   </tr>
                 </thead>
                 <tbody>
-                  {(reportMode as string) === "current" ? (
-                    displayTopProducts.map((p) => (
-                      <tr key={p.product.id}>
-                        <td style={{ textAlign: "center", fontWeight: 700, color: p.rank <= 3 ? "var(--color-danger)" : "inherit" }}>#{p.rank}</td>
-                        <td style={{ fontWeight: 700 }}>{p.product.sku}</td>
-                        <td style={{ fontSize: 13 }}>{p.product.name}</td>
-                        <td style={{ fontSize: 12, color: "var(--slate-500)" }}>{customerLabel(p.customer_id)}</td>
-                        <td style={{ textAlign: "right" }}>{fmtNum(p.current_qty)}</td>
-                        <td style={{ textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>{fmtNum(p.inventory_value)}</td>
-                        <td style={{ textAlign: "right", fontSize: 12 }}>{overallTotals.totalValue > 0 ? fmtPercent((p.inventory_value / overallTotals.totalValue) * 100) : "0.00%"}</td>
+                  {reportMode === "current" ? (
+                    displayTopProducts.length === 0 ? (
+                      <tr><td colSpan={7} className="py-20 text-center opacity-40 italic">Không có dữ liệu.</td></tr>
+                    ) : displayTopProducts.map((p) => (
+                      <tr key={p.product.id} className="hover:bg-brand/[0.02] transition-colors odd:bg-white even:bg-slate-50/30">
+                        <td style={{ ...tdStyle, textAlign: "center", fontWeight: 700, color: p.rank <= 3 ? "var(--color-danger)" : "inherit" }}>#{p.rank}</td>
+                        <td style={{ ...tdStyle, fontWeight: 700 }}>{p.product.sku}</td>
+                        <td style={{ ...tdStyle, fontSize: 13 }}>{p.product.name}</td>
+                        <td style={{ ...tdStyle, fontSize: 12, color: "var(--slate-500)" }}>{customerLabel(p.customer_id)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(p.current_qty)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>{fmtNum(p.inventory_value)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right" }}>
+                           <span className="badge badge-brand" style={{ fontSize: 11 }}>
+                             {overallTotals.totalValue > 0 ? fmtPercent((p.inventory_value / overallTotals.totalValue) * 100) : "0.00%"}
+                           </span>
+                        </td>
                       </tr>
                     ))
                   ) : (
-                    displayCompareTopProducts.map((p) => (
-                      <tr key={p.product.id}>
-                        <td style={{ textAlign: "center", fontWeight: 700, color: p.rank <= 3 ? "var(--color-danger)" : "inherit" }}>#{p.rank}</td>
-                        <td style={{ fontWeight: 700 }}>{p.product.sku}</td>
-                        <td style={{ fontSize: 13 }}>{p.product.name}</td>
-                        <td style={{ fontSize: 12, color: "var(--slate-500)" }}>{customerLabel(p.customer_id)}</td>
-                        <td style={{ textAlign: "right" }}>{fmtNum(p.qty1)}</td>
-                        <td style={{ textAlign: "right", fontWeight: 700 }}>{fmtNum(p.qty2)}</td>
-                        <td style={{ textAlign: "right" }}>{fmtNum(p.val1)}</td>
-                        <td style={{ textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>{fmtNum(p.val2)}</td>
-                        <td style={{ textAlign: "right", fontWeight: 700, color: p.valDiff > 0 ? "var(--color-danger)" : p.valDiff < 0 ? "var(--color-success)" : "inherit" }}>{p.valDiff > 0 ? "+" : ""}{fmtNum(p.valDiff)}</td>
+                    displayCompareTopProducts.length === 0 ? (
+                      <tr><td colSpan={11} className="py-20 text-center opacity-40 italic">Không có dữ liệu so sánh.</td></tr>
+                    ) : displayCompareTopProducts.map((p) => (
+                      <tr key={p.product.id} className="hover:bg-brand/[0.02] transition-colors odd:bg-white even:bg-slate-50/30">
+                        <td style={{ ...tdStyle, textAlign: "center", fontWeight: 700, color: p.rank <= 3 ? "var(--color-danger)" : "inherit" }}>#{p.rank}</td>
+                        <td style={{ ...tdStyle, fontWeight: 700 }}>{p.product.sku}</td>
+                        <td style={{ ...tdStyle, fontSize: 13 }}>{p.product.name}</td>
+                        <td style={{ ...tdStyle, fontSize: 12, color: "var(--slate-500)" }}>{customerLabel(p.customer_id)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(p.qty1)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>{fmtNum(p.qty2)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(p.val1)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>{fmtNum(p.val2)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: p.valDiff > 0 ? "var(--color-danger)" : p.valDiff < 0 ? "var(--color-success)" : "inherit" }}>
+                           <span className={`badge ${ p.valDiff > 0 ? "badge-danger" : p.valDiff < 0 ? "badge-success" : "badge-secondary" }`} style={{ fontSize: 11 }}>
+                             {p.valDiff > 0 ? "+" : ""}{fmtNum(p.valDiff)}
+                           </span>
+                        </td>
                       </tr>
                     ))
-                  )}
-                  {((reportMode === "current" ? displayTopProducts : displayCompareTopProducts).length === 0) && (
-                    <tr>
-                      <td colSpan={11} style={{ padding: 24, textAlign: "center", color: "var(--slate-400)" }}>Không có dữ liệu.</td>
-                    </tr>
                   )}
                 </tbody>
               </table>

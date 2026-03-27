@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
+import { useDebounce } from "@/app/hooks/useDebounce";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -171,7 +172,17 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
         <option value="contains">Chứa</option>
         <option value="equals">Bằng</option>
       </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, backgroundColor: "#f3f2acbb", boxSizing: "border-box" }} autoFocus />
+      <input 
+        value={val} 
+        onChange={e => setVal(e.target.value)} 
+        onKeyDown={e => {
+          if (e.key === "Enter") { onChange(val ? { mode, value: val } : null); onClose(); }
+          else if (e.key === "Escape") onClose();
+        }}
+        placeholder="Nhập giá trị..." 
+        style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, backgroundColor: "#f3f2acbb", boxSizing: "border-box" }} 
+        autoFocus 
+      />
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
         <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
         <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Áp dụng</button>
@@ -193,9 +204,28 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
         <option value="lt">Nhỏ hơn (&lt;)</option>
         <option value="range">Từ … đến …</option>
       </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder={mode === "range" ? "Từ" : "Giá trị"} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} autoFocus />
+      <input 
+        value={val} 
+        onChange={e => setVal(e.target.value)} 
+        onKeyDown={e => {
+          if (e.key === "Enter" && mode !== "range") { onChange(val ? { mode, value: val, valueTo: valTo } : null); onClose(); }
+          else if (e.key === "Escape") onClose();
+        }}
+        placeholder={mode === "range" ? "Từ" : "Giá trị"} 
+        style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} 
+        autoFocus 
+      />
       {mode === "range" && (
-        <input value={valTo} onChange={e => setValTo(e.target.value)} placeholder="Đến" style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} />
+        <input 
+          value={valTo} 
+          onChange={e => setValTo(e.target.value)} 
+          onKeyDown={e => {
+            if (e.key === "Enter") { onChange(val ? { mode, value: val, valueTo: valTo } : null); onClose(); }
+            else if (e.key === "Escape") onClose();
+          }}
+          placeholder="Đến" 
+          style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} 
+        />
       )}
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 4 }}>
         <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
@@ -218,9 +248,28 @@ function DateFilterPopup({ filter, onChange, onClose }: { filter: DateFilter | n
         <option value="after">Sau ngày</option>
         <option value="range">Từ … đến …</option>
       </select>
-      <input type="date" value={val} onChange={e => setVal(e.target.value)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} autoFocus />
+      <input 
+        type="date" 
+        value={val} 
+        onChange={e => setVal(e.target.value)} 
+        onKeyDown={e => {
+          if (e.key === "Enter" && mode !== "range") { onChange(val || valTo ? { mode, value: val, valueTo: valTo } : null); onClose(); }
+          else if (e.key === "Escape") onClose();
+        }}
+        style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} 
+        autoFocus 
+      />
       {mode === "range" && (
-        <input type="date" value={valTo} onChange={e => setValTo(e.target.value)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} />
+        <input 
+          type="date" 
+          value={valTo} 
+          onChange={e => setValTo(e.target.value)} 
+          onKeyDown={e => {
+            if (e.key === "Enter") { onChange(val || valTo ? { mode, value: val, valueTo: valTo } : null); onClose(); }
+            else if (e.key === "Escape") onClose();
+          }}
+          style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} 
+        />
       )}
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 4 }}>
         <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
@@ -241,6 +290,7 @@ export default function InventoryOutboundPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [q, setQ] = useState("");
+  const debouncedQ = useDebounce(q, 300);
   const [qDate, setQDate] = useState("");
   const [qCustomer, setQCustomer] = useState("");
   const [error, setError] = useState("");
@@ -341,7 +391,7 @@ export default function InventoryOutboundPage() {
   /* ---- filtered rows ---- */
   const baseFiltered = useMemo(() => {
     let list = enrichedRows;
-    const s = q.trim().toLowerCase();
+    const s = debouncedQ.trim().toLowerCase();
     if (s) {
       list = list.filter(
         (r) =>
@@ -357,7 +407,7 @@ export default function InventoryOutboundPage() {
     }
     return list;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enrichedRows, q, qDate, qCustomer, products]);
+  }, [enrichedRows, debouncedQ, qDate, qCustomer, products]);
 
   /* ---- column-filtered rows ---- */
   function textVal(r: any, col: string): string {
@@ -479,10 +529,14 @@ export default function InventoryOutboundPage() {
 
     const baseStyle: React.CSSProperties = {
       textAlign: align || "left",
-      position: "relative",
-      whiteSpace: "nowrap",
+      border: "1px solid #ddd", padding: "10px 8px",
+      background: "#f8fafc", whiteSpace: "nowrap", borderBottom: "2px solid #ddd",
+      position: "sticky",
+      top: 0,
+      zIndex: 30,
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
+      boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
       ...extra
     };
     const popupOpen = openPopupId === colKey;
@@ -553,6 +607,17 @@ export default function InventoryOutboundPage() {
     setHDate("");
     setHNote("");
     setLines([{ key: nextKey(), productId: "", qty: "", unitCost: "" }]);
+  }
+
+  function handleCancelCreate() {
+    const hasData = lines.some(l => l.productId || l.qty) || hNote || hDate;
+    if (hasData) {
+      showConfirm({ message: "Dữ liệu phiếu xuất đang nhập dở sẽ bị mất. Bạn có chắc không?", confirmLabel: "Hủy phiếu ngay", danger: true }).then(ok => {
+        if (ok) setShowCreate(false);
+      });
+    } else {
+      setShowCreate(false);
+    }
   }
 
   function addLine() {
@@ -951,15 +1016,15 @@ export default function InventoryOutboundPage() {
           <fieldset>
             <legend>Chi tiết xuất kho</legend>
 
-            <div className="data-table-wrap">
-              <table className="data-table">
+            <div className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" style={{ maxHeight: "calc(100vh - 350px)" }}>
+            <table className="data-table !border-separate !border-spacing-0 overflow-visible" style={{ minWidth: 1200 }}>
               <thead>
                 <tr>
-                  {["#", "Sản phẩm *", "Số lượng *", "Đơn giá", ""].map((h) => (
-                    <th key={h} style={thStyle}>
-                      {h}
-                    </th>
-                  ))}
+                  <th style={thStyle}>#</th>
+                  <th style={thStyle}>Sản phẩm *</th>
+                  <th style={thStyle}>Số lượng *</th>
+                  <th style={thStyle}>Đơn giá</th>
+                  <th style={thStyle}></th>
                 </tr>
               </thead>
               <tbody>
@@ -968,16 +1033,30 @@ export default function InventoryOutboundPage() {
                     <td style={{ ...tdStyle, width: 36, verticalAlign: "top" }}>{idx + 1}</td>
                     <td style={{ ...tdStyle, verticalAlign: "top", position: "relative" }}>
                       <input
-                        placeholder="Gõ tìm mã, tên hàng, tên khách..."
+                        placeholder="Gõ mã hoặc tên sản phẩm..."
+                        autoFocus={idx === 0}
                         value={line.productSearch ?? ""}
                         onChange={(e) => {
-                          updateLine(line.key, "productSearch", e.target.value);
+                          const s = e.target.value;
+                          updateLine(line.key, "productSearch", s);
                           updateLine(line.key, "showSuggestions", true);
                           updateLine(line.key, "productId", "");
                         }}
+                        onKeyDown={e => {
+                          if (e.key === "Enter" && line.productId) {
+                            // Jump to qty
+                            const tr = e.currentTarget.closest("tr");
+                            tr?.querySelector<HTMLInputElement>("input[placeholder='0']")?.focus();
+                          }
+                        }}
                         onFocus={() => updateLine(line.key, "showSuggestions", true)}
-                        onBlur={() => setTimeout(() => updateLine(line.key, "showSuggestions", false), 200)}
-                        style={{ padding: 6, width: "100%" }}
+                        onBlur={() =>
+                          setTimeout(
+                            () => updateLine(line.key, "showSuggestions", false),
+                            200
+                          )
+                        }
+                        className="input w-full !bg-white border-transparent focus:border-brand focus:ring-0"
                       />
                       {line.showSuggestions && (
                         <div style={{
@@ -1035,27 +1114,40 @@ export default function InventoryOutboundPage() {
                         );
                       })()}
                     </td>
-                    <td style={{ ...tdStyle, width: 120, verticalAlign: "top" }}>
+                    <td>
                       <input
                         type="number"
+                        placeholder="0"
                         value={line.qty}
                         onChange={(e) => updateLine(line.key, "qty", e.target.value)}
-                        className="input"
-                        style={{ width: "100%" }}
-                        min="0"
+                        onKeyDown={e => {
+                            if (e.key === "Enter") {
+                              // Jump to unitCost
+                              const tr = e.currentTarget.closest("tr");
+                              tr?.querySelectorAll("input")[1]?.focus();
+                            }
+                        }}
+                        className="input w-full text-right font-bold !bg-white border-transparent focus:border-brand"
+                        min="0.001"
                         step="any"
                       />
                     </td>
-                    <td style={{ ...tdStyle, width: 140, verticalAlign: "top" }}>
+                    <td>
                       <input
                         type="number"
+                        placeholder="Giá (VNĐ)"
                         value={line.unitCost}
                         onChange={(e) => updateLine(line.key, "unitCost", e.target.value)}
-                        className="input"
-                        style={{ width: "100%" }}
+                        onKeyDown={e => {
+                            if (e.key === "Enter") {
+                                if (idx === lines.length - 1 && line.productId && line.qty) {
+                                    addLine();
+                                }
+                            }
+                        }}
+                        className="input w-full text-right !bg-white border-transparent focus:border-brand"
                         min="0"
                         step="any"
-                        placeholder="Tùy chọn"
                       />
                     </td>
                     <td style={{ ...tdStyle, width: 80, verticalAlign: "top" }}>
@@ -1082,19 +1174,18 @@ export default function InventoryOutboundPage() {
 
           {/* ---- Actions ---- */}
           <div className="toolbar" style={{ marginTop: 16, justifyContent: "flex-end" }}>
-            <button
-              onClick={() => setShowCreate(false)}
-              className="btn btn-secondary"
-            >
-              Hủy
-            </button>
-            <button
-              onClick={saveMulti}
-              disabled={saving}
-              className="btn btn-primary"
-            >
-              {saving ? "Đang lưu..." : "Lưu phiếu xuất"}
-            </button>
+            <div className="flex gap-4">
+                  <button onClick={handleCancelCreate} className="btn btn-secondary !text-slate-500 !border-slate-200 hover:!bg-slate-50">
+                    Hủy bỏ
+                  </button>
+                  <button
+                    onClick={saveMulti}
+                    disabled={saving}
+                    className="btn btn-primary h-11 px-8 shadow-md shadow-brand/20"
+                  >
+                    {saving ? "Đang lưu..." : "Lưu phiếu xuất"}
+                  </button>
+                </div>
           </div>
         </div>
       )}
@@ -1188,13 +1279,19 @@ export default function InventoryOutboundPage() {
               <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
               <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="140px" />
               <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
+              <ThCell label="Quy cách" colKey="spec" sortable colType="text" w="120px" />
+              <ThCell label="Số lượng" colKey="qty" sortable colType="num" w="100px" />
+              <ThCell label="Đơn giá" colKey="unitCost" sortable colType="num" w="100px" />
+              <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="200px" />
               <ThCell label="Tạo lúc" colKey="createdAt" sortable colType="date" />
               <ThCell label="Cập nhật" colKey="updatedAt" sortable colType="date" />
               <th style={{ textAlign: "center", minWidth: 160 }}>Thao tác</th>
             </tr>
           </thead>
           <tbody>
-            {finalFiltered.map((r, i) => {
+            {finalFiltered.length === 0 ? (
+              <tr><td colSpan={canDelete ? 13 : 12} className="py-20 text-center opacity-40 italic">Không tìm thấy phiếu xuất nào khớp bộ lọc.</td></tr>
+            ) : finalFiltered.map((r, i) => {
               const adjs = r.adjs;
               const hasAdjs = r.hasAdjs;
               const isExpanded = expandedRow === r.id;
@@ -1204,7 +1301,11 @@ export default function InventoryOutboundPage() {
 
               return (
                 <Fragment key={r.id}>
-                  <tr>
+                  <tr 
+                    className={`hover:bg-brand/[0.02] transition-colors group odd:bg-white even:bg-slate-50/30 ${selectedIds.has(r.id) ? "!bg-brand/[0.04]" : ""}`}
+                    onClick={() => toggleExpanded(r.id)}
+                    style={{ cursor: "pointer" }}
+                  >
                      {canDelete && (
                        <td style={{ ...tdStyle, textAlign: "center", verticalAlign: "top" }}>
                          <input type="checkbox" checked={selectedIds.has(r.id)}

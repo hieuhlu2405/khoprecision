@@ -31,3 +31,51 @@ This skill contains the mandatory design rules for all inventory-related data ta
 
 > [!IMPORTANT]
 > Failure to implement column resizing or using gray text for headings will result in a UI regression report. Always refer back to this design system when creating new modules.
+
+## 5. React Hook Safety Rules (CRITICAL — Prevents "Application Error" crashes)
+
+> [!CAUTION]
+> Violating these rules will cause the entire page to crash with a "Application error: a client-side exception has occurred" on Vercel. This has happened with `opening/page.tsx` and `value-report/page.tsx`.
+
+### 5.1 Hook Placement
+- **ALL `useState`, `useEffect`, `useMemo`, `useRef`, and other React Hooks MUST be declared at the TOP of the component function, BEFORE the `return` statement.**
+- **NEVER** place `useState` or any Hook **after** the `return (`, even if it's still inside the function body (unreachable code).
+- **NEVER** place `useState` or any Hook **outside** a React component or custom Hook function (module-level).
+
+### 5.2 Column Resizing State (Safe Pattern)
+When adding column resizing to a page, ALWAYS use this exact safe pattern inside the component function, before `return`:
+
+```tsx
+// CORRECT placement — before return(), inside the component function
+const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+  if (typeof window !== "undefined") {
+    try {
+      const saved = localStorage.getItem("inventory_PAGENAME_col_widths");
+      const parsed = saved ? JSON.parse(saved) : {};
+      return (parsed && typeof parsed === "object") ? parsed : {};
+    } catch (e) {
+      console.error("Failed to parse colWidths", e);
+      return {};
+    }
+  }
+  return {};
+});
+
+const onResize = (key: string, width: number) => {
+  setColWidths(prev => {
+    const next = { ...prev, [key]: width };
+    if (typeof window !== "undefined") {
+      localStorage.setItem("inventory_PAGENAME_col_widths", JSON.stringify(next));
+    }
+    return next;
+  });
+};
+```
+
+### 5.3 Verification Checklist
+Before pushing any changes with `useState` additions:
+1. ✅ Is the `useState` call inside a component function? (not module-level)
+2. ✅ Is it BEFORE the `return` statement?
+3. ✅ Is `localStorage.getItem` wrapped in a `try-catch`?
+4. ✅ Is `typeof window !== "undefined"` checked before using `localStorage`?
+5. ✅ Run `npm run build` locally to confirm no TypeScript errors.
