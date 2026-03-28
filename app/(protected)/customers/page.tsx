@@ -236,9 +236,13 @@ export default function CustomersPage() {
     const baseStyle: React.CSSProperties = {
       ...thStyle,
       textAlign: align || "left",
-      position: "relative",
+      position: "sticky",
+      top: 0,
+      zIndex: 30,
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
+      boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+      borderBottom: "2px solid var(--slate-200)",
       ...extra
     };
     const popupOpen = openPopupId === colKey;
@@ -518,7 +522,16 @@ export default function CustomersPage() {
           <thead>
             <tr>
               {canDelete && (
-                <th style={{ ...thStyle, width: 60, textAlign: "center" }}>
+                <th style={{ 
+                  ...thStyle, 
+                  width: 60, 
+                  textAlign: "center",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 30,
+                  boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                  borderBottom: "2px solid var(--slate-200)"
+                }}>
                   <input type="checkbox"
                     className="rounded text-brand"
                     checked={finalFiltered.length > 0 && finalFiltered.every(r => selectedIds.has(r.id))}
@@ -529,10 +542,19 @@ export default function CustomersPage() {
                   />
                 </th>
               )}
-              <ThCell label="Mã KH" colKey="code" sortable colType="text" w="140px" />
+              <ThCell label="Mã KHÁCH HÀNG" colKey="code" sortable colType="text" w="140px" />
               <ThCell label="Tên khách hàng" colKey="name" sortable colType="text" />
               <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />
-              <th style={{ ...thStyle, textAlign: "center", width: 110 }}>Thao tác</th>
+              <th style={{ 
+                ...thStyle, 
+                textAlign: "center", 
+                width: 110,
+                position: "sticky",
+                top: 0,
+                zIndex: 30,
+                boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                borderBottom: "2px solid var(--slate-200)"
+              }}>Thao tác</th>
             </tr>
           </thead>
           <tbody>

@@ -351,9 +351,13 @@ export default function ProductsPage() {
     const baseStyle: React.CSSProperties = {
       ...thStyle,
       textAlign: align || "left",
-      position: "relative",
+      position: "sticky",
+      top: 0,
+      zIndex: 30,
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
+      boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+      borderBottom: "2px solid var(--slate-200)",
       ...extra
     };
     const popupOpen = openPopupId === colKey;
@@ -720,7 +724,16 @@ export default function ProductsPage() {
         <table className="data-table" style={{ minWidth: 1000 }}>
           <thead>
             <tr>
-               <th style={{ ...thStyle, width: 60, textAlign: "center" }}>
+               <th style={{ 
+                 ...thStyle, 
+                 width: 60, 
+                 textAlign: "center",
+                 position: "sticky",
+                 top: 0,
+                 zIndex: 30,
+                 boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                 borderBottom: "2px solid var(--slate-200)"
+               }}>
                  <input type="checkbox"
                    className="rounded text-brand"
                    checked={finalFiltered.length > 0 && finalFiltered.every(r => selectedIds.has(r.id))}
@@ -738,7 +751,16 @@ export default function ProductsPage() {
                <ThCell label="Active" colKey="isActive" sortable={false} colType="text" align="center" w="80px" />
                <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
                <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />
-               <th style={{ ...thStyle, textAlign: "center", width: 100 }}>Thao tác</th>
+               <th style={{ 
+                 ...thStyle, 
+                 textAlign: "center", 
+                 width: 100,
+                 position: "sticky",
+                 top: 0,
+                 zIndex: 30,
+                 boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                 borderBottom: "2px solid var(--slate-200)"
+               }}>Thao tác</th>
             </tr>
           </thead>
           <tbody>
