@@ -19,10 +19,11 @@ type PhoiTx = {
   unit_cost: number | null; note: string | null;
   created_at: string; updated_at: string; created_by: string | null;
 };
-type FormLine = { key: number; productId: string; qty: string; unitCost: string; productSearch?: string; showSuggestions?: boolean; };
+type FormLine = { key: string; productId: string; qty: string; unitCost: string; productSearch?: string; showSuggestions?: boolean; };
 
-let lineKeySeq = 1;
-function nextKey(): number { return lineKeySeq++; }
+function nextKey(): string {
+  return "KPHOI-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
+}
 
 function fmtDate(d: string | null): string {
   if (!d) return "";
@@ -63,7 +64,9 @@ export default function PhoiPage() {
   const [hDate, setHDate] = useState(today());
   const [hNote, setHNote] = useState("");
   const [hCustomerId, setHCustomerId] = useState("");
-  const [lines, setLines] = useState<FormLine[]>([{ key: nextKey(), productId: "", qty: "", unitCost: "" }]);
+  const [lines, setLines] = useState<FormLine[]>(() => [
+    { key: nextKey(), productId: "", qty: "", unitCost: "" }
+  ]);
   const [saving, setSaving] = useState(false);
 
   /* ---- edit form ---- */
@@ -142,8 +145,8 @@ export default function PhoiPage() {
     setLines([{ key: nextKey(), productId: "", qty: "", unitCost: "" }]);
   }
   function addLine() { setLines(p => [...p, { key: nextKey(), productId: "", qty: "", unitCost: "" }]); }
-  function removeLine(key: number) { setLines(p => p.length <= 1 ? p : p.filter(l => l.key !== key)); }
-  function updateLine(key: number, field: keyof FormLine, value: any) {
+  function removeLine(key: string) { setLines(p => p.length <= 1 ? p : p.filter(l => l.key !== key)); }
+  function updateLine(key: string, field: keyof FormLine, value: any) {
     setLines(prev => prev.map(l => l.key === key ? { ...l, [field]: value } : l));
   }
 
@@ -560,9 +563,9 @@ export default function PhoiPage() {
       "STT": i + 1,
       "Ngày nhập": fmtDate(r.tx_date),
       "Khách hàng": customerLabel(r.customer_id),
-      "Mã hàng (SKU)": skuFor(r),
+      "Mã hàng": skuFor(r),
       "Tên hàng": r.product_name_snapshot,
-      "Kích thước": r.product_spec_snapshot ?? "",
+      "Kích thước (MM)": r.product_spec_snapshot ?? "",
       "Số lượng": r.qty,
       "Đơn giá": r.unit_cost ?? "",
       "Ghi chú": r.note ?? "",
@@ -662,8 +665,15 @@ export default function PhoiPage() {
                           onChange={e => updateLine(l.key, "productSearch", e.target.value)}
                           onFocus={() => updateLine(l.key, "showSuggestions", true)}
                           onBlur={() => setTimeout(() => updateLine(l.key, "showSuggestions", false), 150)}
-                          placeholder="Tìm SKU hoặc tên hàng..."
+                          onKeyDown={e => {
+                            if (e.key === "Enter" && l.productId) {
+                              const tr = e.currentTarget.closest("tr");
+                              tr?.querySelector<HTMLInputElement>("input[placeholder='0']")?.focus();
+                            }
+                          }}
+                          placeholder="Tìm mã hàng hoặc tên hàng..."
                           className="input w-full bg-slate-50 focus:bg-white border-transparent focus:border-brand"
+                          autoFocus={idx === lines.length - 1 && idx > 0}
                         />
                         {l.showSuggestions && lSuggestions.length > 0 && (
                           <div className="absolute left-0 right-0 z-[100] mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-[300px] overflow-y-auto">
@@ -682,10 +692,43 @@ export default function PhoiPage() {
                         )}
                       </td>
                       <td>
-                        <input type="number" value={l.qty} onChange={e => updateLine(l.key, "qty", e.target.value)} className="input w-full text-right font-bold h-10 border-transparent bg-slate-50 focus:bg-white focus:border-brand" placeholder="0" />
+                        <input 
+                          type="number" 
+                          value={l.qty} 
+                          onChange={e => updateLine(l.key, "qty", e.target.value)} 
+                          onKeyDown={e => {
+                            if (e.key === "Enter") {
+                                const tr = e.currentTarget.closest("tr");
+                                tr?.querySelector<HTMLInputElement>("input[placeholder='Đơn giá']")?.focus();
+                            }
+                          }}
+                          className="input w-full text-right font-bold h-10 border-transparent bg-slate-50 focus:bg-white focus:border-brand" 
+                          placeholder="0" 
+                        />
                       </td>
                       <td>
-                        <input type="number" value={l.unitCost} onChange={e => updateLine(l.key, "unitCost", e.target.value)} className="input w-full text-right h-10 border-transparent bg-slate-50 focus:bg-white focus:border-brand" placeholder="Đơn giá" />
+                        <input 
+                          type="number" 
+                          value={l.unitCost} 
+                          onChange={e => updateLine(l.key, "unitCost", e.target.value)} 
+                          onKeyDown={e => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                if (idx === lines.length - 1) {
+                                    if (l.productId && l.qty) {
+                                        addLine();
+                                    } else {
+                                        showToast("Vui lòng chọn sản phẩm và số lượng trước khi thêm dòng mới.", "error");
+                                    }
+                                } else {
+                                    const nextTr = e.currentTarget.closest("tr")?.nextElementSibling;
+                                    nextTr?.querySelector("input")?.focus();
+                                }
+                            }
+                          }}
+                          className="input w-full text-right h-10 border-transparent bg-slate-50 focus:bg-white focus:border-brand" 
+                          placeholder="Đơn giá" 
+                        />
                       </td>
                       <td className="text-center">
                         <button onClick={() => removeLine(l.key)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">✕</button>
@@ -746,9 +789,9 @@ export default function PhoiPage() {
                   className="rounded border-slate-300 text-brand focus:ring-brand" />
               </th>
               <ThCell label="Ngày nhập" colKey="tx_date" sortable colType="date" w="140px" />
-              <ThCell label="Mã hàng (SKU)" colKey="sku" sortable colType="text" w="150px" />
+              <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" />
               <ThCell label="Tên sản phẩm" colKey="name" sortable colType="text" />
-              <ThCell label="Quy cách" colKey="spec" sortable colType="text" w="140px" />
+              <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" w="140px" />
               <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="180px" />
               <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" w="120px" />
               <ThCell label="Đơn giá" colKey="cost" sortable colType="num" align="right" w="140px" />

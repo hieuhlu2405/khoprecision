@@ -567,9 +567,9 @@ export default function InventoryOpeningBalancesPage() {
       "STT": i + 1,
       "Ngày đầu kỳ": fmtDate(r.period_month),
       "Khách hàng": r.customers ? `${r.customers.code} - ${r.customers.name}` : "",
-      "Mã hàng (SKU)": r.products?.sku || "",
+      "Mã hàng": r.products?.sku || "",
       "Tên hàng": r.products?.name || "",
-      "Kích thước": r.products?.spec || "",
+      "Kích thước (MM)": r.products?.spec || "",
       "Tồn đầu kỳ": r.opening_qty,
       "Đơn giá": r.opening_unit_cost || "",
       "Tồn dài kỳ": r.is_long_aging ? "Có" : "Không",
@@ -872,7 +872,7 @@ export default function InventoryOpeningBalancesPage() {
                     </th>
                     <ThCell label="Kỳ" colKey="period" sortable colType="date" w="110px" />
                     <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
-                    <ThCell label="Mã hàng (SKU)" colKey="sku" sortable colType="text" w="150px" />
+                    <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" />
                     <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
                     <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" w="110px" />
                     <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" w="120px" />
@@ -907,7 +907,7 @@ export default function InventoryOpeningBalancesPage() {
                     <td className="text-right">
                        <div className="flex flex-col items-end">
                          <span className="font-bold text-slate-900">{fmtNum(r.opening_qty)}</span>
-                         <span className="text-[10px] text-slate-400 italic">pcs</span>
+                         <span className="text-[10px] text-slate-400 italic">PCS</span>
                        </div>
                     </td>
                     <td className="text-right text-slate-500 text-xs italic">{fmtNum(r.opening_unit_cost)}</td>

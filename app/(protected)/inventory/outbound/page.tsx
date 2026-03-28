@@ -60,7 +60,7 @@ type Profile = {
 
 /** One detail line in the multi-line form */
 type FormLine = {
-  key: number;
+  key: string;
   productId: string;
   qty: string;
   unitCost: string;
@@ -97,9 +97,8 @@ function fmtNum(n: number | null | undefined): string {
   return parts.join(".");
 }
 
-let lineKeySeq = 1;
-function nextKey(): number {
-  return lineKeySeq++;
+function nextKey(): string {
+  return "KOUT-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
 }
 
 /* ------------------------------------------------------------------ */
@@ -302,7 +301,9 @@ export default function InventoryOutboundPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [hDate, setHDate] = useState("");
   const [hNote, setHNote] = useState("");
-  const [lines, setLines] = useState<FormLine[]>([{ key: nextKey(), productId: "", qty: "", unitCost: "" }]);
+  const [lines, setLines] = useState<FormLine[]>(() => [
+    { key: nextKey(), productId: "", qty: "", unitCost: "" }
+  ]);
   const [saving, setSaving] = useState(false);
 
   /* ---- single-row edit form state ---- */
@@ -621,20 +622,16 @@ export default function InventoryOutboundPage() {
   }
 
   function addLine() {
-    setLines((prev) => [...prev, { key: nextKey(), productId: "", qty: "", unitCost: "" }]);
+    setLines(p => [...p, { key: nextKey(), productId: "", qty: "", unitCost: "" }]);
   }
 
-  function removeLine(key: number) {
-    setLines((prev) => {
-      if (prev.length <= 1) return prev;
-      return prev.filter((l) => l.key !== key);
-    });
+  function removeLine(key: string) {
+    if (lines.length <= 1) return;
+    setLines(lines.filter(l => l.key !== key));
   }
 
-  function updateLine(key: number, field: keyof Omit<FormLine, "key">, value: any) {
-    setLines((prev) =>
-      prev.map((l) => (l.key === key ? { ...l, [field]: value } : l))
-    );
+  function updateLine(key: string, field: keyof FormLine, value: any) {
+    setLines(prev => prev.map(l => l.key === key ? { ...l, [field]: value } : l));
   }
 
   /* ---- single-row edit helpers ---- */
@@ -932,9 +929,9 @@ export default function InventoryOutboundPage() {
         "STT": i + 1,
         "Ngày xuất": fmtDate(r.tx_date),
         "Khách hàng": customerLabel(r.customer_id),
-        "Mã hàng (SKU)": skuFor(r),
+        "Mã hàng": skuFor(r),
         "Tên hàng": r.product_name_snapshot,
-        "Kích thước": r.product_spec_snapshot ?? "",
+        "Kích thước (MM)": r.product_spec_snapshot ?? "",
         "Số lượng (Cuối cùng)": r.finalQty,
         "Số lượng (Gốc)": r.originalQty,
         "Điều chỉnh": r.adjTotal,
@@ -1034,7 +1031,7 @@ export default function InventoryOutboundPage() {
                     <td style={{ ...tdStyle, verticalAlign: "top", position: "relative" }}>
                       <input
                         placeholder="Gõ mã hoặc tên sản phẩm..."
-                        autoFocus={idx === 0}
+                        autoFocus={idx === lines.length - 1 && idx > 0}
                         value={line.productSearch ?? ""}
                         onChange={(e) => {
                           const s = e.target.value;
@@ -1092,7 +1089,7 @@ export default function InventoryOutboundPage() {
                                 <div style={{ fontWeight: "bold" }}>{p.sku} - {p.name}</div>
                                 <div style={{ fontSize: "0.85em", color: "#666" }}>
                                   Khách hàng: {c ? `${c.code} - ${c.name}` : "---"}
-                                  {p.spec ? ` | Kích thước: ${p.spec}` : ""}
+                                  {p.spec ? ` | Kích thước (MM): ${p.spec}` : ""}
                                 </div>
                               </div>
                             );
@@ -1108,7 +1105,7 @@ export default function InventoryOutboundPage() {
                           <div style={{ fontSize: "0.85em", color: "#666", marginTop: 6, lineHeight: 1.4 }}>
                             <strong>Khách hàng:</strong> {cLabel || "---"}<br/>
                             <strong>Tên hàng:</strong> {p.name}<br/>
-                            <strong>Kích thước:</strong> {p.spec || "---"}<br/>
+                            <strong>Kích thước (MM):</strong> {p.spec || "---"}<br/>
                             <strong>Đơn giá:</strong> {p.unit_price != null ? fmtNum(p.unit_price) : "---"}
                           </div>
                         );
@@ -1140,8 +1137,16 @@ export default function InventoryOutboundPage() {
                         onChange={(e) => updateLine(line.key, "unitCost", e.target.value)}
                         onKeyDown={e => {
                             if (e.key === "Enter") {
-                                if (idx === lines.length - 1 && line.productId && line.qty) {
-                                    addLine();
+                                e.preventDefault();
+                                if (idx === lines.length - 1) {
+                                    if (line.productId && line.qty) {
+                                        addLine();
+                                    } else {
+                                        showToast("Vui lòng chọn sản phẩm và số lượng trước khi thêm dòng mới.", "error");
+                                    }
+                                } else {
+                                    const nextTr = e.currentTarget.closest("tr")?.nextElementSibling;
+                                    nextTr?.querySelector("input")?.focus();
                                 }
                             }
                         }}
@@ -1279,7 +1284,7 @@ export default function InventoryOutboundPage() {
               <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
               <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="140px" />
               <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
-              <ThCell label="Quy cách" colKey="spec" sortable colType="text" w="120px" />
+              <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" w="120px" />
               <ThCell label="Số lượng" colKey="qty" sortable colType="num" w="100px" />
               <ThCell label="Đơn giá" colKey="unitCost" sortable colType="num" w="100px" />
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="200px" />

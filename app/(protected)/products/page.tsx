@@ -34,25 +34,31 @@ export default function ProductsPage() {
   const [sku, setSku] = useState("");
   const [name, setName] = useState("");
   const [spec, setSpec] = useState("");
-  const [uom, setUom] = useState("pcs");
+  const [uom, setUom] = useState("PCS");
   const [unitPrice, setUnitPrice] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [isActive, setIsActive] = useState(true);
 
   // bulk add state
-  type BulkLine = { key: number; customerId: string; sku: string; name: string; spec: string; uom: string; unitPrice: string; };
-  let bulkKeySeq = 100;
+  type BulkLine = { key: string; customerId: string; sku: string; name: string; spec: string; uom: string; unitPrice: string; };
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [bulkLines, setBulkLines] = useState<BulkLine[]>([{ key: bulkKeySeq++, customerId: "", sku: "", name: "", spec: "", uom: "pcs", unitPrice: "" }]);
+  const [bulkLines, setBulkLines] = useState<BulkLine[]>([]);
   const [bulkSaving, setBulkSaving] = useState(false);
 
+  // Initialize bulkLines once
+  useEffect(() => {
+    if (bulkOpen && bulkLines.length === 0) {
+      setBulkLines([{ key: "BK-" + Date.now(), customerId: customers[0]?.id ?? "", sku: "", name: "", spec: "", uom: "PCS", unitPrice: "" }]);
+    }
+  }, [bulkOpen, customers, bulkLines.length]);
+
   function addBulkLine() {
-    setBulkLines(prev => [...prev, { key: bulkKeySeq++, customerId: customers[0]?.id ?? "", sku: "", name: "", spec: "", uom: "pcs", unitPrice: "" }]);
+    setBulkLines(prev => [...prev, { key: "BK-" + Date.now() + Math.random(), customerId: customers[0]?.id ?? "", sku: "", name: "", spec: "", uom: "PCS", unitPrice: "" }]);
   }
-  function removeBulkLine(key: number) {
+  function removeBulkLine(key: string) {
     setBulkLines(prev => prev.length <= 1 ? prev : prev.filter(l => l.key !== key));
   }
-  function updateBulkLine(key: number, field: keyof Omit<BulkLine, "key">, value: string) {
+  function updateBulkLine(key: string, field: keyof Omit<BulkLine, "key">, value: string) {
     setBulkLines(prev => prev.map(l => l.key === key ? { ...l, [field]: value } : l));
   }
   async function saveBulk() {
@@ -61,7 +67,7 @@ export default function ProductsPage() {
     if (validLines.length === 0) { setError("Chưa có dòng nào có dữ liệu."); return; }
     for (let i = 0; i < validLines.length; i++) {
       const l = validLines[i];
-      if (!l.sku.trim()) { setError(`Dòng ${i + 1}: thiếu Mã hàng (SKU).`); return; }
+      if (!l.sku.trim()) { setError(`Dòng ${i + 1}: thiếu Mã hàng.`); return; }
       if (!l.name.trim()) { setError(`Dòng ${i + 1}: thiếu Tên hàng.`); return; }
       if (!l.customerId) { setError(`Dòng ${i + 1}: chưa chọn Khách hàng.`); return; }
     }
@@ -69,13 +75,13 @@ export default function ProductsPage() {
     try {
       const insertRows = validLines.map(l => ({
         sku: l.sku.trim(), name: l.name.trim(),
-        spec: l.spec.trim() || null, uom: l.uom.trim() || "pcs",
+        spec: l.spec.trim() || null, uom: l.uom.trim() || "PCS",
         unit_price: l.unitPrice ? Number(l.unitPrice) : null,
         customer_id: l.customerId, is_active: true,
       }));
       const { error } = await supabase.from("products").insert(insertRows);
       if (error) throw error;
-      setBulkLines([{ key: bulkKeySeq++, customerId: customers[0]?.id ?? "", sku: "", name: "", spec: "", uom: "pcs", unitPrice: "" }]);
+      setBulkLines([{ key: "BK-" + Date.now(), customerId: customers[0]?.id ?? "", sku: "", name: "", spec: "", uom: "PCS", unitPrice: "" }]);
       setBulkOpen(false);
       showToast(`Đã thêm ${insertRows.length} mã hàng.`, "success");
       await load();
@@ -419,7 +425,7 @@ export default function ProductsPage() {
     setSku("");
     setName("");
     setSpec("");
-    setUom("pcs");
+    setUom("PCS");
     setUnitPrice("");
     setCustomerId(customers[0]?.id ?? "");
     setIsActive(true);
@@ -508,7 +514,7 @@ export default function ProductsPage() {
             sku: s,
             name: n,
             spec: spec.trim() ? spec.trim() : null,
-            uom: uom.trim() || "pcs",
+            uom: uom.trim() || "PCS",
             unit_price: unitPrice ? Number(unitPrice) : null,
             customer_id: customerId,
             is_active: isActive,
@@ -521,7 +527,7 @@ export default function ProductsPage() {
           sku: s,
           name: n,
           spec: spec.trim() ? spec.trim() : null,
-          uom: uom.trim() || "pcs",
+          uom: uom.trim() || "PCS",
           unit_price: unitPrice ? Number(unitPrice) : null,
           customer_id: customerId,
           is_active: isActive,
@@ -592,10 +598,10 @@ export default function ProductsPage() {
       return {
         "STT": i + 1,
         "Khách hàng": c ? `${c.code} - ${c.name}` : r.customer_id,
-        "Mã hàng (SKU)": r.sku,
+        "Mã hàng": r.sku,
         "Tên hàng": r.name,
-        "Kích thước": r.spec ?? "",
-        "ĐVT": r.uom,
+        "Kích thước (MM)": r.spec ?? "",
+        "ĐƠN VỊ TÍNH": r.uom,
         "Đơn giá": r.unit_price ?? "",
         "Trạng thái": r.is_active ? "Hoạt động" : "Ngừng HĐ",
         "Ngày tạo": fmtDatetime(r.created_at)
@@ -626,7 +632,7 @@ export default function ProductsPage() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Tìm theo SKU / tên / spec..."
+          placeholder="Tìm theo mã hàng / tên / kích thước..."
           className="input"
           style={{ minWidth: 320 }}
         />
@@ -673,7 +679,7 @@ export default function ProductsPage() {
             <table className="data-table !border-separate !border-spacing-0" style={{ minWidth: 900 }}>
               <thead>
                 <tr>
-                  {["#", "Khách hàng *", "Mã hàng (SKU) *", "Tên hàng *", "Spec/Kích thước", "ĐVT", "Đơn giá", ""].map((h, i) => (
+                  {["#", "Khách hàng *", "Mã hàng *", "Tên hàng *", "Kích thước (MM)", "ĐƠN VỊ TÍNH", "Đơn giá", ""].map((h, i) => (
                     <th key={i} style={{ position: "sticky", top: 0, zIndex: 10, background: "white" }}>{h}</th>
                   ))}
                 </tr>
@@ -689,7 +695,14 @@ export default function ProductsPage() {
                       </select>
                     </td>
                     <td style={{ minWidth: 120 }}>
-                      <input value={l.sku} onChange={e => updateBulkLine(l.key, "sku", e.target.value)} placeholder="VD: SP001" className="input" style={{ width: "100%" }} />
+                      <input 
+                        value={l.sku} 
+                        onChange={e => updateBulkLine(l.key, "sku", e.target.value)} 
+                        placeholder="VD: SP001" 
+                        className="input" 
+                        style={{ width: "100%" }} 
+                        autoFocus={idx === bulkLines.length - 1 && idx > 0}
+                      />
                     </td>
                     <td style={{ minWidth: 200 }}>
                       <input value={l.name} onChange={e => updateBulkLine(l.key, "name", e.target.value)} placeholder="Tên hàng..." className="input" style={{ width: "100%" }} />
@@ -698,10 +711,24 @@ export default function ProductsPage() {
                       <input value={l.spec} onChange={e => updateBulkLine(l.key, "spec", e.target.value)} placeholder="VD: 100x200mm" className="input" style={{ width: "100%" }} />
                     </td>
                     <td style={{ width: 80 }}>
-                      <input value={l.uom} onChange={e => updateBulkLine(l.key, "uom", e.target.value)} placeholder="pcs" className="input" style={{ width: "100%" }} />
+                      <input value={l.uom} onChange={e => updateBulkLine(l.key, "uom", e.target.value)} placeholder="PCS" className="input" style={{ width: "100%" }} />
                     </td>
                     <td style={{ width: 120 }}>
-                      <input type="number" value={l.unitPrice} onChange={e => updateBulkLine(l.key, "unitPrice", e.target.value)} min="0" placeholder="Đơn giá..." className="input" style={{ width: "100%" }} />
+                      <input 
+                        type="number" 
+                        value={l.unitPrice} 
+                        onChange={e => updateBulkLine(l.key, "unitPrice", e.target.value)} 
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addBulkLine();
+                          }
+                        }}
+                        min="0" 
+                        placeholder="Đơn giá..." 
+                        className="input" 
+                        style={{ width: "100%" }} 
+                      />
                     </td>
                     <td style={{ width: 40, textAlign: "center" }}>
                       <button onClick={() => removeBulkLine(l.key)} className="btn btn-ghost btn-sm" style={{ color: "var(--color-danger)" }} title="Xóa dòng">✕</button>
@@ -747,8 +774,8 @@ export default function ProductsPage() {
                </th>
                <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" />
                <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
-               <ThCell label="Kích thước" colKey="spec" sortable colType="text" w="160px" />
-               <ThCell label="ĐVT" colKey="uom" sortable colType="text" w="80px" />
+               <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" w="160px" />
+               <ThCell label="ĐƠN VỊ TÍNH" colKey="uom" sortable colType="text" w="120px" />
                <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" w="120px" />
                <ThCell label="Active" colKey="isActive" sortable={false} colType="text" align="center" w="80px" />
                <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
@@ -834,22 +861,22 @@ export default function ProductsPage() {
               </label>
 
               <label style={{ display: "grid", gap: 6 }}>
-                SKU
+                Mã hàng
                 <input value={sku} onChange={(e) => setSku(e.target.value)} className="input" />
               </label>
 
               <label style={{ display: "grid", gap: 6 }}>
-                Tên
+                Tên hàng
                 <input value={name} onChange={(e) => setName(e.target.value)} className="input" />
               </label>
 
               <label style={{ display: "grid", gap: 6 }}>
-                Spec / Kích thước
+                Kích thước (MM)
                 <input value={spec} onChange={(e) => setSpec(e.target.value)} className="input" />
               </label>
 
               <label style={{ display: "grid", gap: 6 }}>
-                ĐVT
+                ĐƠN VỊ TÍNH
                 <input value={uom} onChange={(e) => setUom(e.target.value)} className="input" />
               </label>
 

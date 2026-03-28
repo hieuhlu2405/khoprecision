@@ -485,7 +485,7 @@ export default function InventoryReportPage() {
   }
 
   function handleExportExcel() {
-    const data = displayData.map((r, i) => ({ "STT": i + 1, "Khách hàng": customerLabel(r.customer_id), "Mã hàng (SKU)": r.product.sku, "Tên hàng": r.product.name, "Kích thước": r.product.spec || "", "Tồn đầu kỳ": r.opening_qty, "Nhập": r.inbound_qty, "Xuất": r.outbound_qty, "Tồn hiện tại": r.current_qty, "Đơn giá": r.product.unit_price ?? 0, "Giá trị tồn kho": r.inventory_value ?? 0 }));
+    const data = displayData.map((r, i) => ({ "STT": i + 1, "Khách hàng": customerLabel(r.customer_id), "Mã hàng": r.product.sku, "Tên hàng": r.product.name, "Kích thước (MM)": r.product.spec || "", "Tồn đầu kỳ": r.opening_qty, "Nhập": r.inbound_qty, "Xuất": r.outbound_qty, "Tồn hiện tại": r.current_qty, "Đơn giá": r.product.unit_price ?? 0, "Giá trị tồn kho": r.inventory_value ?? 0 }));
     exportToExcel(data, `Ton_kho_hien_tai_${new Date().toISOString().slice(0,10)}`, "Inventory");
   }
 
@@ -638,9 +638,9 @@ export default function InventoryReportPage() {
             <thead>
               <tr>
                 <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} w="220px" />
-                <ThCell label="Mã hàng (SKU)" colKey="sku" sortable isNum={false} w="150px" />
+                <ThCell label="Mã hàng" colKey="sku" sortable isNum={false} w="150px" />
                 <ThCell label="Tên hàng" colKey="name" sortable isNum={false} />
-                <ThCell label="Kích thước" colKey="spec" sortable isNum={false} w="140px" />
+                <ThCell label="Kích thước (MM)" colKey="spec" sortable isNum={false} w="140px" />
                 <ThCell label="Tồn đầu" colKey="opening_qty" sortable isNum align="right" w="100px" />
                 <ThCell label="Nhập" colKey="inbound_qty" sortable isNum align="right" w="100px" />
                 <ThCell label="Xuất" colKey="outbound_qty" sortable isNum align="right" w="100px" />

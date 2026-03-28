@@ -1127,9 +1127,9 @@ export default function InventoryValueReportPage() {
       const data = displayTopProducts.map((r, i) => ({
         "STT": i + 1,
         "Khách hàng": customerLabel(r.customer_id),
-        "SKU": r.product.sku,
+        "Mã hàng": r.product.sku,
         "Tên hàng": r.product.name,
-        "Quy cách": r.product.spec || "",
+        "Kích thước (MM)": r.product.spec || "",
         "Tồn cuối": r.current_qty,
         "Đơn giá": r.product.unit_price ?? 0,
         "Giá trị tồn": r.inventory_value
@@ -1139,9 +1139,9 @@ export default function InventoryValueReportPage() {
       const data = displayCompareTopProducts.map((r, i) => ({
         "STT": i + 1,
         "Khách hàng": customerLabel(r.customer_id),
-        "SKU": r.product.sku,
+        "Mã hàng": r.product.sku,
         "Tên hàng": r.product.name,
-        "Quy cách": r.product.spec || "",
+        "Kích thước (MM)": r.product.spec || "",
         "Giá trị (Kỳ 1)": r.val1,
         "Giá trị (Kỳ 2)": r.val2,
         "Chênh lệch": r.valDiff,
@@ -1168,7 +1168,7 @@ export default function InventoryValueReportPage() {
       }).select("id").single();
       if (e1) throw e1;
       const custLines = displayCustomerSummary.map((c, i) => ({ closure_id: ins.id, line_type: "customer_summary", sort_order: i, customer_id: c.customer_id || null, row_json: { "khách hàng": customerLabel(c.customer_id), "số mã còn tồn": c.productCount, "tổng số lượng tồn": c.qty, "tổng giá trị tồn": c.value } }));
-      const prodLines = productData.map((r, i) => ({ closure_id: ins.id, line_type: "product_detail", sort_order: i, customer_id: r.customer_id || null, product_id: r.product.id, row_json: { "khách hàng": customerLabel(r.customer_id), "mã hàng": r.product.sku, "tên hàng": r.product.name, "kích thước": r.product.spec || "", "tồn hiện tại": r.current_qty, "đơn giá": r.product.unit_price ?? 0, "giá trị tồn kho": r.inventory_value ?? 0 } }));
+      const prodLines = productData.map((r, i) => ({ closure_id: ins.id, line_type: "product_detail", sort_order: i, customer_id: r.customer_id || null, product_id: r.product.id, row_json: { "khách hàng": customerLabel(r.customer_id), "mã hàng": r.product.sku, "tên hàng": r.product.name, "kích thước (MM)": r.product.spec || "", "tồn hiện tại": r.current_qty, "đơn giá": r.product.unit_price ?? 0, "giá trị tồn kho": r.inventory_value ?? 0 } }));
       const allLines = [...custLines, ...prodLines];
       if (allLines.length > 0) { const { error: e2 } = await supabase.from("inventory_report_closure_lines").insert(allLines); if (e2) throw e2; }
       showToast("Đã chốt dữ liệu thành công!", "success");
@@ -1327,7 +1327,7 @@ export default function InventoryValueReportPage() {
           </div>
           <div style={{ width: 220 }}>
             <label className="filter-label">Sản phẩm</label>
-            <input type="text" className="input" placeholder="SKU hoặc tên hàng..." value={qProduct} onChange={e => setQProduct(e.target.value)} />
+            <input type="text" className="input" placeholder="Mã hàng hoặc tên hàng..." value={qProduct} onChange={e => setQProduct(e.target.value)} />
           </div>
           <div style={{ width: 120 }}>
             <label className="filter-label">Top mã</label>

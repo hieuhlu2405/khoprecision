@@ -97,9 +97,8 @@ function fmtNum(n: number | null | undefined): string {
   return parts.join(".");
 }
 
-let lineKeySeq = 1;
-function nextKey(): number {
-  return lineKeySeq++;
+function nextKey(): string {
+  return "KEY-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
 }
 
 /* ------------------------------------------------------------------ */
@@ -302,7 +301,18 @@ export default function InventoryInboundPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [hDate, setHDate] = useState("");
   const [hNote, setHNote] = useState("");
-  const [lines, setLines] = useState<FormLine[]>([{ key: nextKey(), productId: "", qty: "", unitCost: "" }]);
+  type FormLine = {
+    key: string;
+    productId: string;
+    productSearch?: string;
+    showSuggestions?: boolean;
+    qty: string;
+    unitCost: string;
+    note: string;
+  };
+  const [lines, setLines] = useState<FormLine[]>(() => [
+    { key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }
+  ]);
   const [saving, setSaving] = useState(false);
 
   /* ---- single-row edit form state ---- */
@@ -605,7 +615,7 @@ export default function InventoryInboundPage() {
   function resetCreateForm() {
     setHDate("");
     setHNote("");
-    setLines([{ key: nextKey(), productId: "", qty: "", unitCost: "" }]);
+    setLines([{ key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }]);
   }
 
   function handleCancelCreate() {
@@ -620,20 +630,16 @@ export default function InventoryInboundPage() {
   }
 
   function addLine() {
-    setLines((prev) => [...prev, { key: nextKey(), productId: "", qty: "", unitCost: "" }]);
+    setLines(p => [...p, { key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }]);
   }
 
-  function removeLine(key: number) {
-    setLines((prev) => {
-      if (prev.length <= 1) return prev;
-      return prev.filter((l) => l.key !== key);
-    });
+  function removeLine(key: string) {
+    if (lines.length <= 1) return;
+    setLines(lines.filter(l => l.key !== key));
   }
 
-  function updateLine(key: number, field: keyof Omit<FormLine, "key">, value: any) {
-    setLines((prev) =>
-      prev.map((l) => (l.key === key ? { ...l, [field]: value } : l))
-    );
+  function updateLine(key: string, field: keyof FormLine, value: any) {
+    setLines(prev => prev.map(l => l.key === key ? { ...l, [field]: value } : l));
   }
 
   /* ---- single-row edit helpers ---- */
@@ -931,9 +937,9 @@ export default function InventoryInboundPage() {
         "STT": i + 1,
         "Ngày nhập": fmtDate(r.tx_date),
         "Khách hàng": customerLabel(r.customer_id),
-        "Mã hàng (SKU)": skuFor(r),
+        "Mã hàng": skuFor(r),
         "Tên hàng": r.product_name_snapshot,
-        "Kích thước": r.product_spec_snapshot ?? "",
+        "Kích thước (MM)": r.product_spec_snapshot ?? "",
         "Số lượng (Cuối cùng)": r.finalQty,
         "Số lượng (Gốc)": r.originalQty,
         "Điều chỉnh": r.adjTotal,
@@ -1046,6 +1052,7 @@ export default function InventoryInboundPage() {
                         onBlur={() => setTimeout(() => updateLine(line.key, "showSuggestions" as any, false as any), 200)}
                         className="input"
                         style={{ width: "100%" }}
+                        autoFocus={idx === lines.length - 1 && idx > 0}
                       />
                       {line.showSuggestions && (
                         <div style={{
@@ -1097,7 +1104,7 @@ export default function InventoryInboundPage() {
                           <div style={{ fontSize: "0.85em", color: "#666", marginTop: 6, lineHeight: 1.4, background: "#f8fafc", padding: 8, borderRadius: 4 }}>
                             <strong>Khách hàng:</strong> {cLabel || "---"}<br/>
                             <strong>Tên hàng:</strong> {p.name}<br/>
-                            <strong>Kích thước:</strong> {p.spec || "---"}<br/>
+                            <strong>Kích thước (MM):</strong> {p.spec || "---"}<br/>
                             <strong>Đơn giá:</strong> {p.unit_price != null ? fmtNum(p.unit_price) : "---"}
                           </div>
                         );
@@ -1129,8 +1136,18 @@ export default function InventoryInboundPage() {
                         onChange={(e) => updateLine(line.key, "unitCost", e.target.value)}
                         onKeyDown={e => {
                             if (e.key === "Enter") {
-                                if (idx === lines.length - 1 && line.productId && line.qty) {
+                                e.preventDefault(); // Stop default form submit if any
+                                if (idx === lines.length - 1) {
+                                  // Only add line if the current one has basic info
+                                  if (line.productId && line.qty) {
                                     addLine();
+                                  } else {
+                                    showToast("Vui lòng chọn sản phẩm và số lượng trước khi thêm dòng mới.", "error");
+                                  }
+                                } else {
+                                  // Jump to next row's productSearch
+                                  const nextTr = e.currentTarget.closest("tr")?.nextElementSibling;
+                                  nextTr?.querySelector("input")?.focus();
                                 }
                             }
                         }}
@@ -1270,7 +1287,7 @@ export default function InventoryInboundPage() {
               <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
               <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="140px" />
               <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
-              <ThCell label="Kích thước" colKey="spec" sortable colType="text" />
+              < ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" />
               <ThCell label="Số lượng" colKey="qty" sortable colType="num" w="120px" align="right" />
               <ThCell label="Đơn giá" colKey="unitCost" sortable colType="num" w="120px" align="right" />
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="200px" />
@@ -1504,7 +1521,7 @@ export default function InventoryInboundPage() {
                   <div style={{ fontSize: "0.85em", color: "#666", padding: "8px 10px", background: "#f9f9f9", borderRadius: 4, lineHeight: 1.5 }}>
                     <strong>Khách hàng:</strong> {cLabel || "---"}<br/>
                     <strong>Tên hàng:</strong> {p.name}<br/>
-                    <strong>Kích thước:</strong> {p.spec || "---"}<br/>
+                    <strong>Kích thước (MM):</strong> {p.spec || "---"}<br/>
                     <strong>Đơn giá:</strong> {p.unit_price != null ? fmtNum(p.unit_price) : "---"}
                   </div>
                 );
@@ -1571,7 +1588,7 @@ export default function InventoryInboundPage() {
 
               <div style={{ fontSize: "13px", color: "var(--slate-600)", padding: "12px", background: "var(--slate-50)", borderRadius: 8, lineHeight: 1.6, marginBottom: 16 }}>
                 <strong>Sản phẩm:</strong> <span style={{ color: "var(--slate-900)" }}>{p?.sku} - {p?.name}</span><br/>
-                <strong>Kích thước:</strong> {p?.spec || "---"}<br/>
+                <strong>Kích thước (MM):</strong> {p?.spec || "---"}<br/>
                 <strong>Khách hàng:</strong> {cLabel || "---"}
               </div>
 

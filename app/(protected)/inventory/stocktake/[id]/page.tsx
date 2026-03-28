@@ -1007,9 +1007,9 @@ export default function StocktakeDetailPage() {
               )}
               <th style={{ width: 50, textAlign: "center" }}>STT</th>
               <ThCell label="Khách hàng" colKey="customer" sortable colType="text" />
-              <ThCell label="Mã hàng (SKU)" colKey="sku" sortable colType="text" extra={{ width: 220 }} />
+              <ThCell label="Mã hàng" colKey="sku" sortable colType="text" extra={{ width: 220 }} />
               <ThCell label="Tên sản phẩm" colKey="name" sortable colType="text" />
-              <ThCell label="Kích thước / Spec" colKey="spec" sortable colType="text" />
+              <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" />
               <ThCell label="Tồn hệ thống" colKey="sysQty" sortable colType="num" align="right" />
               <ThCell label="Số lượng thực tế" colKey="actQty" sortable colType="num" align="right" />
               <ThCell label="Chênh lệch" colKey="diffQty" sortable colType="num" align="right" />
