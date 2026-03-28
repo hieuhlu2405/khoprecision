@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState, useRef, Fragment } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
-import { LoadingPage, TableSkeleton, ErrorBanner } from "@/app/components/ui/Loading";
-import { exportToExcel } from "@/lib/excel-utils";
+import { LoadingPage, TableSkeleton, ErrorBanner, LoadingInline } from "@/app/components/ui/Loading";
+import { exportToExcel, readExcel } from "@/lib/excel-utils";
 
 type Customer = { id: string; code: string; name: string };
 type Product = {
@@ -44,6 +44,12 @@ export default function ProductsPage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkLines, setBulkLines] = useState<BulkLine[]>([]);
   const [bulkSaving, setBulkSaving] = useState(false);
+
+  // excel import state
+  const [importOpen, setImportOpen] = useState(false);
+  const [importData, setImportData] = useState<any[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importStatus, setImportStatus] = useState<{ total: number; valid: number; duplicates: number } | null>(null);
 
   // Initialize bulkLines once
   useEffect(() => {
@@ -607,7 +613,117 @@ export default function ProductsPage() {
         "Ngày tạo": fmtDatetime(r.created_at)
       };
     });
-    exportToExcel(data, `Danh_sach_ma_hang_${new Date().toISOString().slice(0,10)}`, "Products");
+    exportToExcel(data, `Danh_sach_Ma_hang_${new Date().toISOString().slice(0, 10)}`, "Products");
+  }
+
+  function downloadTemplate() {
+    const data = [
+      {
+        "Mã hàng": "ABC-123",
+        "Tên hàng": "Tên sản phẩm mẫu",
+        "Kích thước (MM)": "100x200",
+        "ĐƠN VỊ TÍNH": "PCS",
+        "Đơn giá": 50000,
+        "Khách hàng": customers[0] ? `${customers[0].code} - ${customers[0].name}` : "Chọn mã khách hàng mẫu"
+      }
+    ];
+    exportToExcel(data, "Mau_nhap_Ma_hang", "Template");
+  }
+
+  async function handleImportFile(file: File) {
+    setError("");
+    setImportLoading(true);
+    try {
+      const json = await readExcel(file);
+      if (!json || json.length === 0) {
+        setError("File Excel trống hoặc không đúng định dạng.");
+        return;
+      }
+      setImportData(json);
+
+      // Simple validation & duplicate detection
+      let valid = 0;
+      let duplicates = 0;
+      const existingSkus = new Set(rows.map(r => r.sku.toLowerCase()));
+      const seenInFile = new Set();
+
+      for (const row of json) {
+        const sku = String(row["Mã hàng"] || "").trim();
+        const name = String(row["Tên hàng"] || "").trim();
+        if (sku && name) {
+          if (existingSkus.has(sku.toLowerCase()) || seenInFile.has(sku.toLowerCase())) {
+            duplicates++;
+          } else {
+            valid++;
+            seenInFile.add(sku.toLowerCase());
+          }
+        }
+      }
+      setImportStatus({ total: json.length, valid, duplicates });
+    } catch (err: any) {
+      setError("Lỗi đọc file Excel: " + (err.message || "Không xác định"));
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
+  async function saveImportData() {
+    if (importData.length === 0) return;
+    setImportLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const existingSkus = new Set(rows.map(r => r.sku.toLowerCase()));
+      const payloads: any[] = [];
+      const seenInFile = new Set();
+
+      for (const row of importData) {
+        const sku = String(row["Mã hàng"] || "").trim();
+        const name = String(row["Tên hàng"] || "").trim();
+        const spec = String(row["Kích thước (MM)"] || "").trim();
+        const uom = String(row["ĐƠN VỊ TÍNH"] || "PCS").trim() || "PCS";
+        const price = row["Đơn giá"] ? Number(row["Đơn giá"]) : null;
+        const custLabel = String(row["Khách hàng"] || "").trim();
+
+        if (!sku || !name) continue;
+        if (existingSkus.has(sku.toLowerCase()) || seenInFile.has(sku.toLowerCase())) continue;
+
+        // Try to find customer by code from label e.g. "KHACH01 - Ten Khach"
+        let finalCustomerId = customers[0]?.id;
+        if (custLabel) {
+          const codePart = custLabel.split("-")[0].trim();
+          const target = customers.find(c => c.code === codePart || c.name === custLabel);
+          if (target) finalCustomerId = target.id;
+        }
+
+        payloads.push({
+          sku,
+          name,
+          spec: spec || null,
+          uom,
+          unit_price: price,
+          customer_id: finalCustomerId,
+          is_active: true
+        });
+        seenInFile.add(sku.toLowerCase());
+      }
+
+      if (payloads.length > 0) {
+        const { error } = await supabase.from("products").insert(payloads);
+        if (error) throw error;
+        showToast(`Đã nhập thành công ${payloads.length} mã hàng.`, "success");
+      } else {
+        showToast("Không có dữ liệu mới để nhập.", "info");
+      }
+
+      setImportOpen(false);
+      setImportData([]);
+      setImportStatus(null);
+      await load();
+    } catch (err: any) {
+      setError(err.message || "Lỗi khi lưu dữ liệu import");
+    } finally {
+      setImportLoading(false);
+    }
   }
 
   if (loading) return <LoadingPage text="Đang tải mã hàng..." />;
@@ -642,6 +758,14 @@ export default function ProductsPage() {
                Xóa tìm kiếm
              </button>
           )}
+          <button className="btn btn-secondary !bg-emerald-50 !text-emerald-700 !border-emerald-200 hover:!bg-emerald-100" onClick={downloadTemplate}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Tải file mẫu
+          </button>
+          <button className="btn btn-secondary !bg-indigo-50 !text-indigo-700 !border-indigo-200 hover:!bg-indigo-100" onClick={() => { setImportOpen(true); setImportData([]); setImportStatus(null); }}>
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+             Nhập Excel
+          </button>
           <button onClick={openCreate} className="btn btn-primary">
             + Thêm mã hàng
           </button>
