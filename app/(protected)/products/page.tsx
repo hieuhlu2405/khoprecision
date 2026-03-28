@@ -382,7 +382,7 @@ export default function ProductsPage() {
     return (
       <th style={baseStyle} ref={thRef} className="group">
         <div className={`flex items-center gap-2 px-1 py-0.5 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-500 font-bold text-[10px] uppercase tracking-wider">{label}</span>
+          <span className="text-slate-900 font-black text-[12px] uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
             {sortable && (
               <button
@@ -1044,9 +1044,9 @@ export default function ProductsPage() {
                         }}
                       />
                     </td>
-                    <td style={{ ...tdStyle, fontWeight: "bold" }} className="text-indigo-600 font-mono text-[13px]">{p.sku}</td>
+                    <td style={{ ...tdStyle, fontWeight: "bold" }} className="text-slate-900 font-mono text-[13px]">{p.sku}</td>
                     <td style={tdStyle} className="text-slate-700 font-medium">{p.name}</td>
-                    <td style={tdStyle} className="text-slate-500 italic text-[13px]">{p.spec ?? ""}</td>
+                    <td style={tdStyle} className="text-slate-700 text-[13px]">{(p.spec ?? "").replace(/x/g, "*")}</td>
                     <td style={tdStyle} className="text-slate-600">{p.uom}</td>
                     <td style={{ ...tdStyle, textAlign: "right" }} className="font-bold text-slate-800">{fmtNum(p.unit_price)}</td>
                     <td style={{ ...tdStyle, textAlign: "center" }}>
