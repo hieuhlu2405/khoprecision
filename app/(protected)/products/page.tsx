@@ -356,8 +356,9 @@ export default function ProductsPage() {
       zIndex: 30,
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
+      background: "white",
       boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
-      borderBottom: "2px solid var(--slate-200)",
+      borderBottom: "1px solid var(--slate-200)",
       ...extra
     };
     const popupOpen = openPopupId === colKey;
@@ -668,12 +669,12 @@ export default function ProductsPage() {
         <div className="filter-panel" style={{ marginTop: 12 }}>
           <h3 className="modal-title" style={{ marginTop: 0 }}>≡ Thêm nhiều mã hàng</h3>
           <ErrorBanner message={error} onDismiss={() => setError("")} />
-          <div className="data-table-wrap" style={{ marginBottom: 12 }}>
-            <table className="data-table" style={{ minWidth: 900 }}>
+          <div className="data-table-wrap" style={{ marginTop: 24, maxHeight: "calc(100vh - 350px)", overflow: "auto" }}>
+            <table className="data-table !border-separate !border-spacing-0" style={{ minWidth: 900 }}>
               <thead>
                 <tr>
                   {["#", "Khách hàng *", "Mã hàng (SKU) *", "Tên hàng *", "Spec/Kích thước", "ĐVT", "Đơn giá", ""].map((h, i) => (
-                    <th key={i}>{h}</th>
+                    <th key={i} style={{ position: "sticky", top: 0, zIndex: 10, background: "white" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -731,8 +732,9 @@ export default function ProductsPage() {
                  position: "sticky",
                  top: 0,
                  zIndex: 30,
+                 background: "white",
                  boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
-                 borderBottom: "2px solid var(--slate-200)"
+                 borderBottom: "1px solid var(--slate-200)"
                }}>
                  <input type="checkbox"
                    className="rounded text-brand"
@@ -758,8 +760,9 @@ export default function ProductsPage() {
                  position: "sticky",
                  top: 0,
                  zIndex: 30,
+                 background: "white",
                  boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
-                 borderBottom: "2px solid var(--slate-200)"
+                 borderBottom: "1px solid var(--slate-200)"
                }}>Thao tác</th>
             </tr>
           </thead>

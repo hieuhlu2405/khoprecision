@@ -241,8 +241,9 @@ export default function CustomersPage() {
       zIndex: 30,
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
+      background: "white",
       boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
-      borderBottom: "2px solid var(--slate-200)",
+      borderBottom: "1px solid var(--slate-200)",
       ...extra
     };
     const popupOpen = openPopupId === colKey;
@@ -517,8 +518,8 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      <div className="data-table-wrap" style={{ marginTop: 16 }} ref={containerRef}>
-        <table className="data-table" style={{ minWidth: 800 }}>
+      <div className="data-table-wrap" style={{ marginTop: 16, maxHeight: "calc(100vh - 300px)", overflow: "auto" }} ref={containerRef}>
+        <table className="data-table !border-separate !border-spacing-0" style={{ minWidth: 800 }}>
           <thead>
             <tr>
               {canDelete && (
@@ -529,8 +530,9 @@ export default function CustomersPage() {
                   position: "sticky",
                   top: 0,
                   zIndex: 30,
+                  background: "white",
                   boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
-                  borderBottom: "2px solid var(--slate-200)"
+                  borderBottom: "1px solid var(--slate-200)"
                 }}>
                   <input type="checkbox"
                     className="rounded text-brand"
@@ -545,16 +547,17 @@ export default function CustomersPage() {
               <ThCell label="Mã KHÁCH HÀNG" colKey="code" sortable colType="text" w="140px" />
               <ThCell label="Tên khách hàng" colKey="name" sortable colType="text" />
               <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />
-              <th style={{ 
-                ...thStyle, 
-                textAlign: "center", 
-                width: 110,
-                position: "sticky",
-                top: 0,
-                zIndex: 30,
-                boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
-                borderBottom: "2px solid var(--slate-200)"
-              }}>Thao tác</th>
+                <th style={{ 
+                  ...thStyle, 
+                  textAlign: "center", 
+                  width: 100,
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 30,
+                  background: "white",
+                  boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                  borderBottom: "1px solid var(--slate-200)"
+                }}>Thao tác</th>
             </tr>
           </thead>
           <tbody>
