@@ -41,8 +41,18 @@ export default function CustomersPage() {
     return d.replace("T", " ").slice(0, 19);
   }
 
-  const thStyle = { textAlign: "left", background: "#f8fafc", whiteSpace: "nowrap" } as const;
-  const tdStyle = { padding: "12px 12px", borderBottom: "1px solid var(--slate-100)" } as const;
+  const thStyle = { 
+    textAlign: "left", 
+    background: "rgba(255, 255, 255, 0.82)", 
+    backdropFilter: "blur(12px)",
+    position: "sticky",
+    top: 0,
+    zIndex: 30,
+    whiteSpace: "nowrap",
+    boxShadow: "0 1px 2px -1px rgba(0,0,0,0.1)",
+    borderBottom: "1px solid var(--slate-100)"
+  } as const;
+  const tdStyle = { padding: "12px 16px", borderBottom: "1px solid var(--slate-50)" } as const;
 
   /* ------------------------------------------------------------------ */
   /* Column Filters & Popups                                             */
@@ -236,22 +246,16 @@ export default function CustomersPage() {
     const baseStyle: React.CSSProperties = {
       ...thStyle,
       textAlign: align || "left",
-      position: "sticky",
-      top: 0,
-      zIndex: 30,
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
-      background: "white",
-      boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
-      borderBottom: "1px solid var(--slate-200)",
       ...extra
     };
     const popupOpen = openPopupId === colKey;
 
     return (
       <th style={baseStyle} ref={thRef} className="group">
-        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
+        <div className={`flex items-center gap-2 px-1 py-0.5 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+          <span className="text-slate-900 font-black text-[12px] uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
             {sortable && (
               <button
@@ -262,20 +266,20 @@ export default function CustomersPage() {
                     else { setSortDir(null); setSortCol(null); }
                   } else { setSortCol(colKey); setSortDir("asc"); }
                 }}
-                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
+                className={`p-1 hover:bg-indigo-100 rounded-md transition-all ${isSortTarget ? "text-indigo-600 bg-indigo-50 font-black shadow-sm" : "text-slate-400 opacity-0 group-hover:opacity-100"}`}
                 title="Sắp xếp"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
                 </svg>
               </button>
             )}
             <button
               onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
-              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+              className={`p-1 hover:bg-slate-200 rounded-md transition-all ${active ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-400 opacity-0 group-hover:opacity-100 hover:text-slate-600 hover:bg-slate-200/50"}`}
               title="Lọc cột"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
             </button>
           </div>
         </div>
@@ -284,7 +288,7 @@ export default function CustomersPage() {
         <div
           onMouseDown={startResizing}
           onDoubleClick={() => onResize(colKey, 150)}
-          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
+          className="absolute top-0 right-0 h-full w-0.5 cursor-col-resize hover:bg-indigo-400/50 transition-colors z-20"
           title="Kéo để chỉnh độ rộng"
         />
 
@@ -518,22 +522,16 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      <div className="data-table-wrap" style={{ marginTop: 16, maxHeight: "calc(100vh - 300px)", overflow: "auto" }} ref={containerRef}>
+      <div className="data-table-wrap !rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-auto bg-white/50 backdrop-blur-sm" style={{ marginTop: 16, maxHeight: "calc(100vh - 300px)" }} ref={containerRef}>
         <table className="data-table !border-separate !border-spacing-0" style={{ minWidth: 800 }}>
           <thead>
             <tr>
               {canDelete && (
-                <th style={{ 
-                  ...thStyle, 
-                  width: 60, 
-                  textAlign: "center",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 30,
-                  background: "white",
-                  boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
-                  borderBottom: "1px solid var(--slate-200)"
-                }}>
+                 <th style={{ 
+                   ...thStyle, 
+                   width: 60, 
+                   textAlign: "center",
+                 }}>
                   <input type="checkbox"
                     className="rounded text-brand"
                     checked={finalFiltered.length > 0 && finalFiltered.every(r => selectedIds.has(r.id))}
@@ -547,36 +545,33 @@ export default function CustomersPage() {
               <ThCell label="Mã KHÁCH HÀNG" colKey="code" sortable colType="text" w="140px" />
               <ThCell label="Tên khách hàng" colKey="name" sortable colType="text" />
               <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />
-                <th style={{ 
-                  ...thStyle, 
-                  textAlign: "center", 
-                  width: 100,
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 30,
-                  background: "white",
-                  boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
-                  borderBottom: "1px solid var(--slate-200)"
-                }}>Thao tác</th>
+                 <th style={{ 
+                   ...thStyle, 
+                   textAlign: "center", 
+                   width: 100,
+                 }}>
+                   <span className="text-slate-900 font-black text-[12px] uppercase tracking-wider">THAO TÁC</span>
+                 </th>
             </tr>
           </thead>
           <tbody>
             {finalFiltered.map((c) => (
-              <tr key={c.id}>
+              <tr key={c.id} className="group hover:bg-slate-50/80 transition-colors even:bg-slate-50/30">
                 {canDelete && (
                   <td style={{ ...tdStyle, textAlign: "center" }}>
-                    <input type="checkbox" checked={selectedIds.has(c.id)}
-                      onChange={e => {
-                        const next = new Set(selectedIds);
-                        if (e.target.checked) next.add(c.id); else next.delete(c.id);
-                        setSelectedIds(next);
-                      }}
-                    />
+                      <input type="checkbox" checked={selectedIds.has(c.id)}
+                        className="rounded-lg text-indigo-600 border-slate-300 focus:ring-indigo-500 w-4 h-4 transition-all"
+                        onChange={e => {
+                          const next = new Set(selectedIds);
+                          if (e.target.checked) next.add(c.id); else next.delete(c.id);
+                          setSelectedIds(next);
+                        }}
+                      />
                   </td>
                 )}
-                <td style={{ ...tdStyle, fontWeight: "bold" }}>{c.code}</td>
-                <td style={tdStyle}>{c.name}</td>
-                <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                <td style={{ ...tdStyle, fontWeight: "bold" }} className="text-slate-900 font-mono text-[13px]">{c.code}</td>
+                <td style={tdStyle} className="text-slate-700 font-medium">{c.name}</td>
+                <td style={{ ...tdStyle, whiteSpace: "nowrap" }} className="text-slate-400 text-[12px]">
                   {mounted ? fmtDatetime(c.created_at) : "..."}
                 </td>
                 <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>

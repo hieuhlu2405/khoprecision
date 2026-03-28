@@ -1018,7 +1018,7 @@ export default function ProductsPage() {
                <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
                <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" w="160px" />
                <ThCell label="ĐƠN VỊ TÍNH" colKey="uom" sortable colType="text" w="120px" />
-               <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" w="120px" />
+               <ThCell label="ĐƠN GIÁ (VNĐ)" colKey="price" sortable colType="num" align="right" w="120px" />
                <ThCell label="Active" colKey="isActive" sortable={false} colType="text" align="center" w="80px" />
                <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
                <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />
@@ -1026,7 +1026,9 @@ export default function ProductsPage() {
                  ...thStyle, 
                  textAlign: "center", 
                  width: 100,
-               }}>Thao tác</th>
+               }}>
+                 <span className="text-slate-900 font-black text-[12px] uppercase tracking-wider">THAO TÁC</span>
+               </th>
             </tr>
           </thead>
           <tbody>
