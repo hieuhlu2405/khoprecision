@@ -872,6 +872,120 @@ export default function ProductsPage() {
         </div>
       )}
 
+      {/* Excel Import Modal */}
+      {importOpen && (
+        <div className="modal-overlay" style={{ zIndex: 1000 }}>
+          <div className="modal-box !max-w-2xl animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                Nhập mã hàng từ Excel
+              </h3>
+              <button 
+                onClick={() => setImportOpen(false)} 
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            </div>
+
+            <ErrorBanner message={error} onDismiss={() => setError("")} />
+
+            <div className="space-y-6">
+              {/* Upload area */}
+              <div className="relative">
+                <input 
+                  type="file" 
+                  accept=".xlsx, .xls"
+                  onChange={e => e.target.files?.[0] && handleImportFile(e.target.files[0])}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                />
+                <div className="border-2 border-dashed border-indigo-200 rounded-2xl p-10 bg-indigo-50/30 flex flex-col items-center justify-center gap-3 transition-colors hover:bg-indigo-50/50">
+                  <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center text-indigo-500">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-slate-700">Kéo thả hoặc nhấn để chọn file Excel</p>
+                    <p className="text-xs text-slate-500 mt-1">Hỗ trợ định dạng .xlsx, .xls</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status & Preview */}
+              {importLoading && <LoadingInline text="Đang xử lý dữ liệu..." />}
+
+              {importStatus && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                      <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Tổng số dòng</div>
+                      <div className="text-2xl font-black text-slate-800">{importStatus.total}</div>
+                    </div>
+                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                      <div className="text-[10px] uppercase font-bold text-emerald-500 tracking-wider">Hợp lệ (Sẽ nhập)</div>
+                      <div className="text-2xl font-black text-emerald-600">{importStatus.valid}</div>
+                    </div>
+                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-100">
+                      <div className="text-[10px] uppercase font-bold text-amber-500 tracking-wider">Bị trùng (Sẽ bỏ qua)</div>
+                      <div className="text-2xl font-black text-amber-600">{importStatus.duplicates}</div>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase flex justify-between items-center">
+                       <span>Xem trước 5 dòng đầu tiên</span>
+                       <span className="text-brand">Vui lòng kiểm tra kỹ các tiêu đề cột</span>
+                    </div>
+                    <div className="overflow-x-auto" style={{ maxHeight: 250 }}>
+                      <table className="w-full text-xs text-left border-collapse">
+                        <thead className="sticky top-0 bg-white shadow-sm z-10">
+                          <tr className="border-b border-slate-100">
+                             <th className="p-3 font-bold text-slate-400 w-10">#</th>
+                             <th className="p-3 font-bold text-slate-700">Mã hàng</th>
+                             <th className="p-3 font-bold text-slate-700">Tên hàng</th>
+                             <th className="p-3 font-bold text-slate-700">Kích thước</th>
+                             <th className="p-3 font-bold text-slate-700">Giá</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importData.slice(0, 5).map((row, i) => (
+                            <tr key={i} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                              <td className="p-3 text-slate-400 font-mono">{i + 1}</td>
+                              <td className="p-3 font-bold text-indigo-600">{String(row["Mã hàng"] || "")}</td>
+                              <td className="p-3 text-slate-600">{String(row["Tên hàng"] || "")}</td>
+                              <td className="p-3 text-slate-500 italic">{String(row["Kích thước (MM)"] || "")}</td>
+                              <td className="p-3 text-right font-medium text-slate-700">{row["Đơn giá"] ? Number(row["Đơn giá"]).toLocaleString() : ""}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-8">
+               <button 
+                 onClick={() => setImportOpen(false)} 
+                 className="btn btn-ghost"
+               >
+                 Hủy bỏ
+               </button>
+               <button 
+                 onClick={saveImportData} 
+                 disabled={importLoading || !importStatus || importStatus.valid === 0}
+                 className="btn btn-primary h-12 px-10 shadow-lg shadow-indigo-200"
+               >
+                 {importLoading ? "Đang xử lý..." : `Xác nhận Import ${importStatus?.valid ?? 0} mã hàng`}
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="data-table-wrap" style={{ marginTop: 16 }} ref={containerRef}>
         <table className="data-table" style={{ minWidth: 1000 }}>
           <thead>
