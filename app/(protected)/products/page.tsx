@@ -110,8 +110,18 @@ export default function ProductsPage() {
     return d.replace("T", " ").slice(0, 19);
   }
 
-  const thStyle = { textAlign: "left", background: "#f8fafc", whiteSpace: "nowrap" } as const;
-  const tdStyle = { padding: "12px 12px", borderBottom: "1px solid var(--slate-100)" } as const;
+  const thStyle = { 
+    textAlign: "left", 
+    background: "rgba(255, 255, 255, 0.82)", 
+    backdropFilter: "blur(12px)",
+    position: "sticky",
+    top: 0,
+    zIndex: 30,
+    whiteSpace: "nowrap",
+    boxShadow: "0 1px 2px -1px rgba(0,0,0,0.1)",
+    borderBottom: "1px solid var(--slate-100)"
+  } as const;
+  const tdStyle = { padding: "12px 16px", borderBottom: "1px solid var(--slate-50)" } as const;
 
   /* ------------------------------------------------------------------ */
   /* Column Filters & Popups                                             */
@@ -363,22 +373,16 @@ export default function ProductsPage() {
     const baseStyle: React.CSSProperties = {
       ...thStyle,
       textAlign: align || "left",
-      position: "sticky",
-      top: 0,
-      zIndex: 30,
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
-      background: "white",
-      boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
-      borderBottom: "1px solid var(--slate-200)",
       ...extra
     };
     const popupOpen = openPopupId === colKey;
 
     return (
       <th style={baseStyle} ref={thRef} className="group">
-        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
+        <div className={`flex items-center gap-2 px-1 py-0.5 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+          <span className="text-slate-500 font-bold text-[10px] uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
             {sortable && (
               <button
@@ -389,20 +393,20 @@ export default function ProductsPage() {
                     else { setSortDir(null); setSortCol(null); }
                   } else { setSortCol(colKey); setSortDir("asc"); }
                 }}
-                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
+                className={`p-1 hover:bg-indigo-100 rounded-md transition-all ${isSortTarget ? "text-indigo-600 bg-indigo-50 font-black shadow-sm" : "text-slate-400 opacity-0 group-hover:opacity-100"}`}
                 title="Sắp xếp"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
                 </svg>
               </button>
             )}
             <button
               onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
-              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+              className={`p-1 hover:bg-slate-200 rounded-md transition-all ${active ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-400 opacity-0 group-hover:opacity-100 hover:text-slate-600 hover:bg-slate-200/50"}`}
               title="Lọc cột"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
             </button>
           </div>
         </div>
@@ -411,7 +415,7 @@ export default function ProductsPage() {
         <div
           onMouseDown={startResizing}
           onDoubleClick={() => onResize(colKey, 150)}
-          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
+          className="absolute top-0 right-0 h-full w-0.5 cursor-col-resize hover:bg-indigo-400/50 transition-colors z-20"
           title="Kéo để chỉnh độ rộng"
         />
 
@@ -986,7 +990,7 @@ export default function ProductsPage() {
         </div>
       )}
 
-      <div className="data-table-wrap" style={{ marginTop: 16 }} ref={containerRef}>
+      <div className="data-table-wrap !rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-auto bg-white/50 backdrop-blur-sm" style={{ marginTop: 16, maxHeight: "calc(100vh - 280px)" }} ref={containerRef}>
         <table className="data-table" style={{ minWidth: 1000 }}>
           <thead>
             <tr>
@@ -1022,12 +1026,6 @@ export default function ProductsPage() {
                  ...thStyle, 
                  textAlign: "center", 
                  width: 100,
-                 position: "sticky",
-                 top: 0,
-                 zIndex: 30,
-                 background: "white",
-                 boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
-                 borderBottom: "1px solid var(--slate-200)"
                }}>Thao tác</th>
             </tr>
           </thead>
@@ -1035,39 +1033,46 @@ export default function ProductsPage() {
             {finalFiltered.map((p) => {
               const c = customers.find((x) => x.id === p.customer_id);
               return (
-                 <tr key={p.id}>
-                   <td style={{ ...tdStyle, textAlign: "center" }}>
-                     <input type="checkbox" checked={selectedIds.has(p.id)}
-                       onChange={e => {
-                         const next = new Set(selectedIds);
-                         if (e.target.checked) next.add(p.id); else next.delete(p.id);
-                         setSelectedIds(next);
-                       }}
-                     />
-                   </td>
-                   <td style={{ ...tdStyle, fontWeight: "bold" }}>{p.sku}</td>
-                  <td style={tdStyle}>{p.name}</td>
-                  <td style={tdStyle}>{p.spec ?? ""}</td>
-                  <td style={tdStyle}>{p.uom}</td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(p.unit_price)}</td>
-                  <td style={{ ...tdStyle, textAlign: "center" }}>{p.is_active ? "Y" : "N"}</td>
-                  <td style={tdStyle}>
-                    {c ? `${c.code} - ${c.name}` : p.customer_id}
-                  </td>
-                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                    {mounted ? fmtDatetime(p.created_at) : '...'}
-                  </td>
-                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                    <div className="toolbar" style={{ margin: 0, gap: 4 }}>
-                      <button onClick={() => openEdit(p)} className="btn btn-secondary btn-sm">
-                        Sửa
-                      </button>
-                      <button onClick={() => del(p)} className="btn btn-danger btn-sm">
-                        Xóa
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                 <tr key={p.id} className="group hover:bg-slate-50/80 transition-colors even:bg-slate-50/30">
+                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                      <input type="checkbox" checked={selectedIds.has(p.id)}
+                        className="rounded-lg text-indigo-600 border-slate-300 focus:ring-indigo-500 w-4 h-4 transition-all"
+                        onChange={e => {
+                          const next = new Set(selectedIds);
+                          if (e.target.checked) next.add(p.id); else next.delete(p.id);
+                          setSelectedIds(next);
+                        }}
+                      />
+                    </td>
+                    <td style={{ ...tdStyle, fontWeight: "bold" }} className="text-indigo-600 font-mono text-[13px]">{p.sku}</td>
+                    <td style={tdStyle} className="text-slate-700 font-medium">{p.name}</td>
+                    <td style={tdStyle} className="text-slate-500 italic text-[13px]">{p.spec ?? ""}</td>
+                    <td style={tdStyle} className="text-slate-600">{p.uom}</td>
+                    <td style={{ ...tdStyle, textAlign: "right" }} className="font-bold text-slate-800">{fmtNum(p.unit_price)}</td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                      {p.is_active ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100">ACTIVE</span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-400 border border-slate-200">INACTIVE</span>
+                      )}
+                    </td>
+                    <td style={tdStyle} className="text-slate-600">
+                      {c ? `${c.code} - ${c.name}` : p.customer_id}
+                    </td>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }} className="text-slate-400 text-[12px]">
+                      {mounted ? fmtDatetime(p.created_at) : '...'}
+                    </td>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                      <div className="toolbar" style={{ margin: 0, gap: 4 }}>
+                        <button onClick={() => openEdit(p)} className="btn btn-secondary btn-sm !py-1">
+                          Sửa
+                        </button>
+                        <button onClick={() => del(p)} className="btn btn-danger btn-sm !py-1">
+                          Xóa
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
               );
             })}
              {finalFiltered.length === 0 && (
