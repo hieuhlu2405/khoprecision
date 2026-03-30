@@ -258,7 +258,9 @@ export default function ShortageReportPage() {
     const d = new Date(dateStr);
     const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
     const pts = dateStr.split("-");
-    const isToday = new Date().toISOString().slice(0,10) === dateStr;
+    const now = new Date();
+    const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const isToday = todayLocal === dateStr;
     return (
       <div className={`flex flex-col items-center leading-none ${isToday ? "text-red-600" : "text-black"}`}>
         <span className={`text-[12px] font-black uppercase mb-1 ${isToday ? "text-red-500" : ""}`}>{dayNames[d.getDay()]}</span>
@@ -308,7 +310,9 @@ export default function ShortageReportPage() {
                     colKey={d} 
                     w="120px" 
                     align="center"
-                    isToday={new Date().toISOString().slice(0, 10) === d}
+                    isToday={
+                      `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}` === d
+                    }
                     extra={formatShortDate(d)}
                   />
                 ))}

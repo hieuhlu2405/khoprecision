@@ -416,8 +416,13 @@ export default function DeliveryPlanPage() {
     const d = new Date(dateStr);
     const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
     const pts = dateStr.split("-");
-    const isToday = new Date().toISOString().slice(0,10) === dateStr;
-    const isPastOrToday = dateStr <= new Date().toISOString().slice(0,10);
+    
+    // Sử dụng múi giờ Local thay vì UTC 
+    const now = new Date();
+    const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    
+    const isToday = todayLocal === dateStr;
+    const isPastOrToday = dateStr <= todayLocal;
     
     return (
       <div className={`flex flex-col items-center leading-tight ${isToday ? "text-red-500" : ""}`}>
