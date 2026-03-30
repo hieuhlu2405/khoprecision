@@ -88,6 +88,9 @@ export default function DeliveryPlanPage() {
   const [saving, setSaving] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>({});
 
+  // Filtering
+  const [onlyScheduled, setOnlyScheduled] = useState(false);
+
   // Sorting & Filtering state
   const [colFilters, setColFilters] = useState<Record<string, ColFilter>>({});
   const [sortCol, setSortCol] = useState<string | null>(null);
@@ -209,7 +212,16 @@ export default function DeliveryPlanPage() {
   const displayProducts = useMemo(() => {
     let list = products.slice();
     
-    // Apply filters
+    // 1. "Only Scheduled" filter
+    if (onlyScheduled) {
+       list = list.filter(p => {
+          const hasP = plans.some(pl => pl.product_id === p.id && (pl.planned_qty || 0) > 0);
+          const hasE = Object.keys(edits).some(k => k.startsWith(p.id + "_") && Number(edits[k]) > 0);
+          return hasP || hasE;
+       });
+    }
+
+    // 2. Col filters
     Object.entries(colFilters).forEach(([key, f]) => {
       if (!f.value) return;
       const v = f.value.toLowerCase();
@@ -227,7 +239,7 @@ export default function DeliveryPlanPage() {
       });
     });
 
-    // Apply sorting
+    // 3. Sorting
     if (sortCol && sortDir) {
       const dir = sortDir === "asc" ? 1 : -1;
       list.sort((a, b) => {
@@ -247,7 +259,7 @@ export default function DeliveryPlanPage() {
     }
     
     return list;
-  }, [products, customers, colFilters, sortCol, sortDir]);
+  }, [products, customers, plans, edits, onlyScheduled, colFilters, sortCol, sortDir]);
 
   const activeFilterCount = Object.keys(colFilters).length;
 
@@ -261,7 +273,7 @@ export default function DeliveryPlanPage() {
     }
   };
 
-  function ThCell({ label, colKey, sortable, w, align = "left", sticky = false }: { label: string; colKey: string; sortable?: boolean; w?: string; align?: "left"|"right"|"center"; sticky?: boolean }) {
+  function ThCell({ label, colKey, sortable, w, align = "left", sticky = false, isToday = false, extra }: { label: string; colKey: string; sortable?: boolean; w?: string; align?: "left"|"right"|"center"; sticky?: boolean; isToday?: boolean; extra?: React.ReactNode }) {
     const active = !!colFilters[colKey];
     const isSortTarget = sortCol === colKey;
     const popupOpen = openPopup === colKey;
@@ -286,12 +298,12 @@ export default function DeliveryPlanPage() {
           minWidth: width ? `${width}px` : w || "80px",
           textAlign: align,
           left: sticky ? 0 : undefined,
-          zIndex: sticky ? 50 : 40
+          zIndex: sticky ? 50 : 40,
         }}
-        className={`py-4 px-4 font-black text-[10px] uppercase tracking-widest text-slate-900 border-r border-slate-200/60 sticky top-0 bg-white/95 backdrop-blur-sm group select-none ${sticky ? "sticky left-0 border-r-2" : ""}`}
+        className={`py-4 px-4 font-black text-[10px] uppercase tracking-widest border-r border-slate-200/60 sticky top-0 bg-white/95 backdrop-blur-sm group select-none ${sticky ? "sticky left-0 border-r-2" : ""} ${isToday ? "bg-red-50/50 text-red-600" : "text-slate-900"}`}
       >
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span>{label}</span>
+          {extra ? extra : <span>{label}</span>}
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
             {sortable && (
               <button 
@@ -336,10 +348,10 @@ export default function DeliveryPlanPage() {
     const isToday = new Date().toISOString().slice(0,10) === dateStr;
     
     return (
-      <div className={`flex flex-col items-center leading-tight ${isToday ? "text-indigo-600" : ""}`}>
-        <span className="text-[9px] font-black uppercase tracking-widest">{dayNames[d.getDay()]}</span>
-        <span className="text-sm font-black italic tracking-tighter">{pts[2]}/{pts[1]}</span>
-        {isToday && <span className="text-[7px] font-bold uppercase mt-0.5 bg-indigo-100 px-1 rounded">Hôm nay</span>}
+      <div className={`flex flex-col items-center leading-tight ${isToday ? "text-red-500" : ""}`}>
+        <span className={`text-[9px] font-black uppercase tracking-widest ${isToday ? "text-red-500" : "text-slate-400"}`}>{dayNames[d.getDay()]}</span>
+        <span className={`text-sm font-black italic tracking-tighter ${isToday ? "text-red-600" : ""}`}>{pts[2]}/{pts[1]}</span>
+        {isToday && <span className="text-[7px] font-bold uppercase mt-0.5 bg-red-100 text-red-600 px-1 rounded shadow-sm border border-red-200">Hôm nay</span>}
       </div>
     );
   };
@@ -357,7 +369,20 @@ export default function DeliveryPlanPage() {
           </div>
         </div>
         
-        <div className="flex gap-3">
+        <div className="flex gap-4 items-center">
+           {/* Modern Toggle Switch */}
+           <label className="flex items-center gap-3 cursor-pointer group bg-slate-100/50 px-4 py-2 rounded-xl border border-slate-200/40 hover:bg-slate-100 transition-all">
+              <input 
+                type="checkbox" 
+                className="toggle toggle-primary toggle-sm" 
+                checked={onlyScheduled} 
+                onChange={e => setOnlyScheduled(e.target.checked)} 
+              />
+              <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${onlyScheduled ? "text-indigo-600" : "text-slate-400"}`}>Chỉ hiện mã có lịch giao</span>
+           </label>
+
+           <div className="h-8 w-px bg-slate-200 mx-1" />
+
            <AnimatePresence>
              {Object.keys(edits).length > 0 && (
                <motion.button 
@@ -388,13 +413,19 @@ export default function DeliveryPlanPage() {
             <table className="w-full text-sm border-separate border-spacing-0 table-fixed">
               <thead>
                 <tr>
-                  <ThCell label="Mã hàng" colKey="sku" sortable sticky w="140px" />
-                  <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="280px" />
-                  <ThCell label="Khách hàng" colKey="customer" sortable w="120px" align="center" />
+                  <ThCell label="Mã hàng" colKey="sku" sortable sticky w="180px" />
+                  <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="320px" />
+                  <ThCell label="Khách hàng" colKey="customer" sortable w="140px" align="center" />
                   {days.map(d => (
-                    <th key={d} className="py-4 px-2 border-r border-slate-100 sticky top-0 bg-white/95 backdrop-blur-sm z-40 min-w-[100px]">
-                      {formatDate(d)}
-                    </th>
+                    <ThCell 
+                      key={d} 
+                      label={""} 
+                      colKey={d} 
+                      w="100px" 
+                      align="center"
+                      isToday={new Date().toISOString().slice(0, 10) === d}
+                      extra={formatDate(d)}
+                    />
                   ))}
                 </tr>
               </thead>
@@ -411,15 +442,15 @@ export default function DeliveryPlanPage() {
                   const c = customers.find(x => x.id === p.customer_id);
                   return (
                     <tr key={p.id} className="hover:bg-indigo-50/30 group transition-colors odd:bg-white even:bg-slate-50/20">
-                      <td className="py-3 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-indigo-50/50 transition-colors border-r-2 shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
-                         <div className="font-bold text-slate-900 font-mono tracking-tight">{p.sku}</div>
+                      <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-indigo-50/50 transition-colors border-r-2 shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                         <div className="font-extrabold text-slate-900 font-mono tracking-tight text-[18px]">{p.sku}</div>
                       </td>
-                      <td className="py-3 px-4 border-r border-slate-100">
-                         <div className="text-slate-700 font-medium truncate" title={p.name}>{p.name}</div>
-                         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{p.spec}</div>
+                      <td className="py-4 px-4 border-r border-slate-100">
+                         <div className="text-slate-700 font-bold truncate text-[18px]" title={p.name}>{p.name}</div>
+                         <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{p.spec}</div>
                       </td>
-                      <td className="py-3 px-4 border-r border-slate-100 text-center">
-                         <span className="px-2 py-1 rounded-md bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-tighter shadow-sm border border-slate-200/50">
+                      <td className="py-4 px-4 border-r border-slate-100 text-center">
+                         <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-[18px] font-black uppercase tracking-tighter shadow-sm border border-slate-200/50">
                            {c?.code || "-"}
                          </span>
                       </td>
@@ -427,17 +458,19 @@ export default function DeliveryPlanPage() {
                         const plan = plans.find(x => x.product_id === p.id && x.plan_date === d);
                         const val = edits[`${p.id}_${d}`] ?? (plan?.planned_qty && plan.planned_qty > 0 ? String(plan.planned_qty) : "");
                         const isChanged = edits[`${p.id}_${d}`] !== undefined;
+                        const itdr = new Date().toISOString().slice(0, 10) === d;
                         
                         return (
-                          <td key={d} className={`p-1 border-r border-slate-50 hover:bg-white transition-all ${isChanged ? 'bg-amber-50/60' : ''}`}>
+                          <td key={d} className={`p-1 border-r border-slate-50 hover:bg-white transition-all ${isChanged ? 'bg-amber-50/60' : ''} ${itdr ? 'bg-red-50/20' : ''}`}>
                              <div className="relative group/cell">
                                 <input 
                                   type="text"
-                                  className={`w-full text-center py-2 px-1 rounded-lg border-2 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold text-sm
+                                  className={`w-full text-center py-2 px-1 rounded-lg border-2 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-black text-sm
                                     ${isChanged 
                                       ? 'border-amber-400 bg-white text-amber-700 shadow-md shadow-amber-200/40 z-10 relative scale-105' 
                                       : 'border-transparent bg-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-400'
                                     }
+                                    ${itdr && !isChanged ? 'text-red-600' : ''}
                                   `}
                                   disabled={!canEdit}
                                   value={val}

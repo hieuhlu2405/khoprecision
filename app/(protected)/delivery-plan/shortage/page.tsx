@@ -195,7 +195,7 @@ export default function ShortageReportPage() {
     return list;
   }, [products, plans, stockMap, days, onlyShortage, colFilters, sortCol, sortDir]);
 
-  function ThCell({ label, colKey, sortable, w, align = "left", sticky = false, isNum = false }: { label: string; colKey: string; sortable?: boolean; w?: string; align?: "left"|"right"|"center"; sticky?: boolean; isNum?: boolean }) {
+  function ThCell({ label, colKey, sortable, w, align = "left", sticky = false, isNum = false, isToday = false, extra }: { label: string; colKey: string; sortable?: boolean; w?: string; align?: "left"|"right"|"center"; sticky?: boolean; isNum?: boolean; isToday?: boolean; extra?: React.ReactNode }) {
     const active = !!colFilters[colKey];
     const isSortTarget = sortCol === colKey;
     const popupOpen = openPopup === colKey;
@@ -214,10 +214,10 @@ export default function ShortageReportPage() {
 
     return (
       <th ref={thRef} style={{ width: width ? `${width}px` : w, minWidth: width ? `${width}px` : w, textAlign: align, left: sticky ? 0 : undefined, zIndex: sticky ? 60 : 40 }}
-        className={`py-4 px-4 font-black text-[10px] uppercase tracking-widest text-slate-900 sticky top-0 bg-white/95 backdrop-blur-md border-r border-slate-200 group select-none ${sticky ? "sticky left-0 border-r-2 shadow-[2px_0_10px_rgba(0,0,0,0.03)]" : ""}`}
+        className={`py-4 px-4 font-black text-[10px] uppercase tracking-widest sticky top-0 bg-white/95 backdrop-blur-md border-r border-slate-200 group select-none ${sticky ? "sticky left-0 border-r-2 shadow-[2px_0_10px_rgba(0,0,0,0.03)]" : ""} ${isToday ? "bg-red-50/50 text-red-600" : "text-slate-900"}`}
       >
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span>{label}</span>
+          {extra ? extra : <span>{label}</span>}
           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
             {sortable && (
               <button 
@@ -254,8 +254,9 @@ export default function ShortageReportPage() {
     const isToday = new Date().toISOString().slice(0,10) === dateStr;
     return (
       <div className={`flex flex-col items-center leading-none ${isToday ? "text-red-600" : "text-slate-500"}`}>
-        <span className="text-[9px] font-black uppercase mb-1">{dayNames[d.getDay()]}</span>
-        <span className="text-sm font-black italic">{pts[2]}/{pts[1]}</span>
+        <span className={`text-[9px] font-black uppercase mb-1 ${isToday ? "text-red-500" : ""}`}>{dayNames[d.getDay()]}</span>
+        <span className={`text-sm font-black italic ${isToday ? "text-red-600" : ""}`}>{pts[2]}/{pts[1]}</span>
+        {isToday && <span className="text-[7px] font-bold uppercase mt-1 bg-red-100 px-1 rounded border border-red-200">Hôm nay</span>}
       </div>
     );
   };
@@ -289,13 +290,19 @@ export default function ShortageReportPage() {
           <table className="w-full text-xs border-separate border-spacing-0 table-fixed">
             <thead>
               <tr>
-                <ThCell label="Mã hàng" colKey="sku" sortable sticky w="150px" />
-                <ThCell label="Tên hàng" colKey="name" sortable w="250px" />
-                <ThCell label="TỒN KHO" colKey="stock" sortable w="100px" align="right" isNum />
+                <ThCell label="Mã hàng" colKey="sku" sortable sticky w="180px" />
+                <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="300px" />
+                <ThCell label="TỒN KHO" colKey="stock" sortable w="120px" align="right" isNum />
                 {days.map(d => (
-                  <th key={d} className="py-4 border-r border-slate-100 bg-slate-50/50 sticky top-0 z-40 w-[120px]">
-                    {formatShortDate(d)}
-                  </th>
+                  <ThCell 
+                    key={d} 
+                    label={""} 
+                    colKey={d} 
+                    w="120px" 
+                    align="center"
+                    isToday={new Date().toISOString().slice(0, 10) === d}
+                    extra={formatShortDate(d)}
+                  />
                 ))}
                 <th className="py-4 font-black uppercase text-[10px] tracking-widest text-slate-400 w-[100px] sticky top-0 bg-slate-50/50 z-40">Dự kiến Cuối</th>
               </tr>
@@ -309,11 +316,14 @@ export default function ShortageReportPage() {
                 return (
                   <tr key={r.p.id} className="group hover:bg-slate-50/80 transition-all transition-colors odd:bg-white even:bg-slate-50/10">
                     <td className="py-4 px-4 sticky left-0 z-10 bg-white group-hover:bg-slate-50 transition-colors border-r-2 border-slate-100 shadow-[4px_0_15px_rgba(0,0,0,0.02)]">
-                       <div className="font-extrabold text-slate-900 font-mono text-sm tracking-tighter">{r.p.sku}</div>
+                       <div className="font-extrabold text-slate-900 font-mono text-[18px] tracking-tighter">{r.p.sku}</div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50 truncate font-medium text-slate-600" title={r.p.name}>{r.p.name}</td>
+                    <td className="py-4 px-4 border-r border-slate-50">
+                       <div className="font-bold text-slate-700 text-[18px] truncate" title={r.p.name}>{r.p.name}</div>
+                       <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{r.p.spec}</div>
+                    </td>
                     <td className="py-4 px-4 border-r border-slate-100 text-right bg-blue-50/20">
-                       <span className="font-black text-blue-700 text-base">{r.currentStock?.toLocaleString() || "-"}</span>
+                       <span className="font-black text-blue-700 text-[18px]">{r.currentStock?.toLocaleString() || "-"}</span>
                     </td>
                     
                     {days.map((d, i) => {

@@ -237,7 +237,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                 );
               }
 
-              const isActive = pathname === m.href || (m.href !== "/app" && pathname?.startsWith(m.href!));
+              const isActive = pathname === m.href;
 
               return (
                 <Link
