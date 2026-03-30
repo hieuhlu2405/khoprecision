@@ -300,7 +300,7 @@ export default function DeliveryPlanPage() {
           left: sticky ? 0 : undefined,
           zIndex: sticky ? 50 : 40,
         }}
-        className={`py-4 px-4 font-black text-[10px] uppercase tracking-widest border-r border-slate-200/60 sticky top-0 bg-white/95 backdrop-blur-sm group select-none ${sticky ? "sticky left-0 border-r-2" : ""} ${isToday ? "bg-red-50/50 text-red-600" : "text-slate-900"}`}
+        className={`py-4 px-4 font-black text-[18px] uppercase tracking-widest border-r border-slate-200/60 sticky top-0 bg-white/95 backdrop-blur-sm group select-none ${sticky ? "sticky left-0 border-r-2" : ""} ${isToday ? "bg-red-50/50 text-red-600" : "text-slate-900"}`}
       >
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
           {extra ? extra : <span>{label}</span>}
@@ -349,9 +349,9 @@ export default function DeliveryPlanPage() {
     
     return (
       <div className={`flex flex-col items-center leading-tight ${isToday ? "text-red-500" : ""}`}>
-        <span className={`text-[9px] font-black uppercase tracking-widest ${isToday ? "text-red-500" : "text-slate-400"}`}>{dayNames[d.getDay()]}</span>
-        <span className={`text-sm font-black italic tracking-tighter ${isToday ? "text-red-600" : ""}`}>{pts[2]}/{pts[1]}</span>
-        {isToday && <span className="text-[7px] font-bold uppercase mt-0.5 bg-red-100 text-red-600 px-1 rounded shadow-sm border border-red-200">Hôm nay</span>}
+        <span className={`text-[12px] font-black uppercase tracking-widest ${isToday ? "text-red-500" : "text-slate-400"}`}>{dayNames[d.getDay()]}</span>
+        <span className={`text-[18px] font-black italic tracking-tighter ${isToday ? "text-red-600" : ""}`}>{pts[2]}/{pts[1]}</span>
+        {isToday && <span className="text-[9px] font-bold uppercase mt-0.5 bg-red-100 text-red-600 px-1 rounded shadow-sm border border-red-200">Hôm nay</span>}
       </div>
     );
   };
@@ -450,9 +450,8 @@ export default function DeliveryPlanPage() {
                          <div className="text-[11px] text-black font-bold uppercase tracking-wider">{p.spec}</div>
                       </td>
                       <td className="py-4 px-4 border-r border-slate-100 text-center">
-                         <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-[18px] font-black uppercase tracking-tighter shadow-sm border border-slate-200/50">
-                           {c?.code || "-"}
-                         </span>
+                         <div className="text-black font-bold text-[18px] uppercase">{c?.code || "-"}</div>
+                         <div className="text-[11px] text-black font-bold uppercase tracking-wider truncate max-w-[120px] mx-auto" title={c?.name}>{c?.name}</div>
                       </td>
                       {days.map(d => {
                         const plan = plans.find(x => x.product_id === p.id && x.plan_date === d);
