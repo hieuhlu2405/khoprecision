@@ -36,17 +36,11 @@ function buildMenu(p: Profile, isAdmin: boolean) {
     { label: "🧱 Nhập phôi", href: "/inventory/phoi", show: true },
     { label: "🔍 Kiểm kê", href: "/inventory/stocktake", show: true },
 
-    { label: "Báo cáo", show: canViewReports, isHeader: true },
-    { label: "💰 Giá trị tồn kho", href: "/inventory/value-report", show: canViewReports },
-    { label: "⌛ Tồn dài kỳ", href: "/inventory/aging", show: canViewReports },
-    { label: "🔄 Biến động tồn kho", href: "/inventory/comparison", show: canViewReports },
-
-    { label: "Lịch sử", show: canViewReports, isHeader: true },
-    { label: "🕒 Lịch sử báo cáo", href: "/inventory/report-history", show: canViewReports },
-
-    { label: "Kế hoạch / Giao hàng", show: true, isHeader: true },
+    { label: "GIAO HÀNG", show: true, isHeader: true },
     { label: "📅 Kế hoạch Giao hàng", href: "/delivery-plan", show: true },
     { label: "🚨 Cảnh báo Thiếu hàng", href: "/delivery-plan/shortage", show: true },
+
+    { label: "Báo cáo", show: canViewReports, isHeader: true },
 
     { label: "Quản trị hệ thống", show: isAdmin, isHeader: true },
     { label: "🛡️ Người dùng", href: "/admin/users", show: isAdmin },

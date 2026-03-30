@@ -32,50 +32,34 @@ This skill contains the mandatory design rules for all inventory-related data ta
 > [!IMPORTANT]
 > Failure to implement column resizing or using gray text for headings will result in a UI regression report. Always refer back to this design system when creating new modules.
 
-## 5. React Hook Safety Rules (CRITICAL — Prevents "Application Error" crashes)
+## 6. Bộ Lọc & Sắp Xếp Nâng Cao (v2.1)
+- **Cấu trúc ThCell**: Mọi cột dữ liệu (trừ STT và Thao tác) mặc định phải có khả năng **Sắp xếp** và **Lọc**.
+- **Popup Lọc**: 
+    - Sử dụng `TextFilterPopup` cho chuỗi văn bản (Chế độ: Chứa, Bằng).
+    - Sử dụng `NumFilterPopup` cho số (Chế độ: Bằng, Lớn hơn, Nhỏ hơn, Khoảng).
+    - Hiệu ứng: Popup phải có `backdrop-blur-md` và bóng đổ (`shadow-xl`) mạnh để tách biệt với bảng dữ liệu.
+- **Biểu tượng Sắp xếp**: Hiển thị mũi tên hướng lên/xuống màu Indigo đậm (`text-indigo-600`) khi đang kích hoạt.
 
-> [!CAUTION]
-> Violating these rules will cause the entire page to crash with a "Application error: a client-side exception has occurred" on Vercel. This has happened with `opening/page.tsx` and `value-report/page.tsx`.
+## 7. Hiệu ứng Thị giác Cao cấp (Premium Effects)
+- **Glassmorphism (Làm mờ nền)**: 
+    - Áp dụng `bg-white/80 backdrop-blur-md` cho Header bảng, Sidebar và các thanh công cụ (Toolbar).
+    - Viền: Sử dụng `border-slate-200/60` để giữ độ thanh thoát.
+- **Cảnh báo Thông minh (Alert Glow)**: 
+    - Các ô dữ liệu quan trọng (ví dụ: Thiếu hàng, Hết hàng) phải có nền `bg-red-50` kết hợp với hiệu ứng **Glow** (phát sáng nhẹ) hoặc Badge rực rỡ.
+    - Chữ cảnh báo: Cần sử dụng màu đỏ đậm (`text-red-700`) để tăng độ tương phản trên nền mờ.
 
-### 5.1 Hook Placement
-- **ALL `useState`, `useEffect`, `useMemo`, `useRef`, and other React Hooks MUST be declared at the TOP of the component function, BEFORE the `return` statement.**
-- **NEVER** place `useState` or any Hook **after** the `return (`, even if it's still inside the function body (unreachable code).
-- **NEVER** place `useState` or any Hook **outside** a React component or custom Hook function (module-level).
+## 8. Ghim Cột (Sticky Columns)
+- **Cột Định danh**: Các cột "Sản phẩm", "Khách hàng" hoặc "Mã hàng" phải được Ghim cố định (`sticky left-0`) khi bảng có cuộn ngang.
+- **Header Ghim**: Header bảng phải luôn luôn Ghim trên cùng (`sticky top-0`) với Z-index cao hơn nội dung dòng.
 
-### 5.2 Column Resizing State (Safe Pattern)
-When adding column resizing to a page, ALWAYS use this exact safe pattern inside the component function, before `return`:
 
-```tsx
-// CORRECT placement — before return(), inside the component function
-const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-  if (typeof window !== "undefined") {
-    try {
-      const saved = localStorage.getItem("inventory_PAGENAME_col_widths");
-      const parsed = saved ? JSON.parse(saved) : {};
-      return (parsed && typeof parsed === "object") ? parsed : {};
-    } catch (e) {
-      console.error("Failed to parse colWidths", e);
-      return {};
-    }
-  }
-  return {};
-});
+> [!IMPORTANT]
+> - Luôn chạy `npm run build` cục bộ trước khi đẩy code lên để đảm bảo các hiệu ứng làm mờ không gây lỗi Hydration hoặc Performance.
+> - Ưu tiên sử dụng Token HSL có sẵn trong `index.css` để đồng bộ màu sắc.
 
-const onResize = (key: string, width: number) => {
-  setColWidths(prev => {
-    const next = { ...prev, [key]: width };
-    if (typeof window !== "undefined") {
-      localStorage.setItem("inventory_PAGENAME_col_widths", JSON.stringify(next));
-    }
-    return next;
-  });
-};
-```
-
-### 5.3 Verification Checklist
-Before pushing any changes with `useState` additions:
-1. ✅ Is the `useState` call inside a component function? (not module-level)
-2. ✅ Is it BEFORE the `return` statement?
-3. ✅ Is `localStorage.getItem` wrapped in a `try-catch`?
-4. ✅ Is `typeof window !== "undefined"` checked before using `localStorage`?
-5. ✅ Run `npm run build` locally to confirm no TypeScript errors.
+### Quy trình Kiểm tra UI (Checklist)
+1. ✅ Header chữ Đen đậm (`text-slate-900`).
+2. ✅ Có thanh kéo dãn cột (Resize handle).
+3. ✅ Có Popup lọc khi bấm vào icon phễu.
+4. ✅ Nền Header/Sidebar có hiệu ứng làm mờ (Blur).
+5. ✅ Sticky cột chính khi cuộn ngang.
