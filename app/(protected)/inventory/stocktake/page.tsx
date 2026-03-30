@@ -542,14 +542,14 @@ export default function StocktakeListPage() {
           <table className="data-table" style={{ minWidth: 1000 }}>
             <thead>
               <tr>
-                <th style={{ textAlign: "center", width: 50 }}>STT</th>
+                <ThCell label="#" colKey="stt" sortable={false} colType="text" align="center" w="50px" />
                 <ThCell label="Ngày kiểm kê" colKey="date" sortable colType="date" />
                 <ThCell label="Trạng thái" colKey="status" sortable colType="text" />
                 <ThCell label="Người tạo" colKey="creator" sortable colType="text" />
                 <ThCell label="Người chốt" colKey="confirmer" sortable colType="text" />
                 <ThCell label="Ngày chốt" colKey="confirmedAt" sortable colType="date" />
                 <ThCell label="Ghi chú" colKey="note" sortable colType="text" />
-                <th style={{ textAlign: "center" }}>Hành động</th>
+                <ThCell label="Thao tác" colKey="actions" sortable={false} colType="text" align="center" />
               </tr>
             </thead>
             <tbody>

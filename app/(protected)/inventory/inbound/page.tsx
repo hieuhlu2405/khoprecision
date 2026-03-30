@@ -1284,7 +1284,7 @@ export default function InventoryInboundPage() {
                   />
                 </th>
               )}
-              <ThCell label="STT" colKey="stt" sortable={false} colType="text" w="50px" align="center" />
+              <ThCell label="#" colKey="stt" sortable={false} colType="text" w="50px" align="center" />
               <ThCell label="Ngày nhập" colKey="date" sortable colType="date" w="120px" />
               <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
               <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="140px" />
@@ -1295,7 +1295,7 @@ export default function InventoryInboundPage() {
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="200px" />
               <ThCell label="Tạo lúc" colKey="createdAt" sortable colType="date" />
               <ThCell label="Cập nhật" colKey="updatedAt" sortable colType="date" />
-              {canCreateEdit && <th style={{ textAlign: "center", minWidth: 160 }}>Thao tác</th>}
+              {canCreateEdit && <ThCell label="Thao tác" colKey="actions" sortable={false} colType="text" align="center" w="120px" />}
             </tr>
           </thead>
           <tbody>

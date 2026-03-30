@@ -783,8 +783,9 @@ export default function PhoiPage() {
         <table className="data-table" style={{ minWidth: 1000 }}>
           <thead>
             <tr>
+              <ThCell label="#" colKey="stt" sortable={false} colType="text" w="50px" align="center" />
               {canDelete && (
-                <th className="w-12 text-center">
+                <th className="w-12 text-center" style={{ border: "1px solid #ddd", background: "#f8fafc", borderBottom: "2px solid #ddd", position: "sticky", top: 0, zIndex: 31 }}>
                   <input type="checkbox" checked={allChecked}
                     ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && !allChecked; }}
                     onChange={e => setSelectedIds(e.target.checked ? new Set(allSelectableIds) : new Set())}
@@ -800,12 +801,13 @@ export default function PhoiPage() {
               <ThCell label="Đơn giá" colKey="cost" sortable colType="num" align="right" w="140px" />
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="180px" />
               <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="160px" />
-              {canCreateEdit && <th className="w-24 text-center">Thao tác</th>}
+              {canCreateEdit && <ThCell label="Thao tác" colKey="actions" sortable={false} colType="text" align="center" w="100px" />}
             </tr>
           </thead>
           <tbody>
-            {filtered.map(r => (
+            {filtered.map((r, i) => (
               <tr key={r.id} className="hover:bg-indigo-50/30 transition-colors group">
+                <td className="text-center font-medium text-slate-400" style={{ borderBottom: "1px solid #eee", padding: "10px 8px" }}>{i + 1}</td>
                 {canDelete && (
                   <td className="text-center">
                     <input type="checkbox" checked={selectedIds.has(r.id)}

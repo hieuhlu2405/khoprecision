@@ -858,8 +858,9 @@ export default function InventoryOpeningBalancesPage() {
             <table className="data-table !border-separate !border-spacing-0 overflow-visible" style={{ minWidth: 1200 }}>
               <thead>
                   <tr>
-                    {canCreateEdit && (
-                      <th className="!text-center !w-12">
+                    <ThCell label="#" colKey="stt_header" sortable={false} colType="text" align="center" w="48px" />
+                    <th className="!text-center !w-12 !p-0 !m-0" style={{ border: "1px solid #ddd", background: "#f8fafc", borderBottom: "2px solid #ddd", position: "sticky", top: 0, zIndex: 31 }}>
+                       <div className="flex items-center justify-center h-full w-full">
                         <input
                           type="checkbox"
                           checked={selectedIds.size === finalFiltered.length && finalFiltered.length > 0}
@@ -869,8 +870,8 @@ export default function InventoryOpeningBalancesPage() {
                           }}
                           className="rounded text-brand"
                         />
-                      </th>
-                    )}
+                       </div>
+                    </th>
                     <ThCell label="Kỳ" colKey="period" sortable colType="date" w="110px" />
                     <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
                     <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" />
@@ -878,14 +879,15 @@ export default function InventoryOpeningBalancesPage() {
                     <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" w="110px" />
                     <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" w="120px" />
                     <ThCell label="Tồn dài" colKey="isLongAging" sortable colType="bool" align="center" w="100px" />
-                    {canCreateEdit && <th className="text-center w-24">Thao tác</th>}
+                    {canCreateEdit && <ThCell label="Thao tác" colKey="actions" sortable={false} colType="text" align="center" w="100px" />}
                   </tr>
                 </thead>
                 <tbody>
                   {finalFiltered.length === 0 ? (
-                    <tr><td colSpan={9} className="py-20 text-center opacity-40 italic">Không có dữ liệu khớp bộ lọc.</td></tr>
-                  ) : finalFiltered.map(r => (
+                    <tr><td colSpan={canCreateEdit ? 10 : 8} className="py-20 text-center opacity-40 italic">Không có dữ liệu khớp bộ lọc.</td></tr>
+                  ) : finalFiltered.map((r, i) => (
                     <tr key={r.id} className={`${selectedIds.has(r.id) ? "!bg-brand/[0.04]" : ""} hover:bg-brand/[0.02] transition-colors group odd:bg-white even:bg-slate-50/30`}>
+                      <td className="text-center font-medium text-slate-400" style={{ borderBottom: "1px solid #eee", padding: "10px 8px" }}>{i + 1}</td>
                     {canCreateEdit && (
                       <td className="text-center">
                         <input
@@ -948,7 +950,7 @@ export default function InventoryOpeningBalancesPage() {
                 ))}
                 {finalFiltered.length === 0 && (
                   <tr>
-                    <td colSpan={canCreateEdit ? 9 : 7} className="py-24 text-center">
+                    <td colSpan={canCreateEdit ? 10 : 8} className="py-24 text-center">
                       <div className="flex flex-col items-center gap-2 text-slate-400">
                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M21 21l-6-6"/><circle cx="10" cy="10" r="7"/><path d="M7 10h6"/></svg>
                         <p className="text-sm font-medium">Không tìm thấy bản ghi nào khớp điều kiện lọc.</p>
