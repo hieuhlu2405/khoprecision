@@ -76,3 +76,8 @@ This skill contains the mandatory design rules for all inventory-related data ta
 ## 10. Hiển thị Linh hoạt (Flexible Text Layout)
 - Đối với các cột có khả năng Resize: **Tuyệt đối không sử dụng `max-w-[pixel]` cố định** bên trong ô dữ liệu.
 - Thay vì `truncate`, hãy sử dụng `leading-tight` hoặc `break-all` để khi kéo rộng cột, nội dung hiển thị đầy đủ.
+
+## 11. Cấm Chỉnh Sửa Phá Hoại Menu (Sidebar Integrity Rule)
+> [!WARNING]
+> Mọi thay đổi liên quan đến Sidebar menu (`layout.tsx`) **KHÔNG ĐƯỢC PHÉP** vô tình xóa bỏ các Menu cũ (đặc biệt là nhóm "Báo cáo": Giá trị tồn kho, Tồn dài kỳ, Đối chiếu, Lịch sử). 
+> Khi thay thế/thêm mới một nhóm Menu, phải đảm bảo các mảng menu hiện có được giữ nguyên vẹn.

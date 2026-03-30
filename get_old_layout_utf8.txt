@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -23,37 +23,33 @@ function buildMenu(p: Profile, isAdmin: boolean) {
   const canViewReports = isAdmin || (p.role === "manager" && p.department === "warehouse") || p.department === "accounting";
 
   const items: { label: string; href?: string; show: boolean; isHeader?: boolean }[] = [
-    { label: "Quản lý dữ liệu", show: true, isHeader: true },
-    { label: "🏠 Dashboard", href: "/app", show: true },
-    { label: "🏷️ Mã hàng", href: "/products", show: true },
-    { label: "🤝 Khách hàng", href: "/customers", show: true },
+    { label: "Quß║ún l├╜ dß╗» liß╗çu", show: true, isHeader: true },
+    { label: "≡ƒÅá Dashboard", href: "/app", show: true },
+    { label: "≡ƒÅ╖∩╕Å M├ú h├áng", href: "/products", show: true },
+    { label: "≡ƒñ¥ Kh├ích h├áng", href: "/customers", show: true },
 
-    { label: "Nghiệp vụ kho", show: true, isHeader: true },
-    { label: "📦 Tồn kho hiện tại", href: "/inventory/report", show: true },
-    { label: "🚩 Tồn đầu kỳ", href: "/inventory/opening", show: true },
-    { label: "📥 Nhập kho", href: "/inventory/inbound", show: true },
-    { label: "🚚 Xuất kho", href: "/inventory/outbound", show: true },
-    { label: "🧱 Nhập phôi", href: "/inventory/phoi", show: true },
-    { label: "🔍 Kiểm kê", href: "/inventory/stocktake", show: true },
+    { label: "Nghiß╗çp vß╗Ñ kho", show: true, isHeader: true },
+    { label: "≡ƒôª Tß╗ôn kho hiß╗çn tß║íi", href: "/inventory/report", show: true },
+    { label: "≡ƒÜ⌐ Tß╗ôn ─æß║ºu kß╗│", href: "/inventory/opening", show: true },
+    { label: "≡ƒôÑ Nhß║¡p kho", href: "/inventory/inbound", show: true },
+    { label: "≡ƒÜÜ Xuß║Ñt kho", href: "/inventory/outbound", show: true },
+    { label: "≡ƒº▒ Nhß║¡p ph├┤i", href: "/inventory/phoi", show: true },
+    { label: "≡ƒöì Kiß╗âm k├¬", href: "/inventory/stocktake", show: true },
 
-    { label: "GIAO HÀNG", show: true, isHeader: true },
-    { label: "📅 Kế hoạch Giao hàng", href: "/delivery-plan", show: true },
-    { label: "🚨 Cảnh báo Thiếu hàng", href: "/delivery-plan/shortage", show: true },
+    { label: "GIAO H├ÇNG", show: true, isHeader: true },
+    { label: "≡ƒôà Kß║┐ hoß║ích Giao h├áng", href: "/delivery-plan", show: true },
+    { label: "≡ƒÜ¿ Cß║únh b├ío Thiß║┐u h├áng", href: "/delivery-plan/shortage", show: true },
 
-    { label: "Báo cáo", show: canViewReports, isHeader: true },
-    { label: "💰 Giá trị tồn kho", href: "/inventory/value-report", show: canViewReports },
-    { label: "⏳ Tồn dài kỳ (Aging)", href: "/inventory/aging", show: canViewReports },
-    { label: "⚖️ Đối chiếu tồn kho", href: "/inventory/comparison", show: canViewReports },
-    { label: "📜 Lịch sử chốt kho", href: "/inventory/report-history", show: canViewReports },
+    { label: "B├ío c├ío", show: canViewReports, isHeader: true },
 
-    { label: "Quản trị hệ thống", show: isAdmin, isHeader: true },
-    { label: "🛡️ Người dùng", href: "/admin/users", show: isAdmin },
+    { label: "Quß║ún trß╗ï hß╗ç thß╗æng", show: isAdmin, isHeader: true },
+    { label: "≡ƒ¢í∩╕Å Ng╞░ß╗¥i d├╣ng", href: "/admin/users", show: isAdmin },
 
-    { label: "Phân hệ khác", show: true, isHeader: true },
-    { label: "Đơn hàng", href: "/sales/orders", show: p.role !== "staff" || p.department === "sales" },
-    { label: "Sản xuất", href: "/production", show: p.role !== "staff" || p.department === "production" },
-    { label: "Mua hàng", href: "/purchasing", show: p.role !== "staff" || p.department === "purchasing" },
-    { label: "Kế toán", href: "/accounting", show: p.role !== "staff" || p.department === "accounting" },
+    { label: "Ph├ón hß╗ç kh├íc", show: true, isHeader: true },
+    { label: "─É╞ín h├áng", href: "/sales/orders", show: p.role !== "staff" || p.department === "sales" },
+    { label: "Sß║ún xuß║Ñt", href: "/production", show: p.role !== "staff" || p.department === "production" },
+    { label: "Mua h├áng", href: "/purchasing", show: p.role !== "staff" || p.department === "purchasing" },
+    { label: "Kß║┐ to├ín", href: "/accounting", show: p.role !== "staff" || p.department === "accounting" },
   ];
 
   return items.filter((x) => x.show);
@@ -69,8 +65,8 @@ const DEPT_LABELS: Record<Dept, string> = {
   sales: "Sales",
   warehouse: "Kho",
   production: "SX",
-  purchasing: "Mua hàng",
-  accounting: "Kế toán",
+  purchasing: "Mua h├áng",
+  accounting: "Kß║┐ to├ín",
 };
 
 function getInitials(name: string | null): string {
@@ -120,10 +116,10 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         .maybeSingle();
 
       if (error) { setErr(error.message); return; }
-      if (!p) { setErr("Không tìm thấy profile. Vào Supabase backfill profiles."); return; }
-      if (p.deleted_at) { setErr("Tài khoản này đã bị xóa."); return; }
-      if (!p.is_approved) { setErr("Tài khoản đang chờ duyệt. Vui lòng liên hệ Admin."); return; }
-      if (!p.is_active) { setErr("Tài khoản đang bị khóa."); return; }
+      if (!p) { setErr("Kh├┤ng t├¼m thß║Ñy profile. V├áo Supabase backfill profiles."); return; }
+      if (p.deleted_at) { setErr("T├ái khoß║ún n├áy ─æ├ú bß╗ï x├│a."); return; }
+      if (!p.is_approved) { setErr("T├ái khoß║ún ─æang chß╗¥ duyß╗çt. Vui l├▓ng li├¬n hß╗ç Admin."); return; }
+      if (!p.is_active) { setErr("T├ái khoß║ún ─æang bß╗ï kh├│a."); return; }
 
       setProfile(p as Profile);
 
@@ -140,7 +136,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   if (err) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: 24 }}>
       <div style={{ maxWidth: 400, padding: 24, border: "1px solid #fca5a5", borderRadius: 12, background: "#fef2f2", color: "#991b1b", fontSize: 14, lineHeight: 1.6 }}>
-        <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 16 }}>⚠ Lỗi xác thực</div>
+        <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 16 }}>ΓÜá Lß╗ùi x├íc thß╗▒c</div>
         {err}
       </div>
     </div>
@@ -149,7 +145,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   if (!profile) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", flexDirection: "column", gap: 16 }}>
       <div className="spinner" style={{ width: 32, height: 32, borderWidth: 3 }} />
-      <div style={{ color: "#64748b", fontSize: 13 }}>Đang tải...</div>
+      <div style={{ color: "#64748b", fontSize: 13 }}>─Éang tß║úi...</div>
     </div>
   );
 
@@ -194,14 +190,14 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                   lineHeight: 1.3,
                   letterSpacing: "0.01em"
                 }}>
-                  Công ty Cổ phần <br />
+                  C├┤ng ty Cß╗ò phß║ºn <br />
                   Precision Packaging
                 </div>
               </div>
             )}
             <button
               onClick={toggleCollapse}
-              title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+              title={collapsed ? "Mß╗ƒ rß╗Öng sidebar" : "Thu gß╗ìn sidebar"}
               style={{
                 background: "rgba(255,255,255,0.08)",
                 border: "none",
@@ -218,7 +214,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                 transition: "background 150ms",
               }}
             >
-              {collapsed ? "»" : "«"}
+              {collapsed ? "┬╗" : "┬½"}
             </button>
           </div>
 
@@ -241,7 +237,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                 );
               }
 
-              const isActive = pathname === m.href;
+              const isActive = pathname === m.href || (m.href !== "/app" && pathname?.startsWith(m.href!));
 
               return (
                 <Link
@@ -301,10 +297,10 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                 </div>
                 <div style={{ overflow: "hidden", flex: 1 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {profile.full_name || "Người dùng"}
+                    {profile.full_name || "Ng╞░ß╗¥i d├╣ng"}
                   </div>
                   <div style={{ fontSize: 10, color: "var(--sidebar-fg-muted)", marginTop: 1 }}>
-                    {ROLE_LABELS[profile.role]} · {DEPT_LABELS[profile.department]}
+                    {ROLE_LABELS[profile.role]} ┬╖ {DEPT_LABELS[profile.department]}
                   </div>
                 </div>
               </div>
@@ -325,7 +321,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                 textAlign: collapsed ? "center" : "left",
               }}
             >
-              {collapsed ? "↩" : "↩ Đăng xuất"}
+              {collapsed ? "Γå⌐" : "Γå⌐ ─É─âng xuß║Ñt"}
             </button>
           </div>
         </aside>
