@@ -469,8 +469,8 @@ export default function PhoiPage() {
   };
 
   /* ---- Table Header Cell Component ---- */
-  function ThCell({ label, colKey, sortable, colType, align, w, extra }: {
-    label: string; colKey: string; sortable: boolean; colType: "text" | "num" | "date";
+  function ThCell({ label, colKey, sortable, filterable = true, colType, align, w, extra }: {
+    label: string; colKey: string; sortable: boolean; filterable?: boolean; colType: "text" | "num" | "date";
     align?: "left" | "right" | "center"; w?: string; extra?: React.CSSProperties;
   }) {
     const active = !!colFilters[colKey];
@@ -527,13 +527,15 @@ export default function PhoiPage() {
                 </svg>
               </button>
             )}
-            <button
-              onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
-              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
-              title="Lọc dữ liệu"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            </button>
+            {filterable !== false && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
+                className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+                title="Lọc dữ liệu"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -783,7 +785,7 @@ export default function PhoiPage() {
         <table className="data-table" style={{ minWidth: 1000 }}>
           <thead>
             <tr>
-              <ThCell label="#" colKey="stt" sortable={false} colType="text" w="50px" align="center" />
+              <ThCell label="#" colKey="stt" sortable={false} filterable={false} colType="text" w="50px" align="center" />
               {canDelete && (
                 <th className="w-12 text-center" style={{ border: "1px solid #ddd", background: "#f8fafc", borderBottom: "2px solid #ddd", position: "sticky", top: 0, zIndex: 31 }}>
                   <input type="checkbox" checked={allChecked}
@@ -801,7 +803,7 @@ export default function PhoiPage() {
               <ThCell label="Đơn giá" colKey="cost" sortable colType="num" align="right" w="140px" />
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="180px" />
               <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="160px" />
-              {canCreateEdit && <ThCell label="Thao tác" colKey="actions" sortable={false} colType="text" align="center" w="100px" />}
+              {canCreateEdit && <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="100px" />}
             </tr>
           </thead>
           <tbody>

@@ -503,8 +503,8 @@ export default function InventoryOutboundPage() {
   };
 
   /* ---- Table Header Cell Component ---- */
-  function ThCell({ label, colKey, sortable, colType, align, w, extra }: {
-    label: string; colKey: string; sortable: boolean; colType: "text" | "num" | "date";
+  function ThCell({ label, colKey, sortable, filterable = true, colType, align, w, extra }: {
+    label: string; colKey: string; sortable: boolean; filterable?: boolean; colType: "text" | "num" | "date";
     align?: "left" | "right" | "center"; w?: string; extra?: React.CSSProperties;
   }) {
     const active = !!colFilters[colKey];
@@ -565,13 +565,15 @@ export default function InventoryOutboundPage() {
                 </svg>
               </button>
             )}
-            <button
-              onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
-              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
-              title="Lọc dữ liệu"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            </button>
+            {filterable !== false && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
+                className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+                title="Lọc dữ liệu"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -1281,7 +1283,7 @@ export default function InventoryOutboundPage() {
                   />
                 </th>
               )}
-              <ThCell label="#" colKey="stt" sortable={false} colType="text" w="50px" align="center" />
+              <ThCell label="#" colKey="stt" sortable={false} filterable={false} colType="text" w="50px" align="center" />
               <ThCell label="Ngày xuất" colKey="date" sortable colType="date" w="120px" />
               <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
               <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="140px" />
@@ -1292,7 +1294,7 @@ export default function InventoryOutboundPage() {
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="200px" />
               <ThCell label="Tạo lúc" colKey="createdAt" sortable colType="date" />
               <ThCell label="Cập nhật" colKey="updatedAt" sortable colType="date" />
-              {canCreateEdit && <ThCell label="Thao tác" colKey="actions" sortable={false} colType="text" align="center" w="120px" />}
+              {canCreateEdit && <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="120px" />}
             </tr>
           </thead>
           <tbody>

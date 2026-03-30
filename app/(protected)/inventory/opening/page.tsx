@@ -858,7 +858,7 @@ export default function InventoryOpeningBalancesPage() {
             <table className="data-table !border-separate !border-spacing-0 overflow-visible" style={{ minWidth: 1200 }}>
               <thead>
                   <tr>
-                    <ThCell label="#" colKey="stt_header" sortable={false} colType="text" align="center" w="48px" />
+                    <ThCell label="#" colKey="stt_header" sortable={false} filterable={false} colType="text" align="center" w="48px" />
                     <th className="!text-center !w-12 !p-0 !m-0" style={{ border: "1px solid #ddd", background: "#f8fafc", borderBottom: "2px solid #ddd", position: "sticky", top: 0, zIndex: 31 }}>
                        <div className="flex items-center justify-center h-full w-full">
                         <input
@@ -879,7 +879,7 @@ export default function InventoryOpeningBalancesPage() {
                     <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" w="110px" />
                     <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" w="120px" />
                     <ThCell label="Tồn dài" colKey="isLongAging" sortable colType="bool" align="center" w="100px" />
-                    {canCreateEdit && <ThCell label="Thao tác" colKey="actions" sortable={false} colType="text" align="center" w="100px" />}
+                    {canCreateEdit && <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="100px" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -1028,8 +1028,8 @@ export default function InventoryOpeningBalancesPage() {
   );
 
   /* ---- Table Header Cell Component (Defined inside for state access) ---- */
-  function ThCell({ label, colKey, sortable, colType, align, w, extra }: {
-    label: string; colKey: string; sortable: boolean; colType: "text" | "num" | "date" | "bool";
+  function ThCell({ label, colKey, sortable, filterable = true, colType, align, w, extra }: {
+    label: string; colKey: string; sortable: boolean; filterable?: boolean; colType: "text" | "num" | "date" | "bool";
     align?: "left" | "right" | "center"; w?: string; extra?: React.CSSProperties;
   }) {
     const active = !!colFilters[colKey];
@@ -1089,13 +1089,15 @@ export default function InventoryOpeningBalancesPage() {
                 </svg>
               </button>
             )}
-            <button
-              onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
-              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
-              title="Lọc dữ liệu"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            </button>
+            {filterable !== false && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
+                className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
+                title="Lọc dữ liệu"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              </button>
+            )}
           </div>
         </div>
 
