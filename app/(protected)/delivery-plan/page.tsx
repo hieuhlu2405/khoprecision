@@ -57,10 +57,14 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
       </select>
       <input 
         value={val} 
-        onChange={e => setVal(e.target.value)} 
+        onChange={e => {
+          const nv = e.target.value;
+          setVal(nv);
+          onChange(nv ? { mode, value: nv } : null);
+        }} 
         autoFocus
         placeholder="Nhập nội dung..."
-        onKeyDown={e => { if (e.key === "Enter") { onChange(val ? { mode, value: val } : null); onClose(); } }}
+        onKeyDown={e => { if (e.key === "Enter") { onClose(); } }}
         className="input input-bordered input-sm w-full mb-4 text-xs bg-amber-50/30 border-amber-200/50"
       />
       <div className="flex gap-2 justify-end">
@@ -443,15 +447,15 @@ export default function DeliveryPlanPage() {
                   return (
                     <tr key={p.id} className="hover:bg-indigo-50/30 group transition-colors odd:bg-white even:bg-slate-50/20">
                       <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-indigo-50/50 transition-colors border-r-2 shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
-                         <div className="font-extrabold text-black font-mono tracking-tight text-[18px]">{p.sku}</div>
+                         <div className="font-extrabold text-black font-mono tracking-tight text-[18px] break-all">{p.sku}</div>
                       </td>
                       <td className="py-4 px-4 border-r border-slate-100">
-                         <div className="text-black font-bold truncate text-[18px]" title={p.name}>{p.name}</div>
-                         <div className="text-[11px] text-black font-bold uppercase tracking-wider">{p.spec}</div>
+                         <div className="text-black font-bold text-[18px] leading-tight" title={p.name}>{p.name}</div>
+                         <div className="text-[12px] text-black font-bold uppercase tracking-wider mt-1">{p.spec}</div>
                       </td>
                       <td className="py-4 px-4 border-r border-slate-100 text-center">
                          <div className="text-black font-bold text-[18px] uppercase">{c?.code || "-"}</div>
-                         <div className="text-[11px] text-black font-bold uppercase tracking-wider truncate max-w-[120px] mx-auto" title={c?.name}>{c?.name}</div>
+                         <div className="text-[11px] text-black font-bold uppercase tracking-wider" title={c?.name}>{c?.name}</div>
                       </td>
                       {days.map(d => {
                         const plan = plans.find(x => x.product_id === p.id && x.plan_date === d);

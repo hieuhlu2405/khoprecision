@@ -24,9 +24,12 @@ This skill contains the mandatory design rules for all inventory-related data ta
 ## 3. Data Format Standard
 - **SKU & Product Identification**: Data in columns such as "Mã hàng" (SKU) should be treated as **plain text** by default, rather than formatted numbers, to preserve leading zeros or special characters.
 
-## 4. Visual Layout (Premium Feel)
-- **Header Structure**: Use `ThCell` component (or equivalent structure) to encapsulate resize logic and standard header styling.
-- **Hover Effects**: Rows and header interactions should feel responsive with subtle hover transitions.
+## 4. Visual Hierarchy (v2.2-v2.5)
+- **Header Structure**: Use `ThCell` component to encapsulate resize logic and standard header styling (Black text, 18px).
+- **Data Text**: 
+    - Mã hàng (SKU): `font-extrabold text-black text-[18px]`.
+    - Tên hàng/Khách hàng: `font-bold text-black text-[18px]`.
+    - Quy cách (Spec): `text-[12px] text-black font-bold`.
 - **Micro-animations**: Use Tailwind `animate-in`, `fade-in`, and `duration-200` for popups and feedback.
 
 > [!IMPORTANT]
@@ -63,3 +66,13 @@ This skill contains the mandatory design rules for all inventory-related data ta
 3. ✅ Có Popup lọc khi bấm vào icon phễu.
 4. ✅ Nền Header/Sidebar có hiệu ứng làm mờ (Blur).
 5. ✅ Sticky cột chính khi cuộn ngang.
+6. ✅ Tìm kiếm tức thì trong Popup lọc (Instant search).
+7. ✅ Nội dung co giãn theo cột, không bị cắt bởi `max-width` cố định.
+
+## 9. Tìm kiếm Tức thì (Instant Search)
+- Tất cả bộ lọc (Phễu) phải cung cấp kết quả **ngay khi người dùng nhập liệu**.
+- Nút "Áp dụng" hoặc phím "Enter" chỉ dùng để đóng Popup.
+
+## 10. Hiển thị Linh hoạt (Flexible Text Layout)
+- Đối với các cột có khả năng Resize: **Tuyệt đối không sử dụng `max-w-[pixel]` cố định** bên trong ô dữ liệu.
+- Thay vì `truncate`, hãy sử dụng `leading-tight` hoặc `break-all` để khi kéo rộng cột, nội dung hiển thị đầy đủ.

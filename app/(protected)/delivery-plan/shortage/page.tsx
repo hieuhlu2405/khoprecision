@@ -38,9 +38,16 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
     <div className="p-4 bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200 shadow-2xl min-w-[240px]" onClick={e => e.stopPropagation()}>
       <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Lọc cột</div>
       <input 
-        value={val} onChange={e => setVal(e.target.value)} autoFocus placeholder="Nhập từ khóa..."
+        value={val} 
+        onChange={e => {
+          const nv = e.target.value;
+          setVal(nv);
+          onChange(nv ? { mode: "contains", value: nv } : null);
+        }} 
+        autoFocus 
+        placeholder="Nhập từ khóa..."
         className="input input-bordered input-sm w-full mb-3 text-xs"
-        onKeyDown={e => { if (e.key === "Enter") { onChange(val ? { mode: "contains", value: val } : null); onClose(); } }}
+        onKeyDown={e => { if (e.key === "Enter") { onClose(); } }}
       />
       <div className="flex justify-end gap-2">
         <button onClick={() => { onChange(null); onClose(); }} className="btn btn-ghost btn-xs uppercase text-[10px] font-bold">Xóa</button>
@@ -320,8 +327,8 @@ export default function ShortageReportPage() {
                        <div className="font-extrabold text-black font-mono text-[18px] tracking-tighter">{r.p.sku}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50">
-                       <div className="font-bold text-black text-[18px] truncate" title={r.p.name}>{r.p.name}</div>
-                       <div className="text-[11px] text-black font-bold uppercase tracking-wider">{r.p.spec}</div>
+                       <div className="font-bold text-black text-[18px] leading-tight" title={r.p.name}>{r.p.name}</div>
+                       <div className="text-[12px] text-black font-bold uppercase tracking-wider mt-1">{r.p.spec}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-100 text-center">
                        {(() => {
@@ -329,7 +336,7 @@ export default function ShortageReportPage() {
                          return (
                            <>
                              <div className="font-bold text-black text-[18px] uppercase">{c?.code || "-"}</div>
-                             <div className="text-[11px] text-black font-bold uppercase tracking-wider truncate max-w-[130px] mx-auto" title={c?.name}>{c?.name}</div>
+                             <div className="text-[11px] text-black font-bold uppercase tracking-wider" title={c?.name}>{c?.name}</div>
                            </>
                          )
                        })()}
