@@ -11,7 +11,7 @@ import { exportToExcel } from "@/lib/excel-utils";
 /* ------------------------------------------------------------------ */
 type Product = { id: string; sku: string; name: string; spec: string | null; customer_id: string | null; unit_price: number | null; };
 type Customer = { id: string; code: string; name: string; };
-type Profile = { id: string; role: "admin" | "manager" | "staff"; };
+type Profile = { id: string; role: "admin" | "manager" | "staff"; department: string; };
 type PhoiTx = {
   id: string; tx_date: string; product_id: string;
   customer_id: string | null; product_name_snapshot: string;
@@ -94,8 +94,9 @@ export default function PhoiPage() {
   /* ------------------------------------------------------------------ */
   /* Helpers                                                             */
   /* ------------------------------------------------------------------ */
-  const canCreateEdit = profile && (profile.role === "admin" || profile.role === "manager");
-  const canDelete = profile && profile.role === "admin";
+  const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
+  const canCreateEdit = isManager;
+  const canDelete = isManager;
 
   function customerLabel(cid: string | null): string {
     if (!cid) return "—";
@@ -115,7 +116,7 @@ export default function PhoiPage() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) { window.location.href = "/login"; return; }
 
-      const { data: p } = await supabase.from("profiles").select("id, role").eq("id", u.user.id).maybeSingle();
+      const { data: p } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle();
       if (!p) throw new Error("Profile not found");
       setProfile(p as Profile);
 
@@ -782,12 +783,14 @@ export default function PhoiPage() {
         <table className="data-table" style={{ minWidth: 1000 }}>
           <thead>
             <tr>
-              <th className="w-12 text-center">
-                <input type="checkbox" checked={allChecked}
-                  ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && !allChecked; }}
-                  onChange={e => setSelectedIds(e.target.checked ? new Set(allSelectableIds) : new Set())}
-                  className="rounded border-slate-300 text-brand focus:ring-brand" />
-              </th>
+              {canDelete && (
+                <th className="w-12 text-center">
+                  <input type="checkbox" checked={allChecked}
+                    ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && !allChecked; }}
+                    onChange={e => setSelectedIds(e.target.checked ? new Set(allSelectableIds) : new Set())}
+                    className="rounded border-slate-300 text-brand focus:ring-brand" />
+                </th>
+              )}
               <ThCell label="Ngày nhập" colKey="tx_date" sortable colType="date" w="140px" />
               <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" />
               <ThCell label="Tên sản phẩm" colKey="name" sortable colType="text" />
@@ -797,17 +800,19 @@ export default function PhoiPage() {
               <ThCell label="Đơn giá" colKey="cost" sortable colType="num" align="right" w="140px" />
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="180px" />
               <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="160px" />
-              <th className="w-24"></th>
+              {canCreateEdit && <th className="w-24 text-center">Thao tác</th>}
             </tr>
           </thead>
           <tbody>
             {filtered.map(r => (
               <tr key={r.id} className="hover:bg-indigo-50/30 transition-colors group">
-                <td className="text-center">
-                  <input type="checkbox" checked={selectedIds.has(r.id)}
-                    onChange={() => setSelectedIds(prev => { const s = new Set(prev); s.has(r.id) ? s.delete(r.id) : s.add(r.id); return s; })}
-                    className="rounded border-slate-300 text-brand focus:ring-brand" />
-                </td>
+                {canDelete && (
+                  <td className="text-center">
+                    <input type="checkbox" checked={selectedIds.has(r.id)}
+                      onChange={() => setSelectedIds(prev => { const s = new Set(prev); s.has(r.id) ? s.delete(r.id) : s.add(r.id); return s; })}
+                      className="rounded border-slate-300 text-brand focus:ring-brand" />
+                  </td>
+                )}
                 <td className="font-medium text-slate-600">{fmtDate(r.tx_date)}</td>
                 <td className="font-bold text-brand uppercase">{skuFor(r)}</td>
                 <td className="font-semibold text-slate-700">{r.product_name_snapshot}</td>
@@ -817,12 +822,14 @@ export default function PhoiPage() {
                 <td className="text-right font-medium text-slate-600">{r.unit_cost != null ? fmtNum(r.unit_cost) : "—"}</td>
                 <td className="text-slate-400 text-sm italic truncate" style={{ maxWidth: 180 }} title={r.note ?? ""}>{r.note ?? "—"}</td>
                 <td className="text-[11px] text-slate-400 font-medium">{mounted ? fmtDatetime(r.created_at) : "..."}</td>
-                <td className="text-center">
-                  <div className="flex gap-1 justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    {canCreateEdit && <button onClick={() => openEdit(r)} className="p-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Sửa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>}
-                    {canDelete && <button onClick={() => del(r)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Xóa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>}
-                  </div>
-                </td>
+                {canCreateEdit && (
+                  <td className="text-center">
+                    <div className="flex gap-1 justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      {canCreateEdit && <button onClick={() => openEdit(r)} className="p-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Sửa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>}
+                      {canDelete && <button onClick={() => del(r)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Xóa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>}
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

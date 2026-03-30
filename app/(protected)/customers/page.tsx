@@ -16,6 +16,7 @@ type Customer = {
 type Profile = {
   id: string;
   role: "admin" | "manager" | "staff";
+  department: string;
 };
 
 export default function CustomersPage() {
@@ -303,8 +304,7 @@ export default function CustomersPage() {
   }
 
   // Permission checks
-  const canCreateEdit = profile && (profile.role === "admin" || profile.role === "manager");
-  const canDelete = profile && profile.role === "admin";
+  const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
 
   function resetForm() {
     setEditing(null);
@@ -318,6 +318,10 @@ export default function CustomersPage() {
   }
 
   function openEdit(c: Customer) {
+    if (!isManager) {
+      showToast("Bạn không có quyền sửa khách hàng", "error");
+      return;
+    }
     setEditing(c);
     setCode(c.code);
     setName(c.name);
@@ -337,7 +341,7 @@ export default function CustomersPage() {
       // Load profile to check permissions
       const { data: p, error: e1 } = await supabase
         .from("profiles")
-        .select("id, role")
+        .select("id, role, department")
         .eq("id", u.user.id)
         .maybeSingle();
 
@@ -406,6 +410,7 @@ export default function CustomersPage() {
   }
 
   async function bulkDelete() {
+    if (!isManager) return;
     if (selectedIds.size === 0) return;
     const ok = await showConfirm({ message: `Xóa ${selectedIds.size} khách hàng đã chọn?`, danger: true, confirmLabel: "Xóa" });
     if (!ok) return;
@@ -429,6 +434,10 @@ export default function CustomersPage() {
   }
 
   async function del(c: Customer) {
+    if (!isManager) {
+      showToast("Bạn không có quyền xóa khách hàng", "error");
+      return;
+    }
     const ok = await showConfirm({ message: `Xóa khách hàng ${c.code}?`, danger: true, confirmLabel: "Xóa" });
     if (!ok) return;
     setError("");
@@ -495,11 +504,9 @@ export default function CustomersPage() {
                Xóa tìm kiếm
              </button>
           )}
-          {canCreateEdit && (
-            <button onClick={openCreate} className="btn btn-primary">
-              + Thêm khách hàng
-            </button>
-          )}
+          <button onClick={openCreate} className="btn btn-primary">
+            + Thêm khách hàng
+          </button>
           <button onClick={handleExportExcel} className="btn btn-secondary">
             📋 Xuất Excel
           </button>
@@ -514,7 +521,7 @@ export default function CustomersPage() {
                Xóa lọc cột ({Object.keys(colFilters).length})
             </button>
           )}
-          {canDelete && selectedIds.size > 0 && (
+          {isManager && selectedIds.size > 0 && (
             <button onClick={bulkDelete} className="btn btn-danger">
               Xóa đã chọn ({selectedIds.size})
             </button>
@@ -526,7 +533,7 @@ export default function CustomersPage() {
         <table className="data-table !border-separate !border-spacing-0" style={{ minWidth: 800 }}>
           <thead>
             <tr>
-              {canDelete && (
+              {isManager && (
                  <th style={{ 
                    ...thStyle, 
                    width: 60, 
@@ -544,7 +551,8 @@ export default function CustomersPage() {
               )}
               <ThCell label="Mã KHÁCH HÀNG" colKey="code" sortable colType="text" w="140px" />
               <ThCell label="Tên khách hàng" colKey="name" sortable colType="text" />
-              <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />
+              {isManager && <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />}
+              {isManager && (
                  <th style={{ 
                    ...thStyle, 
                    textAlign: "center", 
@@ -552,12 +560,13 @@ export default function CustomersPage() {
                  }}>
                    <span className="text-slate-900 font-black text-[12px] uppercase tracking-wider">THAO TÁC</span>
                  </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {finalFiltered.map((c) => (
               <tr key={c.id} className="group hover:bg-slate-50/80 transition-colors even:bg-slate-50/30">
-                {canDelete && (
+                {isManager && (
                   <td style={{ ...tdStyle, textAlign: "center" }}>
                       <input type="checkbox" checked={selectedIds.has(c.id)}
                         className="rounded-lg text-indigo-600 border-slate-300 focus:ring-indigo-500 w-4 h-4 transition-all"
@@ -571,28 +580,28 @@ export default function CustomersPage() {
                 )}
                 <td style={{ ...tdStyle, fontWeight: "bold" }} className="text-slate-900 font-mono text-[13px]">{c.code}</td>
                 <td style={tdStyle} className="text-slate-700 font-medium">{c.name}</td>
-                <td style={{ ...tdStyle, whiteSpace: "nowrap" }} className="text-slate-400 text-[12px]">
-                  {mounted ? fmtDatetime(c.created_at) : "..."}
-                </td>
-                <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                  <div className="toolbar" style={{ margin: 0, gap: 4 }}>
-                    {canCreateEdit && (
+                {isManager && (
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }} className="text-slate-400 text-[12px]">
+                    {mounted ? fmtDatetime(c.created_at) : "..."}
+                  </td>
+                )}
+                {isManager && (
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                    <div className="toolbar" style={{ margin: 0, gap: 4 }}>
                       <button onClick={() => openEdit(c)} className="btn btn-secondary btn-sm">
                         Sửa
                       </button>
-                    )}
-                    {canDelete && (
                       <button onClick={() => del(c)} className="btn btn-danger btn-sm">
                         Xóa
                       </button>
-                    )}
-                  </div>
-                </td>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
             {finalFiltered.length === 0 && (
               <tr>
-                <td colSpan={canDelete ? 5 : 4} style={{ padding: 24, textAlign: "center", color: "#888" }}>
+                <td colSpan={isManager ? 5 : 2} style={{ padding: 24, textAlign: "center", color: "#888" }}>
                   Không tìm thấy khách hàng nào.
                 </td>
               </tr>

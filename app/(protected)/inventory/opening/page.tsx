@@ -274,12 +274,11 @@ export default function InventoryOpeningBalancesPage() {
       return;
     }
     setUserId(u.user.id);
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", u.user.id).single();
+    const { data: profile } = await supabase.from("profiles").select("role, department").eq("id", u.user.id).single();
     if (profile) {
-      const isAdmin = profile.role === "admin";
-      const isLead = profile.role === "manager" || profile.role === "accountant";
-      setCanCreateEdit(isAdmin || isLead);
-      setCanDelete(isAdmin);
+      const isManager = profile.role === "admin" || (profile.role === "manager" && profile.department === "warehouse");
+      setCanCreateEdit(isManager);
+      setCanDelete(isManager);
     }
   }
 
@@ -859,17 +858,19 @@ export default function InventoryOpeningBalancesPage() {
             <table className="data-table !border-separate !border-spacing-0 overflow-visible" style={{ minWidth: 1200 }}>
               <thead>
                   <tr>
-                    <th className="!text-center !w-12">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.size === finalFiltered.length && finalFiltered.length > 0}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedIds(new Set(finalFiltered.map(r => r.id)));
-                          else setSelectedIds(new Set());
-                        }}
-                        className="rounded text-brand"
-                      />
-                    </th>
+                    {canCreateEdit && (
+                      <th className="!text-center !w-12">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.size === finalFiltered.length && finalFiltered.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedIds(new Set(finalFiltered.map(r => r.id)));
+                            else setSelectedIds(new Set());
+                          }}
+                          className="rounded text-brand"
+                        />
+                      </th>
+                    )}
                     <ThCell label="Kỳ" colKey="period" sortable colType="date" w="110px" />
                     <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
                     <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" />
@@ -877,7 +878,7 @@ export default function InventoryOpeningBalancesPage() {
                     <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" w="110px" />
                     <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" w="120px" />
                     <ThCell label="Tồn dài" colKey="isLongAging" sortable colType="bool" align="center" w="100px" />
-                    <th className="text-center w-24">Thao tác</th>
+                    {canCreateEdit && <th className="text-center w-24">Thao tác</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -885,19 +886,21 @@ export default function InventoryOpeningBalancesPage() {
                     <tr><td colSpan={9} className="py-20 text-center opacity-40 italic">Không có dữ liệu khớp bộ lọc.</td></tr>
                   ) : finalFiltered.map(r => (
                     <tr key={r.id} className={`${selectedIds.has(r.id) ? "!bg-brand/[0.04]" : ""} hover:bg-brand/[0.02] transition-colors group odd:bg-white even:bg-slate-50/30`}>
-                    <td className="text-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(r.id)}
-                        onChange={() => {
-                          const next = new Set(selectedIds);
-                          if (next.has(r.id)) next.delete(r.id);
-                          else next.add(r.id);
-                          setSelectedIds(next);
-                        }}
-                        className="rounded text-brand"
-                      />
-                    </td>
+                    {canCreateEdit && (
+                      <td className="text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(r.id)}
+                          onChange={() => {
+                            const next = new Set(selectedIds);
+                            if (next.has(r.id)) next.delete(r.id);
+                            else next.add(r.id);
+                            setSelectedIds(next);
+                          }}
+                          className="rounded text-brand"
+                        />
+                      </td>
+                    )}
                     <td className="font-medium text-slate-900">{fmtDate(r.period_month)}</td>
                     <td className="text-slate-500 text-xs font-semibold">{customerLabel(r.customer_id)}</td>
                     <td>
@@ -925,25 +928,27 @@ export default function InventoryOpeningBalancesPage() {
                         <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[10px] font-medium opacity-50">Thường</span>
                       )}
                     </td>
-                    <td className="text-center">
-                      <div className="flex justify-center gap-1">
-                        {canCreateEdit && (
-                          <button onClick={() => openEditForm(r)} className="p-1.5 text-slate-400 hover:text-brand hover:bg-brand/10 rounded-lg transition-all" title="Sửa">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                          </button>
-                        )}
-                        {canDelete && (
-                          <button onClick={() => del(r)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Xóa">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                    {canCreateEdit && (
+                      <td className="text-center">
+                        <div className="flex justify-center gap-1">
+                          {canCreateEdit && (
+                            <button onClick={() => openEditForm(r)} className="p-1.5 text-slate-400 hover:text-brand hover:bg-brand/10 rounded-lg transition-all" title="Sửa">
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button onClick={() => del(r)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Xóa">
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {finalFiltered.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="py-24 text-center">
+                    <td colSpan={canCreateEdit ? 9 : 7} className="py-24 text-center">
                       <div className="flex flex-col items-center gap-2 text-slate-400">
                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M21 21l-6-6"/><circle cx="10" cy="10" r="7"/><path d="M7 10h6"/></svg>
                         <p className="text-sm font-medium">Không tìm thấy bản ghi nào khớp điều kiện lọc.</p>

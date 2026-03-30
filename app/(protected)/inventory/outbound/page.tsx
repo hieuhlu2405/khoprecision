@@ -56,6 +56,7 @@ type AdjTx = {
 type Profile = {
   id: string;
   role: "admin" | "manager" | "staff";
+  department: string;
 };
 
 /** One detail line in the multi-line form */
@@ -594,8 +595,9 @@ export default function InventoryOutboundPage() {
   }
 
   /* ---- permissions ---- */
-  const canCreateEdit = profile && (profile.role === "admin" || profile.role === "manager");
-  const canDelete = profile && profile.role === "admin";
+  const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
+  const canCreateEdit = isManager;
+  const canDelete = isManager;
 
   /* ---- inline expansion UI state ---- */
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -672,7 +674,7 @@ export default function InventoryOutboundPage() {
 
       const { data: p, error: e1 } = await supabase
         .from("profiles")
-        .select("id, role")
+        .select("id, role, department")
         .eq("id", u.user.id)
         .maybeSingle();
       if (e1) throw e1;
@@ -1290,12 +1292,12 @@ export default function InventoryOutboundPage() {
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="200px" />
               <ThCell label="Tạo lúc" colKey="createdAt" sortable colType="date" />
               <ThCell label="Cập nhật" colKey="updatedAt" sortable colType="date" />
-              <th style={{ textAlign: "center", minWidth: 160 }}>Thao tác</th>
+              {canCreateEdit && <th style={{ textAlign: "center", minWidth: 160 }}>Thao tác</th>}
             </tr>
           </thead>
           <tbody>
             {finalFiltered.length === 0 ? (
-              <tr><td colSpan={canDelete ? 13 : 12} className="py-20 text-center opacity-40 italic">Không tìm thấy phiếu xuất nào khớp bộ lọc.</td></tr>
+              <tr><td colSpan={canCreateEdit ? 13 : 11} className="py-20 text-center opacity-40 italic">Không tìm thấy phiếu xuất nào khớp bộ lọc.</td></tr>
             ) : finalFiltered.map((r, i) => {
               const adjs = r.adjs;
               const hasAdjs = r.hasAdjs;
@@ -1347,30 +1349,32 @@ export default function InventoryOutboundPage() {
                     <td style={{ ...tdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{r.note ?? ""}</td>
                     <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{mounted ? fmtDatetime(r.created_at) : "..."}</td>
                     <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{mounted ? fmtDatetime(r.updated_at) : "..."}</td>
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                      <div className="toolbar" style={{ margin: 0, gap: 4 }}>
-                        {canCreateEdit && (
-                          <>
-                            <button onClick={() => openEdit(r)} className="btn btn-secondary btn-sm">
-                              Sửa
+                    {canCreateEdit && (
+                      <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                        <div className="toolbar" style={{ margin: 0, gap: 4 }}>
+                          {canCreateEdit && (
+                            <>
+                              <button onClick={() => openEdit(r)} className="btn btn-secondary btn-sm">
+                                Sửa
+                              </button>
+                              <button onClick={() => openAdjustment(r)} className="btn btn-secondary btn-sm">
+                                Điều chỉnh
+                              </button>
+                            </>
+                          )}
+                          {canDelete && (
+                            <button onClick={() => del(r)} className="btn btn-danger btn-sm">
+                              Xóa
                             </button>
-                            <button onClick={() => openAdjustment(r)} className="btn btn-secondary btn-sm">
-                              Điều chỉnh
-                            </button>
-                          </>
-                        )}
-                        {canDelete && (
-                          <button onClick={() => del(r)} className="btn btn-danger btn-sm">
-                            Xóa
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                   {/* Inline Expanded Adjs row */}
                   {isExpanded && hasAdjs && (
                     <tr style={{ background: "var(--slate-50)" }}>
-                      <td colSpan={canDelete ? 13 : 12} style={{ padding: "16px 24px" }}>
+                      <td colSpan={canCreateEdit ? 13 : 11} style={{ padding: "16px 24px" }}>
                         <div style={{ fontSize: "13px" }}>
                           <h4 style={{ margin: "0 0 12px", color: "var(--slate-800)", fontSize: "14px", fontWeight: 700 }}>Chi tiết điều chỉnh</h4>
                           
@@ -1425,7 +1429,7 @@ export default function InventoryOutboundPage() {
             })}
              {finalFiltered.length === 0 && (
                <tr>
-                 <td colSpan={canDelete ? 13 : 12} style={{ padding: 16, textAlign: "center", color: "#999" }}>
+                 <td colSpan={canCreateEdit ? 13 : 11} style={{ padding: 16, textAlign: "center", color: "#999" }}>
                   Không có dữ liệu
                 </td>
               </tr>

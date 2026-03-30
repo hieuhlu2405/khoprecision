@@ -20,6 +20,8 @@ type Profile = {
 };
 
 function buildMenu(p: Profile, isAdmin: boolean) {
+  const canViewReports = isAdmin || (p.role === "manager" && p.department === "warehouse") || p.department === "accounting";
+
   const items: { label: string; href?: string; show: boolean; isHeader?: boolean }[] = [
     { label: "Quản lý dữ liệu", show: true, isHeader: true },
     { label: "🏠 Dashboard", href: "/app", show: true },
@@ -34,13 +36,13 @@ function buildMenu(p: Profile, isAdmin: boolean) {
     { label: "🧱 Nhập phôi", href: "/inventory/phoi", show: true },
     { label: "🔍 Kiểm kê", href: "/inventory/stocktake", show: true },
 
-    { label: "Báo cáo", show: true, isHeader: true },
-    { label: "💰 Giá trị tồn kho", href: "/inventory/value-report", show: true },
-    { label: "⌛ Tồn dài kỳ", href: "/inventory/aging", show: true },
-    { label: "🔄 Biến động tồn kho", href: "/inventory/comparison", show: true },
+    { label: "Báo cáo", show: canViewReports, isHeader: true },
+    { label: "💰 Giá trị tồn kho", href: "/inventory/value-report", show: canViewReports },
+    { label: "⌛ Tồn dài kỳ", href: "/inventory/aging", show: canViewReports },
+    { label: "🔄 Biến động tồn kho", href: "/inventory/comparison", show: canViewReports },
 
-    { label: "Lịch sử", show: true, isHeader: true },
-    { label: "🕒 Lịch sử báo cáo", href: "/inventory/report-history", show: true },
+    { label: "Lịch sử", show: canViewReports, isHeader: true },
+    { label: "🕒 Lịch sử báo cáo", href: "/inventory/report-history", show: canViewReports },
 
     { label: "Quản trị hệ thống", show: isAdmin, isHeader: true },
     { label: "🛡️ Người dùng", href: "/admin/users", show: isAdmin },

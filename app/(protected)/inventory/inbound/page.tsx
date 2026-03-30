@@ -56,6 +56,7 @@ type AdjTx = {
 type Profile = {
   id: string;
   role: "admin" | "manager" | "staff";
+  department: string;
 };
 
 /** One detail line in the multi-line form */
@@ -602,8 +603,9 @@ export default function InventoryInboundPage() {
   }
 
   /* ---- permissions ---- */
-  const canCreateEdit = profile && (profile.role === "admin" || profile.role === "manager");
-  const canDelete = profile && profile.role === "admin";
+  const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
+  const canCreateEdit = isManager;
+  const canDelete = isManager;
 
   /* ---- inline expansion UI state ---- */
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -680,7 +682,7 @@ export default function InventoryInboundPage() {
 
       const { data: p, error: e1 } = await supabase
         .from("profiles")
-        .select("id, role")
+        .select("id, role, department")
         .eq("id", u.user.id)
         .maybeSingle();
       if (e1) throw e1;
@@ -1293,7 +1295,7 @@ export default function InventoryInboundPage() {
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="200px" />
               <ThCell label="Tạo lúc" colKey="createdAt" sortable colType="date" />
               <ThCell label="Cập nhật" colKey="updatedAt" sortable colType="date" />
-              <th style={{ textAlign: "center", minWidth: 160 }}>Thao tác</th>
+              {canCreateEdit && <th style={{ textAlign: "center", minWidth: 160 }}>Thao tác</th>}
             </tr>
           </thead>
           <tbody>
@@ -1350,25 +1352,27 @@ export default function InventoryInboundPage() {
                     <td style={{ ...tdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", fontSize: 13, color: "var(--slate-600)" }}>{r.note ?? ""}</td>
                     <td style={{ ...tdStyle, whiteSpace: "nowrap", fontSize: 12, color: "var(--slate-500)" }}>{mounted ? fmtDatetime(r.created_at) : "..."}</td>
                     <td style={{ ...tdStyle, whiteSpace: "nowrap", fontSize: 12, color: "var(--slate-500)" }}>{mounted ? fmtDatetime(r.updated_at) : "..."}</td>
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap", textAlign: "center" }}>
-                      <div className="toolbar" style={{ margin: 0, gap: 4, justifyContent: "center" }}>
-                        {canCreateEdit && (
-                          <>
-                            <button onClick={() => openEdit(r)} className="btn btn-secondary btn-sm" title="Sửa thông tin">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                    {canCreateEdit && (
+                      <td style={{ ...tdStyle, whiteSpace: "nowrap", textAlign: "center" }}>
+                        <div className="toolbar" style={{ margin: 0, gap: 4, justifyContent: "center" }}>
+                          {canCreateEdit && (
+                            <>
+                              <button onClick={() => openEdit(r)} className="btn btn-secondary btn-sm" title="Sửa thông tin">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                              </button>
+                              <button onClick={() => openAdjustment(r)} className="btn btn-secondary btn-sm" title="Điều chỉnh số lượng">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                              </button>
+                            </>
+                          )}
+                          {canDelete && (
+                            <button onClick={() => del(r)} className="btn btn-ghost btn-sm" style={{ color: "var(--color-danger)" }} title="Xóa">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                             </button>
-                            <button onClick={() => openAdjustment(r)} className="btn btn-secondary btn-sm" title="Điều chỉnh số lượng">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                            </button>
-                          </>
-                        )}
-                        {canDelete && (
-                          <button onClick={() => del(r)} className="btn btn-ghost btn-sm" style={{ color: "var(--color-danger)" }} title="Xóa">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                   {/* Inline Expanded Adjs row */}
                   {isExpanded && hasAdjs && (

@@ -172,10 +172,11 @@ export default function StocktakeListPage() {
 
       const [{ data: isAd }, { data: pData }] = await Promise.all([
         supabase.rpc("check_is_admin"),
-        supabase.from("profiles").select("id, role").eq("id", u.user.id).single()
+        supabase.from("profiles").select("id, role, department").eq("id", u.user.id).single()
       ]);
       const role = pData?.role || "staff";
-      setIsAdminOrManager(isAd === true || role === "manager" || role === "admin");
+      const dept = pData?.department || "";
+      setIsAdminOrManager(isAd === true || role === "admin" || (role === "manager" && dept === "warehouse"));
 
       let q = supabase
         .from("inventory_stocktakes")

@@ -6,6 +6,7 @@ import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, TableSkeleton, ErrorBanner, LoadingInline } from "@/app/components/ui/Loading";
 import { exportToExcel, readExcel } from "@/lib/excel-utils";
 
+type Profile = { id: string; role: "admin" | "manager" | "staff"; department: string; };
 type Customer = { id: string; code: string; name: string };
 type Product = {
   id: string;
@@ -23,10 +24,13 @@ export default function ProductsPage() {
   const { showConfirm, showToast } = useUI();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [rows, setRows] = useState<Product[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [q, setQ] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+
+  const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
 
   // form state (single add/edit)
   const [open, setOpen] = useState(false);
@@ -447,6 +451,11 @@ export default function ProductsPage() {
   }
 
   function openEdit(p: Product) {
+    if (!profile) return;
+    if (!isManager) {
+      showToast("Bạn không có quyền sửa mã hàng", "error");
+      return;
+    }
     setEditing(p);
     setSku(p.sku);
     setName(p.name);
@@ -467,6 +476,9 @@ export default function ProductsPage() {
         window.location.href = "/login";
         return;
       }
+
+      const { data: pData } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).single();
+      if (pData) setProfile(pData as Profile);
 
       const { data: cust, error: e1 } = await supabase
         .from("customers")
@@ -555,6 +567,11 @@ export default function ProductsPage() {
 
   /* ---- bulk delete ---- */
   async function bulkDelete() {
+    if (!profile) return;
+    if (!isManager) {
+      showToast("Bạn không có quyền xóa mã hàng", "error");
+      return;
+    }
     if (selectedIds.size === 0) return;
     const ok = await showConfirm({ message: `Xóa ${selectedIds.size} mã hàng đã chọn?`, danger: true, confirmLabel: "Xóa" });
     if (!ok) return;
@@ -578,6 +595,11 @@ export default function ProductsPage() {
   }
 
   async function del(p: Product) {
+    if (!profile) return;
+    if (!isManager) {
+      showToast("Bạn không có quyền xóa mã hàng", "error");
+      return;
+    }
     const ok = await showConfirm({ message: `Xóa mã hàng ${p.sku}?`, danger: true, confirmLabel: "Xóa" });
     if (!ok) return;
     setError("");
@@ -732,6 +754,7 @@ export default function ProductsPage() {
 
   if (loading) return <LoadingPage text="Đang tải mã hàng..." />;
 
+
   return (
     <div className="page-root">
       <div className="page-header">
@@ -790,7 +813,7 @@ export default function ProductsPage() {
                Xóa lọc cột ({Object.keys(colFilters).length})
             </button>
           )}
-          {selectedIds.size > 0 && (
+          {selectedIds.size > 0 && isManager && (
             <button onClick={bulkDelete} className="btn btn-danger">
               Xóa đã chọn ({selectedIds.size})
             </button>
@@ -994,26 +1017,28 @@ export default function ProductsPage() {
         <table className="data-table" style={{ minWidth: 1000 }}>
           <thead>
             <tr>
-               <th style={{ 
-                 ...thStyle, 
-                 width: 60, 
-                 textAlign: "center",
-                 position: "sticky",
-                 top: 0,
-                 zIndex: 30,
-                 background: "white",
-                 boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
-                 borderBottom: "1px solid var(--slate-200)"
-               }}>
-                 <input type="checkbox"
-                   className="rounded text-brand"
-                   checked={finalFiltered.length > 0 && finalFiltered.every(r => selectedIds.has(r.id))}
-                   onChange={e => {
-                     if (e.target.checked) setSelectedIds(new Set(finalFiltered.map(r => r.id)));
-                     else setSelectedIds(new Set());
-                   }}
-                 />
-               </th>
+               {isManager && (
+                 <th style={{ 
+                   ...thStyle, 
+                   width: 60, 
+                   textAlign: "center",
+                   position: "sticky",
+                   top: 0,
+                   zIndex: 30,
+                   background: "white",
+                   boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                   borderBottom: "1px solid var(--slate-200)"
+                 }}>
+                   <input type="checkbox"
+                     className="rounded text-brand"
+                     checked={finalFiltered.length > 0 && finalFiltered.every(r => selectedIds.has(r.id))}
+                     onChange={e => {
+                       if (e.target.checked) setSelectedIds(new Set(finalFiltered.map(r => r.id)));
+                       else setSelectedIds(new Set());
+                     }}
+                   />
+                 </th>
+               )}
                <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" />
                <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
                <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" w="160px" />
@@ -1021,14 +1046,16 @@ export default function ProductsPage() {
                <ThCell label="ĐƠN GIÁ (VNĐ)" colKey="price" sortable colType="num" align="right" w="120px" />
                <ThCell label="Active" colKey="isActive" sortable={false} colType="text" align="center" w="80px" />
                <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
-               <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />
-               <th style={{ 
-                 ...thStyle, 
-                 textAlign: "center", 
-                 width: 100,
-               }}>
-                 <span className="text-slate-900 font-black text-[12px] uppercase tracking-wider">THAO TÁC</span>
-               </th>
+               {isManager && <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />}
+               {isManager && (
+                 <th style={{ 
+                   ...thStyle, 
+                   textAlign: "center", 
+                   width: 100,
+                 }}>
+                   <span className="text-slate-900 font-black text-[12px] uppercase tracking-wider">THAO TÁC</span>
+                 </th>
+               )}
             </tr>
           </thead>
           <tbody>
@@ -1036,16 +1063,18 @@ export default function ProductsPage() {
               const c = customers.find((x) => x.id === p.customer_id);
               return (
                  <tr key={p.id} className="group hover:bg-slate-50/80 transition-colors even:bg-slate-50/30">
-                    <td style={{ ...tdStyle, textAlign: "center" }}>
-                      <input type="checkbox" checked={selectedIds.has(p.id)}
-                        className="rounded-lg text-indigo-600 border-slate-300 focus:ring-indigo-500 w-4 h-4 transition-all"
-                        onChange={e => {
-                          const next = new Set(selectedIds);
-                          if (e.target.checked) next.add(p.id); else next.delete(p.id);
-                          setSelectedIds(next);
-                        }}
-                      />
-                    </td>
+                    {isManager && (
+                      <td style={{ ...tdStyle, textAlign: "center" }}>
+                        <input type="checkbox" checked={selectedIds.has(p.id)}
+                          className="rounded-lg text-indigo-600 border-slate-300 focus:ring-indigo-500 w-4 h-4 transition-all"
+                          onChange={e => {
+                            const next = new Set(selectedIds);
+                            if (e.target.checked) next.add(p.id); else next.delete(p.id);
+                            setSelectedIds(next);
+                          }}
+                        />
+                      </td>
+                    )}
                     <td style={{ ...tdStyle, fontWeight: "bold" }} className="text-slate-900 font-mono text-[13px]">{p.sku}</td>
                     <td style={tdStyle} className="text-slate-700 font-medium">{p.name}</td>
                     <td style={tdStyle} className="text-slate-700 text-[13px]">{(p.spec ?? "").replace(/x/g, "*")}</td>
@@ -1061,19 +1090,23 @@ export default function ProductsPage() {
                     <td style={tdStyle} className="text-slate-600">
                       {c ? `${c.code} - ${c.name}` : p.customer_id}
                     </td>
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }} className="text-slate-400 text-[12px]">
-                      {mounted ? fmtDatetime(p.created_at) : '...'}
-                    </td>
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                      <div className="toolbar" style={{ margin: 0, gap: 4 }}>
-                        <button onClick={() => openEdit(p)} className="btn btn-secondary btn-sm !py-1">
-                          Sửa
-                        </button>
-                        <button onClick={() => del(p)} className="btn btn-danger btn-sm !py-1">
-                          Xóa
-                        </button>
-                      </div>
-                    </td>
+                    {isManager && (
+                      <td style={{ ...tdStyle, whiteSpace: "nowrap" }} className="text-slate-400 text-[12px]">
+                        {mounted ? fmtDatetime(p.created_at) : '...'}
+                      </td>
+                    )}
+                    {isManager && (
+                      <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                        <div className="toolbar" style={{ margin: 0, gap: 4 }}>
+                          <button onClick={() => openEdit(p)} className="btn btn-secondary btn-sm !py-1">
+                            Sửa
+                          </button>
+                          <button onClick={() => del(p)} className="btn btn-danger btn-sm !py-1">
+                            Xóa
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
               );
             })}
