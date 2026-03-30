@@ -575,10 +575,17 @@ export default function CustomersPage() {
                       />
                   </td>
                 )}
-                <td className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_5px_-2px rgba(0,0,0,0.05)]`} style={{ left: isManager ? 60 : 0 }}>
+                <td 
+                  className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_5px_-2px rgba(0,0,0,0.05)]`} 
+                  style={{ 
+                    left: isManager ? 60 : 0,
+                    width: colWidths["code"] || 140,
+                    minWidth: colWidths["code"] || 140
+                  }}
+                >
                   <div className="font-extrabold text-slate-900 font-mono text-[15px] break-all">{c.code}</div>
                 </td>
-                <td className="py-4 px-4 border-r border-slate-50">
+                <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["name"], minWidth: colWidths["name"] || "200px" }}>
                   <div className="text-slate-900 font-bold text-[15px] leading-tight">{c.name}</div>
                 </td>
                 {isManager && (

@@ -1077,17 +1077,24 @@ export default function ProductsPage() {
                         />
                       </td>
                     )}
-                                             <td className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_5px -2px rgba(0,0,0,0.05)]`} style={{ left: isManager ? 60 : 0 }}>
+                                             <td 
+                        className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_5px -2px rgba(0,0,0,0.05)]`} 
+                        style={{ 
+                          left: isManager ? 60 : 0,
+                          width: colWidths["sku"] || 150,
+                          minWidth: colWidths["sku"] || 150 
+                        }}
+                      >
                       <div className="font-extrabold text-slate-900 font-mono text-[15px] break-all">{p.sku}</div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50">
+                    <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["name"], minWidth: colWidths["name"] || "250px" }}>
                       <div className="text-slate-900 font-bold text-[15px] leading-tight">{p.name}</div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50">
+                    <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["spec"], minWidth: colWidths["spec"] || 160 }}>
                       <div className="text-slate-900 text-[13px] font-bold uppercase tracking-wider">{(p.spec ?? "").replace(/x/g, "*")}</div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[15px] font-medium">{p.uom}</td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-right font-black text-[15px] text-slate-800">{fmtNum(p.unit_price)}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[15px] font-medium" style={{ width: colWidths["uom"], minWidth: colWidths["uom"] || 120 }}>{p.uom}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-right font-black text-[15px] text-slate-800" style={{ width: colWidths["price"], minWidth: colWidths["price"] || 120 }}>{fmtNum(p.unit_price)}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-center">
                       {p.is_active ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-widest">Active</span>
@@ -1095,12 +1102,12 @@ export default function ProductsPage() {
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-400 border border-slate-200 uppercase tracking-widest">Inactive</span>
                       )}
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50">
+                    <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["customer"], minWidth: colWidths["customer"] || 220 }}>
                       <div className="text-slate-900 font-bold text-[15px] uppercase">{c ? c.code : "-"}</div>
                       <div className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{c ? c.name : p.customer_id}</div>
                     </td>
                     {isManager && (
-                      <td className="py-4 px-4 border-r border-slate-50 whitespace-nowrap text-slate-400 text-[12px] font-medium">
+                      <td className="py-4 px-4 border-r border-slate-50 whitespace-nowrap text-slate-400 text-[12px] font-medium" style={{ width: colWidths["createdAt"], minWidth: colWidths["createdAt"] || 180 }}>
                         {mounted ? fmtDatetime(p.created_at) : '...'}
                       </td>
                     )}

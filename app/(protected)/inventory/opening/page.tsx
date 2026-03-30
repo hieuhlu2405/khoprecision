@@ -903,20 +903,20 @@ export default function InventoryOpeningBalancesPage() {
                         />
                       </td>
                     )}
-                    <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-900 text-[15px]">{fmtDate(r.period_month)}</td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-slate-900 font-bold text-[15px] uppercase">{customerLabel(r.customer_id)}</td>
-                    <td className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]`} style={{ left: canCreateEdit ? 48 : 0 }}>
+                    <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-900 text-[15px]" style={{ width: colWidths["period_month"], minWidth: colWidths["period_month"] || 140 }}>{fmtDate(r.period_month)}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-slate-900 font-bold text-[15px] uppercase" style={{ width: colWidths["customer_id"], minWidth: colWidths["customer_id"] || 180 }}>{customerLabel(r.customer_id)}</td>
+                    <td className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]`} style={{ left: canCreateEdit ? 48 : 0, width: colWidths["sku"] || 150, minWidth: colWidths["sku"] || 150 }}>
                       <div className="font-extrabold text-slate-900 font-mono text-[15px] uppercase tracking-wide">{r.products?.sku}</div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50">
-                      <div className="text-slate-900 font-bold text-[15px] leading-tight truncate max-w-[300px]" title={r.products?.name}>{r.products?.name}</div>
+                    <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["name"], minWidth: colWidths["name"] || 250 }}>
+                      <div className="text-slate-900 font-bold text-[15px] leading-tight" title={r.products?.name}>{r.products?.name}</div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-right">
+                    <td className="py-4 px-4 border-r border-slate-50 text-right" style={{ width: colWidths["qty"], minWidth: colWidths["qty"] || 120 }}>
                        <div className="flex flex-col items-end">
                          <span className="font-black text-slate-800 text-[15px]">{fmtNum(r.opening_qty)}</span>
                        </div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-right text-slate-600 font-medium text-[15px]">{fmtNum(r.opening_unit_cost)}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-right text-slate-600 font-medium text-[15px]" style={{ width: colWidths["price"], minWidth: colWidths["price"] || 120 }}>{fmtNum(r.opening_unit_cost)}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-center">
                       {r.is_long_aging ? (
                         <div className="tooltip-wrap group relative inline-block">

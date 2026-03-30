@@ -1332,15 +1332,15 @@ export default function InventoryOutboundPage() {
                        </td>
                      )}
                     <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{i + 1}</td>
-                    <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-900 text-[15px]">{fmtDate(r.tx_date)}</td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-slate-900 font-bold text-[15px] uppercase">{customerLabel(r.customer_id)}</td>
-                    <td className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]`} style={{ left: canDelete ? 48 : 0 }}>
+                    <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-900 text-[15px]" style={{ width: colWidths["tx_date"], minWidth: colWidths["tx_date"] || 140 }}>{fmtDate(r.tx_date)}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-slate-900 font-bold text-[15px] uppercase" style={{ width: colWidths["customer_id"], minWidth: colWidths["customer_id"] || 180 }}>{customerLabel(r.customer_id)}</td>
+                    <td className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]`} style={{ left: canDelete ? 48 : 0, width: colWidths["sku"] || 150, minWidth: colWidths["sku"] || 150 }}>
                       <div className="font-extrabold text-slate-900 font-mono text-[15px] uppercase tracking-wide">{skuFor(r)}</div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50">
+                    <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["name"], minWidth: colWidths["name"] || 250 }}>
                       <div className="text-slate-900 font-bold text-[15px] leading-tight break-all">{r.product_name_snapshot}</div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-[12px] font-bold text-slate-900 uppercase tracking-wider">{r.product_spec_snapshot ?? ""}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-[12px] font-bold text-slate-900 uppercase tracking-wider" style={{ width: colWidths["spec"], minWidth: colWidths["spec"] || 180 }}>{r.product_spec_snapshot ?? ""}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-right">
                       <div className="flex flex-col items-end">
                         <span className={`font-black text-[15px] ${hasAdjs ? "text-brand" : "text-slate-800"}`}>{fmtNum(finalQty)}</span>
