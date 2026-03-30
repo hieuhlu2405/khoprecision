@@ -1083,7 +1083,7 @@ export default function ProductsPage() {
                       <div className="text-slate-900 font-bold text-[15px] leading-tight">{p.name}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50">
-                      <div className="text-slate-700 text-[13px] font-bold uppercase tracking-wider">{(p.spec ?? "").replace(/x/g, "*")}</div>
+                      <div className="text-slate-900 text-[13px] font-bold uppercase tracking-wider">{(p.spec ?? "").replace(/x/g, "*")}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[15px] font-medium">{p.uom}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-right font-black text-[15px] text-slate-800">{fmtNum(p.unit_price)}</td>

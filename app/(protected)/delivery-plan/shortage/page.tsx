@@ -328,11 +328,11 @@ export default function ShortageReportPage() {
                 return (
                   <tr key={r.p.id} className="group hover:bg-brand/5 transition-colors odd:bg-white even:bg-slate-50/10">
                     <td className="py-4 px-4 sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
-                       <div className="font-extrabold text-brand font-mono text-[15px] tracking-tighter uppercase">{r.p.sku}</div>
+                       <div className="font-extrabold text-slate-900 font-mono text-[15px] tracking-tighter uppercase">{r.p.sku}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50">
                        <div className="font-bold text-slate-900 text-[15px] leading-tight" title={r.p.name}>{r.p.name}</div>
-                       <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-1">{r.p.spec || ""}</div>
+                       <div className="text-[11px] text-slate-900 font-bold uppercase tracking-wider mt-1">{r.p.spec || ""}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-100 text-center">
                        {(() => {
@@ -340,7 +340,7 @@ export default function ShortageReportPage() {
                          return (
                            <>
                              <div className="font-bold text-slate-900 text-[15px] uppercase">{c?.code || "-"}</div>
-                             <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider" title={c?.name}>{c?.name}</div>
+                             <div className="text-[10px] text-slate-900 font-bold uppercase tracking-wider" title={c?.name}>{c?.name}</div>
                            </>
                          )
                        })()}

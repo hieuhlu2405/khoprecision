@@ -533,15 +533,15 @@ export default function DeliveryPlanPage() {
                   return (
                     <tr key={p.id} className="hover:bg-brand/5 group transition-colors odd:bg-white even:bg-slate-50/20">
                       <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
-                         <div className="font-extrabold text-brand font-mono tracking-tight text-[15px] break-all uppercase">{p.sku}</div>
+                         <div className="font-extrabold text-slate-900 font-mono tracking-tight text-[15px] break-all uppercase">{p.sku}</div>
                       </td>
                       <td className="py-4 px-4 border-r border-slate-100">
                          <div className="text-slate-900 font-bold text-[15px] leading-tight" title={p.name}>{p.name}</div>
-                         <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-1">{p.spec || ""}</div>
+                         <div className="text-[11px] text-slate-900 font-bold uppercase tracking-wider mt-1">{p.spec || ""}</div>
                       </td>
                       <td className="py-4 px-4 border-r border-slate-100 text-center">
                          <div className="text-slate-900 font-bold text-[15px] uppercase">{c?.code || "-"}</div>
-                         <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider" title={c?.name}>{c?.name}</div>
+                         <div className="text-[10px] text-slate-900 font-bold uppercase tracking-wider" title={c?.name}>{c?.name}</div>
                       </td>
                       {days.map(d => {
                         const plan = plans.find(x => x.product_id === p.id && x.plan_date === d);

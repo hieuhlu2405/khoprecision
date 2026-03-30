@@ -1338,12 +1338,12 @@ export default function InventoryInboundPage() {
                     <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-900 text-[15px]">{fmtDate(r.tx_date)}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-slate-900 font-bold text-[15px] uppercase">{customerLabel(r.customer_id)}</td>
                     <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
-                      <div className="font-extrabold text-brand font-mono text-[15px] uppercase tracking-wide">{skuFor(r)}</div>
+                      <div className="font-extrabold text-slate-900 font-mono text-[15px] uppercase tracking-wide">{skuFor(r)}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50">
                       <div className="text-slate-900 font-bold text-[15px] leading-tight break-all">{r.product_name_snapshot}</div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-[12px] font-bold text-slate-500 uppercase tracking-wider">{r.product_spec_snapshot ?? ""}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-[12px] font-bold text-slate-900 uppercase tracking-wider">{r.product_spec_snapshot ?? ""}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-right">
                       <div className="flex flex-col items-end">
                         <span className={`font-black text-[15px] ${hasAdjs ? "text-brand" : "text-slate-800"}`}>{fmtNum(finalQty)}</span>

@@ -906,7 +906,7 @@ export default function InventoryOpeningBalancesPage() {
                     <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-900 text-[15px]">{fmtDate(r.period_month)}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-slate-900 font-bold text-[15px] uppercase">{customerLabel(r.customer_id)}</td>
                     <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
-                      <div className="font-extrabold text-brand font-mono text-[15px] uppercase tracking-wide">{r.products?.sku}</div>
+                      <div className="font-extrabold text-slate-900 font-mono text-[15px] uppercase tracking-wide">{r.products?.sku}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50">
                       <div className="text-slate-900 font-bold text-[15px] leading-tight truncate max-w-[300px]" title={r.products?.name}>{r.products?.name}</div>
