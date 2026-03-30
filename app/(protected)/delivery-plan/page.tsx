@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
-import { useUI } from "@/components/ui/UIContext";
+import { supabase } from "@/lib/supabaseClient";
+import { useUI } from "@/app/context/UIContext";
 import { motion } from "framer-motion";
 
 type Profile = { id: string; role: "admin" | "manager" | "staff"; department: string };
