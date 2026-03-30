@@ -1337,7 +1337,7 @@ export default function InventoryInboundPage() {
                     <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{i + 1}</td>
                     <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-900 text-[15px]">{fmtDate(r.tx_date)}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-slate-900 font-bold text-[15px] uppercase">{customerLabel(r.customer_id)}</td>
-                    <td className="py-4 px-4 border-r border-slate-100 sticky left-[48px] z-20 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                    <td className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]`} style={{ left: canDelete ? 48 : 0 }}>
                       <div className="font-extrabold text-slate-900 font-mono text-[15px] uppercase tracking-wide">{skuFor(r)}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50">

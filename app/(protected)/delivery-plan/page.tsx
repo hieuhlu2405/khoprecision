@@ -497,8 +497,8 @@ export default function DeliveryPlanPage() {
 
       <div className="page-content">
         <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20">
-          <div className="overflow-x-auto overflow-y-visible relative min-h-[600px]">
-            <table className="w-full text-sm border-separate border-spacing-0 table-fixed">
+          <div className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" style={{ marginTop: 24, maxHeight: "calc(100vh - 350px)" }}>
+            <table className="w-full text-sm !border-separate !border-spacing-0 table-fixed">
               <thead>
                 <tr>
                   <ThCell label="Mã hàng" colKey="sku" sortable sticky w="180px" />

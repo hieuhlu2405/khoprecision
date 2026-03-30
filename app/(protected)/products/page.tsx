@@ -1045,7 +1045,7 @@ export default function ProductsPage() {
                    />
                  </th>
                )}
-                               <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, boxShadow: "2px 0 10px rgba(0,0,0,0.02)" }} />
+                               <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "2px 0 5px -2px rgba(0,0,0,0.1)" }} />
                <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
                <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" w="160px" />
                <ThCell label="ĐƠN VỊ TÍNH" colKey="uom" sortable colType="text" w="120px" />
@@ -1077,7 +1077,7 @@ export default function ProductsPage() {
                         />
                       </td>
                     )}
-                      <td className="py-4 px-4 border-r border-slate-100 sticky left-[60px] z-20 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                                             <td className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_5px -2px rgba(0,0,0,0.05)]`} style={{ left: isManager ? 60 : 0 }}>
                       <div className="font-extrabold text-slate-900 font-mono text-[15px] break-all">{p.sku}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50">

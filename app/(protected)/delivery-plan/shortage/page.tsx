@@ -295,8 +295,8 @@ export default function ShortageReportPage() {
       </div>
 
       <div className="bg-white rounded-[2rem] border border-slate-200/60 shadow-2xl shadow-slate-200/30 relative">
-        <div className="overflow-x-auto min-h-[500px]">
-          <table className="w-full text-xs border-separate border-spacing-0 table-fixed">
+        <div className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" style={{ marginTop: 12, maxHeight: "calc(100vh - 350px)" }}>
+          <table className="w-full text-xs !border-separate !border-spacing-0 table-fixed">
             <thead>
               <tr>
                 <ThCell label="Mã hàng" colKey="sku" sortable sticky w="180px" />
