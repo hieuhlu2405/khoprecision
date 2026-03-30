@@ -18,6 +18,8 @@ type Plan = {
   customer_id: string | null;
   plan_date: string; 
   planned_qty: number;
+  actual_qty: number;
+  is_completed: boolean;
 };
 
 type TextFilter = { mode: "contains" | "equals"; value: string };
@@ -101,6 +103,11 @@ export default function DeliveryPlanPage() {
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [openPopup, setOpenPopup] = useState<string | null>(null);
 
+  // Auto Outbound State
+  const [loadingOutbound, setLoadingOutbound] = useState(false);
+  const [outboundDay, setOutboundDay] = useState<string | null>(null);
+  const [outboundItems, setOutboundItems] = useState<any[]>([]);
+
   // Column Resizing state
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     if (typeof window !== "undefined") {
@@ -162,6 +169,66 @@ export default function DeliveryPlanPage() {
   const handleCellChange = (product_id: string, date: string, val: string) => {
     if (!canEdit) return;
     setEdits(prev => ({ ...prev, [`${product_id}_${date}`]: val }));
+  };
+
+  const handleOpenOutbound = async (d: string) => {
+    setLoadingOutbound(true);
+    try {
+      const plansForDay = plans.filter(p => p.plan_date === d && p.planned_qty > 0 && !p.is_completed);
+      if (plansForDay.length === 0) {
+        showToast("Không có kế hoạch chờ xuất kho cho ngày này.", "info");
+        return;
+      }
+
+      const { data: stockData } = await supabase.rpc("inventory_calculate_report_v2", { p_date_to: null, p_product_id: null, p_customer_id: null });
+      const mapping = (stockData||[]).reduce((a:any, b:any) => { a[b.product_id] = (b.opening_qty + b.in_qty - b.out_qty); return a; }, {});
+
+      const items = plansForDay.map(p => {
+        const prod = products.find(x => x.id === p.product_id);
+        const cust = customers.find(x => x.id === (p.customer_id || prod?.customer_id));
+        return {
+          plan_id: p.id,
+          product_name: prod?.name || "",
+          sku: prod?.sku || "",
+          spec: prod?.spec || "",
+          customer_name: cust?.name || "",
+          planned: p.planned_qty,
+          stock: mapping[p.product_id] || 0,
+          actual: p.planned_qty,
+          push_backlog: false
+        };
+      });
+
+      setOutboundItems(items);
+      setOutboundDay(d);
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setLoadingOutbound(false);
+    }
+  };
+
+  const submitOutbound = async () => {
+    setLoadingOutbound(true);
+    try {
+      const payload = outboundItems.map(x => ({ plan_id: x.plan_id, actual_qty: x.actual, push_backlog: x.push_backlog }));
+      
+      const pts = outboundDay?.split("-") || ["", "", ""];
+      const noteStr = `Xuất tự động từ Kế hoạch giao hàng ngày ${pts[2]}/${pts[1]}/${pts[0]}`;
+
+      const { data, error } = await supabase.rpc("auto_outbound_delivery", {
+        p_payload: payload,
+        p_note: noteStr
+      });
+      if (error) throw error;
+      showToast("Tạo phiếu xuất kho thành công!", "success");
+      setOutboundDay(null);
+      loadData();
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setLoadingOutbound(false);
+    }
   };
 
   const handleSave = async () => {
@@ -350,12 +417,21 @@ export default function DeliveryPlanPage() {
     const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
     const pts = dateStr.split("-");
     const isToday = new Date().toISOString().slice(0,10) === dateStr;
+    const isPastOrToday = dateStr <= new Date().toISOString().slice(0,10);
     
     return (
       <div className={`flex flex-col items-center leading-tight ${isToday ? "text-red-500" : ""}`}>
         <span className={`text-[12px] font-black uppercase tracking-widest ${isToday ? "text-red-500" : "text-slate-400"}`}>{dayNames[d.getDay()]}</span>
         <span className={`text-[18px] font-black italic tracking-tighter ${isToday ? "text-red-600" : ""}`}>{pts[2]}/{pts[1]}</span>
         {isToday && <span className="text-[9px] font-bold uppercase mt-0.5 bg-red-100 text-red-600 px-1 rounded shadow-sm border border-red-200">Hôm nay</span>}
+        {isPastOrToday && (
+          <button 
+            onClick={(e) => { e.stopPropagation(); handleOpenOutbound(dateStr); }}
+            className="mt-2 px-3 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200 hover:border-indigo-600 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all shadow-sm"
+          >
+            📤 XUẤT
+          </button>
+        )}
       </div>
     );
   };
@@ -462,6 +538,7 @@ export default function DeliveryPlanPage() {
                         const val = edits[`${p.id}_${d}`] ?? (plan?.planned_qty && plan.planned_qty > 0 ? String(plan.planned_qty) : "");
                         const isChanged = edits[`${p.id}_${d}`] !== undefined;
                         const itdr = new Date().toISOString().slice(0, 10) === d;
+                        const isDone = plan?.is_completed;
                         
                         return (
                           <td key={d} className={`p-1 border-r border-slate-50 hover:bg-white transition-all ${isChanged ? 'bg-amber-50/60' : ''} ${itdr ? 'bg-red-50/20' : ''}`}>
@@ -471,15 +548,21 @@ export default function DeliveryPlanPage() {
                                   className={`w-full text-center py-2 px-1 rounded-lg border-2 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-black text-sm
                                     ${isChanged 
                                       ? 'border-amber-400 bg-white text-amber-700 shadow-md shadow-amber-200/40 z-10 relative scale-105' 
-                                      : 'border-transparent bg-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-400'
+                                      : isDone ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600 shadow-inner' : 'border-transparent bg-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-400'
                                     }
-                                    ${itdr && !isChanged ? 'text-red-600' : ''}
+                                    ${itdr && !isChanged && !isDone ? 'text-red-600' : ''}
                                   `}
-                                  disabled={!canEdit}
+                                  disabled={!canEdit || isDone}
                                   value={val}
                                   placeholder="-"
+                                  title={isDone ? `Đã xuất kho thực tế: ${plan?.actual_qty}` : ""}
                                   onChange={e => handleCellChange(p.id, d, e.target.value)}
                                 />
+                                {isDone && (
+                                   <div className="absolute top-1 right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm" title={`Đã xuất kho thực tế: ${plan?.actual_qty}`}>
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" className="w-2.5 h-2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                   </div>
+                                )}
                                 {isChanged && (
                                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full animate-bounce z-20" title="Chưa lưu" />
                                 )}
@@ -506,6 +589,104 @@ export default function DeliveryPlanPage() {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {outboundDay && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -10 }} className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-100">
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50/50">
+                <div>
+                  <h2 className="text-2xl font-black text-indigo-950 tracking-tight flex items-center gap-3">
+                    <span className="text-indigo-600 text-3xl">📦</span> XUẤT KHO TỰ ĐỘNG
+                  </h2>
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1">Lệnh xử lý danh sách kế hoạch ngày {outboundDay.split("-").reverse().join("/")}</p>
+                </div>
+                <button onClick={() => setOutboundDay(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 transition-colors">✕</button>
+              </div>
+              
+              <div className="flex-1 overflow-auto p-0 bg-slate-50/30">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-white sticky top-0 z-10 shadow-sm border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest border-r border-slate-100">Mã/Tên Hàng</th>
+                      <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest text-center border-r border-slate-100">Khách Hàng</th>
+                      <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest text-right border-r border-slate-100">Tồn Kho</th>
+                      <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest text-right border-r border-slate-100 bg-slate-50">Kế Hoạch</th>
+                      <th className="px-6 py-4 font-black text-[11px] text-indigo-600 uppercase tracking-widest text-center border-r border-slate-100 bg-indigo-50/30">Dung sai / Thực Xuất</th>
+                      <th className="px-6 py-4 font-black text-[11px] text-amber-600 uppercase tracking-widest text-center bg-amber-50/30">Xử lý Nợ Đơn</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {outboundItems.map((item, idx) => (
+                      <tr key={item.plan_id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-6 py-4 border-r border-slate-50">
+                          <div className="font-bold text-slate-900 text-base">{item.sku}</div>
+                          <div className="text-[11px] font-semibold text-slate-500 mt-1 uppercase">{item.product_name}</div>
+                        </td>
+                        <td className="px-6 py-4 text-center font-bold text-slate-700 border-r border-slate-50">{item.customer_name}</td>
+                        <td className={`px-6 py-4 text-right border-r border-slate-50 ${item.stock < item.planned ? "text-red-500" : "text-emerald-600"}`}>
+                          <div className="text-xl font-black">{item.stock.toLocaleString()}</div>
+                          {item.stock < item.planned && <div className="text-[10px] uppercase font-bold mt-1 tracking-widest text-red-400">Thiếu hàng</div>}
+                        </td>
+                        <td className="px-6 py-4 text-right font-black text-slate-700 bg-slate-50/30 border-r border-slate-50 text-xl">{item.planned.toLocaleString()}</td>
+                        <td className="px-6 py-4 text-center bg-indigo-50/10 border-r border-slate-50">
+                          <input 
+                            type="number" 
+                            className="input input-sm input-bordered w-28 text-center font-black text-indigo-700 text-lg border-indigo-200 shadow-inner focus:ring-2 focus:ring-indigo-500"
+                            value={item.actual}
+                            onChange={e => {
+                              const val = Number(e.target.value);
+                              setOutboundItems(prev => {
+                                const n = [...prev];
+                                n[idx].actual = val;
+                                // Auto check backlog if less
+                                if (val < item.planned) n[idx].push_backlog = true;
+                                else n[idx].push_backlog = false;
+                                return n;
+                              });
+                            }}
+                          />
+                        </td>
+                        <td className="px-6 py-4 text-center bg-amber-50/10">
+                          {item.actual < item.planned && (
+                            <label className="flex items-center justify-center gap-2 cursor-pointer bg-amber-100/50 px-3 py-2 rounded-lg border border-amber-200 transition-all hover:bg-amber-100">
+                              <input 
+                                type="checkbox" 
+                                className="checkbox checkbox-warning checkbox-sm rounded"
+                                checked={item.push_backlog}
+                                onChange={e => {
+                                  setOutboundItems(prev => {
+                                    const n = [...prev];
+                                    n[idx].push_backlog = e.target.checked;
+                                    return n;
+                                  });
+                                }}
+                              />
+                              <span className="text-[11px] font-black tracking-widest text-amber-700 uppercase">Ghi nợ {(item.planned - item.actual).toLocaleString()} sang mai</span>
+                            </label>
+                          )}
+                          {item.actual >= item.planned && <span className="text-[11px] font-black tracking-widest text-emerald-600 uppercase bg-emerald-50 px-3 py-1.5 rounded border border-emerald-100">Đã chốt xong</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 rounded-b-3xl">
+                <button onClick={() => setOutboundDay(null)} className="btn btn-ghost font-black tracking-widest text-xs rounded-xl px-6">HỦY</button>
+                <button 
+                  onClick={submitOutbound} 
+                  className="btn bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black tracking-widest text-xs rounded-xl px-8 shadow-xl shadow-indigo-200 border-none"
+                  disabled={loadingOutbound}
+                >
+                  {loadingOutbound ? <span className="loading loading-spinner loading-sm"></span> : "✅ CHỐT TẠO PHIẾU XUẤT"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <style jsx global>{`
         .glass-header {
