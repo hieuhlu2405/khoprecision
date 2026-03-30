@@ -859,7 +859,7 @@ export default function InventoryOpeningBalancesPage() {
               <thead>
                   <tr>
                     <ThCell label="#" colKey="stt_header" sortable={false} filterable={false} colType="text" align="center" w="48px" />
-                    {canCreateEdit && <th className="!text-center !w-12 !p-0 !m-0" style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0" }}>
+                    {canCreateEdit && <th className="!text-center !w-12 !p-0 !m-0" style={{ position: "sticky", top: 0, left: 0, zIndex: 100, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0", boxShadow: "1px 0 0 #e2e8f0" }}>
                        <div className="flex items-center justify-center h-full w-full">
                         <input
                           type="checkbox"
@@ -874,7 +874,7 @@ export default function InventoryOpeningBalancesPage() {
                     </th>}
                     <ThCell label="Kỳ" colKey="period" sortable colType="date" w="110px" />
                     <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
-                    <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" extra={{ position: "sticky", left: 0, zIndex: 50, boxShadow: "2px 0 10px rgba(0,0,0,0.02)" }} />
+                    <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" extra={{ position: "sticky", left: canCreateEdit ? 48 : 0, zIndex: 101, boxShadow: "2px 0 10px rgba(0,0,0,0.02)" }} />
                     <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
                     <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" w="110px" />
                     <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" w="120px" />
@@ -889,7 +889,7 @@ export default function InventoryOpeningBalancesPage() {
                     <tr key={r.id} className={`${selectedIds.has(r.id) ? "!bg-brand/[0.04]" : ""} group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-brand/5`}>
                       <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{i + 1}</td>
                     {canCreateEdit && (
-                      <td className="py-4 px-4 border-r border-slate-50 text-center">
+                      <td className="py-4 px-4 border-r border-slate-50 text-center sticky left-0 z-20 bg-white group-hover:bg-brand/5">
                         <input
                           type="checkbox"
                           checked={selectedIds.has(r.id)}
@@ -905,7 +905,7 @@ export default function InventoryOpeningBalancesPage() {
                     )}
                     <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-900 text-[15px]">{fmtDate(r.period_month)}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-slate-900 font-bold text-[15px] uppercase">{customerLabel(r.customer_id)}</td>
-                    <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                    <td className="py-4 px-4 border-r border-slate-100 sticky left-[48px] z-20 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
                       <div className="font-extrabold text-slate-900 font-mono text-[15px] uppercase tracking-wide">{r.products?.sku}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50">

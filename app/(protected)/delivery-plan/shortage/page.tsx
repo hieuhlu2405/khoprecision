@@ -272,7 +272,7 @@ export default function ShortageReportPage() {
 
   return (
     <motion.div className="page-root" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
-      <div className="page-header sticky top-0 bg-white/80 backdrop-blur-md z-[100] py-4 px-6 -mx-6 mb-8 border-b border-red-200/50 shadow-sm flex items-center justify-between">
+      <div className="page-header bg-white/80 backdrop-blur-md z-[100] py-4 px-6 -mx-6 mb-8 border-b border-red-200/50 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-3xl bg-gradient-to-br from-red-500 to-rose-700 flex items-center justify-center shadow-lg shadow-red-200 text-3xl">
             🚨
@@ -294,7 +294,7 @@ export default function ShortageReportPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-[2rem] border border-slate-200/60 shadow-2xl shadow-slate-200/30 overflow-hidden relative">
+      <div className="bg-white rounded-[2rem] border border-slate-200/60 shadow-2xl shadow-slate-200/30 relative">
         <div className="overflow-x-auto min-h-[500px]">
           <table className="w-full text-xs border-separate border-spacing-0 table-fixed">
             <thead>

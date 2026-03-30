@@ -539,7 +539,7 @@ export default function CustomersPage() {
           <thead>
             <tr>
               {isManager && (
-                 <th style={{ width: 60, textAlign: "center", position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0" }}>
+                 <th style={{ width: 60, textAlign: "center", position: "sticky", top: 0, left: 0, zIndex: 100, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0", boxShadow: "1px 0 0 #e2e8f0" }}>
                   <input type="checkbox"
                     className="rounded text-brand"
                     checked={finalFiltered.length > 0 && finalFiltered.every(r => selectedIds.has(r.id))}
@@ -550,7 +550,7 @@ export default function CustomersPage() {
                   />
                 </th>
               )}
-              <ThCell label="Mã KHÁCH HÀNG" colKey="code" sortable colType="text" w="140px" />
+              <ThCell label="Mã KHÁCH HÀNG" colKey="code" sortable colType="text" w="140px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, boxShadow: "2px 0 10px rgba(0,0,0,0.02)" }} />
               <ThCell label="Tên khách hàng" colKey="name" sortable colType="text" />
               {isManager && <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />}
               {isManager && (
@@ -564,7 +564,7 @@ export default function CustomersPage() {
             {finalFiltered.map((c) => (
               <tr key={c.id} className="group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-indigo-50/40">
                 {isManager && (
-                  <td className="py-4 px-4 border-r border-slate-50 text-center">
+                  <td className="py-4 px-4 border-r border-slate-50 text-center sticky left-0 z-20 bg-white group-hover:bg-indigo-50/50">
                       <input type="checkbox" checked={selectedIds.has(c.id)}
                         className="rounded-lg text-indigo-600 border-slate-300 focus:ring-indigo-500 w-4 h-4 transition-all"
                         onChange={e => {
@@ -575,7 +575,7 @@ export default function CustomersPage() {
                       />
                   </td>
                 )}
-                <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                <td className="py-4 px-4 border-r border-slate-100 sticky left-[60px] z-20 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
                   <div className="font-extrabold text-slate-900 font-mono text-[15px] break-all">{c.code}</div>
                 </td>
                 <td className="py-4 px-4 border-r border-slate-50">

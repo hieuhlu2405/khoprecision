@@ -1268,12 +1268,12 @@ export default function InventoryOutboundPage() {
         </div>
       </div>
 
-      <div className="data-table-wrap" style={{ marginTop: 24 }}>
+      <div className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" style={{ marginTop: 24, maxHeight: "calc(100vh - 350px)" }}>
         <table className="data-table">
           <thead>
             <tr className="bg-white/95 backdrop-blur-md">
               {canDelete && (
-                <th className="!text-center !w-12 !p-0 !m-0" style={{ position: "sticky", top: 0, zIndex: 45, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0" }}>
+                <th className="!text-center !w-12 !p-0 !m-0" style={{ position: "sticky", top: 0, left: 0, zIndex: 100, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0", boxShadow: "1px 0 0 #e2e8f0" }}>
                   <div className="flex items-center justify-center h-full w-full">
                     <input
                       type="checkbox"
@@ -1290,7 +1290,7 @@ export default function InventoryOutboundPage() {
               <ThCell label="#" colKey="stt" sortable={false} filterable={false} colType="text" w="50px" align="center" />
               <ThCell label="Ngày xuất" colKey="date" sortable colType="date" w="120px" />
               <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
-              <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="140px" extra={{ position: "sticky", left: 0, zIndex: 41, boxShadow: "2px 0 10px rgba(0,0,0,0.02)" }} />
+              <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="140px" extra={{ position: "sticky", left: canDelete ? 48 : 0, zIndex: 101, boxShadow: "2px 0 10px rgba(0,0,0,0.02)" }} />
               <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
               <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" w="120px" />
               <ThCell label="Số lượng" colKey="qty" sortable colType="num" w="100px" align="right" />
@@ -1320,7 +1320,7 @@ export default function InventoryOutboundPage() {
                     style={{ cursor: "pointer" }}
                   >
                      {canDelete && (
-                       <td className="py-4 px-4 border-r border-slate-50 text-center vertical-align-top">
+                       <td className="py-4 px-4 border-r border-slate-50 text-center vertical-align-top sticky left-0 z-20 bg-white group-hover:bg-brand/5">
                          <input type="checkbox" checked={selectedIds.has(r.id)}
                            onChange={e => {
                              const next = new Set(selectedIds);
@@ -1334,7 +1334,7 @@ export default function InventoryOutboundPage() {
                     <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{i + 1}</td>
                     <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-900 text-[15px]">{fmtDate(r.tx_date)}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-slate-900 font-bold text-[15px] uppercase">{customerLabel(r.customer_id)}</td>
-                    <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                    <td className="py-4 px-4 border-r border-slate-100 sticky left-[48px] z-20 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
                       <div className="font-extrabold text-slate-900 font-mono text-[15px] uppercase tracking-wide">{skuFor(r)}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50">

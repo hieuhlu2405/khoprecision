@@ -1178,7 +1178,7 @@ export default function InventoryValueReportPage() {
 
   return (
     <div className="page-root" ref={containerRef}>
-      <div className="page-header sticky top-0 bg-white/80 backdrop-blur-md z-50 py-4 px-6 -mx-6 mb-6 border-b border-slate-200/60 shadow-sm">
+      <div className="page-header bg-white/80 backdrop-blur-md z-40 py-4 px-6 -mx-6 mb-6 border-b border-slate-200/60 shadow-sm text-slate-900">
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div className="w-10 h-10 rounded-xl bg-[#6366f1]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
             📊

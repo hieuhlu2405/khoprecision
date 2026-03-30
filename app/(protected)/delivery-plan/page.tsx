@@ -446,7 +446,7 @@ export default function DeliveryPlanPage() {
 
   return (
     <motion.div className="page-root" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-      <div className="page-header sticky top-0 bg-white/80 backdrop-blur-md z-[100] py-4 px-6 -mx-6 mb-8 border-b border-slate-200/60 shadow-sm flex items-center justify-between">
+      <div className="page-header bg-white/80 backdrop-blur-md z-[100] py-4 px-6 -mx-6 mb-8 border-b border-slate-200/60 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200 text-2xl">
             📅
@@ -496,7 +496,7 @@ export default function DeliveryPlanPage() {
       </div>
 
       <div className="page-content">
-        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20">
           <div className="overflow-x-auto overflow-y-visible relative min-h-[600px]">
             <table className="w-full text-sm border-separate border-spacing-0 table-fixed">
               <thead>

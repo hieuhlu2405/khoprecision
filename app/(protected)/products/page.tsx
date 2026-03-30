@@ -1029,7 +1029,8 @@ export default function ProductsPage() {
                    textAlign: "center",
                    position: "sticky",
                    top: 0,
-                   zIndex: 30,
+                   left: 0,
+                   zIndex: 100,
                    background: "white",
                    boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
                    borderBottom: "1px solid var(--slate-200)"
@@ -1044,7 +1045,7 @@ export default function ProductsPage() {
                    />
                  </th>
                )}
-               <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" />
+                               <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, boxShadow: "2px 0 10px rgba(0,0,0,0.02)" }} />
                <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
                <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" w="160px" />
                <ThCell label="ĐƠN VỊ TÍNH" colKey="uom" sortable colType="text" w="120px" />
@@ -1065,7 +1066,7 @@ export default function ProductsPage() {
               return (
                  <tr key={p.id} className="group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-indigo-50/40">
                     {isManager && (
-                      <td className="py-4 px-4 border-r border-slate-50 text-center">
+                      <td className="py-4 px-4 border-r border-slate-50 text-center sticky left-0 z-20 bg-white group-hover:bg-indigo-50/50">
                         <input type="checkbox" checked={selectedIds.has(p.id)}
                           className="rounded-lg text-indigo-600 border-slate-300 focus:ring-indigo-500 w-4 h-4 transition-all"
                           onChange={e => {
@@ -1076,7 +1077,7 @@ export default function ProductsPage() {
                         />
                       </td>
                     )}
-                    <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                      <td className="py-4 px-4 border-r border-slate-100 sticky left-[60px] z-20 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
                       <div className="font-extrabold text-slate-900 font-mono text-[15px] break-all">{p.sku}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50">
