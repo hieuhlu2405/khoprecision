@@ -233,7 +233,8 @@ export default function StocktakeListPage() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return;
       const uid = u.user.id;
-      const today = new Date().toISOString().slice(0, 10);
+      const nd = new Date();
+      const today = `${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,'0')}-${String(nd.getDate()).padStart(2,'0')}`;
 
       const { data, error } = await supabase
         .from("inventory_stocktakes")

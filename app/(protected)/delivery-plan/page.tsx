@@ -508,7 +508,9 @@ export default function DeliveryPlanPage() {
                       colKey={d} 
                       w="100px" 
                       align="center"
-                      isToday={new Date().toISOString().slice(0, 10) === d}
+                      isToday={
+                        `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}` === d
+                      }
                       extra={formatDate(d)}
                     />
                   ))}
@@ -542,7 +544,8 @@ export default function DeliveryPlanPage() {
                         const plan = plans.find(x => x.product_id === p.id && x.plan_date === d);
                         const val = edits[`${p.id}_${d}`] ?? (plan?.planned_qty && plan.planned_qty > 0 ? String(plan.planned_qty) : "");
                         const isChanged = edits[`${p.id}_${d}`] !== undefined;
-                        const itdr = new Date().toISOString().slice(0, 10) === d;
+                        const nd = new Date();
+                        const itdr = `${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,'0')}-${String(nd.getDate()).padStart(2,'0')}` === d;
                         const isDone = plan?.is_completed;
                         
                         return (

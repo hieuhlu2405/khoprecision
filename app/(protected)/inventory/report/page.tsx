@@ -228,7 +228,7 @@ export default function InventoryReportPage() {
   /* ---- Filters ---- */
   const currD = new Date();
   const defStart = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-01`;
-  const defEnd = currD.toISOString().slice(0, 10);
+  const defEnd = `${currD.getFullYear()}-${String(currD.getMonth()+1).padStart(2,'0')}-${String(currD.getDate()).padStart(2,'0')}`;
   
   const [qStart, setQStart] = useState(defStart);
   const [qEnd, setQEnd] = useState(defEnd);

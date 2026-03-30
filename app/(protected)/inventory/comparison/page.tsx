@@ -237,7 +237,8 @@ export default function InventoryComparisonPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const nd = new Date();
+  const today = `${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,'0')}-${String(nd.getDate()).padStart(2,'0')}`;
   const now = new Date();
   const firstOfThisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
   const prevM = new Date(now.getFullYear(), now.getMonth() - 1, 1);

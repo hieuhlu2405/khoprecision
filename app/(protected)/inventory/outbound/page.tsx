@@ -656,7 +656,8 @@ export default function InventoryOutboundPage() {
   function openAdjustment(r: OutboundTx) {
     setAdjBaseTx(r);
     setAType("adjust_out"); // default
-    setADate(new Date().toISOString().slice(0, 10)); // today
+    const now = new Date();
+    setADate(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`); // today
     setAQty("");
     setACost("");
     setANote("");

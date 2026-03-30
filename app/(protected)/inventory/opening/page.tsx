@@ -450,12 +450,12 @@ export default function InventoryOpeningBalancesPage() {
 
   /* ---- Create Multi-line Logic ---- */
   const [showCreate, setShowCreate] = useState(false);
-  const [hPeriod, setHPeriod] = useState(new Date().toISOString().slice(0, 10));
+  const [hPeriod, setHPeriod] = useState(new Date().toLocaleDateString('sv-SE'));
   const [lines, setLines] = useState<FormLine[]>([]);
   const [saving, setSaving] = useState(false);
 
   function resetCreateForm() {
-    setHPeriod(new Date().toISOString().slice(0, 10));
+    setHPeriod(new Date().toLocaleDateString('sv-SE'));
     setLines([{ key: Math.random().toString(36).slice(2), productId: "", productSearch: "", qty: "", isLongAging: false, longAgingNote: "", showSuggestions: false }]);
   }
 
@@ -575,7 +575,7 @@ export default function InventoryOpeningBalancesPage() {
       "Ghi chú tồn dài kỳ": r.long_aging_note || "",
       "Tạo lúc": fmtDatetime(r.created_at)
     }));
-    exportToExcel(data, `Ton_kho_dau_ky_${new Date().toISOString().slice(0, 10)}`, "Opening");
+    exportToExcel(data, `Ton_kho_dau_ky_${new Date().toLocaleDateString('sv-SE')}`, "Opening");
   }
 
   function customerLabel(cId: string | null) {

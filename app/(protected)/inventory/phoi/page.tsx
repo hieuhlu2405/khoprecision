@@ -44,7 +44,7 @@ function fmtNum(n: number | null | undefined): string {
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   return parts.join(".");
 }
-function today(): string { return new Date().toISOString().slice(0, 10); }
+function today(): string { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
 
 /* ------------------------------------------------------------------ */
 /* Component                                                           */

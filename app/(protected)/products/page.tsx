@@ -639,7 +639,7 @@ export default function ProductsPage() {
         "Ngày tạo": fmtDatetime(r.created_at)
       };
     });
-    exportToExcel(data, `Danh_sach_Ma_hang_${new Date().toISOString().slice(0, 10)}`, "Products");
+    exportToExcel(data, `Danh_sach_Ma_hang_${new Date().toLocaleDateString('sv-SE')}`, "Products");
   }
 
   function downloadTemplate() {

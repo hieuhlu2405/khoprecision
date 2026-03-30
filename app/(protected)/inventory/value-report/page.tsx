@@ -742,7 +742,7 @@ export default function InventoryValueReportPage() {
   /* ---- Filters & State ---- */
   const currD = new Date();
   const defStart = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-01`;
-  const defEnd = currD.toISOString().slice(0, 10);
+  const defEnd = currD.toLocaleDateString('sv-SE');
 
   const prevM = new Date(currD.getFullYear(), currD.getMonth() - 1, 1);
   const prevMonthStart = `${prevM.getFullYear()}-${String(prevM.getMonth() + 1).padStart(2, "0")}-01`;
@@ -856,13 +856,13 @@ export default function InventoryValueReportPage() {
       setCustomers((rC.data ?? []) as Customer[]);
 
       const maxD = Math.max(new Date(qEnd).getTime(), new Date(p1End).getTime(), new Date(p2End).getTime());
-      const maxEnd = new Date(maxD).toISOString().slice(0, 10);
+      const maxEnd = new Date(maxD).toLocaleDateString('sv-SE');
       const { data: openData, error: eO } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", maxEnd + "T23:59:59.999Z").is("deleted_at", null);
       if (eO) throw eO;
       const ops = (openData ?? []) as OpeningBalance[];
       setOpenings(ops);
 
-      function dayAfter(d: string) { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toISOString().slice(0, 10); }
+      function dayAfter(d: string) { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toLocaleDateString('sv-SE'); }
       let mCurr = qStart, m1 = p1Start, m2 = p2Start;
       for (const o of ops) { const d = o.period_month.slice(0, 10); if (d < mCurr) mCurr = d; if (d < m1) m1 = d; if (d < m2) m2 = d; }
 
@@ -941,7 +941,7 @@ export default function InventoryValueReportPage() {
   }, [productData, topN]);
 
   /* ---- Compare Memos ---- */
-  function dayAfterFn(d: string) { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toISOString().slice(0, 10); }
+  function dayAfterFn(d: string) { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toLocaleDateString('sv-SE'); }
 
   const compareProductData = useMemo(() => {
     if (reportMode !== "compare") return [];

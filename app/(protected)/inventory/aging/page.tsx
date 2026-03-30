@@ -694,7 +694,7 @@ export default function InventoryAgingReportPage() {
   /* ---- Filters & Mode ---- */
   const currD = new Date();
   const defStart = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-01`;
-  const defEnd = currD.toISOString().slice(0, 10);
+  const defEnd = currD.toLocaleDateString('sv-SE');
 
   const prevM = new Date(currD.getFullYear(), currD.getMonth() - 1, 1);
   const prevMonthStart = `${prevM.getFullYear()}-${String(prevM.getMonth() + 1).padStart(2, "0")}-01`;
@@ -812,10 +812,10 @@ export default function InventoryAgingReportPage() {
       setProducts((rP.data ?? []) as Product[]);
       setCustomers((rC.data ?? []) as Customer[]);
 
-      function dayAfter(d: string) { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toISOString().slice(0, 10); }
+      function dayAfter(d: string) { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toLocaleDateString('sv-SE'); }
 
       const maxD = Math.max(new Date(qEnd).getTime(), new Date(p1End).getTime(), new Date(p2End).getTime());
-      const maxEnd = new Date(maxD).toISOString().slice(0, 10);
+      const maxEnd = new Date(maxD).toLocaleDateString('sv-SE');
       const { data: openData, error: eO } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", maxEnd + "T23:59:59.999Z").is("deleted_at", null);
       if (eO) throw eO;
       const ops = (openData ?? []) as OpeningBalance[];
@@ -955,7 +955,7 @@ export default function InventoryAgingReportPage() {
   /* ---- Compare memos (only used in compare mode) ---- */
   const compareAgingData = useMemo((): CompareAgingRow[] => {
     if (reportMode !== "compare") return [];
-    function dayAfterStr(d: string) { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toISOString().slice(0, 10); }
+    function dayAfterStr(d: string) { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toLocaleDateString('sv-SE'); }
 
     const stock1 = buildStockRows(bounds1.S || p1Start, bounds1.effectiveStart, dayAfterStr(p1End), openings, txs1);
     const stock2 = buildStockRows(bounds2.S || p2Start, bounds2.effectiveStart, dayAfterStr(p2End), openings, txs2);

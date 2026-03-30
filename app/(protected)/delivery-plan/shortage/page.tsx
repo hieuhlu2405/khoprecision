@@ -116,14 +116,14 @@ export default function ShortageReportPage() {
       // FETCH CURRENT STOCK (RPC)
       const currD = new Date();
       const qStart = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-01`;
-      const qEnd = currD.toISOString().slice(0, 10);
+      const qEnd = `${currD.getFullYear()}-${String(currD.getMonth()+1).padStart(2,'0')}-${String(currD.getDate()).padStart(2,'0')}`;
       const { data: ops } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", qEnd + "T23:59:59.999Z").is("deleted_at", null);
       const computedBounds = computeSnapshotBounds(qStart, qEnd, ops || []);
       const baselineDate = computedBounds.S || qStart;
       
       const endPlus1 = new Date(qEnd);
       endPlus1.setDate(endPlus1.getDate() + 1);
-      const nextD = endPlus1.toISOString().slice(0, 10);
+      const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth()+1).padStart(2,'0')}-${String(endPlus1.getDate()).padStart(2,'0')}`;
 
       const { data: stockRows, error: eRpc } = await supabase.rpc("inventory_calculate_report_v2", {
         p_baseline_date: baselineDate,
