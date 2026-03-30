@@ -44,6 +44,10 @@ function buildMenu(p: Profile, isAdmin: boolean) {
     { label: "Lịch sử", show: canViewReports, isHeader: true },
     { label: "🕒 Lịch sử báo cáo", href: "/inventory/report-history", show: canViewReports },
 
+    { label: "Kế hoạch / Giao hàng", show: true, isHeader: true },
+    { label: "📅 Kế hoạch Giao hàng", href: "/delivery-plan", show: true },
+    { label: "🚨 Cảnh báo Thiếu hàng", href: "/delivery-plan/shortage", show: true },
+
     { label: "Quản trị hệ thống", show: isAdmin, isHeader: true },
     { label: "🛡️ Người dùng", href: "/admin/users", show: isAdmin },
 
