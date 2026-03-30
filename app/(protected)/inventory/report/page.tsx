@@ -293,20 +293,25 @@ export default function InventoryReportPage() {
       const lastDayStr = qEnd.length === 10 ? qEnd + "T23:59:59.999Z" : qEnd;
       const { data: openData, error: eO } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", lastDayStr).is("deleted_at", null);
       if (eO) throw eO;
-      setOpenings(openData as OpeningBalance[]);
+      
+      const ops = openData as OpeningBalance[];
+      setOpenings(ops);
 
-      let minDate = qStart;
-      if (openData) {
-        openData.forEach(o => { if (o.period_month.slice(0, 10) < minDate) minDate = o.period_month.slice(0, 10); });
-      }
-
+      const computedBounds = computeSnapshotBounds(qStart, qEnd, ops);
+      const baselineDate = computedBounds.S || qStart;
       const endPlus1 = new Date(qEnd);
       endPlus1.setDate(endPlus1.getDate() + 1);
       const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
 
-      const { data: txData, error: eT } = await supabase.from("inventory_transactions").select("*").gte("tx_date", minDate).lt("tx_date", nextD).is("deleted_at", null);
-      if (eT) throw eT;
-      setTxs(txData as InventoryTx[]);
+      const { data: stockRows, error: eRpc } = await supabase.rpc("inventory_calculate_report_v2", {
+        p_baseline_date: baselineDate,
+        p_movements_start_date: computedBounds.effectiveStart,
+        p_movements_end_date: nextD,
+      });
+
+      if (eRpc) throw eRpc;
+      setTxs(stockRows as any[]); // Reusing txs state for stockRows temporary storage
+
     } catch (err: unknown) {
       setError((err as Error)?.message ?? "Có lỗi xảy ra");
     } finally {
@@ -318,12 +323,7 @@ export default function InventoryReportPage() {
 
   /* ---- Calculations ---- */
   const reportData = useMemo(() => {
-    const endPlus1 = new Date(qEnd);
-    endPlus1.setDate(endPlus1.getDate() + 1);
-    const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
-    const baselineDate = bounds.S || qStart;
-    const stockRows = buildStockRows(baselineDate, bounds.effectiveStart, nextD, openings, txs);
-
+    const stockRows: any[] = txs || []; // txs now holds the db stockRows array
     const results: ReportRow[] = [];
     for (const r of stockRows) {
       if (qCustomer && r.customer_id !== qCustomer) continue;
@@ -335,22 +335,27 @@ export default function InventoryReportPage() {
         if (!p.sku.toLowerCase().includes(s) && !p.name.toLowerCase().includes(s)) continue;
       }
 
-      if (onlyInStock && r.current_qty <= 0) continue;
+      const qCur = Number(r.current_qty);
+      if (onlyInStock && qCur <= 0) continue;
 
-      if (r.opening_qty !== 0 || r.inbound_qty !== 0 || r.outbound_qty !== 0 || r.current_qty !== 0) {
+      const qOp = Number(r.opening_qty);
+      const qIn = Number(r.inbound_qty);
+      const qOut = Number(r.outbound_qty);
+
+      if (qOp !== 0 || qIn !== 0 || qOut !== 0 || qCur !== 0) {
         results.push({
           product: p,
           customer_id: r.customer_id,
-          opening_qty: r.opening_qty,
-          inbound_qty: r.inbound_qty,
-          outbound_qty: r.outbound_qty,
-          current_qty: r.current_qty,
-          inventory_value: p.unit_price != null ? r.current_qty * p.unit_price : null
+          opening_qty: qOp,
+          inbound_qty: qIn,
+          outbound_qty: qOut,
+          current_qty: qCur,
+          inventory_value: p.unit_price != null ? qCur * p.unit_price : null
         });
       }
     }
     return results;
-  }, [products, openings, txs, qCustomer, debouncedQProduct, onlyInStock, qStart, qEnd, bounds]);
+  }, [products, txs, qCustomer, debouncedQProduct, onlyInStock]);
 
   function customerLabel(cId: string | null) {
     if (!cId) return "";
@@ -512,7 +517,7 @@ export default function InventoryReportPage() {
       
       if (error) {
         console.error("Lỗi khi gọi RPC:", error);
-        showToast("Lỗi Database! Bạn đã chạy file SQL trên Supabase chưa?", "error");
+        showToast("Lỗi RPC: " + error.message, "error");
         setTestingDb(false);
         return;
       }

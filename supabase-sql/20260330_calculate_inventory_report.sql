@@ -40,27 +40,27 @@ BEGIN
       s.product_id, 
       s.customer_id, 
       s.opening_qty,
-      to_char(s.period_month AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as pm_text,
+      to_char(s.period_month::timestamp, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as pm_text,
       CASE 
         WHEN s.source_stocktake_id IS NOT NULL THEN
-          to_char(s.period_month AT TIME ZONE 'UTC', 'YYYY-MM-DD') || 'T23:59:59.999Z'
+          to_char(s.period_month, 'YYYY-MM-DD') || 'T23:59:59.999Z'
         ELSE
-          to_char(s.period_month AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+          to_char(s.period_month, 'YYYY-MM-DD')
       END as skip_boundary
     FROM inventory_opening_balances s
     WHERE s.deleted_at IS NULL 
-      AND to_char(s.period_month AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') <= v_baseline_boundary
+      AND to_char(s.period_month::timestamp, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') <= v_baseline_boundary
       AND (p_customer_id IS NULL OR s.customer_id = p_customer_id)
   ),
   NEAREST_SNAPSHOT AS (
     -- Keep only the single most recent snapshot per product+customer
-    SELECT DISTINCT ON (product_id, COALESCE(customer_id, '00000000-0000-0000-0000-000000000000'::uuid))
-      RAW_SNAPSHOTS.product_id, 
-      RAW_SNAPSHOTS.customer_id, 
-      RAW_SNAPSHOTS.opening_qty,
-      RAW_SNAPSHOTS.skip_boundary
-    FROM RAW_SNAPSHOTS
-    ORDER BY product_id, COALESCE(customer_id, '00000000-0000-0000-0000-000000000000'::uuid), pm_text DESC
+    SELECT DISTINCT ON (r.product_id, COALESCE(r.customer_id, '00000000-0000-0000-0000-000000000000'::uuid))
+      r.product_id, 
+      r.customer_id, 
+      r.opening_qty,
+      r.skip_boundary
+    FROM RAW_SNAPSHOTS r
+    ORDER BY r.product_id, COALESCE(r.customer_id, '00000000-0000-0000-0000-000000000000'::uuid), r.pm_text DESC
   ),
   EFF_TRANSACTIONS AS (
     -- Format transactions and resolve adjust_* types into effective quantites
@@ -86,9 +86,9 @@ BEGIN
   ),
   ALL_PROD_CUST AS (
     -- Unique list to iterate over
-    SELECT product_id as pid, customer_id as cid FROM NEAREST_SNAPSHOT
+    SELECT ns.product_id as pid, ns.customer_id as cid FROM NEAREST_SNAPSHOT ns
     UNION
-    SELECT product_id as pid, customer_id as cid FROM EFF_TRANSACTIONS
+    SELECT et.product_id as pid, et.customer_id as cid FROM EFF_TRANSACTIONS et
   ),
   COMPUTED AS (
     -- Group calculations matching JS calc.ts logic exactly
