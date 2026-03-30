@@ -859,7 +859,7 @@ export default function InventoryOpeningBalancesPage() {
               <thead>
                   <tr>
                     <ThCell label="#" colKey="stt_header" sortable={false} filterable={false} colType="text" align="center" w="48px" />
-                    <th className="!text-center !w-12 !p-0 !m-0" style={{ border: "1px solid #ddd", background: "#f8fafc", borderBottom: "2px solid #ddd", position: "sticky", top: 0, zIndex: 31 }}>
+                    {canCreateEdit && <th className="!text-center !w-12 !p-0 !m-0" style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0" }}>
                        <div className="flex items-center justify-center h-full w-full">
                         <input
                           type="checkbox"
@@ -868,13 +868,13 @@ export default function InventoryOpeningBalancesPage() {
                             if (e.target.checked) setSelectedIds(new Set(finalFiltered.map(r => r.id)));
                             else setSelectedIds(new Set());
                           }}
-                          className="rounded text-brand"
+                          className="rounded border-slate-300 text-brand focus:ring-brand w-4 h-4 transition-all"
                         />
                        </div>
-                    </th>
+                    </th>}
                     <ThCell label="Kỳ" colKey="period" sortable colType="date" w="110px" />
                     <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
-                    <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" />
+                    <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" extra={{ position: "sticky", left: 0, zIndex: 50, boxShadow: "2px 0 10px rgba(0,0,0,0.02)" }} />
                     <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
                     <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" w="110px" />
                     <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" w="120px" />
@@ -884,12 +884,12 @@ export default function InventoryOpeningBalancesPage() {
                 </thead>
                 <tbody>
                   {finalFiltered.length === 0 ? (
-                    <tr><td colSpan={canCreateEdit ? 10 : 8} className="py-20 text-center opacity-40 italic">Không có dữ liệu khớp bộ lọc.</td></tr>
+                    <tr><td colSpan={canCreateEdit ? 10 : 9} className="py-20 text-center opacity-40 italic">Không có dữ liệu khớp bộ lọc.</td></tr>
                   ) : finalFiltered.map((r, i) => (
-                    <tr key={r.id} className={`${selectedIds.has(r.id) ? "!bg-brand/[0.04]" : ""} hover:bg-brand/[0.02] transition-colors group odd:bg-white even:bg-slate-50/30`}>
-                      <td className="text-center font-medium text-slate-400" style={{ borderBottom: "1px solid #eee", padding: "10px 8px" }}>{i + 1}</td>
+                    <tr key={r.id} className={`${selectedIds.has(r.id) ? "!bg-brand/[0.04]" : ""} group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-brand/5`}>
+                      <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{i + 1}</td>
                     {canCreateEdit && (
-                      <td className="text-center">
+                      <td className="py-4 px-4 border-r border-slate-50 text-center">
                         <input
                           type="checkbox"
                           checked={selectedIds.has(r.id)}
@@ -899,27 +899,28 @@ export default function InventoryOpeningBalancesPage() {
                             else next.add(r.id);
                             setSelectedIds(next);
                           }}
-                          className="rounded text-brand"
+                          className="rounded border-slate-300 text-brand focus:ring-brand w-4 h-4 transition-all"
                         />
                       </td>
                     )}
-                    <td className="font-medium text-slate-900">{fmtDate(r.period_month)}</td>
-                    <td className="text-slate-500 text-xs font-semibold">{customerLabel(r.customer_id)}</td>
-                    <td>
-                      <span className="font-bold text-slate-900">{r.products?.sku}</span>
+                    <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-900 text-[15px]">{fmtDate(r.period_month)}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-slate-900 font-bold text-[15px] uppercase">{customerLabel(r.customer_id)}</td>
+                    <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                      <div className="font-extrabold text-brand font-mono text-[15px] uppercase tracking-wide">{r.products?.sku}</div>
                     </td>
-                    <td className="text-slate-600 font-medium truncate max-w-[300px]" title={r.products?.name}>{r.products?.name}</td>
-                    <td className="text-right">
+                    <td className="py-4 px-4 border-r border-slate-50">
+                      <div className="text-slate-900 font-bold text-[15px] leading-tight truncate max-w-[300px]" title={r.products?.name}>{r.products?.name}</div>
+                    </td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-right">
                        <div className="flex flex-col items-end">
-                         <span className="font-bold text-slate-900">{fmtNum(r.opening_qty)}</span>
-                         <span className="text-[10px] text-slate-400 italic">PCS</span>
+                         <span className="font-black text-slate-800 text-[15px]">{fmtNum(r.opening_qty)}</span>
                        </div>
                     </td>
-                    <td className="text-right text-slate-500 text-xs italic">{fmtNum(r.opening_unit_cost)}</td>
-                    <td className="text-center">
+                    <td className="py-4 px-4 border-r border-slate-50 text-right text-slate-600 font-medium text-[15px]">{fmtNum(r.opening_unit_cost)}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-center">
                       {r.is_long_aging ? (
                         <div className="tooltip-wrap group relative inline-block">
-                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold border border-amber-200">Dài kỳ</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-100 uppercase tracking-widest">Dài kỳ</span>
                           {r.long_aging_note && (
                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-slate-800 text-white rounded text-xs shadow-xl z-50">
                               {r.long_aging_note}
@@ -927,22 +928,14 @@ export default function InventoryOpeningBalancesPage() {
                           )}
                         </div>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[10px] font-medium opacity-50">Thường</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-400 border border-slate-200 uppercase tracking-widest">Thường</span>
                       )}
                     </td>
                     {canCreateEdit && (
-                      <td className="text-center">
-                        <div className="flex justify-center gap-1">
-                          {canCreateEdit && (
-                            <button onClick={() => openEditForm(r)} className="p-1.5 text-slate-400 hover:text-brand hover:bg-brand/10 rounded-lg transition-all" title="Sửa">
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                            </button>
-                          )}
-                          {canDelete && (
-                            <button onClick={() => del(r)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Xóa">
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                            </button>
-                          )}
+                      <td className="py-4 px-4 text-center">
+                        <div className="flex justify-center gap-2 mt-1">
+                          {canCreateEdit && <button onClick={() => openEditForm(r)} className="px-3 py-1 bg-white border border-slate-200 hover:border-brand hover:bg-brand/10 text-[11px] text-brand font-black uppercase tracking-widest shadow-sm rounded-lg transition-all" title="Sửa">Sửa</button>}
+                          {canDelete && <button onClick={() => del(r)} className="px-3 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all" title="Xóa">Xóa</button>}
                         </div>
                       </td>
                     )}
@@ -1055,14 +1048,16 @@ export default function InventoryOpeningBalancesPage() {
     };
 
     const baseStyle: React.CSSProperties = {
-      textAlign: align || "left", border: "1px solid #ddd", padding: "10px 8px",
-      background: "#f8fafc", whiteSpace: "nowrap", borderBottom: "2px solid #ddd",
+      textAlign: align || "left",
       position: "sticky",
       top: 0,
-      zIndex: 30,
+      zIndex: 40,
+      background: "rgba(255,255,255,0.95)",
+      backdropFilter: "blur(8px)",
+      borderBottom: "1px solid #e2e8f0",
+      whiteSpace: "nowrap",
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
-      boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
       ...extra,
     };
     const popupOpen = openPopupId === colKey;

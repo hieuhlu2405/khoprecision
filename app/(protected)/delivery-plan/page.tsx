@@ -369,12 +369,15 @@ export default function DeliveryPlanPage() {
           minWidth: width ? `${width}px` : w || "80px",
           textAlign: align,
           left: sticky ? 0 : undefined,
-          zIndex: sticky ? 50 : 40,
+          zIndex: sticky ? 41 : 40,
+          background: "rgba(255,255,255,0.95)",
+          backdropFilter: "blur(8px)",
+          borderBottom: "1px solid #e2e8f0",
         }}
-        className={`py-4 px-4 font-black text-[18px] uppercase tracking-widest border-r border-slate-200/60 sticky top-0 bg-white/95 backdrop-blur-sm group select-none ${sticky ? "sticky left-0 border-r-2" : ""} ${isToday ? "bg-red-50/50 text-red-600" : "text-slate-900"}`}
+        className={`py-4 px-4 border-r border-slate-200/60 sticky top-0 group select-none ${sticky ? "shadow-[2px_0_10px_rgba(0,0,0,0.02)]" : ""} ${isToday ? "bg-red-50/50 text-red-600" : "text-slate-900"}`}
       >
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          {extra ? extra : <span>{label}</span>}
+          {extra ? extra : <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>}
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
             {sortable && (
               <button 
@@ -426,9 +429,9 @@ export default function DeliveryPlanPage() {
     
     return (
       <div className={`flex flex-col items-center leading-tight ${isToday ? "text-red-500" : ""}`}>
-        <span className={`text-[12px] font-black uppercase tracking-widest ${isToday ? "text-red-500" : "text-slate-400"}`}>{dayNames[d.getDay()]}</span>
-        <span className={`text-[18px] font-black italic tracking-tighter ${isToday ? "text-red-600" : ""}`}>{pts[2]}/{pts[1]}</span>
-        {isToday && <span className="text-[9px] font-bold uppercase mt-0.5 bg-red-100 text-red-600 px-1 rounded shadow-sm border border-red-200">Hôm nay</span>}
+        <span className={`text-[10px] font-black uppercase tracking-widest ${isToday ? "text-red-500" : "text-slate-400"}`}>{dayNames[d.getDay()]}</span>
+        <span className={`text-[15px] font-black italic tracking-tighter ${isToday ? "text-red-600" : ""}`}>{pts[2]}/{pts[1]}</span>
+        {isToday && <span className="text-[8px] font-bold uppercase mt-0.5 bg-red-100 text-red-600 px-1 rounded shadow-sm border border-red-200">Hôm nay</span>}
         {isPastOrToday && (
           <button 
             onClick={(e) => { e.stopPropagation(); handleOpenOutbound(dateStr); }}
@@ -528,17 +531,17 @@ export default function DeliveryPlanPage() {
                 ) : displayProducts.map((p, i) => {
                   const c = customers.find(x => x.id === p.customer_id);
                   return (
-                    <tr key={p.id} className="hover:bg-indigo-50/30 group transition-colors odd:bg-white even:bg-slate-50/20">
-                      <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-indigo-50/50 transition-colors border-r-2 shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
-                         <div className="font-extrabold text-black font-mono tracking-tight text-[18px] break-all">{p.sku}</div>
+                    <tr key={p.id} className="hover:bg-brand/5 group transition-colors odd:bg-white even:bg-slate-50/20">
+                      <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                         <div className="font-extrabold text-brand font-mono tracking-tight text-[15px] break-all uppercase">{p.sku}</div>
                       </td>
                       <td className="py-4 px-4 border-r border-slate-100">
-                         <div className="text-black font-bold text-[18px] leading-tight" title={p.name}>{p.name}</div>
-                         <div className="text-[12px] text-black font-bold uppercase tracking-wider mt-1">{p.spec}</div>
+                         <div className="text-slate-900 font-bold text-[15px] leading-tight" title={p.name}>{p.name}</div>
+                         <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-1">{p.spec || ""}</div>
                       </td>
                       <td className="py-4 px-4 border-r border-slate-100 text-center">
-                         <div className="text-black font-bold text-[18px] uppercase">{c?.code || "-"}</div>
-                         <div className="text-[11px] text-black font-bold uppercase tracking-wider" title={c?.name}>{c?.name}</div>
+                         <div className="text-slate-900 font-bold text-[15px] uppercase">{c?.code || "-"}</div>
+                         <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider" title={c?.name}>{c?.name}</div>
                       </td>
                       {days.map(d => {
                         const plan = plans.find(x => x.product_id === p.id && x.plan_date === d);

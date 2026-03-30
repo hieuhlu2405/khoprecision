@@ -245,10 +245,15 @@ export default function CustomersPage() {
     };
 
     const baseStyle: React.CSSProperties = {
-      ...thStyle,
       textAlign: align || "left",
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
+      position: "sticky",
+      top: 0,
+      zIndex: 40,
+      background: "rgba(255,255,255,0.95)",
+      backdropFilter: "blur(8px)",
+      borderBottom: "1px solid #e2e8f0",
       ...extra
     };
     const popupOpen = openPopupId === colKey;
@@ -534,11 +539,7 @@ export default function CustomersPage() {
           <thead>
             <tr>
               {isManager && (
-                 <th style={{ 
-                   ...thStyle, 
-                   width: 60, 
-                   textAlign: "center",
-                 }}>
+                 <th style={{ width: 60, textAlign: "center", position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0" }}>
                   <input type="checkbox"
                     className="rounded text-brand"
                     checked={finalFiltered.length > 0 && finalFiltered.every(r => selectedIds.has(r.id))}
@@ -553,21 +554,17 @@ export default function CustomersPage() {
               <ThCell label="Tên khách hàng" colKey="name" sortable colType="text" />
               {isManager && <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />}
               {isManager && (
-                 <th style={{ 
-                   ...thStyle, 
-                   textAlign: "center", 
-                   width: 100,
-                 }}>
+                 <th style={{ textAlign: "center", width: 100, position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0" }}>
                    <span className="text-slate-900 font-black text-[12px] uppercase tracking-wider">THAO TÁC</span>
                  </th>
               )}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100">
             {finalFiltered.map((c) => (
-              <tr key={c.id} className="group hover:bg-slate-50/80 transition-colors even:bg-slate-50/30">
+              <tr key={c.id} className="group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-indigo-50/40">
                 {isManager && (
-                  <td style={{ ...tdStyle, textAlign: "center" }}>
+                  <td className="py-4 px-4 border-r border-slate-50 text-center">
                       <input type="checkbox" checked={selectedIds.has(c.id)}
                         className="rounded-lg text-indigo-600 border-slate-300 focus:ring-indigo-500 w-4 h-4 transition-all"
                         onChange={e => {
@@ -578,20 +575,24 @@ export default function CustomersPage() {
                       />
                   </td>
                 )}
-                <td style={{ ...tdStyle, fontWeight: "bold" }} className="text-slate-900 font-mono text-[13px]">{c.code}</td>
-                <td style={tdStyle} className="text-slate-700 font-medium">{c.name}</td>
+                <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                  <div className="font-extrabold text-slate-900 font-mono text-[15px] break-all">{c.code}</div>
+                </td>
+                <td className="py-4 px-4 border-r border-slate-50">
+                  <div className="text-slate-900 font-bold text-[15px] leading-tight">{c.name}</div>
+                </td>
                 {isManager && (
-                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }} className="text-slate-400 text-[12px]">
+                  <td className="py-4 px-4 border-r border-slate-50 whitespace-nowrap text-slate-400 text-[12px] font-medium">
                     {mounted ? fmtDatetime(c.created_at) : "..."}
                   </td>
                 )}
                 {isManager && (
-                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                    <div className="toolbar" style={{ margin: 0, gap: 4 }}>
-                      <button onClick={() => openEdit(c)} className="btn btn-secondary btn-sm">
+                  <td className="py-4 px-4">
+                    <div className="flex flex-col sm:flex-row justify-center items-center gap-2 mt-1">
+                      <button onClick={() => openEdit(c)} className="px-3 py-1 bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-[11px] text-indigo-700 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all w-full sm:w-auto">
                         Sửa
                       </button>
-                      <button onClick={() => del(c)} className="btn btn-danger btn-sm">
+                      <button onClick={() => del(c)} className="px-3 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all w-full sm:w-auto">
                         Xóa
                       </button>
                     </div>

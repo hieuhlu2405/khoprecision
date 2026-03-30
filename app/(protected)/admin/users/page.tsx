@@ -47,15 +47,41 @@ function fmtDatetime(d: string | null): string {
 
 const thStyle = {
   textAlign: "left" as const,
-  border: "1px solid #e2e8f0",
-  padding: "10px 12px",
   background: "#f8fafc",
   whiteSpace: "nowrap" as const,
   fontSize: 13,
   fontWeight: 600,
   color: "#475569",
 };
-const tdStyle = { border: "1px solid #e2e8f0", padding: "10px 12px", fontSize: 13 };
+const tdStyle = { padding: "12px 12px", borderBottom: "1px solid var(--slate-100)" } as const;
+
+/* ---- Table Header Cell Component ---- */
+function ThCell({ label, align, w, extra }: {
+  label: string; align?: "left" | "right" | "center"; w?: string; extra?: React.CSSProperties;
+}) {
+  const baseStyle: React.CSSProperties = {
+    textAlign: align || "left",
+    position: "sticky",
+    top: 0,
+    zIndex: 40,
+    background: "rgba(255,255,255,0.95)",
+    backdropFilter: "blur(8px)",
+    borderBottom: "1px solid #e2e8f0",
+    padding: "12px 16px",
+    whiteSpace: "nowrap",
+    width: w,
+    minWidth: w || "50px",
+    ...extra
+  };
+
+  return (
+    <th style={baseStyle}>
+      <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+        <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
+      </div>
+    </th>
+  );
+}
 
 export default function AdminUsersPage() {
   const router = useRouter();
@@ -266,27 +292,29 @@ export default function AdminUsersPage() {
       {error && <ErrorBanner message={error} onDismiss={() => setError("")} />}
 
       {/* Table */}
-      <div style={{ overflowX: "auto", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-        <table style={{ borderCollapse: "collapse", minWidth: 960, width: "100%", background: "white" }}>
+      <div className="data-table-wrap" style={{ marginTop: 24 }}>
+        <table className="data-table">
           <thead>
-            <tr>
-              <th style={{ ...thStyle, width: 40, textAlign: "center" }}>
-                <input
-                  type="checkbox"
-                  checked={allChecked}
-                  ref={(el) => { if (el) el.indeterminate = someChecked && !allChecked; }}
-                  onChange={toggleAll}
-                  style={{ cursor: "pointer" }}
-                />
+            <tr className="bg-white/95 backdrop-blur-md">
+              <th className="!text-center !w-12 !p-0 !m-0" style={{ position: "sticky", top: 0, zIndex: 45, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0" }}>
+                <div className="flex items-center justify-center h-full w-full">
+                  <input
+                    type="checkbox"
+                    className="rounded border-slate-300 text-brand focus:ring-brand w-4 h-4 transition-all"
+                    checked={allChecked}
+                    ref={(el) => { if (el) el.indeterminate = someChecked && !allChecked; }}
+                    onChange={toggleAll}
+                  />
+                </div>
               </th>
-              <th style={thStyle}>Trạng thái</th>
-              <th style={thStyle}>ID</th>
-              <th style={thStyle}>Tên hiển thị</th>
-              <th style={thStyle}>Role</th>
-              <th style={thStyle}>Phòng ban</th>
-              <th style={{ ...thStyle, textAlign: "center" }}>Kích hoạt</th>
-              <th style={thStyle}>Ngày tạo</th>
-              <th style={{ ...thStyle, textAlign: "center" }}>Hành động</th>
+              <ThCell label="Trạng thái" align="center" w="120px" />
+              <ThCell label="ID" w="100px" />
+              <ThCell label="Tên hiển thị" w="220px" />
+              <ThCell label="Role" w="140px" />
+              <ThCell label="Phòng ban" w="160px" />
+              <ThCell label="Kích hoạt" align="center" w="100px" />
+              <ThCell label="Ngày tạo" w="180px" />
+              <ThCell label="Hành động" align="center" w="180px" />
             </tr>
           </thead>
           <tbody>
@@ -298,87 +326,82 @@ export default function AdminUsersPage() {
               return (
                 <tr
                   key={p.id}
-                  style={{
-                    background: isSelected ? "#eff6ff" : i % 2 === 0 ? "white" : "#fafafa",
-                    transition: "background 0.15s",
-                  }}
+                  className={`group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-brand/5 ${isSelected ? "!bg-brand/[0.04]" : ""}`}
                 >
                   {/* Checkbox */}
-                  <td style={{ ...tdStyle, textAlign: "center" }}>
+                  <td className="py-4 px-4 border-r border-slate-50 text-center">
                     {isMe ? (
-                      <span title="Không thể chọn tài khoản của chính mình" style={{ color: "#cbd5e1", fontSize: 16 }}>—</span>
+                      <span title="Không thể chọn tài khoản của chính mình" className="text-slate-200 text-lg">—</span>
                     ) : (
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleOne(p.id)}
-                        style={{ cursor: "pointer" }}
+                        className="rounded border-slate-300 text-brand focus:ring-brand w-4 h-4 transition-all"
                       />
                     )}
                   </td>
 
                   {/* Status */}
-                  <td style={{ ...tdStyle, textAlign: "center" }}>
+                  <td className="py-4 px-4 border-r border-slate-50 text-center">
                     {p.is_approved ? (
-                      <span style={{ padding: "2px 8px", background: "#dcfce7", color: "#166534", borderRadius: 99, fontSize: 11, fontWeight: 700 }}>Duyệt</span>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200">Đã Duyệt</span>
                     ) : (
-                      <span style={{ padding: "2px 8px", background: "#fef9c3", color: "#854d0e", borderRadius: 99, fontSize: 11, fontWeight: 700 }}>Chờ duyệt</span>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-200">Chờ Duyệt</span>
                     )}
                   </td>
 
                   {/* ID */}
-                  <td style={{ ...tdStyle, fontFamily: "monospace", color: "#64748b", fontSize: 12 }}>
+                  <td className="py-4 px-4 border-r border-slate-50 font-mono text-slate-400 text-[12px]">
                     {p.id.slice(0, 8)}…
                     {isMe && (
-                      <span style={{ marginLeft: 4, background: "#dbeafe", color: "#1d4ed8", borderRadius: 4, padding: "1px 5px", fontSize: 10, fontWeight: 700 }}>
-                        Tôi
-                      </span>
+                      <span className="ml-2 px-1.5 py-0.5 bg-brand/10 text-brand rounded-md text-[10px] font-black uppercase">Tôi</span>
                     )}
                   </td>
 
                   {/* Tên */}
-                  <td style={tdStyle}>
+                  <td className="py-4 px-4 border-r border-slate-50">
                     <input
                       value={p.full_name ?? ""}
                       onChange={(e) => {
                         const v = e.target.value;
                         setRows((prev) => prev.map((x) => (x.id === p.id ? { ...x, full_name: v } : x)));
                       }}
-                      style={{ padding: "5px 8px", width: 200, border: "1px solid #e2e8f0", borderRadius: 4, fontSize: 13 }}
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[15px] font-bold text-slate-900 focus:border-brand focus:ring-1 focus:ring-brand transition-all outline-none"
                       placeholder="Tên hiển thị"
                     />
                   </td>
 
                   {/* Role */}
-                  <td style={tdStyle}>
+                  <td className="py-4 px-4 border-r border-slate-50">
                     <select
                       value={p.role}
                       onChange={(e) => {
                         const v = e.target.value as Role;
                         setRows((prev) => prev.map((x) => (x.id === p.id ? { ...x, role: v } : x)));
                       }}
-                      style={{ padding: "5px 8px", border: "1px solid #e2e8f0", borderRadius: 4, fontSize: 13 }}
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[15px] font-bold text-slate-700 focus:border-brand focus:ring-1 focus:ring-brand transition-all outline-none appearance-none cursor-pointer"
                     >
                       {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
                     </select>
                   </td>
 
                   {/* Department */}
-                  <td style={tdStyle}>
+                  <td className="py-4 px-4 border-r border-slate-50">
                     <select
                       value={p.department}
                       onChange={(e) => {
                         const v = e.target.value as Dept;
                         setRows((prev) => prev.map((x) => (x.id === p.id ? { ...x, department: v } : x)));
                       }}
-                      style={{ padding: "5px 8px", border: "1px solid #e2e8f0", borderRadius: 4, fontSize: 13 }}
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[15px] font-bold text-slate-700 focus:border-brand focus:ring-1 focus:ring-brand transition-all outline-none appearance-none cursor-pointer"
                     >
                       {DEPTS.map((d) => <option key={d} value={d}>{DEPT_LABELS[d]}</option>)}
                     </select>
                   </td>
 
                   {/* Active */}
-                  <td style={{ ...tdStyle, textAlign: "center" }}>
+                  <td className="py-4 px-4 border-r border-slate-50 text-center">
                     <input
                       type="checkbox"
                       checked={p.is_active}
@@ -386,27 +409,23 @@ export default function AdminUsersPage() {
                         const v = e.target.checked;
                         setRows((prev) => prev.map((x) => (x.id === p.id ? { ...x, is_active: v } : x)));
                       }}
-                      style={{ width: 16, height: 16, cursor: "pointer" }}
+                      className="rounded border-slate-300 text-brand focus:ring-brand w-5 h-5 transition-all cursor-pointer"
                     />
                   </td>
 
                   {/* Created */}
-                  <td style={{ ...tdStyle, whiteSpace: "nowrap", color: "#64748b", fontSize: 12 }}>
+                  <td className="py-4 px-4 border-r border-slate-50 text-slate-400 font-medium text-[12px] whitespace-nowrap">
                     {mounted ? fmtDatetime(p.created_at) : "..."}
                   </td>
 
                   {/* Actions */}
-                  <td style={{ ...tdStyle, textAlign: "center", whiteSpace: "nowrap" }}>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                  <td className="py-4 px-4 text-center whitespace-nowrap">
+                    <div className="flex justify-center gap-2">
                       {!p.is_approved && (
                         <button
                           onClick={() => approveUser(p)}
                           disabled={isSaving || isDeleting}
-                          style={{
-                            padding: "5px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600,
-                            background: "#16a34a", color: "white", border: "none", borderRadius: 4,
-                            opacity: isSaving ? 0.7 : 1,
-                          }}
+                          className="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 text-[11px] font-black uppercase tracking-widest shadow-sm rounded-lg transition-all disabled:opacity-50"
                         >
                           {isSaving ? "..." : "Duyệt"}
                         </button>
@@ -415,11 +434,7 @@ export default function AdminUsersPage() {
                       <button
                         onClick={() => saveRow(p)}
                         disabled={isSaving || isDeleting}
-                        style={{
-                          padding: "5px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600,
-                          background: "#0f172a", color: "white", border: "none", borderRadius: 4,
-                          opacity: isSaving ? 0.7 : 1,
-                        }}
+                        className="px-3 py-1.5 bg-slate-900 text-white hover:bg-black text-[11px] font-black uppercase tracking-widest shadow-sm rounded-lg transition-all disabled:opacity-50"
                       >
                         {isSaving ? "..." : "Lưu"}
                       </button>
@@ -428,14 +443,9 @@ export default function AdminUsersPage() {
                         <button
                           onClick={() => deleteRow(p)}
                           disabled={isSaving || isDeleting || bulkDeleting}
-                          style={{
-                            padding: "5px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600,
-                            background: "#fef2f2", color: "#dc2626",
-                            border: "1px solid #fca5a5", borderRadius: 4,
-                            opacity: isDeleting ? 0.7 : 1,
-                          }}
+                          className="px-3 py-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-[11px] font-black uppercase tracking-widest shadow-sm rounded-lg transition-all disabled:opacity-50"
                         >
-                          {isDeleting ? "Xóa..." : "Xóa"}
+                          {isDeleting ? "..." : "Xóa"}
                         </button>
                       )}
                     </div>

@@ -497,7 +497,12 @@ export default function PhoiPage() {
 
     const baseStyle: React.CSSProperties = {
       textAlign: align || "left",
-      position: "relative",
+      position: "sticky",
+      top: 0,
+      zIndex: 40,
+      background: "rgba(255,255,255,0.95)",
+      backdropFilter: "blur(8px)",
+      borderBottom: "1px solid #e2e8f0",
       whiteSpace: "nowrap",
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
@@ -787,50 +792,58 @@ export default function PhoiPage() {
             <tr>
               <ThCell label="#" colKey="stt" sortable={false} filterable={false} colType="text" w="50px" align="center" />
               {canDelete && (
-                <th className="w-12 text-center" style={{ border: "1px solid #ddd", background: "#f8fafc", borderBottom: "2px solid #ddd", position: "sticky", top: 0, zIndex: 31 }}>
+                <th className="w-12 text-center" style={{ border: "1px solid #ddd", background: "#f8fafc", borderBottom: "2px solid #ddd", position: "sticky", top: 0, zIndex: 40 }}>
                   <input type="checkbox" checked={allChecked}
                     ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && !allChecked; }}
                     onChange={e => setSelectedIds(e.target.checked ? new Set(allSelectableIds) : new Set())}
-                    className="rounded border-slate-300 text-brand focus:ring-brand" />
+                    className="rounded border-slate-300 text-brand focus:ring-brand w-4 h-4 transition-all" />
                 </th>
               )}
-              <ThCell label="Ngày nhập" colKey="tx_date" sortable colType="date" w="140px" />
-              <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" />
+              <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" extra={{ position: "sticky", left: 0, zIndex: 50, boxShadow: "2px 0 10px rgba(0,0,0,0.02)" }} />
               <ThCell label="Tên sản phẩm" colKey="name" sortable colType="text" />
               <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" w="140px" />
+              <ThCell label="Ngày nhập" colKey="tx_date" sortable colType="date" w="140px" />
               <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="180px" />
               <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" w="120px" />
               <ThCell label="Đơn giá" colKey="cost" sortable colType="num" align="right" w="140px" />
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="180px" />
               <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="160px" />
-              {canCreateEdit && <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="100px" />}
+              {canCreateEdit && <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="140px" />}
             </tr>
           </thead>
           <tbody>
             {filtered.map((r, i) => (
-              <tr key={r.id} className="hover:bg-indigo-50/30 transition-colors group">
-                <td className="text-center font-medium text-slate-400" style={{ borderBottom: "1px solid #eee", padding: "10px 8px" }}>{i + 1}</td>
+              <tr key={r.id} className="group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-brand/5">
+                <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{i + 1}</td>
                 {canDelete && (
-                  <td className="text-center">
+                  <td className="py-4 px-4 border-r border-slate-50 text-center">
                     <input type="checkbox" checked={selectedIds.has(r.id)}
                       onChange={() => setSelectedIds(prev => { const s = new Set(prev); s.has(r.id) ? s.delete(r.id) : s.add(r.id); return s; })}
-                      className="rounded border-slate-300 text-brand focus:ring-brand" />
+                      className="rounded border-slate-300 text-brand focus:ring-brand w-4 h-4 transition-all" />
                   </td>
                 )}
-                <td className="font-medium text-slate-600">{fmtDate(r.tx_date)}</td>
-                <td className="font-bold text-brand uppercase">{skuFor(r)}</td>
-                <td className="font-semibold text-slate-700">{r.product_name_snapshot}</td>
-                <td className="text-slate-500 italic text-sm">{r.product_spec_snapshot ?? "—"}</td>
-                <td className="text-slate-600">{customerLabel(r.customer_id)}</td>
-                <td className="text-right font-black text-slate-800">{fmtNum(r.qty)}</td>
-                <td className="text-right font-medium text-slate-600">{r.unit_cost != null ? fmtNum(r.unit_cost) : "—"}</td>
-                <td className="text-slate-400 text-sm italic truncate" style={{ maxWidth: 180 }} title={r.note ?? ""}>{r.note ?? "—"}</td>
-                <td className="text-[11px] text-slate-400 font-medium">{mounted ? fmtDatetime(r.created_at) : "..."}</td>
+                <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                  <div className="font-extrabold text-brand font-mono text-[15px] uppercase tracking-wide">{skuFor(r)}</div>
+                </td>
+                <td className="py-4 px-4 border-r border-slate-50">
+                  <div className="text-slate-900 font-bold text-[15px] leading-tight">{r.product_name_snapshot}</div>
+                </td>
+                <td className="py-4 px-4 border-r border-slate-50">
+                  <div className="text-slate-700 text-[13px] font-bold uppercase tracking-wider">{r.product_spec_snapshot ?? "—"}</div>
+                </td>
+                <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-600 text-[15px]">{fmtDate(r.tx_date)}</td>
+                <td className="py-4 px-4 border-r border-slate-50">
+                  <div className="text-slate-900 font-bold text-[15px] uppercase">{customerLabel(r.customer_id)}</div>
+                </td>
+                <td className="py-4 px-4 border-r border-slate-50 text-right font-black text-slate-800 text-[15px]">{fmtNum(r.qty)}</td>
+                <td className="py-4 px-4 border-r border-slate-50 text-right font-medium text-slate-600 text-[15px]">{r.unit_cost != null ? fmtNum(r.unit_cost) : "—"}</td>
+                <td className="py-4 px-4 border-r border-slate-50 text-slate-500 italic text-[13px] break-all">{r.note ?? "—"}</td>
+                <td className="py-4 px-4 border-r border-slate-50 text-[12px] text-slate-400 font-medium">{mounted ? fmtDatetime(r.created_at) : "..."}</td>
                 {canCreateEdit && (
-                  <td className="text-center">
-                    <div className="flex gap-1 justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      {canCreateEdit && <button onClick={() => openEdit(r)} className="p-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Sửa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>}
-                      {canDelete && <button onClick={() => del(r)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Xóa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>}
+                  <td className="py-4 px-4 text-center">
+                    <div className="flex justify-center gap-2 mt-1">
+                      {canCreateEdit && <button onClick={() => openEdit(r)} className="px-3 py-1 bg-white border border-slate-200 hover:border-brand hover:bg-brand/10 text-[11px] text-brand font-black uppercase tracking-widest shadow-sm rounded-lg transition-all">Sửa</button>}
+                      {canDelete && <button onClick={() => del(r)} className="px-3 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all">Xóa</button>}
                     </div>
                   </td>
                 )}

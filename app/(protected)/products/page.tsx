@@ -375,10 +375,15 @@ export default function ProductsPage() {
     };
 
     const baseStyle: React.CSSProperties = {
-      ...thStyle,
       textAlign: align || "left",
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
+      position: "sticky",
+      top: 0,
+      zIndex: 40,
+      background: "rgba(255,255,255,0.95)",
+      backdropFilter: "blur(8px)",
+      borderBottom: "1px solid #e2e8f0",
       ...extra
     };
     const popupOpen = openPopupId === colKey;
@@ -1048,23 +1053,19 @@ export default function ProductsPage() {
                <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
                {isManager && <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />}
                {isManager && (
-                 <th style={{ 
-                   ...thStyle, 
-                   textAlign: "center", 
-                   width: 100,
-                 }}>
+                 <th style={{ ...thStyle, textAlign: "center", width: 100 }}>
                    <span className="text-slate-900 font-black text-[12px] uppercase tracking-wider">THAO TÁC</span>
                  </th>
                )}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100">
             {finalFiltered.map((p) => {
               const c = customers.find((x) => x.id === p.customer_id);
               return (
-                 <tr key={p.id} className="group hover:bg-slate-50/80 transition-colors even:bg-slate-50/30">
+                 <tr key={p.id} className="group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-indigo-50/40">
                     {isManager && (
-                      <td style={{ ...tdStyle, textAlign: "center" }}>
+                      <td className="py-4 px-4 border-r border-slate-50 text-center">
                         <input type="checkbox" checked={selectedIds.has(p.id)}
                           className="rounded-lg text-indigo-600 border-slate-300 focus:ring-indigo-500 w-4 h-4 transition-all"
                           onChange={e => {
@@ -1075,35 +1076,38 @@ export default function ProductsPage() {
                         />
                       </td>
                     )}
-                    <td style={{ ...tdStyle, fontWeight: "bold" }} className="text-slate-900 font-mono text-[13px]">{p.sku}</td>
-                    <td style={tdStyle} className="text-slate-700 font-medium">{p.name}</td>
-                    <td style={tdStyle} className="text-slate-700 text-[13px]">{(p.spec ?? "").replace(/x/g, "*")}</td>
-                    <td style={tdStyle} className="text-slate-600">{p.uom}</td>
-                    <td style={{ ...tdStyle, textAlign: "right" }} className="font-bold text-slate-800">{fmtNum(p.unit_price)}</td>
-                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                    <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                      <div className="font-extrabold text-slate-900 font-mono text-[15px] break-all">{p.sku}</div>
+                    </td>
+                    <td className="py-4 px-4 border-r border-slate-50">
+                      <div className="text-slate-900 font-bold text-[15px] leading-tight">{p.name}</div>
+                    </td>
+                    <td className="py-4 px-4 border-r border-slate-50">
+                      <div className="text-slate-700 text-[13px] font-bold uppercase tracking-wider">{(p.spec ?? "").replace(/x/g, "*")}</div>
+                    </td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[15px] font-medium">{p.uom}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-right font-black text-[15px] text-slate-800">{fmtNum(p.unit_price)}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-center">
                       {p.is_active ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100">ACTIVE</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-widest">Active</span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-400 border border-slate-200">INACTIVE</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-400 border border-slate-200 uppercase tracking-widest">Inactive</span>
                       )}
                     </td>
-                    <td style={tdStyle} className="text-slate-600">
-                      {c ? `${c.code} - ${c.name}` : p.customer_id}
+                    <td className="py-4 px-4 border-r border-slate-50">
+                      <div className="text-slate-900 font-bold text-[15px] uppercase">{c ? c.code : "-"}</div>
+                      <div className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{c ? c.name : p.customer_id}</div>
                     </td>
                     {isManager && (
-                      <td style={{ ...tdStyle, whiteSpace: "nowrap" }} className="text-slate-400 text-[12px]">
+                      <td className="py-4 px-4 border-r border-slate-50 whitespace-nowrap text-slate-400 text-[12px] font-medium">
                         {mounted ? fmtDatetime(p.created_at) : '...'}
                       </td>
                     )}
                     {isManager && (
-                      <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                        <div className="toolbar" style={{ margin: 0, gap: 4 }}>
-                          <button onClick={() => openEdit(p)} className="btn btn-secondary btn-sm !py-1">
-                            Sửa
-                          </button>
-                          <button onClick={() => del(p)} className="btn btn-danger btn-sm !py-1">
-                            Xóa
-                          </button>
+                      <td className="py-4 px-4">
+                        <div className="flex flex-col sm:flex-row justify-center items-center gap-2 mt-1">
+                          <button onClick={() => openEdit(p)} className="px-3 py-1 bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-[11px] text-indigo-700 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all w-full sm:w-auto">Sửa</button>
+                          <button onClick={() => del(p)} className="px-3 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all w-full sm:w-auto">Xóa</button>
                         </div>
                       </td>
                     )}

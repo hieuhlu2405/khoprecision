@@ -220,11 +220,11 @@ export default function ShortageReportPage() {
     };
 
     return (
-      <th ref={thRef} style={{ width: width ? `${width}px` : w, minWidth: width ? `${width}px` : w, textAlign: align, left: sticky ? 0 : undefined, zIndex: sticky ? 60 : 40 }}
-        className={`py-4 px-4 font-black text-[18px] uppercase tracking-widest sticky top-0 bg-white/95 backdrop-blur-md border-r border-slate-200 group select-none ${sticky ? "sticky left-0 border-r-2 shadow-[2px_0_10px_rgba(0,0,0,0.03)]" : ""} ${isToday ? "bg-red-50/50 text-red-600" : "text-slate-900"}`}
+      <th ref={thRef} style={{ width: width ? `${width}px` : w, minWidth: width ? `${width}px` : w, textAlign: align, left: sticky ? 0 : undefined, zIndex: sticky ? 41 : 40, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0" }}
+        className={`py-4 px-4 sticky top-0 group select-none ${sticky ? "shadow-[2px_0_10px_rgba(0,0,0,0.02)]" : ""} ${isToday ? "bg-red-50/50 text-red-600" : "text-slate-900"}`}
       >
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          {extra ? extra : <span>{label}</span>}
+          {extra ? extra : <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>}
           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
             {sortable && (
               <button 
@@ -263,8 +263,8 @@ export default function ShortageReportPage() {
     const isToday = todayLocal === dateStr;
     return (
       <div className={`flex flex-col items-center leading-none ${isToday ? "text-red-600" : "text-black"}`}>
-        <span className={`text-[12px] font-black uppercase mb-1 ${isToday ? "text-red-500" : ""}`}>{dayNames[d.getDay()]}</span>
-        <span className={`text-[18px] font-black italic ${isToday ? "text-red-600" : ""}`}>{pts[2]}/{pts[1]}</span>
+        <span className={`text-[10px] font-black uppercase mb-1 ${isToday ? "text-red-500" : ""}`}>{dayNames[d.getDay()]}</span>
+        <span className={`text-[15px] font-black italic ${isToday ? "text-red-600" : ""}`}>{pts[2]}/{pts[1]}</span>
         {isToday && <span className="text-[7px] font-bold uppercase mt-1 bg-red-100 px-1 rounded border border-red-200">Hôm nay</span>}
       </div>
     );
@@ -326,27 +326,27 @@ export default function ShortageReportPage() {
                 <tr><td colSpan={11} className="py-40 text-center text-emerald-500 text-xl font-black italic">🎉 Tuyệt vời! Không phát hiện mã hàng bị thiếu hụt nào.</td></tr>
               ) : reportData.map(r => {
                 return (
-                  <tr key={r.p.id} className="group hover:bg-slate-50/80 transition-all transition-colors odd:bg-white even:bg-slate-50/10">
-                    <td className="py-4 px-4 sticky left-0 z-10 bg-white group-hover:bg-slate-50 transition-colors border-r-2 border-slate-100 shadow-[4px_0_15px_rgba(0,0,0,0.02)]">
-                       <div className="font-extrabold text-black font-mono text-[18px] tracking-tighter">{r.p.sku}</div>
+                  <tr key={r.p.id} className="group hover:bg-brand/5 transition-colors odd:bg-white even:bg-slate-50/10">
+                    <td className="py-4 px-4 sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                       <div className="font-extrabold text-brand font-mono text-[15px] tracking-tighter uppercase">{r.p.sku}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50">
-                       <div className="font-bold text-black text-[18px] leading-tight" title={r.p.name}>{r.p.name}</div>
-                       <div className="text-[12px] text-black font-bold uppercase tracking-wider mt-1">{r.p.spec}</div>
+                       <div className="font-bold text-slate-900 text-[15px] leading-tight" title={r.p.name}>{r.p.name}</div>
+                       <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-1">{r.p.spec || ""}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-100 text-center">
                        {(() => {
                          const c = customers.find(x => x.id === r.p.customer_id);
                          return (
                            <>
-                             <div className="font-bold text-black text-[18px] uppercase">{c?.code || "-"}</div>
-                             <div className="text-[11px] text-black font-bold uppercase tracking-wider" title={c?.name}>{c?.name}</div>
+                             <div className="font-bold text-slate-900 text-[15px] uppercase">{c?.code || "-"}</div>
+                             <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider" title={c?.name}>{c?.name}</div>
                            </>
                          )
                        })()}
                     </td>
                     <td className="py-4 px-4 border-r border-slate-100 text-right bg-blue-50/20">
-                       <span className="font-black text-blue-700 text-[18px]">{r.currentStock?.toLocaleString() || "-"}</span>
+                       <span className="font-black text-blue-700 text-[15px]">{r.currentStock?.toLocaleString() || "-"}</span>
                     </td>
                     
                     {days.map((d, i) => {

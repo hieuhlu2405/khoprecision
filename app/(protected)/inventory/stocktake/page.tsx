@@ -414,7 +414,12 @@ export default function StocktakeListPage() {
 
     const baseStyle: React.CSSProperties = {
       textAlign: align || "left",
-      position: "relative",
+      position: "sticky",
+      top: 0,
+      zIndex: 40,
+      background: "rgba(255,255,255,0.95)",
+      backdropFilter: "blur(8px)",
+      borderBottom: "1px solid #e2e8f0",
       whiteSpace: "nowrap",
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
@@ -555,38 +560,38 @@ export default function StocktakeListPage() {
                 <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" />
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {finalFiltered.map((item, i) => (
-                <tr key={item.id}>
-                  <td style={{ textAlign: "center" }}>{i + 1}</td>
-                  <td style={{ fontWeight: 600 }}>{properFmtDate(item.stocktake_date)}</td>
-                  <td>
+                <tr key={item.id} className="group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-brand/5">
+                  <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{i + 1}</td>
+                  <td className="py-4 px-4 border-r border-slate-50">
+                    <div className="font-extrabold text-slate-900 font-mono text-[15px]">{properFmtDate(item.stocktake_date)}</div>
+                  </td>
+                  <td className="py-4 px-4 border-r border-slate-50">
                     {item.status === "draft" ? (
-                      <span className="badge badge-warning">Nháp</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-100 uppercase tracking-widest">Nháp</span>
                     ) : (
-                      <span className="badge badge-success">Đã xác nhận</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-widest">Đã xác nhận</span>
                     )}
                   </td>
-                  <td>{item.created_by ? profiles[item.created_by] || item.created_by : "—"}</td>
-                  <td>{item.confirmed_by ? profiles[item.confirmed_by] || item.confirmed_by : "—"}</td>
-                  <td>{item.confirmed_at ? fmtDatetime(item.confirmed_at) : "—"}</td>
-                  <td style={{ color: "var(--slate-500)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <td className="py-4 px-4 border-r border-slate-50 text-[15px] font-medium text-slate-700">{item.created_by ? profiles[item.created_by] || item.created_by : "—"}</td>
+                  <td className="py-4 px-4 border-r border-slate-50 text-[15px] font-medium text-slate-700">{item.confirmed_by ? profiles[item.confirmed_by] || item.confirmed_by : "—"}</td>
+                  <td className="py-4 px-4 border-r border-slate-50 text-[13px] text-slate-500 font-medium">{item.confirmed_at ? fmtDatetime(item.confirmed_at) : "—"}</td>
+                  <td className="py-4 px-4 border-r border-slate-50 text-slate-500 italic text-[13px] break-all max-w-[200px] truncate" title={item.note || ""}>
                     {item.note || "—"}
                   </td>
-                  <td style={{ textAlign: "center" }}>
-                    <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                  <td className="py-4 px-4 text-center w-[160px]">
+                    <div className="flex justify-center gap-2 mt-1">
                       <Link
                         href={`/inventory/stocktake/${item.id}`}
-                        className="btn btn-ghost btn-sm"
-                        style={{ color: "var(--brand)" }}
+                        className="px-3 py-1 bg-white border border-slate-200 hover:border-brand hover:bg-brand/10 text-[11px] text-brand font-black uppercase tracking-widest shadow-sm rounded-lg transition-all"
                       >
                         Chi tiết
                       </Link>
                       {isAdminOrManager && (
                         <button
                           onClick={() => handleDelete(item)}
-                          className="btn btn-ghost btn-sm"
-                          style={{ color: "var(--color-danger)" }}
+                          className="px-3 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all"
                           title={item.status === "confirmed" ? "Xóa phiếu đã chốt (Chỉ dành cho Admin)" : "Xóa phiếu"}
                         >
                           Xóa
@@ -598,7 +603,7 @@ export default function StocktakeListPage() {
               ))}
               {finalFiltered.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ padding: 48, textAlign: "center", color: "var(--slate-500)" }}>
+                  <td colSpan={8} className="py-20 text-center text-slate-400 italic">
                     Không tìm thấy phiếu kiểm kê nào trong kho.
                   </td>
                 </tr>

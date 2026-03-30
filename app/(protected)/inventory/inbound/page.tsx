@@ -539,14 +539,15 @@ export default function InventoryInboundPage() {
 
     const baseStyle: React.CSSProperties = {
       textAlign: align || "left",
-      border: "1px solid #ddd", padding: "10px 8px",
-      background: "#f8fafc", whiteSpace: "nowrap", borderBottom: "2px solid #ddd",
       position: "sticky",
       top: 0,
-      zIndex: 30,
+      zIndex: 40,
+      background: "rgba(255,255,255,0.95)",
+      backdropFilter: "blur(8px)",
+      borderBottom: "1px solid #e2e8f0",
+      whiteSpace: "nowrap",
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
-      boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
       ...extra
     };
     const popupOpen = openPopupId === colKey;
@@ -1273,24 +1274,26 @@ export default function InventoryInboundPage() {
       <div className="data-table-wrap" style={{ marginTop: 24 }}>
         <table className="data-table">
           <thead>
-            <tr>
+            <tr className="bg-white/95 backdrop-blur-md">
               {canDelete && (
-                <th style={{ ...thStyle, width: 60, textAlign: "center" }}>
-                  <input
-                    type="checkbox"
-                    className="rounded text-brand"
-                    checked={finalFiltered.length > 0 && finalFiltered.every((r) => selectedIds.has(r.id))}
-                    onChange={(e) => {
-                      if (e.target.checked) setSelectedIds(new Set(finalFiltered.map((r) => r.id)));
-                      else setSelectedIds(new Set());
-                    }}
-                  />
+                <th className="!text-center !w-12 !p-0 !m-0" style={{ position: "sticky", top: 0, zIndex: 45, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0" }}>
+                  <div className="flex items-center justify-center h-full w-full">
+                    <input
+                      type="checkbox"
+                      className="rounded border-slate-300 text-brand focus:ring-brand w-4 h-4 transition-all"
+                      checked={finalFiltered.length > 0 && finalFiltered.every((r) => selectedIds.has(r.id))}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedIds(new Set(finalFiltered.map((r) => r.id)));
+                        else setSelectedIds(new Set());
+                      }}
+                    />
+                  </div>
                 </th>
               )}
               <ThCell label="#" colKey="stt" sortable={false} filterable={false} colType="text" w="50px" align="center" />
               <ThCell label="Ngày nhập" colKey="date" sortable colType="date" w="120px" />
               <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
-              <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="140px" />
+              <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="140px" extra={{ position: "sticky", left: 0, zIndex: 41, boxShadow: "2px 0 10px rgba(0,0,0,0.02)" }} />
               <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
               < ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" />
               <ThCell label="Số lượng" colKey="qty" sortable colType="num" w="120px" align="right" />
@@ -1315,63 +1318,63 @@ export default function InventoryInboundPage() {
               return (
                 <Fragment key={r.id}>
                   <tr 
-                        className={`hover:bg-brand/[0.02] transition-colors group odd:bg-white even:bg-slate-50/30 ${selectedIds.has(r.id) ? "!bg-brand/[0.04]" : ""}`}
+                        className={`group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-brand/5 ${selectedIds.has(r.id) ? "!bg-brand/[0.04]" : ""}`}
                         onClick={() => toggleExpanded(r.id)}
                         style={{ cursor: "pointer" }}
                       >
                     {canDelete && (
-                      <td style={{ ...tdStyle, textAlign: "center", verticalAlign: "top" }}>
+                      <td className="py-4 px-4 border-r border-slate-50 text-center vertical-align-top">
                         <input type="checkbox" checked={selectedIds.has(r.id)}
                           onChange={e => {
                             const next = new Set(selectedIds);
                             if (e.target.checked) next.add(r.id); else next.delete(r.id);
                             setSelectedIds(next);
                           }}
+                          className="rounded border-slate-300 text-brand focus:ring-brand w-4 h-4 transition-all"
                         />
                       </td>
                     )}
-                    <td style={{...tdStyle, textAlign: "center", verticalAlign: "top"}}>{i + 1}</td>
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap", verticalAlign: "top" }}>{fmtDate(r.tx_date)}</td>
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap", verticalAlign: "top" }}>{customerLabel(r.customer_id)}</td>
-                    <td style={{ ...tdStyle, fontWeight: "700", verticalAlign: "top", color: "var(--slate-700)" }}>{skuFor(r)}</td>
-                    <td style={{ ...tdStyle, verticalAlign: "top" }}>{r.product_name_snapshot}</td>
-                    <td style={{ ...tdStyle, verticalAlign: "top" }}>{r.product_spec_snapshot ?? ""}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: hasAdjs ? "700" : "500", color: hasAdjs ? "var(--brand)" : "inherit", verticalAlign: "top" }}>
-                      {fmtNum(finalQty)}
-                      {hasAdjs && (
-                        <div style={{ marginTop: 4 }}>
-                          <button
-                            onClick={() => toggleExpanded(r.id)}
-                            className={`badge ${isExpanded ? 'badge-active' : 'badge-warning'}`}
-                            style={{ cursor: "pointer", border: "1px solid transparent", fontSize: 10, padding: "2px 6px" }}
-                            title="Xem chi tiết điều chỉnh"
-                          >
-                            {isExpanded ? 'Ẩn điều chỉnh ▲' : 'CÓ ĐIỀU CHỈNH ▼'}
-                          </button>
-                        </div>
-                      )}
+                    <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{i + 1}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-900 text-[15px]">{fmtDate(r.tx_date)}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-slate-900 font-bold text-[15px] uppercase">{customerLabel(r.customer_id)}</td>
+                    <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                      <div className="font-extrabold text-brand font-mono text-[15px] uppercase tracking-wide">{skuFor(r)}</div>
                     </td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 500 }}>{fmtNum(r.unit_cost)}</td>
-                    <td style={{ ...tdStyle, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", fontSize: 13, color: "var(--slate-600)" }}>{r.note ?? ""}</td>
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap", fontSize: 12, color: "var(--slate-500)" }}>{mounted ? fmtDatetime(r.created_at) : "..."}</td>
-                    <td style={{ ...tdStyle, whiteSpace: "nowrap", fontSize: 12, color: "var(--slate-500)" }}>{mounted ? fmtDatetime(r.updated_at) : "..."}</td>
+                    <td className="py-4 px-4 border-r border-slate-50">
+                      <div className="text-slate-900 font-bold text-[15px] leading-tight break-all">{r.product_name_snapshot}</div>
+                    </td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-[12px] font-bold text-slate-500 uppercase tracking-wider">{r.product_spec_snapshot ?? ""}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-right">
+                      <div className="flex flex-col items-end">
+                        <span className={`font-black text-[15px] ${hasAdjs ? "text-brand" : "text-slate-800"}`}>{fmtNum(finalQty)}</span>
+                        {hasAdjs && (
+                          <div style={{ marginTop: 4 }}>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleExpanded(r.id); }}
+                              className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter transition-all ${isExpanded ? 'bg-brand text-white' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}
+                              title="Xem chi tiết điều chỉnh"
+                            >
+                              {isExpanded ? 'Ẩn điều chỉnh ▲' : 'CÓ ĐIỀU CHỈNH ▼'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-right text-slate-600 font-medium text-[15px]">{fmtNum(r.unit_cost)}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-slate-500 italic text-[13px] max-w-[200px] truncate" title={r.note ?? ""}>{r.note ?? ""}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-[12px] text-slate-400 font-medium">{mounted ? fmtDatetime(r.created_at) : "..."}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-[12px] text-slate-400 font-medium">{mounted ? fmtDatetime(r.updated_at) : "..."}</td>
                     {canCreateEdit && (
-                      <td style={{ ...tdStyle, whiteSpace: "nowrap", textAlign: "center" }}>
-                        <div className="toolbar" style={{ margin: 0, gap: 4, justifyContent: "center" }}>
+                      <td className="py-4 px-4 text-center">
+                        <div className="flex justify-center gap-2 mt-1">
                           {canCreateEdit && (
                             <>
-                              <button onClick={() => openEdit(r)} className="btn btn-secondary btn-sm" title="Sửa thông tin">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                              </button>
-                              <button onClick={() => openAdjustment(r)} className="btn btn-secondary btn-sm" title="Điều chỉnh số lượng">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); openEdit(r); }} className="px-2 py-1 bg-white border border-slate-200 hover:border-brand hover:bg-brand/10 text-[11px] text-brand font-black uppercase tracking-widest shadow-sm rounded-lg transition-all" title="Sửa thông tin">Sửa</button>
+                              <button onClick={(e) => { e.stopPropagation(); openAdjustment(r); }} className="px-2 py-1 bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50 text-[11px] text-amber-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all" title="Điều chỉnh">Đ.C</button>
                             </>
                           )}
                           {canDelete && (
-                            <button onClick={() => del(r)} className="btn btn-ghost btn-sm" style={{ color: "var(--color-danger)" }} title="Xóa">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); del(r); }} className="px-2 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all" title="Xóa">Xóa</button>
                           )}
                         </div>
                       </td>
