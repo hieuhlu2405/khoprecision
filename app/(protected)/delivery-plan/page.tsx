@@ -443,11 +443,11 @@ export default function DeliveryPlanPage() {
                   return (
                     <tr key={p.id} className="hover:bg-indigo-50/30 group transition-colors odd:bg-white even:bg-slate-50/20">
                       <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-indigo-50/50 transition-colors border-r-2 shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
-                         <div className="font-extrabold text-slate-900 font-mono tracking-tight text-[18px]">{p.sku}</div>
+                         <div className="font-extrabold text-black font-mono tracking-tight text-[18px]">{p.sku}</div>
                       </td>
                       <td className="py-4 px-4 border-r border-slate-100">
-                         <div className="text-slate-700 font-bold truncate text-[18px]" title={p.name}>{p.name}</div>
-                         <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{p.spec}</div>
+                         <div className="text-black font-bold truncate text-[18px]" title={p.name}>{p.name}</div>
+                         <div className="text-[11px] text-black font-bold uppercase tracking-wider">{p.spec}</div>
                       </td>
                       <td className="py-4 px-4 border-r border-slate-100 text-center">
                          <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-[18px] font-black uppercase tracking-tighter shadow-sm border border-slate-200/50">

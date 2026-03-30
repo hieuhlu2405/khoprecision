@@ -253,7 +253,7 @@ export default function ShortageReportPage() {
     const pts = dateStr.split("-");
     const isToday = new Date().toISOString().slice(0,10) === dateStr;
     return (
-      <div className={`flex flex-col items-center leading-none ${isToday ? "text-red-600" : "text-slate-500"}`}>
+      <div className={`flex flex-col items-center leading-none ${isToday ? "text-red-600" : "text-black"}`}>
         <span className={`text-[9px] font-black uppercase mb-1 ${isToday ? "text-red-500" : ""}`}>{dayNames[d.getDay()]}</span>
         <span className={`text-sm font-black italic ${isToday ? "text-red-600" : ""}`}>{pts[2]}/{pts[1]}</span>
         {isToday && <span className="text-[7px] font-bold uppercase mt-1 bg-red-100 px-1 rounded border border-red-200">Hôm nay</span>}
@@ -316,11 +316,11 @@ export default function ShortageReportPage() {
                 return (
                   <tr key={r.p.id} className="group hover:bg-slate-50/80 transition-all transition-colors odd:bg-white even:bg-slate-50/10">
                     <td className="py-4 px-4 sticky left-0 z-10 bg-white group-hover:bg-slate-50 transition-colors border-r-2 border-slate-100 shadow-[4px_0_15px_rgba(0,0,0,0.02)]">
-                       <div className="font-extrabold text-slate-900 font-mono text-[18px] tracking-tighter">{r.p.sku}</div>
+                       <div className="font-extrabold text-black font-mono text-[18px] tracking-tighter">{r.p.sku}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50">
-                       <div className="font-bold text-slate-700 text-[18px] truncate" title={r.p.name}>{r.p.name}</div>
-                       <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{r.p.spec}</div>
+                       <div className="font-bold text-black text-[18px] truncate" title={r.p.name}>{r.p.name}</div>
+                       <div className="text-[11px] text-black font-bold uppercase tracking-wider">{r.p.spec}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-100 text-right bg-blue-50/20">
                        <span className="font-black text-blue-700 text-[18px]">{r.currentStock?.toLocaleString() || "-"}</span>
