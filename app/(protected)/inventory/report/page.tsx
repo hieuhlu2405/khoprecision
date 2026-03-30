@@ -491,6 +491,69 @@ export default function InventoryReportPage() {
 
   const [closing, setClosing] = useState(false);
 
+  /* ---- DB V2 Testing ---- */
+  const [testingDb, setTestingDb] = useState(false);
+  const testDbSpeed = async () => {
+    try {
+      setTestingDb(true);
+      console.log("=========================================");
+      console.log("Testing DB RPC (v2) speed...");
+      const start = performance.now();
+      const endPlus1 = new Date(qEnd);
+      endPlus1.setDate(endPlus1.getDate() + 1);
+      const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
+      const baselineDate = bounds.S || qStart;
+      
+      const { data, error } = await supabase.rpc("inventory_calculate_report_v2", {
+        p_baseline_date: baselineDate,
+        p_movements_start_date: bounds.effectiveStart,
+        p_movements_end_date: nextD,
+      });
+      
+      if (error) {
+        console.error("Lỗi khi gọi RPC:", error);
+        showToast("Lỗi Database! Bạn đã chạy file SQL trên Supabase chưa?", "error");
+        setTestingDb(false);
+        return;
+      }
+
+      const duration = (performance.now() - start).toFixed(1);
+      console.log(`DB Query hoàn thành trong ${duration}ms, trả về ${data?.length} rows.`);
+      
+      let diffCount = 0;
+      reportData.forEach(r => {
+        const dbRow = (data as any[])?.find(d => d.product_id === r.product.id && (d.customer_id === r.customer_id || (!d.customer_id && !r.customer_id)));
+        if (!dbRow) {
+           console.warn(`[Thiếu dữ liệu] JS có mã này nhưng DB không trả về!`, r);
+           diffCount++;
+        } else {
+           if (Number(dbRow.opening_qty) !== r.opening_qty || 
+               Number(dbRow.inbound_qty) !== r.inbound_qty || 
+               Number(dbRow.outbound_qty) !== r.outbound_qty || 
+               Number(dbRow.current_qty) !== r.current_qty) 
+           {
+             console.warn(`[Lệch số liệu] Khác biệt giữa JS và DB.`, { js: r, db: dbRow });
+             diffCount++;
+           }
+        }
+      });
+
+      if (diffCount === 0) {
+        console.log("✅ Dữ liệu DB KHỚP HOÀN TOÀN 100% với JS Calc.");
+        showToast(`Test DB thành công (${duration}ms). Khớp 100% kết quả Javascript!`, "success");
+      } else {
+        console.error(`❌ Có ${diffCount} dòng tính toán bị lệch! (Mở F12 để xem số liệu chi tiết)`);
+        showToast(`Cảnh báo: Có ${diffCount} dòng bị lệch giữa DB và JS. Hãy xem Console (F12).`, "warning");
+      }
+      
+    } catch (err: any) {
+      console.error(err);
+      showToast("Lỗi: " + err.message, "error");
+    } finally {
+      setTestingDb(false);
+    }
+  };
+
   return (
     <motion.div 
       className="page-root" 
@@ -513,6 +576,10 @@ export default function InventoryReportPage() {
           <button className="btn btn-ghost btn-sm" onClick={handleExportExcel}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 
             Xuất Excel
+          </button>
+          
+          <button className="btn btn-ghost btn-sm text-indigo-600 font-bold border-indigo-200" onClick={testDbSpeed} disabled={testingDb}>
+            {testingDb ? "Đang xử lý..." : "⚡ Test DB Speed"}
           </button>
           <div className="w-px h-6 bg-slate-200 mx-1" />
           <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading || displayData.length === 0}>
