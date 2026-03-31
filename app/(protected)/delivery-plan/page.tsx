@@ -16,10 +16,11 @@ type Plan = {
   id: string;
   product_id: string;
   customer_id: string | null;
-  plan_date: string; 
+  plan_date: string;
   planned_qty: number;
   actual_qty: number;
   is_completed: boolean;
+  note: string | null;
 };
 
 type TextFilter = { mode: "contains" | "equals"; value: string };
@@ -45,25 +46,25 @@ function getNext7Days() {
 function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | null; onChange: (f: TextFilter | null) => void; onClose: () => void }) {
   const [mode, setMode] = useState<TextFilter["mode"]>(filter?.mode ?? "contains");
   const [val, setVal] = useState(filter?.value ?? "");
-  
+
   return (
     <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xl min-w-[220px] backdrop-blur-xl bg-white/90" onClick={e => e.stopPropagation()}>
       <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Lọc dữ liệu</div>
-      <select 
-        value={mode} 
-        onChange={e => setMode(e.target.value as any)} 
+      <select
+        value={mode}
+        onChange={e => setMode(e.target.value as any)}
         className="select select-bordered select-sm w-full mb-3 text-xs bg-white/50"
       >
         <option value="contains">Chứa cụm từ</option>
         <option value="equals">Bằng chính xác</option>
       </select>
-      <input 
-        value={val} 
+      <input
+        value={val}
         onChange={e => {
           const nv = e.target.value;
           setVal(nv);
           onChange(nv ? { mode, value: nv } : null);
-        }} 
+        }}
         autoFocus
         placeholder="Nhập nội dung..."
         onKeyDown={e => { if (e.key === "Enter") { onClose(); } }}
@@ -85,14 +86,14 @@ export default function DeliveryPlanPage() {
   const { showToast } = useUI();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
-  
+
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
-  
+
   const [days] = useState<string[]>(getNext7Days());
   const [saving, setSaving] = useState(false);
-  const [edits, setEdits] = useState<Record<string, string>>({});
+  const [edits, setEdits] = useState<Record<string, { qty?: string; note?: string }>>({});
 
   // Filtering
   const [onlyScheduled, setOnlyScheduled] = useState(false);
@@ -132,7 +133,7 @@ export default function DeliveryPlanPage() {
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return window.location.href = "/login";
-      
+
       const { data: pData } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).single();
       setProfile(pData as Profile);
 
@@ -152,7 +153,7 @@ export default function DeliveryPlanPage() {
         .gte("plan_date", startDate)
         .lte("plan_date", endDate)
         .is("deleted_at", null);
-      
+
       if (!error) setPlans(planData || []);
     } catch (err: any) {
       console.error(err);
@@ -166,9 +167,22 @@ export default function DeliveryPlanPage() {
 
   const canEdit = profile?.role === "admin" || profile?.department === "sales";
 
-  const handleCellChange = (product_id: string, date: string, val: string) => {
+  const handleQtyChange = (product_id: string, date: string, val: string) => {
     if (!canEdit) return;
-    setEdits(prev => ({ ...prev, [`${product_id}_${date}`]: val }));
+    setEdits(prev => {
+      const key = `${product_id}_${date}`;
+      const curr = prev[key] || {};
+      return { ...prev, [key]: { ...curr, qty: val } };
+    });
+  };
+
+  const handleNoteChange = (product_id: string, date: string, val: string) => {
+    if (!canEdit) return;
+    setEdits(prev => {
+      const key = `${product_id}_${date}`;
+      const curr = prev[key] || {};
+      return { ...prev, [key]: { ...curr, note: val } };
+    });
   };
 
   const handleOpenOutbound = async (d: string) => {
@@ -181,7 +195,7 @@ export default function DeliveryPlanPage() {
       }
 
       const { data: stockData } = await supabase.rpc("inventory_calculate_report_v2", { p_date_to: null, p_product_id: null, p_customer_id: null });
-      const mapping = (stockData||[]).reduce((a:any, b:any) => { a[b.product_id] = (b.opening_qty + b.in_qty - b.out_qty); return a; }, {});
+      const mapping = (stockData || []).reduce((a: any, b: any) => { a[b.product_id] = (b.opening_qty + b.in_qty - b.out_qty); return a; }, {});
 
       const items = plansForDay.map(p => {
         const prod = products.find(x => x.id === p.product_id);
@@ -212,7 +226,7 @@ export default function DeliveryPlanPage() {
     setLoadingOutbound(true);
     try {
       const payload = outboundItems.map(x => ({ plan_id: x.plan_id, actual_qty: x.actual, push_backlog: x.push_backlog }));
-      
+
       const pts = outboundDay?.split("-") || ["", "", ""];
       const noteStr = `Xuất tự động từ Kế hoạch giao hàng ngày ${pts[2]}/${pts[1]}/${pts[0]}`;
 
@@ -232,28 +246,33 @@ export default function DeliveryPlanPage() {
   };
 
   const handleSave = async () => {
-    if (!canEdit) return;
+    if (!canEdit || Object.keys(edits).length === 0) return;
     setSaving(true);
     try {
       const upserts: any[] = [];
       const { data: u } = await supabase.auth.getUser();
 
-      Object.entries(edits).forEach(([key, valStr]) => {
+      Object.entries(edits).forEach(([key, editData]) => {
         const [product_id, plan_date] = key.split("_");
-        const qty = Number(valStr);
+        const existing = plans.find(x => x.product_id === product_id && x.plan_date === plan_date);
+        
+        // At least one field must be present
+        const newQtyRaw = editData.qty !== undefined ? editData.qty : (existing?.planned_qty ?? "0");
+        const newNote = editData.note !== undefined ? editData.note : (existing?.note ?? null);
+        
+        const qty = Number(newQtyRaw);
         if (isNaN(qty) || qty < 0) return;
         
         const p = products.find(x => x.id === product_id);
         if (!p) return;
 
-        const existing = plans.find(x => x.product_id === product_id && x.plan_date === plan_date);
-        
         upserts.push({
-          id: existing?.id,
+          ...(existing?.id ? { id: existing.id } : {}),
           plan_date,
           product_id,
           customer_id: p.customer_id,
           planned_qty: qty,
+          note: newNote,
           updated_at: new Date().toISOString(),
           updated_by: u.user?.id,
           ...(existing?.id ? {} : { created_at: new Date().toISOString(), created_by: u.user?.id })
@@ -261,18 +280,19 @@ export default function DeliveryPlanPage() {
       });
 
       if (upserts.length === 0) {
-         showToast("Không có thay đổi nào hợp lệ", "warning");
-         setSaving(false);
-         return;
+        showToast("Không có thay đổi nào hợp lệ", "warning");
+        setSaving(false);
+        return;
       }
 
       const { error } = await supabase.from("delivery_plans").upsert(upserts, { onConflict: 'plan_date, product_id, customer_id' });
 
       if (error) throw error;
-      showToast("Đã lưu kế hoạch thành công!", "success");
+      showToast("Đã lưu kế hoạch & lưu ý thành công!", "success");
       setEdits({});
       loadData();
     } catch (err: any) {
+      console.error(err);
       showToast(err.message, "error");
     } finally {
       setSaving(false);
@@ -282,14 +302,14 @@ export default function DeliveryPlanPage() {
   // Logic Filtering & Sorting
   const displayProducts = useMemo(() => {
     let list = products.slice();
-    
+
     // 1. "Only Scheduled" filter
     if (onlyScheduled) {
-       list = list.filter(p => {
-          const hasP = plans.some(pl => pl.product_id === p.id && (pl.planned_qty || 0) > 0);
-          const hasE = Object.keys(edits).some(k => k.startsWith(p.id + "_") && Number(edits[k]) > 0);
-          return hasP || hasE;
-       });
+      list = list.filter(p => {
+        const hasP = plans.some(pl => pl.product_id === p.id && (pl.planned_qty || 0) > 0);
+        const hasE = Object.keys(edits).some(k => k.startsWith(p.id + "_") && Number(edits[k]) > 0);
+        return hasP || hasE;
+      });
     }
 
     // 2. Col filters
@@ -304,7 +324,7 @@ export default function DeliveryPlanPage() {
           const c = customers.find(x => x.id === p.customer_id);
           target = c ? `${c.code} ${c.name}` : "";
         }
-        
+
         if (f.mode === "contains") return target.toLowerCase().includes(v);
         return target.toLowerCase() === v;
       });
@@ -318,17 +338,17 @@ export default function DeliveryPlanPage() {
         if (sortCol === "sku") { valA = a.sku; valB = b.sku; }
         else if (sortCol === "name") { valA = a.name; valB = b.name; }
         else if (sortCol === "customer") {
-           const cA = customers.find(x => x.id === a.customer_id);
-           const cB = customers.find(x => x.id === b.customer_id);
-           valA = cA ? cA.name : "";
-           valB = cB ? cB.name : "";
+          const cA = customers.find(x => x.id === a.customer_id);
+          const cB = customers.find(x => x.id === b.customer_id);
+          valA = cA ? cA.name : "";
+          valB = cB ? cB.name : "";
         }
         return valA.localeCompare(valB) * dir;
       });
     } else {
       list.sort((a, b) => a.name.localeCompare(b.name));
     }
-    
+
     return list;
   }, [products, customers, plans, edits, onlyScheduled, colFilters, sortCol, sortDir]);
 
@@ -344,7 +364,7 @@ export default function DeliveryPlanPage() {
     }
   };
 
-  function ThCell({ label, colKey, sortable, w, align = "left", sticky = false, isToday = false, extra }: { label: string; colKey: string; sortable?: boolean; w?: string; align?: "left"|"right"|"center"; sticky?: boolean; isToday?: boolean; extra?: React.ReactNode }) {
+  function ThCell({ label, colKey, sortable, w, align = "left", sticky = false, isToday = false, extra }: { label: string; colKey: string; sortable?: boolean; w?: string; align?: "left" | "right" | "center"; sticky?: boolean; isToday?: boolean; extra?: React.ReactNode }) {
     const active = !!colFilters[colKey];
     const isSortTarget = sortCol === colKey;
     const popupOpen = openPopup === colKey;
@@ -362,9 +382,9 @@ export default function DeliveryPlanPage() {
     };
 
     return (
-      <th 
+      <th
         ref={thRef}
-        style={{ 
+        style={{
           width: width ? `${width}px` : w,
           minWidth: width ? `${width}px` : w || "80px",
           textAlign: align,
@@ -380,34 +400,34 @@ export default function DeliveryPlanPage() {
           {extra ? extra : <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>}
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
             {sortable && (
-              <button 
-                onClick={(e) => { e.stopPropagation(); toggleSort(colKey); }} 
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleSort(colKey); }}
                 className={`p-1 rounded bg-white shadow-sm border border-slate-200 transition-all ${isSortTarget ? "text-indigo-600 scale-110" : "text-slate-400 hover:text-indigo-500"}`}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
+                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6" /> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6" /> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3" />}
                 </svg>
               </button>
             )}
-            <button 
-              onClick={(e) => { e.stopPropagation(); setOpenPopup(popupOpen ? null : colKey); }} 
+            <button
+              onClick={(e) => { e.stopPropagation(); setOpenPopup(popupOpen ? null : colKey); }}
               className={`p-1 rounded transition-all border ${active ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-400 border-slate-200 hover:text-indigo-500"}`}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
             </button>
           </div>
         </div>
-        <div 
-          onMouseDown={startResizing} 
+        <div
+          onMouseDown={startResizing}
           onDoubleClick={() => onResize(colKey, 150)}
-          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-500 transition-colors z-20" 
+          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-500 transition-colors z-20"
         />
         {popupOpen && (
           <div className="absolute top-[calc(100%+8px)] left-0 z-50 animate-in fade-in slide-in-from-top-2 duration-200 shadow-2xl rounded-xl overflow-hidden" onClick={e => e.stopPropagation()}>
-            <TextFilterPopup 
-              filter={colFilters[colKey] as TextFilter} 
-              onChange={f => setColFilters(prev => { const n = {...prev}; if(f) n[colKey]=f; else delete n[colKey]; return n; })} 
-              onClose={() => setOpenPopup(null)} 
+            <TextFilterPopup
+              filter={colFilters[colKey] as TextFilter}
+              onChange={f => setColFilters(prev => { const n = { ...prev }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
+              onClose={() => setOpenPopup(null)}
             />
           </div>
         )}
@@ -419,21 +439,21 @@ export default function DeliveryPlanPage() {
     const d = new Date(dateStr);
     const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
     const pts = dateStr.split("-");
-    
+
     // Sử dụng múi giờ Local thay vì UTC 
     const now = new Date();
     const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    
+
     const isToday = todayLocal === dateStr;
     const isPastOrToday = dateStr <= todayLocal;
-    
+
     return (
       <div className={`flex flex-col items-center leading-tight ${isToday ? "text-red-500" : ""}`}>
         <span className={`text-[10px] font-black uppercase tracking-widest ${isToday ? "text-red-500" : "text-slate-400"}`}>{dayNames[d.getDay()]}</span>
         <span className={`text-[15px] font-black italic tracking-tighter ${isToday ? "text-red-600" : ""}`}>{pts[2]}/{pts[1]}</span>
         {isToday && <span className="text-[8px] font-bold uppercase mt-0.5 bg-red-100 text-red-600 px-1 rounded shadow-sm border border-red-200">Hôm nay</span>}
         {isPastOrToday && (
-          <button 
+          <button
             onClick={(e) => { e.stopPropagation(); handleOpenOutbound(dateStr); }}
             className="mt-2 px-3 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200 hover:border-indigo-600 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all shadow-sm"
           >
@@ -456,42 +476,42 @@ export default function DeliveryPlanPage() {
             <p className="page-description !m-0 text-slate-400 text-[10px] font-bold uppercase tracking-widest">Ma trận 7 ngày tới • Cập nhật lần cuối: {new Date().toLocaleTimeString()}</p>
           </div>
         </div>
-        
+
         <div className="flex gap-4 items-center">
-           {/* Modern Toggle Switch */}
-           <label className="flex items-center gap-3 cursor-pointer group bg-slate-100/50 px-4 py-2 rounded-xl border border-slate-200/40 hover:bg-slate-100 transition-all">
-              <input 
-                type="checkbox" 
-                className="toggle toggle-primary toggle-sm" 
-                checked={onlyScheduled} 
-                onChange={e => setOnlyScheduled(e.target.checked)} 
-              />
-              <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${onlyScheduled ? "text-indigo-600" : "text-slate-400"}`}>Chỉ hiện mã có lịch giao</span>
-           </label>
+          {/* Modern Toggle Switch */}
+          <label className="flex items-center gap-3 cursor-pointer group bg-slate-100/50 px-4 py-2 rounded-xl border border-slate-200/40 hover:bg-slate-100 transition-all">
+            <input
+              type="checkbox"
+              className="toggle toggle-primary toggle-sm"
+              checked={onlyScheduled}
+              onChange={e => setOnlyScheduled(e.target.checked)}
+            />
+            <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${onlyScheduled ? "text-indigo-600" : "text-slate-400"}`}>Chỉ hiện mã có lịch giao</span>
+          </label>
 
-           <div className="h-8 w-px bg-slate-200 mx-1" />
+          <div className="h-8 w-px bg-slate-200 mx-1" />
 
-           <AnimatePresence>
-             {Object.keys(edits).length > 0 && (
-               <motion.button 
-                 initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-                 className="btn btn-ghost btn-sm text-red-500 font-bold hover:bg-red-50 rounded-lg h-10 px-4"
-                 onClick={() => setEdits({})}
-                 disabled={saving}
-               >
-                 Hủy thay đổi
-               </motion.button>
-             )}
-           </AnimatePresence>
-           <button 
-             className={`btn h-10 px-6 rounded-xl font-black text-xs tracking-widest shadow-xl transition-all
+          <AnimatePresence>
+            {Object.keys(edits).length > 0 && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+                className="btn btn-ghost btn-sm text-red-500 font-bold hover:bg-red-50 rounded-lg h-10 px-4"
+                onClick={() => setEdits({})}
+                disabled={saving}
+              >
+                Hủy thay đổi
+              </motion.button>
+            )}
+          </AnimatePresence>
+          <button
+            className={`btn h-10 px-6 rounded-xl font-black text-xs tracking-widest shadow-xl transition-all
                ${Object.keys(edits).length > 0 ? "btn-primary shadow-indigo-200 scale-105" : "bg-slate-100 text-slate-400 cursor-not-allowed"}
              `}
-             onClick={handleSave} 
-             disabled={saving || !canEdit || Object.keys(edits).length === 0}
-           >
-              {saving ? "ĐANG LƯU..." : "💾 LƯU KẾ HOẠCH"}
-           </button>
+            onClick={handleSave}
+            disabled={saving || !canEdit || Object.keys(edits).length === 0}
+          >
+            {saving ? "ĐANG LƯU..." : "💾 LƯU KẾ HOẠCH"}
+          </button>
         </div>
       </div>
 
@@ -504,15 +524,16 @@ export default function DeliveryPlanPage() {
                   <ThCell label="Mã hàng" colKey="sku" sortable sticky w="180px" />
                   <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="320px" />
                   <ThCell label="Khách hàng" colKey="customer" sortable w="140px" align="center" />
+                  <ThCell label="LƯU Ý" colKey="note_today" sortable={false} w="250px" />
                   {days.map(d => (
-                    <ThCell 
-                      key={d} 
-                      label={""} 
-                      colKey={d} 
-                      w="100px" 
+                    <ThCell
+                      key={d}
+                      label={""}
+                      colKey={d}
+                      w="100px"
                       align="center"
                       isToday={
-                        `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}` === d
+                        `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}` === d
                       }
                       extra={formatDate(d)}
                     />
@@ -533,51 +554,72 @@ export default function DeliveryPlanPage() {
                   return (
                     <tr key={p.id} className="hover:bg-brand/5 group transition-colors odd:bg-white even:bg-slate-50/20">
                       <td className="py-4 px-4 border-r border-slate-100 sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
-                         <div className="font-extrabold text-slate-900 font-mono tracking-tight text-[15px] break-all uppercase">{p.sku}</div>
+                        <div className="font-extrabold text-slate-900 font-mono tracking-tight text-[15px] break-all uppercase">{p.sku}</div>
                       </td>
                       <td className="py-4 px-4 border-r border-slate-100">
-                         <div className="text-slate-900 font-bold text-[15px] leading-tight" title={p.name}>{p.name}</div>
-                         <div className="text-[11px] text-slate-900 font-bold uppercase tracking-wider mt-1">{p.spec || ""}</div>
+                        <div className="text-slate-900 font-bold text-[15px] leading-tight" title={p.name}>{p.name}</div>
+                        <div className="text-[11px] text-slate-900 font-bold uppercase tracking-wider mt-1">{p.spec || ""}</div>
                       </td>
                       <td className="py-4 px-4 border-r border-slate-100 text-center">
-                         <div className="text-slate-900 font-bold text-[15px] uppercase">{c?.code || "-"}</div>
-                         <div className="text-[10px] text-slate-900 font-bold uppercase tracking-wider" title={c?.name}>{c?.name}</div>
+                        <div className="text-slate-900 font-bold text-[15px] uppercase">{c?.code || "-"}</div>
+                        <div className="text-[10px] text-slate-900 font-bold uppercase tracking-wider" title={c?.name}>{c?.name}</div>
+                      </td>
+                      <td className="py-4 px-4 border-r border-slate-100">
+                        {(() => {
+                           const today = days[0];
+                           const plan = plans.find(x => x.product_id === p.id && x.plan_date === today);
+                           const noteVal = edits[`${p.id}_${today}`]?.note ?? plan?.note ?? "";
+                           return (
+                             <input 
+                               type="text" 
+                               placeholder="Nhập ghi chú..." 
+                               className="input input-ghost input-xs w-full text-[13px] font-bold text-indigo-600 focus:bg-white focus:ring-1 focus:ring-indigo-300 placeholder:text-slate-300 italic" 
+                               value={noteVal}
+                               onChange={e => handleNoteChange(p.id, today, e.target.value)} 
+                             />
+                           );
+                        })()}
                       </td>
                       {days.map(d => {
                         const plan = plans.find(x => x.product_id === p.id && x.plan_date === d);
-                        const val = edits[`${p.id}_${d}`] ?? (plan?.planned_qty && plan.planned_qty > 0 ? String(plan.planned_qty) : "");
-                        const isChanged = edits[`${p.id}_${d}`] !== undefined;
+                        const editData = edits[`${p.id}_${d}`];
+                        const val = editData?.qty ?? (plan?.planned_qty && plan.planned_qty > 0 ? String(plan.planned_qty) : "");
+                        const isChanged = editData?.qty !== undefined || editData?.note !== undefined;
                         const nd = new Date();
-                        const itdr = `${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,'0')}-${String(nd.getDate()).padStart(2,'0')}` === d;
+                        const itdr = `${nd.getFullYear()}-${String(nd.getMonth() + 1).padStart(2, '0')}-${String(nd.getDate()).padStart(2, '0')}` === d;
                         const isDone = plan?.is_completed;
-                        
+                        const hasNote = !!(editData?.note ?? plan?.note);
+
                         return (
                           <td key={d} className={`p-1 border-r border-slate-50 hover:bg-white transition-all ${isChanged ? 'bg-amber-50/60' : ''} ${itdr ? 'bg-red-50/20' : ''}`}>
-                             <div className="relative group/cell">
-                                <input 
-                                  type="text"
-                                  className={`w-full text-center py-2 px-1 rounded-lg border-2 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-black text-sm
-                                    ${isChanged 
-                                      ? 'border-amber-400 bg-white text-amber-700 shadow-md shadow-amber-200/40 z-10 relative scale-105' 
-                                      : isDone ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600 shadow-inner' : 'border-transparent bg-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-400'
-                                    }
+                            <div className="relative group/cell">
+                              <input
+                                type="text"
+                                className={`w-full text-center py-2 px-1 rounded-lg border-2 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-black text-sm
+                                    ${isChanged
+                                    ? 'border-amber-400 bg-white text-amber-700 shadow-md shadow-amber-200/40 z-10 relative scale-105'
+                                    : isDone ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600 shadow-inner' : 'border-transparent bg-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-400'
+                                  }
                                     ${itdr && !isChanged && !isDone ? 'text-red-600' : ''}
                                   `}
-                                  disabled={!canEdit || isDone}
-                                  value={val}
-                                  placeholder="-"
-                                  title={isDone ? `Đã xuất kho thực tế: ${plan?.actual_qty}` : ""}
-                                  onChange={e => handleCellChange(p.id, d, e.target.value)}
-                                />
-                                {isDone && (
-                                   <div className="absolute top-1 right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm" title={`Đã xuất kho thực tế: ${plan?.actual_qty}`}>
-                                      <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" className="w-2.5 h-2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                                   </div>
-                                )}
-                                {isChanged && (
-                                   <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full animate-bounce z-20" title="Chưa lưu" />
-                                )}
-                             </div>
+                                disabled={!canEdit || isDone}
+                                value={val}
+                                placeholder="-"
+                                title={isDone ? `Đã xuất kho thực tế: ${plan?.actual_qty}` : (editData?.note ?? plan?.note ?? "")}
+                                onChange={e => handleQtyChange(p.id, d, e.target.value)}
+                              />
+                              {hasNote && (
+                                <div className="absolute top-0 right-0 w-2 h-2 bg-indigo-500 rounded-bl-full shadow-sm z-20" title={editData?.note ?? plan?.note ?? ""} />
+                              )}
+                              {isDone && (
+                                <div className="absolute top-1 right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm" title={`Đã xuất kho thực tế: ${plan?.actual_qty}`}>
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" className="w-2.5 h-2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                                </div>
+                              )}
+                              {isChanged && (
+                                <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full animate-bounce z-20" title="Chưa lưu" />
+                              )}
+                            </div>
                           </td>
                         );
                       })}
@@ -587,16 +629,16 @@ export default function DeliveryPlanPage() {
               </tbody>
             </table>
           </div>
-          
+
           <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
-             <div className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
-                HIỂN THỊ {displayProducts.length} MÃ HÀNG KHỚP BỘ LỌC
-             </div>
-             {activeFilterCount > 0 && (
-               <button onClick={() => setColFilters({})} className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest underline underline-offset-4">
-                  Xóa tất cả bộ lọc ({activeFilterCount})
-               </button>
-             )}
+            <div className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
+              HIỂN THỊ {displayProducts.length} MÃ HÀNG KHỚP BỘ LỌC
+            </div>
+            {activeFilterCount > 0 && (
+              <button onClick={() => setColFilters({})} className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest underline underline-offset-4">
+                Xóa tất cả bộ lọc ({activeFilterCount})
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -614,7 +656,7 @@ export default function DeliveryPlanPage() {
                 </div>
                 <button onClick={() => setOutboundDay(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 transition-colors">✕</button>
               </div>
-              
+
               <div className="flex-1 overflow-auto p-0 bg-slate-50/30">
                 <table className="w-full text-sm text-left">
                   <thead className="bg-white sticky top-0 z-10 shadow-sm border-b border-slate-200">
@@ -641,8 +683,8 @@ export default function DeliveryPlanPage() {
                         </td>
                         <td className="px-6 py-4 text-right font-black text-slate-700 bg-slate-50/30 border-r border-slate-50 text-xl">{item.planned.toLocaleString()}</td>
                         <td className="px-6 py-4 text-center bg-indigo-50/10 border-r border-slate-50">
-                          <input 
-                            type="number" 
+                          <input
+                            type="number"
                             className="input input-sm input-bordered w-28 text-center font-black text-indigo-700 text-lg border-indigo-200 shadow-inner focus:ring-2 focus:ring-indigo-500"
                             value={item.actual}
                             onChange={e => {
@@ -661,8 +703,8 @@ export default function DeliveryPlanPage() {
                         <td className="px-6 py-4 text-center bg-amber-50/10">
                           {item.actual < item.planned && (
                             <label className="flex items-center justify-center gap-2 cursor-pointer bg-amber-100/50 px-3 py-2 rounded-lg border border-amber-200 transition-all hover:bg-amber-100">
-                              <input 
-                                type="checkbox" 
+                              <input
+                                type="checkbox"
                                 className="checkbox checkbox-warning checkbox-sm rounded"
                                 checked={item.push_backlog}
                                 onChange={e => {
@@ -686,8 +728,8 @@ export default function DeliveryPlanPage() {
 
               <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 rounded-b-3xl">
                 <button onClick={() => setOutboundDay(null)} className="btn btn-ghost font-black tracking-widest text-xs rounded-xl px-6">HỦY</button>
-                <button 
-                  onClick={submitOutbound} 
+                <button
+                  onClick={submitOutbound}
                   className="btn bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black tracking-widest text-xs rounded-xl px-8 shadow-xl shadow-indigo-200 border-none"
                   disabled={loadingOutbound}
                 >
