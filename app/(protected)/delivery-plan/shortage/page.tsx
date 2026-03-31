@@ -159,17 +159,21 @@ export default function ShortageReportPage() {
        for (const d of days) {
           const plan = plans.find(x => x.product_id === p.id && x.plan_date === d);
           const qty = plan?.planned_qty || 0;
+          
+          // Logic mới: Chỉ tính thiếu hụt nếu có nhu cầu phát sinh trong ngày và tồn dự kiến không đủ
+          const shortageToday = (qty > 0 && runningStock < qty) ? (qty - Math.max(0, runningStock)) : 0;
+          
           runningStock = runningStock - qty;
           dailyPlan.push(qty);
-          if (runningStock < 0) {
-             const deficit = Math.abs(runningStock);
-             dailyShortage.push(deficit);
+          dailyShortage.push(shortageToday);
+          
+          if (shortageToday > 0) {
              hasShortage = true;
-             if (deficit > maxShortage) maxShortage = deficit;
-          } else {
-             dailyShortage.push(0);
           }
        }
+       // maxShortage là tổng thâm hụt cực đại hoặc thâm hụt cuối cùng nếu < 0
+       maxShortage = runningStock < 0 ? Math.abs(runningStock) : 0;
+       
        return { p, currentStock, dailyPlan, dailyShortage, hasShortage, maxShortage, finalStock: runningStock };
     });
 
