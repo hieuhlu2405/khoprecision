@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -108,6 +109,10 @@ export default function DeliveryPlanPage() {
   const [loadingOutbound, setLoadingOutbound] = useState(false);
   const [outboundDay, setOutboundDay] = useState<string | null>(null);
   const [outboundItems, setOutboundItems] = useState<any[]>([]);
+  const [selectedOutboundDay, setSelectedOutboundDay] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  });
 
   // Column Resizing state
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
@@ -191,11 +196,28 @@ export default function DeliveryPlanPage() {
       const plansForDay = plans.filter(p => p.plan_date === d && p.planned_qty > 0 && !p.is_completed);
       if (plansForDay.length === 0) {
         showToast("Không có kế hoạch chờ xuất kho cho ngày này.", "info");
+        setLoadingOutbound(false);
         return;
       }
 
-      const { data: stockData } = await supabase.rpc("inventory_calculate_report_v2", { p_date_to: null, p_product_id: null, p_customer_id: null });
-      const mapping = (stockData || []).reduce((a: any, b: any) => { a[b.product_id] = (b.opening_qty + b.in_qty - b.out_qty); return a; }, {});
+      // FIX: Use the correct RPC call pattern (matching shortage page)
+      const currD = new Date();
+      const qStart = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-01`;
+      const qEnd = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-${String(currD.getDate()).padStart(2, "0")}`;
+      const { data: ops } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", qEnd + "T23:59:59.999Z").is("deleted_at", null);
+      const computedBounds = computeSnapshotBounds(qStart, qEnd, ops || []);
+      const baselineDate = computedBounds.S || qStart;
+      const endPlus1 = new Date(qEnd);
+      endPlus1.setDate(endPlus1.getDate() + 1);
+      const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
+
+      const { data: stockRows } = await supabase.rpc("inventory_calculate_report_v2", {
+        p_baseline_date: baselineDate,
+        p_movements_start_date: computedBounds.effectiveStart,
+        p_movements_end_date: nextD,
+      });
+      const mapping: Record<string, number> = {};
+      (stockRows || []).forEach((r: any) => { mapping[r.product_id] = (mapping[r.product_id] || 0) + Number(r.current_qty); });
 
       const items = plansForDay.map(p => {
         const prod = products.find(x => x.id === p.product_id);
@@ -445,21 +467,12 @@ export default function DeliveryPlanPage() {
     const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
     const isToday = todayLocal === dateStr;
-    const isPastOrToday = dateStr <= todayLocal;
 
     return (
       <div className={`flex flex-col items-center leading-tight ${isToday ? "text-red-500" : ""}`}>
         <span className={`text-[10px] font-black uppercase tracking-widest ${isToday ? "text-red-500" : "text-slate-400"}`}>{dayNames[d.getDay()]}</span>
         <span className={`text-[15px] font-black italic tracking-tighter ${isToday ? "text-red-600" : ""}`}>{pts[2]}/{pts[1]}</span>
         {isToday && <span className="text-[8px] font-bold uppercase mt-0.5 bg-red-100 text-red-600 px-1 rounded shadow-sm border border-red-200">Hôm nay</span>}
-        {isPastOrToday && (
-          <button
-            onClick={(e) => { e.stopPropagation(); handleOpenOutbound(dateStr); }}
-            className="mt-2 px-3 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200 hover:border-indigo-600 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all shadow-sm"
-          >
-            📤 XUẤT
-          </button>
-        )}
       </div>
     );
   };
@@ -477,7 +490,7 @@ export default function DeliveryPlanPage() {
           </div>
         </div>
 
-        <div className="flex gap-4 items-center">
+        <div className="flex gap-3 items-center flex-wrap">
           {/* Modern Toggle Switch */}
           <label className="flex items-center gap-3 cursor-pointer group bg-slate-100/50 px-4 py-2 rounded-xl border border-slate-200/40 hover:bg-slate-100 transition-all">
             <input
@@ -488,6 +501,42 @@ export default function DeliveryPlanPage() {
             />
             <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${onlyScheduled ? "text-indigo-600" : "text-slate-400"}`}>Chỉ hiện mã có lịch giao</span>
           </label>
+
+          <div className="h-8 w-px bg-slate-200 mx-1" />
+
+          {/* === 🚚 XUẤT KHO TỰ ĐỘNG === */}
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedOutboundDay}
+              onChange={e => setSelectedOutboundDay(e.target.value)}
+              className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition-all"
+            >
+              {days.map(d => {
+                const pts = d.split("-");
+                const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+                const dayOfWeek = dayNames[new Date(d).getDay()];
+                const now = new Date();
+                const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+                return (
+                  <option key={d} value={d}>
+                    {dayOfWeek} {pts[2]}/{pts[1]}{d === todayStr ? " (Hôm nay)" : ""}
+                  </option>
+                );
+              })}
+            </select>
+            <button
+              onClick={() => handleOpenOutbound(selectedOutboundDay)}
+              disabled={loadingOutbound}
+              className="h-10 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black text-xs tracking-widest uppercase shadow-lg shadow-indigo-200/50 border-none transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              {loadingOutbound ? (
+                <span className="loading loading-spinner loading-xs"></span>
+              ) : (
+                <span className="text-base">🚚</span>
+              )}
+              XUẤT KHO TỰ ĐỘNG
+            </button>
+          </div>
 
           <div className="h-8 w-px bg-slate-200 mx-1" />
 
