@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
+import { exportToExcel } from "@/lib/excel-utils";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -12,7 +13,8 @@ import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-u
 
 type Profile = { id: string; role: "admin" | "manager" | "staff"; department: string };
 type Product = { id: string; sku: string; name: string; spec: string | null; customer_id: string | null };
-type Customer = { id: string; code: string; name: string };
+type Customer = { id: string; code: string; name: string; selling_entity_id?: string | null };
+type SellingEntity = { id: string; code: string; name: string; address?: string; tax_code?: string; phone?: string };
 type Plan = {
   id: string;
   product_id: string;
@@ -91,6 +93,7 @@ export default function DeliveryPlanPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [entities, setEntities] = useState<SellingEntity[]>([]);
 
   const [days] = useState<string[]>(getNext7Days());
   const [saving, setSaving] = useState(false);
@@ -142,12 +145,14 @@ export default function DeliveryPlanPage() {
       const { data: pData } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).single();
       setProfile(pData as Profile);
 
-      const [rP, rC] = await Promise.all([
+      const [rP, rC, rE] = await Promise.all([
         supabase.from("products").select("id, sku, name, spec, customer_id").is("deleted_at", null),
-        supabase.from("customers").select("id, code, name").is("deleted_at", null),
+        supabase.from("customers").select("id, code, name, selling_entity_id").is("deleted_at", null),
+        supabase.from("selling_entities").select("id, code, name, address, tax_code, phone").is("deleted_at", null),
       ]);
       setProducts(rP.data || []);
       setCustomers(rC.data || []);
+      setEntities(rE.data || []);
 
       const startDate = days[0];
       const endDate = days[6];
@@ -222,12 +227,16 @@ export default function DeliveryPlanPage() {
       const items = plansForDay.map(p => {
         const prod = products.find(x => x.id === p.product_id);
         const cust = customers.find(x => x.id === (p.customer_id || prod?.customer_id));
+        const ent = cust?.selling_entity_id ? entities.find(e => e.id === cust.selling_entity_id) : null;
         return {
           plan_id: p.id,
           product_name: prod?.name || "",
           sku: prod?.sku || "",
           spec: prod?.spec || "",
+          customer_code: cust?.code || "",
           customer_name: cust?.name || "",
+          entity_code: ent?.code || "",
+          entity_name: ent?.name || "",
           planned: p.planned_qty,
           stock: mapping[p.product_id] || 0,
           actual: p.planned_qty,
@@ -258,6 +267,10 @@ export default function DeliveryPlanPage() {
       });
       if (error) throw error;
       showToast("Tạo phiếu xuất kho thành công!", "success");
+
+      // Auto export Excel after successful outbound
+      exportOutboundExcel();
+
       setOutboundDay(null);
       loadData();
     } catch (err: any) {
@@ -265,6 +278,83 @@ export default function DeliveryPlanPage() {
     } finally {
       setLoadingOutbound(false);
     }
+  };
+
+  // Professional Excel Export - grouped by Pháp nhân
+  const exportOutboundExcel = () => {
+    if (!outboundItems.length || !outboundDay) return;
+
+    const dateParts = outboundDay.split("-");
+    const dateLabel = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+
+    // Group items by entity
+    const grouped: Record<string, typeof outboundItems> = {};
+    for (const item of outboundItems) {
+      const key = item.entity_code || "KHONG_XD";
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(item);
+    }
+
+    // Build export data with entity headers
+    const rows: Record<string, string | number>[] = [];
+    let stt = 0;
+
+    for (const [entityCode, items] of Object.entries(grouped)) {
+      const entityName = items[0]?.entity_name || "Chưa gán pháp nhân";
+
+      // Entity header row
+      rows.push({
+        "STT": "",
+        "Mã hàng": `══ PHÁP NHÂN: ${entityCode !== "KHONG_XD" ? entityCode + " - " + entityName : "CHƯA GÁN"} ══`,
+        "Tên hàng": "",
+        "Quy cách": "",
+        "Khách hàng": "",
+        "Tồn kho": "",
+        "Kế hoạch": "",
+        "Thực xuất": "",
+        "Ghi chú": "",
+      } as any);
+
+      for (const item of items) {
+        stt++;
+        const backlogNote = item.actual < item.planned && item.push_backlog
+          ? `Nợ ${(item.planned - item.actual).toLocaleString()} → ngày mai`
+          : "";
+        const stockNote = item.stock < item.planned ? "⚠ THIẾU HÀNG" : "";
+
+        rows.push({
+          "STT": stt,
+          "Mã hàng": item.sku,
+          "Tên hàng": item.product_name,
+          "Quy cách": item.spec || "",
+          "Khách hàng": `${item.customer_code} - ${item.customer_name}`,
+          "Tồn kho": item.stock,
+          "Kế hoạch": item.planned,
+          "Thực xuất": item.actual,
+          "Ghi chú": [backlogNote, stockNote].filter(Boolean).join(" | "),
+        });
+      }
+
+      // Subtotal row
+      rows.push({
+        "STT": "",
+        "Mã hàng": "",
+        "Tên hàng": `── Tổng ${entityCode !== "KHONG_XD" ? entityCode : ""}: ${items.length} mã hàng ──`,
+        "Quy cách": "",
+        "Khách hàng": "",
+        "Tồn kho": "",
+        "Kế hoạch": items.reduce((s, i) => s + i.planned, 0),
+        "Thực xuất": items.reduce((s, i) => s + i.actual, 0),
+        "Ghi chú": "",
+      } as any);
+
+      // Blank separator
+      rows.push({ "STT": "", "Mã hàng": "", "Tên hàng": "", "Quy cách": "", "Khách hàng": "", "Tồn kho": "", "Kế hoạch": "", "Thực xuất": "", "Ghi chú": "" } as any);
+    }
+
+    const fileName = `PXK_${dateLabel.replace(/\//g, "-")}_${Object.keys(grouped).join("_")}`;
+    exportToExcel(rows, fileName, `Phieu_xuat_${dateLabel}`);
+    showToast("Đã xuất file Excel!", "success");
   };
 
   const handleSave = async () => {
@@ -725,7 +815,16 @@ export default function DeliveryPlanPage() {
                           <div className="font-bold text-slate-900 text-base">{item.sku}</div>
                           <div className="text-[11px] font-semibold text-slate-500 mt-1 uppercase">{item.product_name}</div>
                         </td>
-                        <td className="px-6 py-4 text-center font-bold text-slate-700 border-r border-slate-50">{item.customer_name}</td>
+                        <td className="px-6 py-4 text-center border-r border-slate-50">
+                          <div className="font-bold text-slate-700">{item.customer_name}</div>
+                          {item.entity_code ? (
+                            <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200/60 text-indigo-600 text-[10px] font-black uppercase tracking-wider">
+                              🏢 {item.entity_code}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-300 italic mt-1 block">Chưa gán PN</span>
+                          )}
+                        </td>
                         <td className={`px-6 py-4 text-right border-r border-slate-50 ${item.stock < item.planned ? "text-red-500" : "text-emerald-600"}`}>
                           <div className="text-xl font-black">{item.stock.toLocaleString()}</div>
                           {item.stock < item.planned && <div className="text-[10px] uppercase font-bold mt-1 tracking-widest text-red-400">Thiếu hàng</div>}
@@ -775,15 +874,23 @@ export default function DeliveryPlanPage() {
                 </table>
               </div>
 
-              <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 rounded-b-3xl">
-                <button onClick={() => setOutboundDay(null)} className="btn btn-ghost font-black tracking-widest text-xs rounded-xl px-6">HỦY</button>
+              <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-between items-center rounded-b-3xl">
                 <button
-                  onClick={submitOutbound}
-                  className="btn bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black tracking-widest text-xs rounded-xl px-8 shadow-xl shadow-indigo-200 border-none"
-                  disabled={loadingOutbound}
+                  onClick={exportOutboundExcel}
+                  className="btn btn-ghost font-black tracking-widest text-xs rounded-xl px-6 text-emerald-600 hover:bg-emerald-50 border border-emerald-200"
                 >
-                  {loadingOutbound ? <span className="loading loading-spinner loading-sm"></span> : "✅ CHỐT TẠO PHIẾU XUẤT"}
+                  📄 XUẤT EXCEL
                 </button>
+                <div className="flex gap-3">
+                  <button onClick={() => setOutboundDay(null)} className="btn btn-ghost font-black tracking-widest text-xs rounded-xl px-6">HỦY</button>
+                  <button
+                    onClick={submitOutbound}
+                    className="btn bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black tracking-widest text-xs rounded-xl px-8 shadow-xl shadow-indigo-200 border-none"
+                    disabled={loadingOutbound}
+                  >
+                    {loadingOutbound ? <span className="loading loading-spinner loading-sm"></span> : "✅ CHỐT TẠO PHIẾU XUẤT"}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

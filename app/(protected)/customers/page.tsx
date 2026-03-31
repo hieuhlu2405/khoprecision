@@ -11,6 +11,13 @@ type Customer = {
   code: string;
   name: string;
   created_at: string;
+  selling_entity_id: string | null;
+};
+
+type SellingEntity = {
+  id: string;
+  code: string;
+  name: string;
 };
 
 type Profile = {
@@ -33,6 +40,10 @@ export default function CustomersPage() {
   const [editing, setEditing] = useState<Customer | null>(null);
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
+  const [entityId, setEntityId] = useState<string>("");
+
+  // Selling entities
+  const [entities, setEntities] = useState<SellingEntity[]>([]);
 
   function fmtDatetime(d: string | null): string {
     if (!d) return "";
@@ -315,6 +326,7 @@ export default function CustomersPage() {
     setEditing(null);
     setCode("");
     setName("");
+    setEntityId("");
   }
 
   function openCreate() {
@@ -330,6 +342,7 @@ export default function CustomersPage() {
     setEditing(c);
     setCode(c.code);
     setName(c.name);
+    setEntityId(c.selling_entity_id || "");
     setOpen(true);
   }
 
@@ -362,6 +375,14 @@ export default function CustomersPage() {
 
       if (e2) throw e2;
       setRows((data ?? []) as Customer[]);
+
+      // Load selling entities
+      const { data: entData } = await supabase
+        .from("selling_entities")
+        .select("id, code, name")
+        .is("deleted_at", null)
+        .order("code");
+      setEntities((entData ?? []) as SellingEntity[]);
     } catch (err: any) {
       setError(err?.message ?? "Có lỗi xảy ra");
     } finally {
@@ -394,6 +415,7 @@ export default function CustomersPage() {
           .update({
             code: c,
             name: n,
+            selling_entity_id: entityId || null,
           })
           .eq("id", editing.id);
 
@@ -402,6 +424,7 @@ export default function CustomersPage() {
         const { error } = await supabase.from("customers").insert({
           code: c,
           name: n,
+          selling_entity_id: entityId || null,
         });
 
         if (error) throw error;
@@ -468,12 +491,16 @@ export default function CustomersPage() {
   }
 
   function handleExportExcel() {
-    const data = finalFiltered.map((r, i) => ({
-      "STT": i + 1,
-      "Code": r.code,
-      "Tên khách hàng": r.name,
-      "Ngày tạo": fmtDatetime(r.created_at)
-    }));
+    const data = finalFiltered.map((r, i) => {
+      const ent = entities.find(e => e.id === r.selling_entity_id);
+      return {
+        "STT": i + 1,
+        "Code": r.code,
+        "Tên khách hàng": r.name,
+        "Pháp nhân": ent ? `${ent.code} - ${ent.name}` : "",
+        "Ngày tạo": fmtDatetime(r.created_at)
+      };
+    });
     exportToExcel(data, `Danh_sach_khach_hang_${new Date().toISOString().slice(0,10)}`, "Customers");
   }
 
@@ -552,6 +579,7 @@ export default function CustomersPage() {
               )}
               <ThCell label="Mã KHÁCH HÀNG" colKey="code" sortable colType="text" w="140px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "2px 0 5px -2px rgba(0,0,0,0.1)" }} />
               <ThCell label="Tên khách hàng" colKey="name" sortable colType="text" />
+              <ThCell label="Pháp nhân" colKey="entity" sortable={false} colType="text" w="200px" />
               {isManager && <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />}
               {isManager && (
                  <th style={{ textAlign: "center", width: 100, position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0" }}>
@@ -587,6 +615,18 @@ export default function CustomersPage() {
                 </td>
                 <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["name"], minWidth: colWidths["name"] || "200px" }}>
                   <div className="text-slate-900 font-bold text-[15px] leading-tight">{c.name}</div>
+                </td>
+                <td className="py-4 px-4 border-r border-slate-50">
+                  {(() => {
+                    const ent = entities.find(e => e.id === c.selling_entity_id);
+                    return ent ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200/60 text-indigo-700 text-[11px] font-black uppercase tracking-wider">
+                        🏢 {ent.code}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 text-[11px] italic">Chưa gán</span>
+                    );
+                  })()}
                 </td>
                 {isManager && (
                   <td className="py-4 px-4 border-r border-slate-50 whitespace-nowrap text-slate-400 text-[12px] font-medium">
@@ -643,6 +683,20 @@ export default function CustomersPage() {
                   className="input"
                   placeholder="Nhập tên khách hàng..."
                 />
+              </label>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                Pháp nhân bán hàng
+                <select
+                  value={entityId}
+                  onChange={(e) => setEntityId(e.target.value)}
+                  className="input"
+                >
+                  <option value="">-- Chưa gán --</option>
+                  {entities.map(e => (
+                    <option key={e.id} value={e.id}>{e.code} - {e.name}</option>
+                  ))}
+                </select>
               </label>
             </div>
 
