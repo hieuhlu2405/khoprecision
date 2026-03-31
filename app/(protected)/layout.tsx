@@ -27,6 +27,7 @@ function buildMenu(p: Profile, isAdmin: boolean) {
     { label: "🏠 Dashboard", href: "/app", show: true },
     { label: "🏷️ Mã hàng", href: "/products", show: true },
     { label: "🤝 Khách hàng", href: "/customers", show: true },
+    { label: "🏢 Pháp nhân", href: "/selling-entities", show: true },
 
     { label: "Nghiệp vụ kho", show: true, isHeader: true },
     { label: "📦 Tồn kho hiện tại", href: "/inventory/report", show: true },
