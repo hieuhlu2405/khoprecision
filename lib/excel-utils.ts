@@ -15,13 +15,16 @@ export type CellInfo = {
 
 /**
  * Tiêm dữ liệu vào một file mẫu Excel có sẵn (Dùng ExcelJS để giữ định dạng)
+ * tableStartRow: dòng bắt đầu bảng (vd: 16)
+ * footerRowsToMerge: các dòng ở phần footer cần gộp lại theo mẫu A:F, A:E, F:H v.v.
  */
 export async function exportWithTemplate(
   templateUrl: string, 
   cellData: Record<string, string | number | null | CellInfo>, 
   tableData: any[][], 
   tableStartRow: number,
-  filename: string
+  filename: string,
+  rowOffset: number = 0 // Số dòng đã chèn thêm
 ) {
   try {
     const response = await fetch(templateUrl);
@@ -35,7 +38,32 @@ export async function exportWithTemplate(
     const worksheet = workbook.worksheets[0];
     if (!worksheet) throw new Error("File mẫu không có sheet nào.");
 
-    // 1. Điền các ô đơn lẻ (Header/Footer)
+    // 1. Chèn thêm dòng nếu nhiều mã hàng
+    if (rowOffset > 0) {
+      worksheet.duplicateRow(tableStartRow, rowOffset, true);
+      
+      // FIX LỖI GỘP Ô Ở FOOTER: ExcelJS k tự đẩy merge vùng phía dưới
+      // Gộp lại vùng Tổng cộng (A-F) - Dòng 17 gốc nay là 17 + offset
+      const totalRow = 17 + rowOffset;
+      worksheet.unMergeCells(`A${totalRow}:F${totalRow}`);
+      worksheet.mergeCells(`A${totalRow}:F${totalRow}`);
+      
+      // Gộp lại vùng Ký tên (A-E và F-H) - Dòng 19 gốc nay là 19 + offset
+      const sigHeaderRow = 19 + rowOffset;
+      worksheet.unMergeCells(`A${sigHeaderRow}:E${sigHeaderRow}`);
+      worksheet.mergeCells(`A${sigHeaderRow}:E${sigHeaderRow}`);
+      worksheet.unMergeCells(`F${sigHeaderRow}:H${sigHeaderRow}`);
+      worksheet.mergeCells(`F${sigHeaderRow}:H${sigHeaderRow}`);
+
+      // Gộp lại vùng Tên Pháp Nhân / Khách Hàng (A-E và F-H) - Dòng 20 gốc nay là 20 + offset
+      const sigNameRow = 20 + rowOffset;
+      worksheet.unMergeCells(`A${sigNameRow}:E${sigNameRow}`);
+      worksheet.mergeCells(`A${sigNameRow}:E${sigNameRow}`);
+      worksheet.unMergeCells(`F${sigNameRow}:H${sigNameRow}`);
+      worksheet.mergeCells(`F${sigNameRow}:H${sigNameRow}`);
+    }
+
+    // 2. Điền các ô đơn lẻ (Header/Footer)
     Object.entries(cellData).forEach(([address, data]) => {
       const cell = worksheet.getCell(address);
       if (data === null || data === undefined) return;
@@ -50,12 +78,7 @@ export async function exportWithTemplate(
       }
     });
 
-    // 2. Điền bảng dữ liệu chi tiết
-    if (tableData.length > 1) {
-      // Chèn thêm dòng nếu cần
-      worksheet.duplicateRow(tableStartRow, tableData.length - 1, true);
-    }
-
+    // 3. Điền bảng dữ liệu chi tiết
     tableData.forEach((rowData, i) => {
       const currentRow = tableStartRow + i;
       rowData.forEach((val, j) => {
@@ -69,7 +92,7 @@ export async function exportWithTemplate(
       });
     });
 
-    // 3. Xuất file
+    // 4. Xuất file
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `${filename}.xlsx`);
   } catch (error) {

@@ -395,7 +395,8 @@ export default function DeliveryPlanPage() {
           cellData,
           tableData,
           16, // Data starts at Row 16
-          fileName
+          fileName,
+          rowOffset
         );
       } catch (err) {
         console.error("Lỗi xuất template:", err);
