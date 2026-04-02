@@ -223,7 +223,7 @@ export default function CustomersPage() {
   /* ---- Column resizing ---- */
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("inventory_customers_col_widths");
+      const saved = localStorage.getItem("inventory_customers_col_widths_v2");
       return saved ? JSON.parse(saved) : {};
     }
     return {};
@@ -232,7 +232,7 @@ export default function CustomersPage() {
   const onResize = (key: string, width: number) => {
     setColWidths(prev => {
       const next = { ...prev, [key]: width };
-      localStorage.setItem("inventory_customers_col_widths", JSON.stringify(next));
+      localStorage.setItem("inventory_customers_col_widths_v2", JSON.stringify(next));
       return next;
     });
   };
@@ -601,8 +601,8 @@ export default function CustomersPage() {
                   />
                 </th>
               )}
-               <ThCell label="MÃ KHÁCH HÀNG NỘI BỘ" colKey="code" sortable colType="text" w="180px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "4px 0 8px -4px rgba(0,0,0,0.15)" }} />
-               <ThCell label="MÃ KHÁCH HÀNG (DO NCC CẤP)" colKey="external_code" sortable colType="text" w="220px" />
+               <ThCell label="MÂ KHÁCH HÀNG NỘI BỘ" colKey="code" sortable colType="text" w="220px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "4px 0 10px -2px rgba(0,0,0,0.15)", borderRight: "1px solid #e2e8f0" }} />
+               <ThCell label="MÃ KHÁCH HÀNG (DO NCC CẤP)" colKey="external_code" sortable colType="text" w="240px" />
                <ThCell label="Tên khách hàng" colKey="name" sortable colType="text" />
                <ThCell label="Địa chỉ" colKey="address" sortable colType="text" w="250px" />
                <ThCell label="MST" colKey="tax_code" sortable colType="text" w="130px" />
@@ -631,16 +631,16 @@ export default function CustomersPage() {
                   </td>
                 )}
                 <td 
-                  className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_5px_-2px rgba(0,0,0,0.05)]`} 
+                  className="py-4 px-4 border-r border-slate-200 sticky z-20 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]" 
                   style={{ 
-                    left: isManager ? 60 : 0,
-                    width: colWidths["code"] || 140,
-                    minWidth: colWidths["code"] || 140
+                    left: isManager ? 60 : 0, 
+                    width: colWidths["code"] || 220, 
+                    minWidth: colWidths["code"] || 220 
                   }}
                 >
                   <div className="font-extrabold text-slate-900 font-mono text-[15px] break-all">{c.code}</div>
                 </td>
-                <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[13px] font-bold" style={{ width: colWidths["external_code"] || 130, minWidth: colWidths["external_code"] || 130 }}>
+                <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[13px] font-bold" style={{ width: colWidths["external_code"] || 240, minWidth: colWidths["external_code"] || 240 }}>
                   {c.external_code || "-"}
                 </td>
                 <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["name"], minWidth: colWidths["name"] || "200px" }}>

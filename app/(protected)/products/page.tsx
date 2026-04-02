@@ -341,7 +341,7 @@ export default function ProductsPage() {
   /* ---- Column resizing ---- */
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("inventory_products_col_widths");
+      const saved = localStorage.getItem("inventory_products_col_widths_v2");
       return saved ? JSON.parse(saved) : {};
     }
     return {};
@@ -350,7 +350,7 @@ export default function ProductsPage() {
   const onResize = (key: string, width: number) => {
     setColWidths(prev => {
       const next = { ...prev, [key]: width };
-      localStorage.setItem("inventory_products_col_widths", JSON.stringify(next));
+      localStorage.setItem("inventory_products_col_widths_v2", JSON.stringify(next));
       return next;
     });
   };
@@ -1063,9 +1063,9 @@ export default function ProductsPage() {
                    />
                  </th>
                )}
-               <ThCell label="Mã nội bộ" colKey="sku" sortable colType="text" w="180px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "4px 0 8px -4px rgba(0,0,0,0.15)" }} />
-               <ThCell label="Mã SAP" colKey="sap_code" sortable colType="text" w="140px" />
-               <ThCell label="Mã hàng (NCC)" colKey="external_sku" sortable colType="text" w="160px" />
+               <ThCell label="Mã nội bộ" colKey="sku" sortable colType="text" w="200px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "4px 0 10px -2px rgba(0,0,0,0.15)", borderRight: "1px solid #e2e8f0" }} />
+               <ThCell label="Mã SAP" colKey="sap_code" sortable colType="text" w="150px" />
+               <ThCell label="Mã hàng (NCC)" colKey="external_sku" sortable colType="text" w="180px" />
                <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
                <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" w="160px" />
                <ThCell label="ĐƠN VỊ TÍNH" colKey="uom" sortable colType="text" w="120px" />
@@ -1101,18 +1101,18 @@ export default function ProductsPage() {
                         className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_5px -2px rgba(0,0,0,0.05)]`} 
                         style={{ 
                           left: isManager ? 60 : 0,
-                          width: colWidths["sku"] || 150,
-                          minWidth: colWidths["sku"] || 150 
-                        }}
-                      >
-                      <div className="font-extrabold text-slate-900 font-mono text-[15px] break-all">{p.sku}</div>
-                    </td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[13px] font-bold" style={{ width: colWidths["sap_code"] || 120, minWidth: colWidths["sap_code"] || 120 }}>
-                      {p.sap_code || "-"}
-                    </td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[13px] font-bold" style={{ width: colWidths["external_sku"] || 140, minWidth: colWidths["external_sku"] || 140 }}>
-                      {p.external_sku || "-"}
-                    </td>
+                       width: colWidths["sku"] || 200,
+                       minWidth: colWidths["sku"] || 200 
+                     }}
+                   >
+                     <div className="font-extrabold text-slate-900 font-mono text-[15px] break-all">{p.sku}</div>
+                   </td>
+                   <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[13px] font-bold" style={{ width: colWidths["sap_code"] || 150, minWidth: colWidths["sap_code"] || 150 }}>
+                     {p.sap_code || "-"}
+                   </td>
+                   <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[13px] font-bold" style={{ width: colWidths["external_sku"] || 180, minWidth: colWidths["external_sku"] || 180 }}>
+                     {p.external_sku || "-"}
+                   </td>
                     <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["name"], minWidth: colWidths["name"] || "250px" }}>
                       <div className="text-slate-900 font-bold text-[15px] leading-tight">{p.name}</div>
                     </td>
