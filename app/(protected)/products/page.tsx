@@ -1063,9 +1063,9 @@ export default function ProductsPage() {
                    />
                  </th>
                )}
-               <ThCell label="Mã nội bộ" colKey="sku" sortable colType="text" w="140px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "2px 0 5px -2px rgba(0,0,0,0.1)" }} />
-               <ThCell label="Mã SAP" colKey="sap_code" sortable colType="text" w="120px" />
-               <ThCell label="Mã hàng (NCC)" colKey="external_sku" sortable colType="text" w="140px" />
+               <ThCell label="Mã nội bộ" colKey="sku" sortable colType="text" w="180px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "4px 0 8px -4px rgba(0,0,0,0.15)" }} />
+               <ThCell label="Mã SAP" colKey="sap_code" sortable colType="text" w="140px" />
+               <ThCell label="Mã hàng (NCC)" colKey="external_sku" sortable colType="text" w="160px" />
                <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
                <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" w="160px" />
                <ThCell label="ĐƠN VỊ TÍNH" colKey="uom" sortable colType="text" w="120px" />

@@ -601,8 +601,8 @@ export default function CustomersPage() {
                   />
                 </th>
               )}
-               <ThCell label="MÃ KH NỘI BỘ" colKey="code" sortable colType="text" w="140px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "2px 0 5px -2px rgba(0,0,0,0.1)" }} />
-               <ThCell label="Mã KH (NCC)" colKey="external_code" sortable colType="text" w="130px" />
+               <ThCell label="MÃ KHÁCH HÀNG NỘI BỘ" colKey="code" sortable colType="text" w="180px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "4px 0 8px -4px rgba(0,0,0,0.15)" }} />
+               <ThCell label="MÃ KHÁCH HÀNG (DO NCC CẤP)" colKey="external_code" sortable colType="text" w="220px" />
                <ThCell label="Tên khách hàng" colKey="name" sortable colType="text" />
                <ThCell label="Địa chỉ" colKey="address" sortable colType="text" w="250px" />
                <ThCell label="MST" colKey="tax_code" sortable colType="text" w="130px" />
