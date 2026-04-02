@@ -19,8 +19,14 @@ CREATE TABLE IF NOT EXISTS public.shipment_logs (
 
 -- RLS cho shipment_logs
 ALTER TABLE public.shipment_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "shipment_logs_select" ON public.shipment_logs;
 CREATE POLICY "shipment_logs_select" ON public.shipment_logs FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "shipment_logs_insert" ON public.shipment_logs;
 CREATE POLICY "shipment_logs_insert" ON public.shipment_logs FOR INSERT TO authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "shipment_logs_update" ON public.shipment_logs;
 CREATE POLICY "shipment_logs_update" ON public.shipment_logs FOR UPDATE TO authenticated USING (true);
 
 -- 2. Thêm cột shipment_id vào inventory_transactions
