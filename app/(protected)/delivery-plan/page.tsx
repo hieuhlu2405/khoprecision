@@ -103,7 +103,7 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
 /* ------------------------------------------------------------------ */
 
 export default function DeliveryPlanPage() {
-  const { showToast } = useUI();
+  const { showToast, showConfirm } = useUI();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
 
@@ -300,6 +300,33 @@ export default function DeliveryPlanPage() {
       showToast(err.message, "error");
     } finally {
       setLoadingOutbound(false);
+    }
+  };
+  
+  const handleUndoOutbound = async (plan_id: string) => {
+    if (profile?.role !== "admin") {
+      showToast("Chỉ Admin mới có quyền hủy lệnh xuất kho.", "error");
+      return;
+    }
+    
+    const ok = await showConfirm({
+      message: "Bạn có chắc chắn muốn HỦY lệnh xuất kho này? Tồn kho sẽ được cộng lại và kế hoạch sẽ quay về trạng thái 'Chờ xuất'.",
+      danger: true,
+      confirmLabel: "HỦY LỆNH XUẤT"
+    });
+    if (!ok) return;
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("undo_outbound_delivery", { p_plan_id: plan_id });
+      if (error) throw error;
+      showToast("Đã hủy lệnh xuất kho thành công!", "success");
+      loadData();
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message, "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -754,8 +781,19 @@ export default function DeliveryPlanPage() {
                                 <div className="absolute top-0 right-0 w-2 h-2 bg-indigo-500 rounded-bl-full shadow-sm z-20" title={editData?.note ?? plan?.note ?? ""} />
                               )}
                               {isDone && (
-                                <div className="absolute top-1 right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm" title={`Đã xuất kho thực tế: ${plan?.actual_qty}`}>
-                                  <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" className="w-2.5 h-2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                                <div className="absolute top-1 right-1 flex items-center gap-1.5 z-20">
+                                  {profile?.role === 'admin' && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleUndoOutbound(plan!.id); }}
+                                      className="w-5 h-5 bg-white border border-red-200 text-red-500 rounded-full flex items-center justify-center shadow-sm hover:bg-red-50 hover:border-red-400 transition-all opacity-0 group-hover/cell:opacity-100"
+                                      title="Admin: Hủy lệnh xuất kho này"
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
+                                  <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm" title={`Đã xuất kho thực tế: ${plan?.actual_qty}`}>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" className="w-2.5 h-2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                                  </div>
                                 </div>
                               )}
                               {isChanged && (
