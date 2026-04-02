@@ -347,17 +347,17 @@ export default function DeliveryPlanPage() {
       const customerLabel = `${first.customer_code} - ${first.customer_name}`;
       const fileName = `BBBG_${first.customer_code}_${dateLabel.replace(/\//g, "")}`;
       
-      // 1. Prepare Header Data
+      // 1. Prepare Header & Signature Mappings
       const cellData: Record<string, string | number | null> = {
-        'C2': first.entity_name || "CÔNG TY TNHH KHO PRECISION", // Default if entity not set
-        'C3': "Hải Phòng, Việt Nam", // Placeholder
-        'C7': first.customer_name,
-        'C8': first.customer_address || "Địa chỉ khách hàng",
-        'C9': first.customer_tax_code || "", 
-        'F7': first.customer_external_code || first.customer_code, // Use NCC code if available
+        'H8': `Ngày ${dateLabel}`, // Date at H8
+        'A9': `Bên nhận: ${first.customer_name}`, // Customer Name at A9
+        'A10': `Địa chỉ: ${first.customer_address || "........................................................"}`, // Address at A10
+        // Signature Row: Original is 22. Shifted by (items.length - 1)
+        [`A${22 + (items.length - 1)}`]: first.entity_name || "CÔNG TY TNHH KHO PRECISION",
+        [`F${22 + (items.length - 1)}`]: first.customer_name,
       };
 
-      // 2. Prepare Table Data (STT, Mã nội bộ, Mã SAP, Mã hàng, Tên hàng, ĐVT, Số lượng)
+      // 2. Prepare Table Data (STT, Mã nội bộ, Mã SAP, Mã hàng NCC, Tên hàng, ĐVT, Số lượng)
       const tableData = items.map((item, idx) => [
         idx + 1,              // A: STT
         item.sku,             // B: Mã nội bộ
@@ -373,7 +373,7 @@ export default function DeliveryPlanPage() {
           '/templates/maupgh.xlsx',
           cellData,
           tableData,
-          'A11',
+          16, // Data starts at Row 16
           fileName
         );
       } catch (err) {
