@@ -239,11 +239,11 @@ export default function DeliveryLogPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+          <h1 className="text-3xl font-black text-black tracking-tight flex items-center gap-3">
             <span className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100">📜</span>
             Nhật ký Giao hàng (PGH)
           </h1>
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-2 ml-1">
+          <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-2 ml-1">
             Quản lý và tra cứu lịch sử các chuyến hàng đã xuất
           </p>
         </div>
@@ -279,12 +279,12 @@ export default function DeliveryLogPage() {
                 <th className="px-4 py-4 text-center border-b border-slate-200 w-12 bg-slate-50">
                    <input type="checkbox" className="checkbox checkbox-xs rounded" checked={selectedIds.size === logs.length && logs.length > 0} onChange={toggleSelectAll} />
                 </th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-slate-900 uppercase tracking-widest border-b border-slate-200">Số phiếu PGH</th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-slate-900 uppercase tracking-widest border-b border-slate-200">Ngày xuất</th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-slate-900 uppercase tracking-widest border-b border-slate-200">Khách hàng</th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-slate-900 uppercase tracking-widest border-b border-slate-200">Pháp nhân</th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-slate-900 uppercase tracking-widest border-b border-slate-200">Xe / Tài xế</th>
-                <th className="px-6 py-4 text-center font-black text-[11px] text-slate-900 uppercase tracking-widest border-b border-slate-200">Thao tác</th>
+                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-widest border-b border-slate-200">Số phiếu PGH</th>
+                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-widest border-b border-slate-200">Ngày xuất</th>
+                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-widest border-b border-slate-200">Khách hàng</th>
+                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-widest border-b border-slate-200">Pháp nhân</th>
+                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-widest border-b border-slate-200">Xe / Tài xế</th>
+                <th className="px-6 py-4 text-center font-black text-[11px] text-black uppercase tracking-widest border-b border-slate-200">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -304,14 +304,14 @@ export default function DeliveryLogPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="font-black text-indigo-600 text-base">{log.shipment_no}</span>
-                        {log.note && <div className="text-[10px] text-slate-400 font-medium italic mt-0.5">{log.note}</div>}
+                        {log.note && <div className="text-[10px] text-black font-black italic mt-0.5">{log.note}</div>}
                       </td>
-                      <td className="px-6 py-4 font-bold text-slate-700">
+                      <td className="px-6 py-4 font-black text-black">
                         {log.shipment_date.split("-").reverse().join("/")}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-bold text-slate-900">{cust?.code || "-"}</div>
-                        <div className="text-[10px] text-slate-500 truncate max-w-[200px]" title={cust?.name}>{cust?.name || ""}</div>
+                        <div className="font-black text-black">{cust?.code || "-"}</div>
+                        <div className="text-[10px] text-black font-black truncate max-w-[200px]" title={cust?.name}>{cust?.name || ""}</div>
                       </td>
                       <td className="px-6 py-4">
                         {ent ? (
@@ -320,7 +320,7 @@ export default function DeliveryLogPage() {
                           </span>
                         ) : <span className="text-slate-300">-</span>}
                       </td>
-                      <td className="px-6 py-4 font-bold text-slate-600 uppercase text-xs">
+                      <td className="px-6 py-4 font-black text-black uppercase text-xs">
                         {log.driver_info || "-"}
                       </td>
                       <td className="px-6 py-4 text-center">

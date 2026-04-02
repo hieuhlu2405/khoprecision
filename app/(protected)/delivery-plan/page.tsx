@@ -837,7 +837,7 @@ export default function DeliveryPlanPage() {
         className={`py-4 px-4 border-r border-slate-200/60 sticky top-0 group select-none ${sticky ? "shadow-[2px_0_10px_rgba(0,0,0,0.02)]" : ""} ${isToday ? "bg-red-50/50 text-red-600" : "text-slate-900"}`}
       >
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          {extra ? extra : <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>}
+          {extra ? extra : <span className="text-black font-black text-xs uppercase tracking-wider">{label}</span>}
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
             {sortable && (
               <button
@@ -903,8 +903,8 @@ export default function DeliveryPlanPage() {
             📅
           </div>
           <div>
-            <h1 className="page-title !m-0 !text-xl !font-black tracking-tight text-slate-900">KẾ HOẠCH GIAO HÀNG</h1>
-            <p className="page-description !m-0 text-slate-400 text-[10px] font-bold uppercase tracking-widest">Ma trận 7 ngày tới • Cập nhật lần cuối: {new Date().toLocaleTimeString()}</p>
+            <h1 className="page-title !m-0 !text-xl !font-black tracking-tight text-black">KẾ HOẠCH GIAO HÀNG</h1>
+            <p className="page-description !m-0 text-slate-400 text-[10px] font-black uppercase tracking-widest">Ma trận 7 ngày tới • Cập nhật lần cuối: {new Date().toLocaleTimeString()}</p>
           </div>
         </div>
 
@@ -1056,8 +1056,8 @@ export default function DeliveryPlanPage() {
                         <div className="text-[11px] text-slate-900 font-bold uppercase tracking-wider mt-1">{p.spec || ""}</div>
                       </td>
                       <td className="py-4 px-4 border-r border-slate-100 text-center">
-                        <div className="text-slate-900 font-bold text-[15px] uppercase">{c?.code || "-"}</div>
-                        <div className="text-[10px] text-slate-900 font-bold uppercase tracking-wider" title={c?.name}>{c?.name}</div>
+                        <div className="text-black font-black text-[15px] uppercase">{c?.code || "-"}</div>
+                        <div className="text-[10px] text-black font-black uppercase tracking-wider" title={c?.name}>{c?.name}</div>
                       </td>
                       <td className="py-4 px-4 border-r border-slate-100">
                         {(() => {
@@ -1068,7 +1068,7 @@ export default function DeliveryPlanPage() {
                              <input 
                                type="text" 
                                placeholder="Nhập ghi chú..." 
-                               className="input input-ghost input-xs w-full text-[13px] font-bold text-indigo-600 focus:bg-white focus:ring-1 focus:ring-indigo-300 placeholder:text-slate-300 italic" 
+                               className="input input-ghost input-xs w-full text-[13px] font-black text-black focus:bg-white focus:ring-1 focus:ring-indigo-300 placeholder:text-slate-300 italic" 
                                value={noteVal}
                                onChange={e => handleNoteChange(p.id, today, e.target.value)} 
                              />

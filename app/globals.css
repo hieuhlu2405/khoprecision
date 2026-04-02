@@ -83,7 +83,7 @@ html {
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   margin: 0;
@@ -253,14 +253,15 @@ select:not([class]):focus {
   border-collapse: collapse;
   width: 100%;
   font-size: 13px;
+  font-family: var(--font-inter), sans-serif !important;
 }
 
 .data-table th {
   text-align: left;
   padding: 10px 10px;
   background: var(--table-th-bg);
-  color: var(--table-th-fg);
-  font-weight: 600;
+  color: #000000 !important;
+  font-weight: 900;
   border-bottom: 2px solid var(--table-border);
   border-right: 1px solid var(--table-border);
   white-space: nowrap;
@@ -277,7 +278,14 @@ select:not([class]):focus {
   padding: 9px 10px;
   border-bottom: 1px solid var(--table-border);
   border-right: 1px solid #f1f5f9;
-  color: var(--slate-700);
+  color: #000000 !important;
+  font-weight: 500;
+}
+
+/* Specific for notes/captions in tables */
+.table-note-black {
+  color: #000000 !important;
+  font-weight: 900 !important;
 }
 
 .data-table td:last-child {
@@ -616,6 +624,18 @@ fieldset legend {
 /* Better inline-styled tables (pages not yet migrated to .data-table) */
 table {
   font-size: 13px;
+  font-family: var(--font-inter), sans-serif !important;
+  color: #000000 !important;
+}
+
+table th {
+  color: #000000 !important;
+  font-weight: 900 !important;
+}
+
+table td {
+  color: #000000 !important;
+  font-weight: 500 !important;
 }
 
 /* Implicit focus ring for inputs with inline styles */
