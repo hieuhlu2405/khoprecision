@@ -70,9 +70,15 @@ export async function exportWithTemplate(
     Object.entries(cellData).forEach(([address, data]) => {
       const cell = worksheet.getCell(address);
       if (data === null || data === undefined) return;
+      
       if (typeof data === 'object' && 'value' in data) {
-        cell.value = data.value;
-        if (data.font) cell.font = { ...cell.font, ...data.font };
+        // Nếu value là null thì không ghi đè nội dung, chỉ chỉnh font nếu có
+        if (data.value !== null && data.value !== undefined) {
+          cell.value = data.value;
+        }
+        if (data.font) {
+          cell.font = { ...cell.font, ...data.font };
+        }
       } else {
         cell.value = data;
       }

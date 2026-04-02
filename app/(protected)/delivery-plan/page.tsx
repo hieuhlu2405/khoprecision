@@ -377,6 +377,11 @@ export default function DeliveryPlanPage() {
         [`F${20 + rowOffset}`]: { value: first.customer_name, font: { name: 'Times New Roman', size: 12, bold: true } },
       };
 
+      // 1.1 Force Style cho Header hàng hóa (A15-H15)
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(col => {
+        cellData[`${col}15`] = { value: null, font: { name: 'Times New Roman', size: 13, bold: true } };
+      });
+
       // 2. Prepare Table Data (STT, Mã nội bộ, Mã SAP, Mã hàng NCC, Tên hàng, ĐVT, Số lượng)
       const tableData = items.map((item, idx) => [
         idx + 1,              // A: STT
