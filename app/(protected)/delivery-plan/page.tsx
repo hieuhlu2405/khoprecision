@@ -346,7 +346,6 @@ export default function DeliveryPlanPage() {
 
     for (const [key, items] of Object.entries(grouped)) {
       const first = items[0];
-      const customerLabel = `${first.customer_code} - ${first.customer_name}`;
       const fileName = `BBBG_${first.customer_code}_${dateLabel.replace(/\//g, "")}`;
       // 1. Prepare Header & Signature Mappings (Detailed per User Request - Final NEW Template)
       const totalQty = items.reduce((sum, it) => sum + (it.actual || 0), 0);
