@@ -453,10 +453,12 @@ export default function DeliveryPlanPage() {
 
       setShipmentItems(items);
       setShipmentDriverInfo("");
+      
+      // Fix flickering: Clear processing state BEFORE opening modal
+      setShipmentProcessing(false);
       setShipmentModalOpen(true);
     } catch (err: any) {
       showToast(err.message, "error");
-    } finally {
       setShipmentProcessing(false);
     }
   };
@@ -1370,29 +1372,6 @@ export default function DeliveryPlanPage() {
                 >
                   {shipmentProcessing ? <span className="loading loading-spinner loading-sm"></span> : "✅ XÁC NHẬN & IN BBBG"}
                 </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Old Auto Outbound Modal (kept for backward compat) */}
-      <AnimatePresence>
-        {outboundDay && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -10 }} className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-100">
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50/50">
-                <div>
-                  <h2 className="text-2xl font-black text-indigo-950 tracking-tight flex items-center gap-3">
-                    <span className="text-indigo-600 text-3xl">📦</span> XUẤT KHO TỰ ĐỘNG
-                  </h2>
-                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1">Lệnh xử lý danh sách kế hoạch ngày {outboundDay.split("-").reverse().join("/")}</p>
-                </div>
-                <button onClick={() => setOutboundDay(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 transition-colors">✕</button>
-              </div>
-              <div className="p-6 text-center text-slate-400 italic">Tính năng đã được nâng cấp. Vui lòng sử dụng Checkbox + nút "Tạo chuyến hàng" bên dưới.</div>
-              <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end rounded-b-3xl">
-                <button onClick={() => setOutboundDay(null)} className="btn btn-ghost font-black tracking-widest text-xs rounded-xl px-6">ĐÓNG</button>
               </div>
             </motion.div>
           </div>

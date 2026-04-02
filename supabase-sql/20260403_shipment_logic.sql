@@ -129,6 +129,30 @@ BEGIN
         updated_at = now(),
         updated_by = v_user_id
     WHERE id = v_plan_id;
+
+    -- BƯỚC 2.5: [TỰ ĐỘNG DỌN DẸP BACKLOG] 
+    -- Nếu hôm nay xuất thêm, và ngày mai đang có dòng "nợ" (do lần xuất trước đẩy sang)
+    -- thì phải trừ nợ ở ngày mai đi.
+    v_tomorrow := v_plan_date + interval '1 day';
+    
+    -- Tìm xem ngày mai có dòng nào là backlog từ hôm nay không
+    -- (Dựa vào pattern note 'Backlog từ%hôm nay')
+    UPDATE public.delivery_plans
+    SET planned_qty = GREATEST(0, planned_qty - v_actual_qty),
+        updated_at = now()
+    WHERE plan_date = v_tomorrow
+      AND product_id = v_product_id
+      AND customer_id = v_customer_id
+      AND note LIKE 'Backlog từ %' || to_char(v_plan_date, 'DD/MM/YYYY') || '%'
+      AND actual_qty = 0; -- Chỉ trừ nếu ngày mai chưa có thực xuất (an toàn)
+
+    -- Xóa các dòng nợ đã về 0
+    DELETE FROM public.delivery_plans 
+    WHERE plan_date = v_tomorrow 
+      AND product_id = v_product_id 
+      AND customer_id = v_customer_id 
+      AND planned_qty <= 0 
+      AND actual_qty = 0;
     
     -- BƯỚC 3: Xử lý Backlog (chỉ khi đã đủ/vượt hoặc user chọn push)
     IF v_push_backlog = true AND v_actual_qty < v_planned_qty THEN
