@@ -371,9 +371,11 @@ export default function DeliveryPlanPage() {
         // Dynamic Total (Original Row 17 shifted)
         [`G${17 + rowOffset}`]: { value: totalQty, font: { name: 'Times New Roman', size: 13, bold: true } },
         
-        // Dynamic Signatures (Original Row 19/21 shifted)
+        // Dynamic Signatures (Original Row 19/20 shifted)
         [`A${19 + rowOffset}`]: { value: "BÊN GIAO", font: { name: 'Times New Roman', size: 12, bold: true } },
         [`F${19 + rowOffset}`]: { value: "BÊN NHẬN", font: { name: 'Times New Roman', size: 12, bold: true } },
+        [`A${20 + rowOffset}`]: { value: first.entity_name, font: { name: 'Times New Roman', size: 12, bold: true } },
+        [`F${20 + rowOffset}`]: { value: first.customer_name, font: { name: 'Times New Roman', size: 12, bold: true } },
       };
 
       // 2. Prepare Table Data (STT, Mã nội bộ, Mã SAP, Mã hàng NCC, Tên hàng, ĐVT, Số lượng)
