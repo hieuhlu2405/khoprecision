@@ -348,7 +348,7 @@ export default function DeliveryPlanPage() {
       const first = items[0];
       const customerLabel = `${first.customer_code} - ${first.customer_name}`;
       const fileName = `BBBG_${first.customer_code}_${dateLabel.replace(/\//g, "")}`;
-      // 1. Prepare Header & Signature Mappings (Detailed per User Request)
+      // 1. Prepare Header & Signature Mappings (Detailed per User Request - Final NEW Template)
       const totalQty = items.reduce((sum, it) => sum + (it.actual || 0), 0);
       const rowOffset = items.length - 1;
 
@@ -358,22 +358,22 @@ export default function DeliveryPlanPage() {
         'A3': { value: first.entity_address, font: { name: 'Times New Roman', size: 18 } },
         
         // Header Info (Right)
-        'H8': { value: dateLabel, font: { name: 'Times New Roman', size: 11 } }, // Date DD/MM/YYYY
-        'H9': { value: first.customer_code, font: { name: 'Times New Roman', size: 11, bold: true } },
-        'H11': { value: first.customer_external_code || "", font: { name: 'Times New Roman', size: 11 } },
+        'H8': { value: dateLabel, font: { name: 'Times New Roman', size: 13, bold: true } }, // Date DD/MM/YYYY
+        'H9': { value: first.customer_code, font: { name: 'Times New Roman', size: 13, bold: true } },
+        'H11': { value: first.customer_external_code || "", font: { name: 'Times New Roman', size: 13, bold: true } },
 
-        // Customer & Entity Info (Middle)
+        // Customer & Entity Info (Middle Section)
         'B9': { value: first.customer_name, font: { name: 'Times New Roman', size: 13, bold: true } },
         'B10': { value: first.customer_address, font: { name: 'Times New Roman', size: 13 } },
         'B11': { value: first.entity_name, font: { name: 'Times New Roman', size: 13, bold: true } },
         'B12': { value: first.entity_address, font: { name: 'Times New Roman', size: 13 } },
 
-        // Dynamic Total (Original Row 19 shifted)
-        [`G${19 + rowOffset}`]: { value: totalQty, font: { name: 'Times New Roman', size: 12, bold: true } },
+        // Dynamic Total (Original Row 17 shifted)
+        [`G${17 + rowOffset}`]: { value: totalQty, font: { name: 'Times New Roman', size: 13, bold: true } },
         
-        // Dynamic Signatures (Original Row 22 shifted)
-        [`A${22 + rowOffset}`]: { value: first.entity_name, font: { name: 'Times New Roman', size: 12, bold: true } },
-        [`F${22 + rowOffset}`]: { value: first.customer_name, font: { name: 'Times New Roman', size: 12, bold: true } },
+        // Dynamic Signatures (Original Row 19/21 shifted)
+        [`A${19 + rowOffset}`]: { value: "BÊN GIAO", font: { name: 'Times New Roman', size: 12, bold: true } },
+        [`F${19 + rowOffset}`]: { value: "BÊN NHẬN", font: { name: 'Times New Roman', size: 12, bold: true } },
       };
 
       // 2. Prepare Table Data (STT, Mã nội bộ, Mã SAP, Mã hàng NCC, Tên hàng, ĐVT, Số lượng)
