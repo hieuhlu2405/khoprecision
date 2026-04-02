@@ -223,7 +223,7 @@ export default function CustomersPage() {
   /* ---- Column resizing ---- */
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("inventory_customers_col_widths_v2");
+      const saved = localStorage.getItem("inventory_customers_col_widths_v3");
       return saved ? JSON.parse(saved) : {};
     }
     return {};
@@ -232,7 +232,7 @@ export default function CustomersPage() {
   const onResize = (key: string, width: number) => {
     setColWidths(prev => {
       const next = { ...prev, [key]: width };
-      localStorage.setItem("inventory_customers_col_widths_v2", JSON.stringify(next));
+      localStorage.setItem("inventory_customers_col_widths_v3", JSON.stringify(next));
       return next;
     });
   };
@@ -280,7 +280,7 @@ export default function CustomersPage() {
 
     return (
       <th style={baseStyle} ref={thRef} className="group">
-        <div className={`flex items-center gap-2 px-1 py-0.5 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+        <div className={`flex items-center gap-2 px-4 py-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
           <span className="text-slate-900 font-black text-[12px] uppercase tracking-wider">{label}</span>
           <div className="flex items-center gap-0.5">
             {sortable && (
