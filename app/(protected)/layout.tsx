@@ -40,6 +40,7 @@ function buildMenu(p: Profile, isAdmin: boolean) {
     { label: "GIAO HÀNG", show: true, isHeader: true },
     { label: "📅 Kế hoạch Giao hàng", href: "/delivery-plan", show: true },
     { label: "🚨 Cảnh báo Thiếu hàng", href: "/delivery-plan/shortage", show: true },
+    { label: "📜 Nhật ký Giao hàng", href: "/delivery-plan/log", show: true },
 
     { label: "Báo cáo", show: canViewReports, isHeader: true },
     { label: "💰 Giá trị tồn kho", href: "/inventory/value-report", show: canViewReports },

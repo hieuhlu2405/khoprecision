@@ -463,6 +463,24 @@ export default function DeliveryPlanPage() {
     }
   };
 
+  const toggleSelectAll = () => {
+    const selectablePlans = displayProducts
+      .map(p => plans.find(pl => pl.product_id === p.id && pl.plan_date === selectedOutboundDay && pl.planned_qty > 0 && !pl.is_completed))
+      .filter(Boolean) as any[];
+
+    const allSelected = selectablePlans.length > 0 && selectablePlans.every(p => selectedPlanIds.has(p.id));
+
+    setSelectedPlanIds(prev => {
+      const next = new Set(prev);
+      if (allSelected) {
+        selectablePlans.forEach(p => next.delete(p.id));
+      } else {
+        selectablePlans.forEach(p => next.add(p.id));
+      }
+      return next;
+    });
+  };
+
   const submitShipment = async () => {
     // Validate: all items must have actual > 0
     const invalidItems = shipmentItems.filter(it => !it.actual || Number(it.actual) <= 0);
@@ -494,7 +512,7 @@ export default function DeliveryPlanPage() {
       const shipmentNo = data?.shipment_no || "";
       showToast(`Tạo chuyến hàng ${shipmentNo} thành công!`, "success");
 
-      // Export BBBG Excel
+      // Export PGH Excel
       await exportShipmentExcel(shipmentItems, shipmentNo);
 
       setShipmentModalOpen(false);
@@ -600,7 +618,7 @@ export default function DeliveryPlanPage() {
 
     for (const [key, items] of Object.entries(grouped)) {
       const first = items[0];
-      const fileName = `BBBG_${first.customer_code}_${dateLabel.replace(/\//g, "")}`;
+      const fileName = `PGH_${first.customer_code}_${dateLabel.replace(/\//g, "")}`;
       // 1. Prepare Header & Signature Mappings (Detailed per User Request - Final NEW Template)
       const totalQty = items.reduce((sum, it) => sum + (it.actual || 0), 0);
       const rowOffset = items.length - 1;
@@ -910,13 +928,7 @@ export default function DeliveryPlanPage() {
               onClick={() => setActiveTab('plan')}
               className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'plan' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
             >
-              📅 Kế hoạch
-            </button>
-            <button
-              onClick={() => { setActiveTab('history'); loadShipmentHistory(); }}
-              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'history' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-              📜 Lịch sử xuất hàng
+              📊 KẾ HOẠCH
             </button>
           </div>
 
@@ -973,8 +985,20 @@ export default function DeliveryPlanPage() {
             <table className="w-full text-sm !border-separate !border-spacing-0 table-fixed">
               <thead>
                 <tr>
-                  <th style={{ width: '50px', minWidth: '50px', textAlign: 'center', position: 'sticky', top: 0, left: 0, zIndex: 42, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', borderBottom: '1px solid #e2e8f0' }} className="py-4 px-2 border-r border-slate-200/60">
-                    <span className="text-[10px] font-black text-slate-400 uppercase">☑</span>
+                  <th style={{ width: '50px', minWidth: '50px', textAlign: 'center', position: 'sticky', top: 0, left: 0, zIndex: 42, background: 'white', borderBottom: '1px solid #e2e8f0' }} className="py-4 px-2 border-r border-slate-200/60">
+                    <input 
+                      type="checkbox" 
+                      className="checkbox checkbox-primary checkbox-sm rounded cursor-pointer"
+                      checked={(() => {
+                        const selectable = displayProducts.filter(p => plans.some(pl => pl.product_id === p.id && pl.plan_date === selectedOutboundDay && pl.planned_qty > 0 && !pl.is_completed));
+                        return selectable.length > 0 && selectable.every(p => {
+                          const plan = plans.find(pl => pl.product_id === p.id && pl.plan_date === selectedOutboundDay);
+                          return plan && selectedPlanIds.has(plan.id);
+                        });
+                      })()}
+                      onChange={toggleSelectAll}
+                      title="Chọn tất cả / Bỏ chọn tất cả"
+                    />
                   </th>
                   <ThCell label="Mã hàng" colKey="sku" sortable sticky w="180px" />
                   <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="320px" />
@@ -1130,7 +1154,6 @@ export default function DeliveryPlanPage() {
           </div>
 
           <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
-
             <div className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
               HIỂN THỊ {displayProducts.length} MÃ HÀNG KHỚP BỘ LỌC
             </div>
@@ -1141,76 +1164,7 @@ export default function DeliveryPlanPage() {
             )}
           </div>
         </div>
-        ) : (
-        /* === HISTORY TAB === */
-        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20">
-          <div className="p-6 border-b border-slate-100">
-            <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-              📜 Lịch sử Chuyến hàng
-            </h2>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">100 chuyến gần nhất • Bấm "In lại" để xuất BBBG</p>
-          </div>
-          <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 400px)" }}>
-            {historyLoading ? (
-              <div className="py-20 text-center text-slate-300 font-bold">Đang tải...</div>
-            ) : shipmentHistory.length === 0 ? (
-              <div className="py-20 text-center text-slate-300 font-bold italic">Chưa có chuyến hàng nào.</div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 sticky top-0 z-10">
-                  <tr>
-                    <th className="px-6 py-4 text-left font-black text-[11px] text-slate-500 uppercase tracking-widest">Số phiếu</th>
-                    <th className="px-6 py-4 text-left font-black text-[11px] text-slate-500 uppercase tracking-widest">Ngày xuất</th>
-                    <th className="px-6 py-4 text-left font-black text-[11px] text-slate-500 uppercase tracking-widest">Khách hàng</th>
-                    <th className="px-6 py-4 text-left font-black text-[11px] text-slate-500 uppercase tracking-widest">Pháp nhân</th>
-                    <th className="px-6 py-4 text-left font-black text-[11px] text-slate-500 uppercase tracking-widest">Xe / Tài xế</th>
-                    <th className="px-6 py-4 text-center font-black text-[11px] text-slate-500 uppercase tracking-widest">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {shipmentHistory.map(sh => {
-                    const cust = customers.find(x => x.id === sh.customer_id);
-                    const ent = entities.find(x => x.id === sh.entity_id);
-                    const datePts = sh.shipment_date.split("-");
-                    return (
-                      <tr key={sh.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <span className="font-black text-indigo-600 text-base">{sh.shipment_no}</span>
-                        </td>
-                        <td className="px-6 py-4 font-bold text-slate-700">{datePts[2]}/{datePts[1]}/{datePts[0]}</td>
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-slate-900">{cust?.code || "-"}</div>
-                          <div className="text-[10px] text-slate-500">{cust?.name || ""}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          {ent ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200/60 text-indigo-600 text-[10px] font-black uppercase tracking-wider">
-                              🏢 {ent.code}
-                            </span>
-                          ) : <span className="text-slate-300">-</span>}
-                        </td>
-                        <td className="px-6 py-4 text-slate-600 font-bold">{sh.driver_info || "-"}</td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            {profile?.role === 'admin' && (
-                              <button
-                                onClick={() => handleUndoShipment(sh.id, sh.shipment_no)}
-                                className="btn btn-ghost btn-xs text-red-500 hover:bg-red-50 font-bold text-[10px] uppercase"
-                              >
-                                ✕ Hủy
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-        )}
+        ) : null}
       </div>
 
       {/* === FLOATING ACTION BAR === */}
@@ -1370,7 +1324,7 @@ export default function DeliveryPlanPage() {
                   className="btn bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black tracking-widest text-[10px] rounded-xl px-8 shadow-xl shadow-indigo-200 border-none"
                   disabled={shipmentProcessing}
                 >
-                  {shipmentProcessing ? <span className="loading loading-spinner loading-sm"></span> : "✅ XÁC NHẬN & IN BBBG"}
+                  {shipmentProcessing ? <span className="loading loading-spinner loading-sm"></span> : "✅ XÁC NHẬN & IN PGH"}
                 </button>
               </div>
             </motion.div>
