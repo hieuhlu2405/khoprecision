@@ -1,17 +1,24 @@
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
+export type ExcelFont = {
+    name?: string;
+    size?: number;
+    bold?: boolean;
+    color?: { argb: string };
+};
+
+export type CellInfo = {
+    value: string | number | null;
+    font?: ExcelFont;
+};
+
 /**
  * Tiêm dữ liệu vào một file mẫu Excel có sẵn (Dùng ExcelJS để giữ định dạng)
- * @param templateUrl Đường dẫn đến file mẫu (ví dụ: '/templates/mau.xlsx')
- * @param cellData Map các ô cụ thể cần điền (VD: { 'C2': 'Tên Cty', 'A9': 'Khách hàng' })
- * @param tableData Mảng các mảng (Array of Arrays) cho phần bảng kê chi tiết
- * @param tableStartRow Dòng bắt đầu điền bảng (số, ví dụ: 16)
- * @param filename Tên file tải về (không kèm đuôi)
  */
 export async function exportWithTemplate(
   templateUrl: string, 
-  cellData: Record<string, string | number | null>, 
+  cellData: Record<string, string | number | null | CellInfo>, 
   tableData: any[][], 
   tableStartRow: number,
   filename: string
@@ -29,40 +36,40 @@ export async function exportWithTemplate(
     if (!worksheet) throw new Error("File mẫu không có sheet nào.");
 
     // 1. Điền các ô đơn lẻ (Header/Footer)
-    Object.entries(cellData).forEach(([address, value]) => {
+    Object.entries(cellData).forEach(([address, data]) => {
       const cell = worksheet.getCell(address);
-      if (value !== null && value !== undefined) {
-        cell.value = value;
+      if (data === null || data === undefined) return;
+
+      if (typeof data === 'object' && 'value' in data) {
+        cell.value = data.value;
+        if (data.font) {
+            cell.font = { ...cell.font, ...data.font };
+        }
+      } else {
+        cell.value = data;
       }
     });
 
-    // 2. Điền bảng dữ liệu chi tiết (Bắt đầu từ tableStartRow)
-    // Nếu có nhiều hơn 1 dòng dữ liệu, ta cần chèn thêm dòng để không đè lên phần Footer/Signatures
+    // 2. Điền bảng dữ liệu chi tiết
     if (tableData.length > 1) {
-      // Chèn thêm (N-1) dòng sau tableStartRow
+      // Chèn thêm dòng nếu cần
       worksheet.duplicateRow(tableStartRow, tableData.length - 1, true);
     }
 
-    // Điền dữ liệu vào bảng
     tableData.forEach((rowData, i) => {
       const currentRow = tableStartRow + i;
       rowData.forEach((val, j) => {
-        const cell = worksheet.getRow(currentRow).getCell(j + 1); // Cột 1-indexed (A=1)
+        const cell = worksheet.getRow(currentRow).getCell(j + 1);
         cell.value = val;
-        // Giữ nguyên format của dòng mẫu (Border, Font) cho các dòng insert thêm
+        // Copy style từ dòng mẫu cho các dòng chèn thêm
         if (i > 0) {
             const templateCell = worksheet.getRow(tableStartRow).getCell(j + 1);
-            cell.style = templateCell.style;
+            cell.style = JSON.parse(JSON.stringify(templateCell.style));
         }
       });
     });
 
-    // 3. Tính Tổng Cộng (Nếu hàng 19 cũ là TỔNG CỘNG thì giờ nó là tableStartRow + tableData.length + offset?)
-    // Với template mẫu này, TỔNG CỘNG đang ở dòng 19 (cách 16 là 3 dòng).
-    // Tôi sẽ giả định footer cố định hoặc dùng search để tìm text "TỔNG CỘNG" nếu cần.
-    // Tạm thời tôi sẽ chỉ điền dữ liệu vào bảng, ExcelJS đã đẩy footer xuống rồi.
-
-    // 4. Xuất file
+    // 3. Xuất file
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `${filename}.xlsx`);
   } catch (error) {
@@ -72,7 +79,7 @@ export async function exportWithTemplate(
 }
 
 /**
- * Đọc File Excel (Cho các tính năng Import)
+ * Đọc File Excel
  */
 export async function readExcel(file: File): Promise<any[]> {
     return new Promise((resolve, reject) => {
@@ -86,8 +93,9 @@ export async function readExcel(file: File): Promise<any[]> {
           const rows: any[] = [];
           
           worksheet.eachRow((row, rowNumber) => {
-            if (rowNumber > 1) { // Giả định bỏ qua header
-              rows.push(row.values);
+            if (rowNumber > 1) {
+              const rowValues = Array.isArray(row.values) ? row.values.slice(1) : [];
+              rows.push(rowValues);
             }
           });
           resolve(rows);
@@ -101,10 +109,9 @@ export async function readExcel(file: File): Promise<any[]> {
 }
 
 /**
- * Xuất Excel cơ bản (Dự phòng nếu template lỗi)
+ * Xuất Excel cơ bản (Dự phòng)
  */
 export function exportToExcel(data: any[], filename: string, sheetName: string = "Sheet1") {
-   // Vẫn giữ xlsx cho export cơ bản để nhẹ gàng nếu không cần template
    const xlsx = require('xlsx');
    const ws = xlsx.utils.json_to_sheet(data);
    const wb = xlsx.utils.book_new();
