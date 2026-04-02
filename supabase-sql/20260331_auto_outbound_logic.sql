@@ -55,10 +55,13 @@ BEGIN
       -- BƯỚC 1: Sinh lệnh Xuất Giao Hàng vào Bảng Tồn Kho (inventory_transactions)
       IF v_actual_qty > 0 THEN
         INSERT INTO public.inventory_transactions (
-          tx_type, tx_date, product_id, customer_id, qty, notes, created_by
-        ) VALUES (
-          'out', v_plan_date, v_product_id, v_customer_id, v_actual_qty, p_note, v_user_id
-        );
+          tx_type, tx_date, product_id, customer_id, qty, note, created_by,
+          product_name_snapshot, product_spec_snapshot
+        ) 
+        SELECT 
+          'out', v_plan_date, v_product_id, v_customer_id, v_actual_qty, p_note, v_user_id,
+          name, spec
+        FROM public.products WHERE id = v_product_id;
       END IF;
       
       -- BƯỚC 2: Kiểm tra dung sai và Đẩy Nợ (Backlog)

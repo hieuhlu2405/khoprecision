@@ -353,7 +353,7 @@ export default function DeliveryPlanPage() {
     }
 
     const fileName = `PXK_${dateLabel.replace(/\//g, "-")}_${Object.keys(grouped).join("_")}`;
-    exportToExcel(rows, fileName, `Phieu_xuat_${dateLabel}`);
+    exportToExcel(rows, fileName, `Phieu_xuat_${dateLabel.replace(/\//g, "-")}`);
     showToast("Đã xuất file Excel!", "success");
   };
 
@@ -877,18 +877,18 @@ export default function DeliveryPlanPage() {
               <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-between items-center rounded-b-3xl">
                 <button
                   onClick={exportOutboundExcel}
-                  className="btn btn-ghost font-black tracking-widest text-xs rounded-xl px-6 text-emerald-600 hover:bg-emerald-50 border border-emerald-200"
+                  className="btn btn-ghost font-black tracking-widest text-[10px] rounded-xl px-6 text-emerald-600 hover:bg-emerald-50 border border-emerald-200"
                 >
-                  📄 XUẤT EXCEL
+                  📄 XEM TRƯỚC KẾ HOẠCH GIAO HÀNG (EXCEL)
                 </button>
                 <div className="flex gap-3">
                   <button onClick={() => setOutboundDay(null)} className="btn btn-ghost font-black tracking-widest text-xs rounded-xl px-6">HỦY</button>
                   <button
                     onClick={submitOutbound}
-                    className="btn bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black tracking-widest text-xs rounded-xl px-8 shadow-xl shadow-indigo-200 border-none"
+                    className="btn bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black tracking-widest text-[10px] rounded-xl px-8 shadow-xl shadow-indigo-200 border-none"
                     disabled={loadingOutbound}
                   >
-                    {loadingOutbound ? <span className="loading loading-spinner loading-sm"></span> : "✅ CHỐT TẠO PHIẾU XUẤT"}
+                    {loadingOutbound ? <span className="loading loading-spinner loading-sm"></span> : "✅ XÁC NHẬN XUẤT KHO CHÍNH THỨC"}
                   </button>
                 </div>
               </div>
