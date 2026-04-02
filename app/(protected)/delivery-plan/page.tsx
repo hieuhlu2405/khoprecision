@@ -5,15 +5,32 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
-import { exportToExcel } from "@/lib/excel-utils";
+import { exportToExcel, readExcel, exportWithTemplate } from "@/lib/excel-utils";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
 
 type Profile = { id: string; role: "admin" | "manager" | "staff"; department: string };
-type Product = { id: string; sku: string; name: string; spec: string | null; customer_id: string | null };
-type Customer = { id: string; code: string; name: string; selling_entity_id?: string | null };
+type Product = { 
+  id: string; 
+  sku: string; 
+  name: string; 
+  spec: string | null; 
+  uom: string;
+  sap_code: string | null;
+  external_sku: string | null;
+  customer_id: string | null;
+};
+type Customer = { 
+  id: string; 
+  code: string; 
+  name: string; 
+  address: string | null;
+  tax_code: string | null;
+  external_code: string | null;
+  selling_entity_id?: string | null;
+};
 type SellingEntity = { id: string; code: string; name: string; address?: string; tax_code?: string; phone?: string };
 type Plan = {
   id: string;
@@ -146,8 +163,8 @@ export default function DeliveryPlanPage() {
       setProfile(pData as Profile);
 
       const [rP, rC, rE] = await Promise.all([
-        supabase.from("products").select("id, sku, name, spec, customer_id").is("deleted_at", null),
-        supabase.from("customers").select("id, code, name, selling_entity_id").is("deleted_at", null),
+        supabase.from("products").select("id, sku, name, spec, uom, sap_code, external_sku, customer_id").is("deleted_at", null),
+        supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id").is("deleted_at", null),
         supabase.from("selling_entities").select("id, code, name, address, tax_code, phone").is("deleted_at", null),
       ]);
       setProducts(rP.data || []);
@@ -233,8 +250,14 @@ export default function DeliveryPlanPage() {
           product_name: prod?.name || "",
           sku: prod?.sku || "",
           spec: prod?.spec || "",
+          sap_code: prod?.sap_code || "",
+          external_sku: prod?.external_sku || "",
+          uom: prod?.uom || "PCS",
           customer_code: cust?.code || "",
           customer_name: cust?.name || "",
+          customer_address: cust?.address || "",
+          customer_tax_code: cust?.tax_code || "",
+          customer_external_code: cust?.external_code || "",
           entity_code: ent?.code || "",
           entity_name: ent?.name || "",
           planned: p.planned_qty,
@@ -280,81 +303,61 @@ export default function DeliveryPlanPage() {
     }
   };
 
-  // Professional Excel Export - grouped by Pháp nhân
-  const exportOutboundExcel = () => {
-    if (!outboundItems.length || !outboundDay) return;
-
-    const dateParts = outboundDay.split("-");
-    const dateLabel = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
-
-    // Group items by entity
+  const exportOutboundExcel = async () => {
+    if (outboundItems.length === 0) return;
+    const dateLabel = selectedOutboundDay ? selectedOutboundDay.split("-").reverse().join("/") : "";
+    
+    // Group by Customer and Entity for individual formal documents
     const grouped: Record<string, typeof outboundItems> = {};
-    for (const item of outboundItems) {
-      const key = item.entity_code || "KHONG_XD";
+    outboundItems.forEach(item => {
+      const key = `${item.customer_code}_${item.entity_code || "UNKNOWN"}`;
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(item);
-    }
+    });
 
-    // Build export data with entity headers
-    const rows: Record<string, string | number>[] = [];
-    let stt = 0;
+    for (const [key, items] of Object.entries(grouped)) {
+      const first = items[0];
+      const customerLabel = `${first.customer_code} - ${first.customer_name}`;
+      const fileName = `BBBG_${first.customer_code}_${dateLabel.replace(/\//g, "")}`;
+      
+      // 1. Prepare Header Data
+      const cellData: Record<string, string | number | null> = {
+        'C2': first.entity_name || "CÔNG TY TNHH KHO PRECISION", // Default if entity not set
+        'C3': "Hải Phòng, Việt Nam", // Placeholder
+        'C7': first.customer_name,
+        'C8': first.customer_address || "Địa chỉ khách hàng",
+        'C9': first.customer_tax_code || "", 
+        'F7': first.customer_external_code || first.customer_code, // Use NCC code if available
+      };
 
-    for (const [entityCode, items] of Object.entries(grouped)) {
-      const entityName = items[0]?.entity_name || "Chưa gán pháp nhân";
+      // 2. Prepare Table Data (STT, Mã nội bộ, Mã SAP, Mã hàng, Tên hàng, ĐVT, Số lượng)
+      const tableData = items.map((item, idx) => [
+        idx + 1,              // A: STT
+        item.sku,             // B: Mã nội bộ
+        item.sap_code || "",  // C: Mã SAP
+        item.external_sku || "", // D: Mã hàng (NCC)
+        `${item.product_name} ${item.spec ? "(" + item.spec + ")" : ""}`, // E: Tên hàng
+        item.uom || "PCS",    // F: ĐVT
+        item.actual           // G: Số lượng
+      ]);
 
-      // Entity header row
-      rows.push({
-        "STT": "",
-        "Mã hàng": `══ PHÁP NHÂN: ${entityCode !== "KHONG_XD" ? entityCode + " - " + entityName : "CHƯA GÁN"} ══`,
-        "Tên hàng": "",
-        "Quy cách": "",
-        "Khách hàng": "",
-        "Tồn kho": "",
-        "Kế hoạch": "",
-        "Thực xuất": "",
-        "Ghi chú": "",
-      } as any);
-
-      for (const item of items) {
-        stt++;
-        const backlogNote = item.actual < item.planned && item.push_backlog
-          ? `Nợ ${(item.planned - item.actual).toLocaleString()} → ngày mai`
-          : "";
-        const stockNote = item.stock < item.planned ? "⚠ THIẾU HÀNG" : "";
-
-        rows.push({
-          "STT": stt,
-          "Mã hàng": item.sku,
-          "Tên hàng": item.product_name,
-          "Quy cách": item.spec || "",
-          "Khách hàng": `${item.customer_code} - ${item.customer_name}`,
-          "Tồn kho": item.stock,
-          "Kế hoạch": item.planned,
-          "Thực xuất": item.actual,
-          "Ghi chú": [backlogNote, stockNote].filter(Boolean).join(" | "),
-        });
+      try {
+        await exportWithTemplate(
+          '/templates/maupgh.xlsx',
+          cellData,
+          tableData,
+          'A11',
+          fileName
+        );
+      } catch (err) {
+        console.error("Lỗi xuất template:", err);
+        showToast("Lỗi khi dùng mẫu Excel chuyên nghiệp. Đang dùng mẫu cơ bản...", "warning");
+        // Fallback to basic export if template fails
+        exportToExcel(items, fileName, "Sheet1");
       }
-
-      // Subtotal row
-      rows.push({
-        "STT": "",
-        "Mã hàng": "",
-        "Tên hàng": `── Tổng ${entityCode !== "KHONG_XD" ? entityCode : ""}: ${items.length} mã hàng ──`,
-        "Quy cách": "",
-        "Khách hàng": "",
-        "Tồn kho": "",
-        "Kế hoạch": items.reduce((s, i) => s + i.planned, 0),
-        "Thực xuất": items.reduce((s, i) => s + i.actual, 0),
-        "Ghi chú": "",
-      } as any);
-
-      // Blank separator
-      rows.push({ "STT": "", "Mã hàng": "", "Tên hàng": "", "Quy cách": "", "Khách hàng": "", "Tồn kho": "", "Kế hoạch": "", "Thực xuất": "", "Ghi chú": "" } as any);
     }
-
-    const fileName = `PXK_${dateLabel.replace(/\//g, "-")}_${Object.keys(grouped).join("_")}`;
-    exportToExcel(rows, fileName, `Phieu_xuat_${dateLabel.replace(/\//g, "-")}`);
-    showToast("Đã xuất file Excel!", "success");
+    
+    showToast("Đã tạo phiếu giao hàng chuyên nghiệp!", "success");
   };
 
   const handleSave = async () => {

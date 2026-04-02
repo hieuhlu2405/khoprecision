@@ -53,3 +53,48 @@ export async function readExcel(file: File): Promise<any[]> {
     reader.readAsArrayBuffer(file);
   });
 }
+
+/**
+ * Tiêm dữ liệu vào một file mẫu Excel có sẵn
+ * @param templateUrl Đường dẫn đến file mẫu (ví dụ: '/templates/mau.xlsx')
+ * @param cellData Map các ô cụ thể cần điền (VD: { 'C2': 'Tên Cty', 'C7': 'Khách hàng' })
+ * @param tableData Mảng các mảng (Array of Arrays) cho phần bảng kê chi tiết
+ * @param tableOrigin Ô bắt đầu của bảng kê (VD: 'A11')
+ * @param filename Tên file tải về (không kèm đuôi)
+ */
+export async function exportWithTemplate(
+  templateUrl: string, 
+  cellData: Record<string, string | number | null>, 
+  tableData: any[][], 
+  tableOrigin: string,
+  filename: string
+) {
+  try {
+    const response = await fetch(templateUrl);
+    if (!response.ok) throw new Error("Không thể tải file mẫu.");
+    const arrayBuffer = await response.arrayBuffer();
+    
+    // Đọc workbook
+    const workbook = xlsx.read(arrayBuffer, { type: 'array' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+
+    // 1. Điền các ô đơn lẻ (Header/Footer)
+    Object.entries(cellData).forEach(([cell, value]) => {
+      if (value !== null && value !== undefined) {
+        xlsx.utils.sheet_add_aoa(worksheet, [[value]], { origin: cell });
+      }
+    });
+
+    // 2. Điền bảng dữ liệu chi tiết
+    if (tableData.length > 0) {
+      xlsx.utils.sheet_add_aoa(worksheet, tableData, { origin: tableOrigin });
+    }
+
+    // 3. Xuất file
+    xlsx.writeFile(workbook, `${filename}.xlsx`);
+  } catch (error) {
+    console.error("Lỗi khi xuất template Excel:", error);
+    throw error;
+  }
+}

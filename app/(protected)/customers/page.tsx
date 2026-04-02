@@ -12,6 +12,9 @@ type Customer = {
   name: string;
   created_at: string;
   selling_entity_id: string | null;
+  address: string | null;
+  tax_code: string | null;
+  external_code: string | null;
 };
 
 type SellingEntity = {
@@ -40,6 +43,9 @@ export default function CustomersPage() {
   const [editing, setEditing] = useState<Customer | null>(null);
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [taxCode, setTaxCode] = useState("");
+  const [externalCode, setExternalCode] = useState("");
   const [entityId, setEntityId] = useState<string>("");
 
   // Selling entities
@@ -182,6 +188,8 @@ export default function CustomersPage() {
         result = result.filter(r => {
           let v = "";
           if (key === "code") v = r.code;
+          if (key === "external_code") v = r.external_code || "";
+          if (key === "address") v = r.address || "";
           if (key === "name") v = r.name;
           return passesTextFilter(v, f as TextFilter);
         });
@@ -195,6 +203,7 @@ export default function CustomersPage() {
       result.sort((a, b) => {
         let va: string | null = null, vb: string | null = null;
         if (sortCol === "code") { va = a.code; vb = b.code; }
+        else if (sortCol === "external_code") { va = a.external_code || ""; vb = b.external_code || ""; }
         else if (sortCol === "name") { va = a.name; vb = b.name; }
         else if (sortCol === "createdAt") { va = a.created_at || ""; vb = b.created_at || ""; }
 
@@ -326,6 +335,9 @@ export default function CustomersPage() {
     setEditing(null);
     setCode("");
     setName("");
+    setAddress("");
+    setTaxCode("");
+    setExternalCode("");
     setEntityId("");
   }
 
@@ -342,6 +354,9 @@ export default function CustomersPage() {
     setEditing(c);
     setCode(c.code);
     setName(c.name);
+    setAddress(c.address || "");
+    setTaxCode(c.tax_code || "");
+    setExternalCode(c.external_code || "");
     setEntityId(c.selling_entity_id || "");
     setOpen(true);
   }
@@ -415,6 +430,9 @@ export default function CustomersPage() {
           .update({
             code: c,
             name: n,
+            address: address.trim() || null,
+            tax_code: taxCode.trim() || null,
+            external_code: externalCode.trim() || null,
             selling_entity_id: entityId || null,
           })
           .eq("id", editing.id);
@@ -424,6 +442,9 @@ export default function CustomersPage() {
         const { error } = await supabase.from("customers").insert({
           code: c,
           name: n,
+          address: address.trim() || null,
+          tax_code: taxCode.trim() || null,
+          external_code: externalCode.trim() || null,
           selling_entity_id: entityId || null,
         });
 
@@ -495,8 +516,11 @@ export default function CustomersPage() {
       const ent = entities.find(e => e.id === r.selling_entity_id);
       return {
         "STT": i + 1,
-        "Code": r.code,
+        "Mã KH nội bộ": r.code,
+        "Mã KH (NCC)": r.external_code ?? "",
         "Tên khách hàng": r.name,
+        "Địa chỉ": r.address ?? "",
+        "Mã số thuế": r.tax_code ?? "",
         "Pháp nhân": ent ? `${ent.code} - ${ent.name}` : "",
         "Ngày tạo": fmtDatetime(r.created_at)
       };
@@ -526,7 +550,7 @@ export default function CustomersPage() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Tìm theo mã khách / tên..."
+          placeholder="Tìm theo mã nội bộ / mã NCC / tên / địa chỉ..."
           className="input"
           style={{ minWidth: 320 }}
         />
@@ -577,9 +601,12 @@ export default function CustomersPage() {
                   />
                 </th>
               )}
-              <ThCell label="Mã KHÁCH HÀNG" colKey="code" sortable colType="text" w="140px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "2px 0 5px -2px rgba(0,0,0,0.1)" }} />
-              <ThCell label="Tên khách hàng" colKey="name" sortable colType="text" />
-              <ThCell label="Pháp nhân" colKey="entity" sortable={false} colType="text" w="200px" />
+               <ThCell label="MÃ KH NỘI BỘ" colKey="code" sortable colType="text" w="140px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "2px 0 5px -2px rgba(0,0,0,0.1)" }} />
+               <ThCell label="Mã KH (NCC)" colKey="external_code" sortable colType="text" w="130px" />
+               <ThCell label="Tên khách hàng" colKey="name" sortable colType="text" />
+               <ThCell label="Địa chỉ" colKey="address" sortable colType="text" w="250px" />
+               <ThCell label="MST" colKey="tax_code" sortable colType="text" w="130px" />
+               <ThCell label="Pháp nhân" colKey="entity" sortable={false} colType="text" w="200px" />
               {isManager && <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="180px" />}
               {isManager && (
                  <th style={{ textAlign: "center", width: 100, position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0" }}>
@@ -613,8 +640,17 @@ export default function CustomersPage() {
                 >
                   <div className="font-extrabold text-slate-900 font-mono text-[15px] break-all">{c.code}</div>
                 </td>
+                <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[13px] font-bold" style={{ width: colWidths["external_code"] || 130, minWidth: colWidths["external_code"] || 130 }}>
+                  {c.external_code || "-"}
+                </td>
                 <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["name"], minWidth: colWidths["name"] || "200px" }}>
                   <div className="text-slate-900 font-bold text-[15px] leading-tight">{c.name}</div>
+                </td>
+                <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["address"], minWidth: colWidths["address"] || "250px" }}>
+                  <div className="text-slate-600 text-[13px] leading-tight line-clamp-2">{c.address || "-"}</div>
+                </td>
+                <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[13px] font-mono" style={{ width: colWidths["tax_code"] || 130, minWidth: colWidths["tax_code"] || 130 }}>
+                  {c.tax_code || "-"}
                 </td>
                 <td className="py-4 px-4 border-r border-slate-50">
                   {(() => {
@@ -665,7 +701,7 @@ export default function CustomersPage() {
 
             <div style={{ display: "grid", gap: 12 }}>
               <label style={{ display: "grid", gap: 6 }}>
-                Mã khách hàng *
+                Mã khách hàng nội bộ *
                 <input
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
@@ -676,12 +712,42 @@ export default function CustomersPage() {
               </label>
 
               <label style={{ display: "grid", gap: 6 }}>
+                Mã khách hàng (Mã NCC cấp - Tùy chọn)
+                <input
+                  value={externalCode}
+                  onChange={(e) => setExternalCode(e.target.value)}
+                  className="input"
+                  placeholder="Nhập mã từ NCC..."
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 6 }}>
                 Tên khách hàng *
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="input"
                   placeholder="Nhập tên khách hàng..."
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                Địa chỉ *
+                <input
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="input"
+                  placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành..."
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                Mã số thuế (Tùy chọn)
+                <input
+                  value={taxCode}
+                  onChange={(e) => setTaxCode(e.target.value)}
+                  className="input"
+                  placeholder="Mã số thuế..."
                 />
               </label>
 

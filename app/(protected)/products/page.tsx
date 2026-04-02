@@ -18,6 +18,8 @@ type Product = {
   customer_id: string;
   unit_price: number | null;
   created_at: string;
+  sap_code: string | null;
+  external_sku: string | null;
 };
 
 export default function ProductsPage() {
@@ -38,6 +40,8 @@ export default function ProductsPage() {
   const [sku, setSku] = useState("");
   const [name, setName] = useState("");
   const [spec, setSpec] = useState("");
+  const [sapCode, setSapCode] = useState("");
+  const [externalSku, setExternalSku] = useState("");
   const [uom, setUom] = useState("PCS");
   const [unitPrice, setUnitPrice] = useState("");
   const [customerId, setCustomerId] = useState("");
@@ -295,6 +299,8 @@ export default function ProductsPage() {
           let v = "";
           if (key === "customer") v = getCustomerLabel(r.customer_id);
           if (key === "sku") v = r.sku;
+          if (key === "sap_code") v = r.sap_code || "";
+          if (key === "external_sku") v = r.external_sku || "";
           if (key === "name") v = r.name;
           if (key === "spec") v = r.spec || "";
           return passesTextFilter(v, f as TextFilter);
@@ -312,6 +318,8 @@ export default function ProductsPage() {
         let va: string | number | null = null, vb: string | number | null = null;
         if (sortCol === "customer") { va = getCustomerLabel(a.customer_id); vb = getCustomerLabel(b.customer_id); }
         else if (sortCol === "sku") { va = a.sku; vb = b.sku; }
+        else if (sortCol === "sap_code") { va = a.sap_code || ""; vb = b.sap_code || ""; }
+        else if (sortCol === "external_sku") { va = a.external_sku || ""; vb = b.external_sku || ""; }
         else if (sortCol === "name") { va = a.name; vb = b.name; }
         else if (sortCol === "spec") { va = a.spec || ""; vb = b.spec || ""; }
         else if (sortCol === "price") { va = a.unit_price || 0; vb = b.unit_price || 0; }
@@ -444,6 +452,8 @@ export default function ProductsPage() {
     setSku("");
     setName("");
     setSpec("");
+    setSapCode("");
+    setExternalSku("");
     setUom("PCS");
     setUnitPrice("");
     setCustomerId(customers[0]?.id ?? "");
@@ -465,6 +475,8 @@ export default function ProductsPage() {
     setSku(p.sku);
     setName(p.name);
     setSpec(p.spec ?? "");
+    setSapCode(p.sap_code ?? "");
+    setExternalSku(p.external_sku ?? "");
     setUom(p.uom);
     setUnitPrice(p.unit_price != null ? String(p.unit_price) : "");
     setCustomerId(p.customer_id);
@@ -541,6 +553,8 @@ export default function ProductsPage() {
             sku: s,
             name: n,
             spec: spec.trim() ? spec.trim() : null,
+            sap_code: sapCode.trim() || null,
+            external_sku: externalSku.trim() || null,
             uom: uom.trim() || "PCS",
             unit_price: unitPrice ? Number(unitPrice) : null,
             customer_id: customerId,
@@ -554,6 +568,8 @@ export default function ProductsPage() {
           sku: s,
           name: n,
           spec: spec.trim() ? spec.trim() : null,
+          sap_code: sapCode.trim() || null,
+          external_sku: externalSku.trim() || null,
           uom: uom.trim() || "PCS",
           unit_price: unitPrice ? Number(unitPrice) : null,
           customer_id: customerId,
@@ -635,7 +651,9 @@ export default function ProductsPage() {
       return {
         "STT": i + 1,
         "Khách hàng": c ? `${c.code} - ${c.name}` : r.customer_id,
-        "Mã hàng": r.sku,
+        "Mã nội bộ": r.sku,
+        "Mã SAP": r.sap_code ?? "",
+        "Mã hàng (NCC)": r.external_sku ?? "",
         "Tên hàng": r.name,
         "Kích thước (MM)": r.spec ?? "",
         "ĐƠN VỊ TÍNH": r.uom,
@@ -768,8 +786,8 @@ export default function ProductsPage() {
             🏷️
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 leading-tight">Mã hàng (Products)</h1>
-            <p className="text-sm text-slate-500">Quản lý danh mục sản phẩm và quy cách hàng hóa.</p>
+            <h1 className="text-xl font-bold text-slate-900 leading-tight">Danh mục Mã hàng</h1>
+            <p className="text-sm text-slate-500">Quản lý mã hàng nội bộ, mã SAP và quy cách hàng hóa.</p>
           </div>
         </div>
       </div>
@@ -780,7 +798,7 @@ export default function ProductsPage() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Tìm theo mã hàng / tên / kích thước..."
+          placeholder="Tìm theo mã nội bộ / mã SAP / tên / kích thước..."
           className="input"
           style={{ minWidth: 320 }}
         />
@@ -1045,7 +1063,9 @@ export default function ProductsPage() {
                    />
                  </th>
                )}
-                               <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "2px 0 5px -2px rgba(0,0,0,0.1)" }} />
+               <ThCell label="Mã nội bộ" colKey="sku" sortable colType="text" w="140px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "2px 0 5px -2px rgba(0,0,0,0.1)" }} />
+               <ThCell label="Mã SAP" colKey="sap_code" sortable colType="text" w="120px" />
+               <ThCell label="Mã hàng (NCC)" colKey="external_sku" sortable colType="text" w="140px" />
                <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
                <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" w="160px" />
                <ThCell label="ĐƠN VỊ TÍNH" colKey="uom" sortable colType="text" w="120px" />
@@ -1086,6 +1106,12 @@ export default function ProductsPage() {
                         }}
                       >
                       <div className="font-extrabold text-slate-900 font-mono text-[15px] break-all">{p.sku}</div>
+                    </td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[13px] font-bold" style={{ width: colWidths["sap_code"] || 120, minWidth: colWidths["sap_code"] || 120 }}>
+                      {p.sap_code || "-"}
+                    </td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[13px] font-bold" style={{ width: colWidths["external_sku"] || 140, minWidth: colWidths["external_sku"] || 140 }}>
+                      {p.external_sku || "-"}
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["name"], minWidth: colWidths["name"] || "250px" }}>
                       <div className="text-slate-900 font-bold text-[15px] leading-tight">{p.name}</div>
@@ -1151,18 +1177,29 @@ export default function ProductsPage() {
               </label>
 
               <label style={{ display: "grid", gap: 6 }}>
-                Mã hàng
-                <input value={sku} onChange={(e) => setSku(e.target.value)} className="input" />
+                Mã nội bộ *
+                <input value={sku} onChange={(e) => setSku(e.target.value.toUpperCase())} className="input" placeholder="VD: SP001" />
               </label>
 
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <label style={{ display: "grid", gap: 6 }}>
+                  Mã SAP (Tùy chọn)
+                  <input value={sapCode} onChange={(e) => setSapCode(e.target.value)} className="input" placeholder="Mã SAP..." />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  Mã hàng NCC (Tùy chọn)
+                  <input value={externalSku} onChange={(e) => setExternalSku(e.target.value)} className="input" placeholder="Mã NCC..." />
+                </label>
+              </div>
+
               <label style={{ display: "grid", gap: 6 }}>
-                Tên hàng
-                <input value={name} onChange={(e) => setName(e.target.value)} className="input" />
+                Tên hàng *
+                <input value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder="Nhập tên sản phẩm..." />
               </label>
 
               <label style={{ display: "grid", gap: 6 }}>
                 Kích thước (MM)
-                <input value={spec} onChange={(e) => setSpec(e.target.value)} className="input" />
+                <input value={spec} onChange={(e) => setSpec(e.target.value)} className="input" placeholder="Vd: 555*447*419" />
               </label>
 
               <label style={{ display: "grid", gap: 6 }}>
