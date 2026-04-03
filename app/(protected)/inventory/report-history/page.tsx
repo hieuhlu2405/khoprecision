@@ -393,7 +393,7 @@ export default function ReportHistoryListPage() {
             🕒
           </div>
           <div>
-            <h1 className="page-title">Lịch sử chốt báo cáo</h1>
+            <h1 className="page-title">LỊCH SỬ CHỐT KHO</h1>
             <p className="page-description">Xem lại và quản lý các bản báo cáo tồn kho đã được lưu trữ.</p>
           </div>
         </div>

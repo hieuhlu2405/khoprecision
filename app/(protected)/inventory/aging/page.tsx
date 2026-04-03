@@ -1220,7 +1220,7 @@ export default function InventoryAgingReportPage() {
             📊
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 leading-tight">Báo cáo tồn lâu ngày (Aging)</h1>
+            <h1 className="page-title">TỒN DÀI KỲ (AGING)</h1>
             <p className="text-xs font-medium text-slate-500">Theo dõi và phân tích các mã hàng tồn kho quá hạn định kỳ</p>
           </div>
         </div>

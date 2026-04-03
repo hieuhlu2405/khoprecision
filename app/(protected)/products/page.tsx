@@ -786,7 +786,7 @@ export default function ProductsPage() {
             🏷️
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 leading-tight">Danh mục Mã hàng</h1>
+            <h1 className="page-title">MÃ HÀNG</h1>
             <p className="text-sm text-slate-500">Quản lý mã hàng nội bộ, mã SAP và quy cách hàng hóa.</p>
           </div>
         </div>

@@ -961,7 +961,7 @@ export default function InventoryOutboundPage() {
             🚚
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 leading-tight">Xuất Kho (Outbound)</h1>
+            <h1 className="page-title">XUẤT KHO</h1>
             <p className="text-sm text-slate-500">Quản lý và theo dõi các giao dịch xuất hàng khỏi kho.</p>
           </div>
         </div>

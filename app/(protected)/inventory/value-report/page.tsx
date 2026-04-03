@@ -1184,7 +1184,7 @@ export default function InventoryValueReportPage() {
             📊
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 leading-tight">Báo cáo Giá trị & Xếp hạng</h1>
+            <h1 className="page-title">GIÁ TRỊ TỒN KHO</h1>
             <p className="text-xs font-medium text-slate-500">Phân tích giá trị tồn kho và xếp hạng khách hàng, mã hàng</p>
           </div>
         </div>

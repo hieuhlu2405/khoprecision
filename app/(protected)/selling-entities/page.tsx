@@ -258,7 +258,7 @@ export default function SellingEntitiesPage() {
             🏢
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 leading-tight">Pháp nhân bán hàng</h1>
+            <h1 className="page-title">PHÁP NHÂN BÁN HÀNG</h1>
             <p className="text-sm text-slate-500">Quản lý các công ty / pháp nhân xuất hàng. Mỗi khách hàng gắn với 1 pháp nhân.</p>
           </div>
         </div>

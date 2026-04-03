@@ -648,7 +648,7 @@ export default function InventoryComparisonPage() {
             🔄
           </div>
           <div>
-            <h1 className="page-title !m-0 !text-xl !font-extrabold tracking-tight">Đối soát Xuất - Nhập</h1>
+            <h1 className="page-title">ĐỐI CHIẾU TỒN KHO</h1>
             <p className="page-description !m-0 text-slate text-xs font-medium">So sánh kết quả vận hành giữa hai kỳ</p>
           </div>
         </div>

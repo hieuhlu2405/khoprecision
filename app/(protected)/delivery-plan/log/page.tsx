@@ -239,9 +239,9 @@ export default function DeliveryLogPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-black text-black tracking-tight flex items-center gap-3">
-            <span className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100">📜</span>
-            Nhật ký Giao hàng (PGH)
+          <h1 className="page-title flex items-center gap-3">
+            <span className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100" style={{fontSize: '1.2rem'}}>📜</span>
+            NHẬT KÝ GIAO HÀNG (PGH)
           </h1>
           <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-2 ml-1">
             Quản lý và tra cứu lịch sử các chuyến hàng đã xuất

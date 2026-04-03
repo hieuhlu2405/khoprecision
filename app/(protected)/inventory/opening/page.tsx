@@ -592,7 +592,7 @@ export default function InventoryOpeningBalancesPage() {
             🚩
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 leading-tight">Tồn Đầu Kỳ</h1>
+            <h1 className="page-title">TỒN ĐẦU KỲ</h1>
             <p className="text-sm text-slate-500">Quản lý số dư tồn kho đầu các kỳ kế toán.</p>
           </div>
         </div>

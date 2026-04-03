@@ -903,7 +903,7 @@ export default function DeliveryPlanPage() {
             📅
           </div>
           <div>
-            <h1 className="page-title !m-0 !text-xl !font-black tracking-tight text-black">KẾ HOẠCH GIAO HÀNG</h1>
+            <h1 className="page-title">KẾ HOẠCH GIAO HÀNG</h1>
             <p className="page-description !m-0 text-slate-400 text-[10px] font-black uppercase tracking-widest">Ma trận 7 ngày tới • Cập nhật lần cuối: {new Date().toLocaleTimeString()}</p>
           </div>
         </div>

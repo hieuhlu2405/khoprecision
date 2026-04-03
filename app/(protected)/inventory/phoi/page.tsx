@@ -597,7 +597,7 @@ export default function PhoiPage() {
             🧱
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Nhập phôi nguyên liệu</h1>
+            <h1 className="page-title">NHẬP PHÔI NGUYÊN LIỆU</h1>
             <p className="text-slate-500 text-sm">Quản lý và theo dõi lịch sử nhập phôi hàng hóa.</p>
           </div>
         </div>

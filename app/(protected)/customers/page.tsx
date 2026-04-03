@@ -538,7 +538,7 @@ export default function CustomersPage() {
             🤝
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 leading-tight">Khách hàng (Customers)</h1>
+            <h1 className="page-title">KHÁCH HÀNG</h1>
             <p className="text-sm text-slate-500">Quản lý danh sách khách hàng và đối tác.</p>
           </div>
         </div>
