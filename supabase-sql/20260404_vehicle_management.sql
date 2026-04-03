@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS public.vehicles (
   type text NOT NULL CHECK (type IN ('nội_bộ', 'thuê_ngoài')),
   driver_name text,
   has_assistant boolean DEFAULT false,
+  assistant_name text,
   default_external_cost numeric DEFAULT 0,
   is_active boolean DEFAULT true,
   created_at timestamptz DEFAULT now()

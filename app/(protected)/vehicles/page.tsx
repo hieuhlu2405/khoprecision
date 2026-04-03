@@ -11,6 +11,7 @@ type Vehicle = {
   type: "nội_bộ" | "thuê_ngoài";
   driver_name: string | null;
   has_assistant: boolean;
+  assistant_name: string | null;
   default_external_cost: number;
   is_active: boolean;
   created_at: string;
@@ -30,6 +31,7 @@ export default function VehiclesPage() {
   const [type, setType] = useState<"nội_bộ" | "thuê_ngoài">("nội_bộ");
   const [driverName, setDriverName] = useState("");
   const [hasAssistant, setHasAssistant] = useState(false);
+  const [assistantName, setAssistantName] = useState("");
   const [defaultCost, setDefaultCost] = useState(0);
   const [isActive, setIsActive] = useState(true);
 
@@ -76,6 +78,7 @@ export default function VehiclesPage() {
     setType("nội_bộ");
     setDriverName("");
     setHasAssistant(false);
+    setAssistantName("");
     setDefaultCost(0);
     setIsActive(true);
   }
@@ -91,6 +94,7 @@ export default function VehiclesPage() {
     setType(v.type);
     setDriverName(v.driver_name || "");
     setHasAssistant(v.has_assistant);
+    setAssistantName(v.assistant_name || "");
     setDefaultCost(v.default_external_cost);
     setIsActive(v.is_active);
     setOpen(true);
@@ -110,6 +114,7 @@ export default function VehiclesPage() {
         type,
         driver_name: driverName.trim() || null,
         has_assistant: hasAssistant,
+        assistant_name: hasAssistant ? (assistantName.trim() || null) : null,
         default_external_cost: defaultCost,
         is_active: isActive,
       };
@@ -197,8 +202,8 @@ export default function VehiclesPage() {
               <th className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 text-left">
                 <span className="text-slate-900 font-black text-[12px] uppercase tracking-wider">TÀI XẾ</span>
               </th>
-              <th className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 text-center">
-                <span className="text-slate-900 font-black text-[12px] uppercase tracking-wider">PHỤ XE?</span>
+              <th className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 text-left">
+                <span className="text-slate-900 font-black text-[12px] uppercase tracking-wider">PHỤ XE</span>
               </th>
               <th className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 text-right">
                 <span className="text-slate-900 font-black text-[12px] uppercase tracking-wider">GIÁ CHUYẾN (XE NGOÀI)</span>
@@ -231,8 +236,8 @@ export default function VehiclesPage() {
                 <td className="py-4 px-4 border-r border-slate-50 text-[14px] text-slate-900 font-bold">
                   {r.driver_name || "-"}
                 </td>
-                <td className="py-4 px-4 border-r border-slate-50 text-center font-bold">
-                  {r.has_assistant ? "✅ Có" : "-"}
+                <td className="py-4 px-4 border-r border-slate-50 text-[14px] text-slate-700 font-bold">
+                  {r.has_assistant ? (r.assistant_name || "✅ Có") : "-"}
                 </td>
                 <td className="py-4 px-4 border-r border-slate-50 text-right font-mono font-bold text-[14px]">
                   {r.type === "thuê_ngoài" ? r.default_external_cost.toLocaleString() + " đ" : "-"}
@@ -310,15 +315,29 @@ export default function VehiclesPage() {
               </label>
 
               {type === "nội_bộ" && (
-                <label className="flex items-center gap-2 mt-2">
-                  <input
-                    type="checkbox"
-                    checked={hasAssistant}
-                    onChange={(e) => setHasAssistant(e.target.checked)}
-                    className="w-4 h-4 text-indigo-600 rounded border-slate-300"
-                  />
-                  <span className="font-bold text-slate-800 text-sm">Có tài xế phụ?</span>
-                </label>
+                <>
+                  <label className="flex items-center gap-2 mt-2 border border-slate-200 p-2 rounded bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={hasAssistant}
+                      onChange={(e) => setHasAssistant(e.target.checked)}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                    />
+                    <span className="font-bold text-slate-800 text-sm">Có phụ xe?</span>
+                  </label>
+                  
+                  {hasAssistant && (
+                    <label style={{ display: "grid", gap: 6 }}>
+                      Tên phụ xe
+                      <input
+                        value={assistantName}
+                        onChange={(e) => setAssistantName(e.target.value)}
+                        className="input"
+                        placeholder="Nguyễn Văn B..."
+                      />
+                    </label>
+                  )}
+                </>
               )}
 
               {type === "thuê_ngoài" && (
