@@ -970,7 +970,7 @@ export default function InventoryInboundPage() {
             📥
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 leading-tight">Nhập Kho (Inbound)</h1>
+            <h1 className="page-title">NHẬP KHO</h1>
             <p className="text-sm text-slate-500">Quản lý và theo dõi các giao dịch nhập hàng vào kho.</p>
           </div>
         </div>

@@ -262,7 +262,7 @@ export default function AdminUsersPage() {
             🛡️
           </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Quản lý người dùng</h1>
+            <h1 className="page-title">QUẢN LÝ NGƯỜI DÙNG</h1>
           <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 13 }}>
             Tổng: <strong>{rows.length}</strong> tài khoản
             {selectedIds.size > 0 && (

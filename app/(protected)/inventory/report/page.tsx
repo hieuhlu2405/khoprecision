@@ -573,7 +573,7 @@ export default function InventoryReportPage() {
             📦
           </div>
           <div>
-            <h1 className="page-title !m-0 !text-xl !font-extrabold tracking-tight">Tồn Kho Hiện Tại</h1>
+            <h1 className="page-title">TỒN KHO HIỆN TẠI</h1>
             <p className="page-description !m-0 text-slate text-xs font-medium">Báo cáo số lượng và giá trị tồn kho thời gian thực</p>
           </div>
         </div>

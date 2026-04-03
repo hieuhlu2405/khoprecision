@@ -282,7 +282,7 @@ export default function ShortageReportPage() {
             🚨
           </div>
           <div>
-            <h1 className="page-title !m-0 !text-2xl !font-black tracking-tighter text-red-700">CẢNH BÁO THIẾU HÀNG</h1>
+            <h1 className="page-title">CẢNH BÁO THIẾU HÀNG</h1>
             <p className="page-description !m-0 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">Hệ thống dự báo thiếu hụt thông minh • Rolling Inventory Logic</p>
           </div>
         </div>

@@ -487,7 +487,7 @@ export default function StocktakeListPage() {
             🔍
           </div>
           <div>
-            <h1 className="page-title">Kiểm kê kho (Stocktake)</h1>
+            <h1 className="page-title">KIỂM KÊ KHO</h1>
             <p className="page-description">Quản lý và theo dõi các phiên kiểm kê hàng hóa định kỳ.</p>
           </div>
         </div>
