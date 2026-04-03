@@ -3,81 +3,224 @@ name: inventory-ui-standards
 description: Project-specific design rules for the Inventory management system.
 ---
 
-# Inventory UI Design Standards (v2.0)
+# Inventory UI Design Standards (v3.0)
 
 This skill contains the mandatory design rules for all inventory-related data tables and interfaces in the KhoPrecision project. All future UI updates must strictly adhere to these standards.
 
+---
+
+## 0. HỆ THỐNG FONT CHỮ (QUAN TRỌNG — ĐỌC TRƯỚC)
+
+### Font Family: Inter (Bắt buộc toàn hệ thống)
+- **Font chính**: `Inter` — đã được load qua `next/font/google` với các trọng số 400, 500, 700, 900.
+- **CSS Variable**: `--font-inter` (được áp dụng vào `body` trong `globals.css`).
+- **KHÔNG được dùng**: Geist, Roboto, hay bất kỳ font nào khác.
+
+### Quy tắc Font Weight (Trọng số chữ)
+| Thành phần | Font Weight | Class Tailwind |
+|---|---|---|
+| Tiêu đề trang (H1) | **900 (Black)** | `.page-title` |
+| Tiêu đề bảng (TH) | **900 (Black)** | `.data-table th` |
+| Dữ liệu bảng (TD) | **500 (Medium)** | `.data-table td` |
+| Ghi chú / Note | **900 (Black)** | `font-black` |
+| Mô tả / Subtitle | **400 (Regular)** | `font-normal` |
+
+### Quy tắc Màu sắc
+| Thành phần | Màu sắc | CSS |
+|---|---|---|
+| Tiêu đề trang | Đen thuần | `color: #000000` |
+| Header bảng (TH) | Đen thuần | `color: #000000 !important` |
+| Dữ liệu bảng (TD) | Đen thuần | `color: #000000 !important` |
+| Ghi chú / Note | Đen thuần | `color: #000000` |
+| Label phụ / Mô tả | Xám nhạt | `text-slate-400` |
+
+> [!IMPORTANT]
+> **TUYỆT ĐỐI KHÔNG** dùng `text-slate-500`, `text-slate-700`, `text-gray-600`... cho bất kỳ nội dung trong bảng dữ liệu hoặc tiêu đề trang. Màu duy nhất được phép cho nội dung chính là `#000000`.
+
+---
+
+## 0A. TIÊU ĐỀ TRANG — Class `.page-title` (Bắt buộc)
+
+### Quy tắc áp dụng
+Mọi tiêu đề chính của trang (H1) **BẮT BUỘC** phải dùng class `.page-title`. Không được viết inline style hay dùng class Tailwind tùy tiện.
+
+```tsx
+// ✅ ĐÚNG
+<h1 className="page-title">TÊN TRANG</h1>
+
+// ❌ SAI — Không dùng class Tailwind tùy tiện
+<h1 className="text-xl font-bold text-slate-900">Tên trang</h1>
+<h1 style={{ fontSize: 22, fontWeight: 700 }}>Tên trang</h1>
+```
+
+### Thuộc tính của `.page-title` (định nghĩa trong `globals.css`)
+```css
+.page-header h1, .page-title {
+  font-size: 24px;
+  font-weight: 900;        /* Inter Black */
+  color: #000000;          /* Đen thuần */
+  letter-spacing: -0.04em; /* Tracking Tighter — bí quyết Premium */
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+```
+
+### Tên trang — Viết hoa toàn bộ (UPPERCASE)
+Nội dung tiêu đề **PHẢI VIẾT HOA** (uppercase). CSS đã tự động áp dụng, nhưng nên viết hoa trong code để rõ ràng.
+
+```tsx
+// Danh sách tên chuẩn đã được đồng bộ:
+"MÃ HÀNG"
+"KHÁCH HÀNG"
+"PHÁP NHÂN BÁN HÀNG"
+"TỒN KHO HIỆN TẠI"
+"TỒN ĐẦU KỲ"
+"NHẬP KHO"
+"XUẤT KHO"
+"NHẬP PHÔI NGUYÊN LIỆU"
+"KIỂM KÊ KHO"
+"KẾ HOẠCH GIAO HÀNG"
+"CẢNH BÁO THIẾU HÀNG"
+"NHẬT KÝ GIAO HÀNG (PGH)"
+"GIÁ TRỊ TỒN KHO"
+"TỒN DÀI KỲ (AGING)"
+"ĐỐI CHIẾU TỒN KHO"
+"LỊCH SỬ CHỐT KHO"
+"QUẢN LÝ NGƯỜI DÙNG"
+```
+
+### Tiêu đề phụ — Class `.section-title`
+Dùng cho các tiêu đề mục lục nhỏ hơn (H2) bên trong trang.
+```css
+.section-title {
+  font-size: 18px;
+  font-weight: 900;
+  color: #000000;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+```
+
+---
+
+## 0B. BẢNG DỮ LIỆU — Class `.data-table` (Bắt buộc)
+
+### Cách dùng đúng
+```tsx
+// ✅ ĐÚNG — Dùng class .data-table và .data-table-wrap
+<div className="data-table-wrap">
+  <table className="data-table">
+    <thead>
+      <tr>
+        <th>MÃ HÀNG</th>
+        <th>TÊN HÀNG</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>ABC123</td>
+        <td>Tên sản phẩm</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+```
+
+### Cột Ghi chú / Note — Bắt buộc Font Black
+```tsx
+// Ô nhập ghi chú trong bảng phải dùng font-black text-black
+<input className="... font-black text-black ..." />
+
+// Text hiển thị ghi chú
+<span className="font-black text-black">Nội dung ghi chú</span>
+```
+
+### Quy tắc `.data-table` (định nghĩa trong `globals.css`)
+```css
+.data-table {
+  font-family: var(--font-inter), sans-serif !important;
+  font-size: 13px;
+}
+.data-table th {
+  color: #000000 !important;
+  font-weight: 900;   /* Black */
+}
+.data-table td {
+  color: #000000 !important;
+  font-weight: 500;   /* Medium */
+}
+```
+
+---
+
 ## 1. Table Header & Iconography
-- **Color Contrast**: All table headings must use **Black text** (`text-slate-900` or `#0f172a`). Using gray or muted colors for headings is strictly forbidden.
-- **Sorting & Filtering Icons**: 
-    - Use SVG icons with a fixed size of **24px**.
-    - Color: **Indigo/Brand** (`text-indigo-500` or `#4F46E5`).
-    - Standard pattern: Use a large arrow for sorting and a funnel icon for filtering.
+
+- **Color Contrast**: Tất cả tiêu đề bảng (`th`) **BẮT BUỘC** màu `#000000`, font-weight 900. Màu xám bị cấm.
+- **Sorting & Filtering Icons**:
+    - Dùng SVG icons kích thước **24px**.
+    - Màu: **Indigo/Brand** (`text-indigo-500`).
+    - Chuẩn: Mũi tên lớn cho sắp xếp, phễu cho lọc.
 
 ## 2. Interactive Table Features
-- **Column Resizing (Mandatory)**: 
-    - Every data table must implement the **Excel-like column resizing** feature.
-    - Status of column widths must be persisted and namespaced in `localStorage` (e.g., `inventory_inbound_col_widths`).
-    - A visible resize handle (1px width, visible on hover) must be placed at the right edge of each header cell.
-    - Support **double-click** on the resize handle to reset the column width to a default state.
+
+- **Column Resizing (Bắt buộc)**:
+    - Mọi bảng dữ liệu phải có tính năng kéo dãn cột kiểu Excel.
+    - Lưu trạng thái vào `localStorage` với namespace riêng.
+    - Handle resize: 1px, hiện khi hover, double-click để reset.
 
 ## 3. Data Format Standard
-- **SKU & Product Identification**: Data in columns such as "Mã hàng" (SKU) should be treated as **plain text** by default, rather than formatted numbers, to preserve leading zeros or special characters.
 
-## 4. Visual Hierarchy (v2.2-v2.5)
-- **Header Structure**: Use `ThCell` component to encapsulate resize logic and standard header styling (Black text, 18px).
-- **Data Text**: 
-    - Mã hàng (SKU): `font-extrabold text-black text-[18px]`.
-    - Tên hàng/Khách hàng: `font-bold text-black text-[18px]`.
-    - Quy cách (Spec): `text-[12px] text-black font-bold`.
-- **Micro-animations**: Use Tailwind `animate-in`, `fade-in`, and `duration-200` for popups and feedback.
+- **SKU & Mã hàng**: Xử lý là **plain text** (không format số) để giữ nguyên ký tự đặc biệt.
 
-> [!IMPORTANT]
-> Failure to implement column resizing or using gray text for headings will result in a UI regression report. Always refer back to this design system when creating new modules.
+## 4. Visual Hierarchy
 
-## 6. Bộ Lọc & Sắp Xếp Nâng Cao (v2.1)
-- **Cấu trúc ThCell**: Mọi cột dữ liệu (trừ STT và Thao tác) mặc định phải có khả năng **Sắp xếp** và **Lọc**.
-- **Popup Lọc**: 
-    - Sử dụng `TextFilterPopup` cho chuỗi văn bản (Chế độ: Chứa, Bằng).
-    - Sử dụng `NumFilterPopup` cho số (Chế độ: Bằng, Lớn hơn, Nhỏ hơn, Khoảng).
-    - Hiệu ứng: Popup phải có `backdrop-blur-md` và bóng đổ (`shadow-xl`) mạnh để tách biệt với bảng dữ liệu.
-- **Biểu tượng Sắp xếp**: Hiển thị mũi tên hướng lên/xuống màu Indigo đậm (`text-indigo-600`) khi đang kích hoạt.
+- Mã hàng (SKU): `font-black text-black text-[15px] font-mono`.
+- Tên hàng: `font-bold text-black text-[15px]`.
+- Quy cách: `text-[11px] text-black font-bold uppercase`.
+- Khách hàng: `font-black text-black uppercase`.
+
+## 6. Bộ Lọc & Sắp Xếp Nâng Cao
+
+- **ThCell structure**: Mọi cột (trừ STT/Thao tác) phải có Sắp xếp và Lọc.
+- **Popup Lọc**: `TextFilterPopup` (chứa/bằng), `NumFilterPopup` (số).
+- Hiệu ứng popup: `backdrop-blur-md`, `shadow-xl`.
 
 ## 7. Hiệu ứng Thị giác Cao cấp (Premium Effects)
-- **Glassmorphism (Làm mờ nền)**: 
-    - Áp dụng `bg-white/80 backdrop-blur-md` cho Header bảng, Sidebar và các thanh công cụ (Toolbar).
-    - Viền: Sử dụng `border-slate-200/60` để giữ độ thanh thoát.
-- **Cảnh báo Thông minh (Alert Glow)**: 
-    - Các ô dữ liệu quan trọng (ví dụ: Thiếu hàng, Hết hàng) phải có nền `bg-red-50` kết hợp với hiệu ứng **Glow** (phát sáng nhẹ) hoặc Badge rực rỡ.
-    - Chữ cảnh báo: Cần sử dụng màu đỏ đậm (`text-red-700`) để tăng độ tương phản trên nền mờ.
+
+- **Glassmorphism**: `bg-white/80 backdrop-blur-md` cho Header bảng, Sidebar và Toolbar.
+- **Alert Glow**: Ô dữ liệu quan trọng (Thiếu hàng, Hết hàng) dùng nền `bg-red-50` + text `text-red-700`.
 
 ## 8. Ghim Cột (Sticky Columns)
-- **Cột Định danh**: Các cột "Sản phẩm", "Khách hàng" hoặc "Mã hàng" phải được Ghim cố định (`sticky left-0`) khi bảng có cuộn ngang.
-- **Header Ghim**: Header bảng phải luôn luôn Ghim trên cùng (`sticky top-0`) với Z-index cao hơn nội dung dòng.
 
+- Cột "Sản phẩm/Mã hàng" phải Ghim trái (`sticky left-0`) khi bảng có cuộn ngang.
+- Header phải Ghim trên (`sticky top-0`) với Z-index cao hơn nội dung.
 
 > [!IMPORTANT]
-> - Luôn chạy `npm run build` cục bộ trước khi đẩy code lên để đảm bảo các hiệu ứng làm mờ không gây lỗi Hydration hoặc Performance.
-> - Ưu tiên sử dụng Token HSL có sẵn trong `index.css` để đồng bộ màu sắc.
+> - Luôn chạy `npm run build` trước khi push code.
+> - Ưu tiên Token CSS (`--font-inter`, `--brand`, v.v.) thay vì hardcode giá trị.
 
 ### Quy trình Kiểm tra UI (Checklist)
-1. ✅ Header chữ Đen đậm (`text-slate-900`).
-2. ✅ Có thanh kéo dãn cột (Resize handle).
-3. ✅ Có Popup lọc khi bấm vào icon phễu.
-4. ✅ Nền Header/Sidebar có hiệu ứng làm mờ (Blur).
-5. ✅ Sticky cột chính khi cuộn ngang.
-6. ✅ Tìm kiếm tức thì trong Popup lọc (Instant search).
-7. ✅ Nội dung co giãn theo cột, không bị cắt bởi `max-width` cố định.
+
+1. ✅ Tiêu đề trang dùng class `.page-title`, VIẾT HOA.
+2. ✅ Header bảng: font-weight 900, màu `#000000`.
+3. ✅ Dữ liệu bảng: font-weight 500, màu `#000000`.
+4. ✅ Ghi chú/Note: font-weight 900, màu `#000000`.
+5. ✅ Có thanh kéo dãn cột (Resize handle).
+6. ✅ Có Popup lọc khi bấm icon phễu.
+7. ✅ Header/Sidebar có Glassmorphism (Blur).
+8. ✅ Sticky cột chính khi cuộn ngang.
+9. ✅ `font-family` sử dụng `var(--font-inter)` (KHÔNG dùng font khác).
 
 ## 9. Tìm kiếm Tức thì (Instant Search)
-- Tất cả bộ lọc (Phễu) phải cung cấp kết quả **ngay khi người dùng nhập liệu**.
-- Nút "Áp dụng" hoặc phím "Enter" chỉ dùng để đóng Popup.
+
+- Tất cả bộ lọc phải cung cấp kết quả **ngay khi nhập liệu**.
 
 ## 10. Hiển thị Linh hoạt (Flexible Text Layout)
-- Đối với các cột có khả năng Resize: **Tuyệt đối không sử dụng `max-w-[pixel]` cố định** bên trong ô dữ liệu.
-- Thay vì `truncate`, hãy sử dụng `leading-tight` hoặc `break-all` để khi kéo rộng cột, nội dung hiển thị đầy đủ.
 
-## 11. Cấm Chỉnh Sửa Phá Hoại Menu (Sidebar Integrity Rule)
+- Tuyệt đối không dùng `max-w-[pixel]` cố định trong ô có Resize.
+- Dùng `leading-tight` hoặc `break-all` thay cho `truncate`.
+
+## 11. Cấm Chỉnh Sửa Phá Hoại Menu
+
 > [!WARNING]
-> Mọi thay đổi liên quan đến Sidebar menu (`layout.tsx`) **KHÔNG ĐƯỢC PHÉP** vô tình xóa bỏ các Menu cũ (đặc biệt là nhóm "Báo cáo": Giá trị tồn kho, Tồn dài kỳ, Đối chiếu, Lịch sử). 
-> Khi thay thế/thêm mới một nhóm Menu, phải đảm bảo các mảng menu hiện có được giữ nguyên vẹn.
+> Mọi thay đổi `layout.tsx` **KHÔNG ĐƯỢC** vô tình xóa Menu cũ (đặc biệt nhóm "Báo cáo"). Khi thêm/sửa menu, phải giữ nguyên tất cả mục hiện có.
