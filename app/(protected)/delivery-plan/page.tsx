@@ -143,6 +143,7 @@ export default function DeliveryPlanPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [entities, setEntities] = useState<SellingEntity[]>([]);
+  const [vehicles, setVehicles] = useState<any[]>([]);
 
   const [days] = useState<string[]>(getNext7Days());
   const [saving, setSaving] = useState(false);
@@ -170,7 +171,7 @@ export default function DeliveryPlanPage() {
   const [selectedPlanIds, setSelectedPlanIds] = useState<Set<string>>(new Set());
   const [shipmentModalOpen, setShipmentModalOpen] = useState(false);
   const [shipmentItems, setShipmentItems] = useState<ShipmentItem[]>([]);
-  const [shipmentDriverInfo, setShipmentDriverInfo] = useState("");
+  const [shipmentVehicleId, setShipmentVehicleId] = useState("");
   const [shipmentEntityId, setShipmentEntityId] = useState<string>("");
   const [shipmentProcessing, setShipmentProcessing] = useState(false);
 
@@ -207,14 +208,16 @@ export default function DeliveryPlanPage() {
       const { data: pData } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).single();
       setProfile(pData as Profile);
 
-      const [rP, rC, rE] = await Promise.all([
+      const [rP, rC, rE, rV] = await Promise.all([
         supabase.from("products").select("id, sku, name, spec, uom, sap_code, external_sku, customer_id").is("deleted_at", null),
         supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id").is("deleted_at", null),
         supabase.from("selling_entities").select("id, code, name, address, tax_code, phone").is("deleted_at", null),
+        supabase.from("vehicles").select("*").eq("is_active", true).order("license_plate"),
       ]);
       setProducts(rP.data || []);
       setCustomers(rC.data || []);
       setEntities(rE.data || []);
+      setVehicles(rV.data || []);
 
       const startDate = days[0];
       const endDate = days[6];
@@ -452,7 +455,7 @@ export default function DeliveryPlanPage() {
       if (firstCust?.selling_entity_id) setShipmentEntityId(firstCust.selling_entity_id);
 
       setShipmentItems(items);
-      setShipmentDriverInfo("");
+      setShipmentVehicleId("");
       
       // Fix flickering: Clear processing state BEFORE opening modal
       setShipmentProcessing(false);
@@ -488,6 +491,10 @@ export default function DeliveryPlanPage() {
       showToast(`Còn ${invalidItems.length} mã hàng chưa nhập số lượng thực tế.`, "warning");
       return;
     }
+    if (!shipmentVehicleId) {
+      showToast("Vui lòng chọn Xe / Tài xế trước khi xuất chuyến.", "warning");
+      return;
+    }
     setShipmentProcessing(true);
     try {
       const payload = shipmentItems.map(x => ({
@@ -503,7 +510,7 @@ export default function DeliveryPlanPage() {
         p_payload: payload,
         p_customer_id: custId,
         p_entity_id: shipmentEntityId || null,
-        p_driver_info: shipmentDriverInfo || null,
+        p_vehicle_id: shipmentVehicleId,
         p_note: `Xuất kho chuyến hàng`,
         p_shipment_date: selectedOutboundDay,
       });
@@ -1287,14 +1294,19 @@ export default function DeliveryPlanPage() {
                   </select>
                 </div>
                 <div className="flex-1 min-w-[200px]">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">🚛 Biển số xe / Tài xế</label>
-                  <input
-                    type="text"
-                    value={shipmentDriverInfo}
-                    onChange={e => setShipmentDriverInfo(e.target.value)}
-                    placeholder="VD: 29C-123.45 / Nguyễn Văn A"
-                    className="input input-bordered input-sm w-full text-xs font-bold"
-                  />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">🚛 Chọn Xe / Tài xế *</label>
+                  <select
+                    value={shipmentVehicleId}
+                    onChange={e => setShipmentVehicleId(e.target.value)}
+                    className="select select-bordered select-sm w-full text-xs font-bold"
+                  >
+                    <option value="">-- Chọn chuyến xe --</option>
+                    {vehicles.map(v => (
+                       <option key={v.id} value={v.id}>
+                         {v.license_plate} {v.driver_name ? `- ${v.driver_name}` : ""} {v.type === "nội_bộ" ? "(Xe Nội Bộ)" : "(Thuê Ngoài)"}
+                       </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

@@ -28,6 +28,7 @@ function buildMenu(p: Profile, isAdmin: boolean) {
     { label: "🏷️ Mã hàng", href: "/products", show: true },
     { label: "🤝 Khách hàng", href: "/customers", show: true },
     { label: "🏢 Pháp nhân", href: "/selling-entities", show: true },
+    { label: "🚛 Danh sách xe", href: "/vehicles", show: true },
 
     { label: "Nghiệp vụ kho", show: true, isHeader: true },
     { label: "📦 Tồn kho hiện tại", href: "/inventory/report", show: true },
@@ -47,6 +48,7 @@ function buildMenu(p: Profile, isAdmin: boolean) {
     { label: "⏳ Tồn dài kỳ (Aging)", href: "/inventory/aging", show: canViewReports },
     { label: "⚖️ Đối chiếu tồn kho", href: "/inventory/comparison", show: canViewReports },
     { label: "📜 Lịch sử chốt kho", href: "/inventory/report-history", show: canViewReports },
+    { label: "📊 Báo cáo Logistics", href: "/vehicles/report", show: canViewReports },
 
     { label: "Quản trị hệ thống", show: isAdmin, isHeader: true },
     { label: "🛡️ Người dùng", href: "/admin/users", show: isAdmin },
