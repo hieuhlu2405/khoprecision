@@ -137,3 +137,91 @@ export function exportToExcel(data: any[], filename: string, sheetName: string =
    xlsx.utils.book_append_sheet(wb, ws, sheetName);
    xlsx.writeFile(wb, `${filename}.xlsx`);
 }
+
+/**
+ * Xuất nháp Kế hoạch Giao hàng hôm nay dùng đúng file mẫu maukehoachgiaohang.xlsx
+ * - Giữ nguyên định dạng A1, A2, B2, C2, D2, E2
+ * - A3+ = dữ liệu từng mã: STT, Tên KH, Mã nội bộ, Tên hàng, Số lượng kế hoạch
+ * - Tự kẻ bảng cho từng dòng dữ liệu
+ */
+export async function exportDeliveryDraftExcel(
+  items: {
+    customerName: string;
+    sku: string;
+    productName: string;
+    plannedQty: number;
+  }[],
+  dateLabel: string,
+  filename: string
+) {
+  const response = await fetch('/templates/maukehoachgiaohang.xlsx');
+  if (!response.ok) throw new Error('Không thể tải file mẫu kế hoạch giao hàng.');
+  const arrayBuffer = await response.arrayBuffer();
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(arrayBuffer);
+  const ws = workbook.worksheets[0];
+  if (!ws) throw new Error('File mẫu không hợp lệ.');
+
+  // Cập nhật tiêu đề A1 với ngày
+  const titleCell = ws.getCell('A1');
+  titleCell.value = `KẾ HOẠCH GIAO HÀNG - NGÀY ${dateLabel}`;
+  // Giữ merge A1:E1
+  try { ws.unMergeCells('A1:E1'); } catch (_) {}
+  ws.mergeCells('A1:E1');
+
+  // Border style dùng cho từng ô dữ liệu
+  const thinBorder: Partial<ExcelJS.Borders> = {
+    top:    { style: 'thin' },
+    left:   { style: 'thin' },
+    bottom: { style: 'thin' },
+    right:  { style: 'thin' },
+  };
+
+  // Ghi dữ liệu từ dòng 3 trở đi
+  items.forEach((item, idx) => {
+    const rowNum = 3 + idx;
+    const row = ws.getRow(rowNum);
+
+    // STT
+    const c1 = row.getCell(1);
+    c1.value = idx + 1;
+    c1.font = { name: 'Times New Roman', size: 13 };
+    c1.alignment = { horizontal: 'center', vertical: 'middle' };
+    c1.border = thinBorder;
+
+    // Tên Khách hàng
+    const c2 = row.getCell(2);
+    c2.value = item.customerName;
+    c2.font = { name: 'Times New Roman', size: 13 };
+    c2.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+    c2.border = thinBorder;
+
+    // Mã nội bộ
+    const c3 = row.getCell(3);
+    c3.value = item.sku;
+    c3.font = { name: 'Times New Roman', size: 13 };
+    c3.alignment = { horizontal: 'center', vertical: 'middle' };
+    c3.border = thinBorder;
+
+    // Tên hàng
+    const c4 = row.getCell(4);
+    c4.value = item.productName;
+    c4.font = { name: 'Times New Roman', size: 13 };
+    c4.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+    c4.border = thinBorder;
+
+    // Số lượng kế hoạch
+    const c5 = row.getCell(5);
+    c5.value = item.plannedQty;
+    c5.font = { name: 'Times New Roman', size: 13, bold: true };
+    c5.alignment = { horizontal: 'center', vertical: 'middle' };
+    c5.border = thinBorder;
+
+    row.height = 20;
+    row.commit();
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  saveAs(new Blob([buffer]), `${filename}.xlsx`);
+}

@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
-import { exportToExcel, readExcel, exportWithTemplate } from "@/lib/excel-utils";
+import { exportToExcel, readExcel, exportWithTemplate, exportDeliveryDraftExcel } from "@/lib/excel-utils";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -685,6 +685,48 @@ export default function DeliveryPlanPage() {
     showToast("Đã tạo phiếu giao hàng chuyên nghiệp!", "success");
   };
 
+  const handleExportDraft = async () => {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const dateLabel = todayStr.split('-').reverse().join('/');
+
+    // Lấy tất cả mã có kế hoạch giao hôm nay (planned_qty > 0, chưa hoàn thành)
+    const todayItems = products
+      .filter(p => {
+        const plan = plans.find(pl => pl.product_id === p.id && pl.plan_date === todayStr);
+        return plan && (plan.planned_qty || 0) > 0 && !plan.is_completed;
+      })
+      .map(p => {
+        const plan = plans.find(pl => pl.product_id === p.id && pl.plan_date === todayStr)!;
+        const cust = customers.find(c => c.id === p.customer_id);
+        return {
+          customerName: cust?.name || '-',
+          sku: p.sku,
+          productName: p.name + (p.spec ? ` (${p.spec})` : ''),
+          plannedQty: plan.planned_qty || 0,
+        };
+      })
+      // Sắp xếp theo Khách hàng → Mã hàng
+      .sort((a, b) => a.customerName.localeCompare(b.customerName) || a.sku.localeCompare(b.sku));
+
+    if (todayItems.length === 0) {
+      showToast('Không có mã hàng nào có kế hoạch giao hôm nay.', 'warning');
+      return;
+    }
+
+    try {
+      await exportDeliveryDraftExcel(
+        todayItems,
+        dateLabel,
+        `NHAP_KHOACH_${todayStr.replace(/-/g, '')}`
+      );
+      showToast(`Đã xuất nháp kế hoạch ${todayItems.length} mã hàng ngày ${dateLabel}`, 'success');
+    } catch (err: any) {
+      console.error(err);
+      showToast('Lỗi khi xuất file Excel nháp.', 'error');
+    }
+  };
+
   const handleSave = async () => {
     if (!canEdit || Object.keys(edits).length === 0) return;
     setSaving(true);
@@ -974,6 +1016,16 @@ export default function DeliveryPlanPage() {
             disabled={saving || !canEdit || Object.keys(edits).length === 0}
           >
             {saving ? "ĐANG LƯU..." : "💾 LƯU KẾ HOẠCH"}
+          </button>
+
+          <div className="h-8 w-px bg-slate-200 mx-1" />
+
+          <button
+            onClick={handleExportDraft}
+            title="Xuất nháp kế hoạch giao hàng hôm nay để kiểm tra khi xuất hàng"
+            className="btn h-10 px-5 rounded-xl font-black text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-200 transition-all"
+          >
+            🖨️ XUẤT NHÁP
           </button>
         </div>
       </div>
