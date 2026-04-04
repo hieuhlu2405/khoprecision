@@ -116,10 +116,10 @@ const VehicleModal = memo(({
                 setType(e.target.value as any);
                 if (e.target.value === "nội_bộ") setDefaultCost(0);
               }}
-              className="input font-black border-slate-100 !bg-slate-50/50 focus:!bg-white focus:border-indigo-400 rounded-2xl h-12 px-4 shadow-sm transition-all"
+              className="input font-bold border-slate-200 h-12 px-4 shadow-sm"
             >
-              <option value="nội_bộ">🚚 XE NỘI BỘ (KHOPRECISION)</option>
-              <option value="thuê_ngoài">🤝 ĐỐI TÁC THUÊ NGOÀI</option>
+              <option value="nội_bộ">🚚 XE NỘI BỘ</option>
+              <option value="thuê_ngoài">🤝 XE THUÊ NGOÀI</option>
             </select>
           </label>
 
@@ -408,24 +408,24 @@ export default function VehiclesPage() {
                   <div className="font-black text-slate-900 font-mono text-[17px] tracking-tight group-hover:text-indigo-600 transition-colors uppercase">{r.license_plate}</div>
                 </td>
                 <td className="py-7 px-8">
-                  <span className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2.5 w-fit border shadow-sm ${r.type === "nội_bộ" ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
+                  <span className={`px-4 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2.5 w-fit border shadow-sm ${r.type === "nội_bộ" ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
                     {r.type === "nội_bộ" ? (
                       <><span className="text-base">🚚</span> XE NỘI BỘ</>
                     ) : (
-                      <><span className="text-base">🤝</span> XE THUÊ NGOÀI</>
+                      <><span className="text-base">🚚</span> XE THUÊ</>
                     )}
                   </span>
                 </td>
                 <td className="py-7 px-8">
                    <div className="flex flex-col gap-1.5">
-                      <div className="font-black text-[#000000] text-sm uppercase tracking-tight">{r.driver_1_name || "-"}</div>
-                      {r.driver_2_name && <div className="font-black text-[#000000] text-sm uppercase tracking-tight opacity-100">{r.driver_2_name}</div>}
+                      <div className="text-[#000000] text-sm uppercase tracking-tight">{r.driver_1_name || "-"}</div>
+                      {r.driver_2_name && <div className="text-[#000000] text-sm uppercase tracking-tight opacity-100">{r.driver_2_name}</div>}
                    </div>
                 </td>
                 <td className="py-7 px-8">
                    <div className="flex flex-col gap-1.5">
-                      {r.assistant_1_name ? <div className="font-black text-[#000000] text-sm uppercase tracking-tight">{r.assistant_1_name}</div> : <div className="text-slate-300 font-black">-</div>}
-                      {r.assistant_2_name && <div className="font-black text-[#000000] text-sm uppercase tracking-tight opacity-100">{r.assistant_2_name}</div>}
+                      {r.assistant_1_name ? <div className="text-[#000000] text-sm uppercase tracking-tight">{r.assistant_1_name}</div> : <div className="text-slate-300">-</div>}
+                      {r.assistant_2_name && <div className="text-[#000000] text-sm uppercase tracking-tight opacity-100">{r.assistant_2_name}</div>}
                    </div>
                 </td>
                 <td className="py-7 px-8 text-right font-mono font-black text-base text-slate-800">
