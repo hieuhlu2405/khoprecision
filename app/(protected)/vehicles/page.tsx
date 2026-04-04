@@ -118,8 +118,8 @@ const VehicleModal = memo(({
               }}
               className="input font-bold border-slate-200 h-12 px-4 shadow-sm"
             >
-              <option value="nội_bộ">🚚 XE NỘI BỘ</option>
-              <option value="thuê_ngoài">🤝 XE THUÊ NGOÀI</option>
+              <option value="nội_bộ">🚛 XE NỘI BỘ</option>
+              <option value="thuê_ngoài">🤝 XE THUÊ</option>
             </select>
           </label>
 
@@ -357,10 +357,8 @@ export default function VehiclesPage() {
     <div className="page-root">
       <div className="page-header">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-[1.25rem] bg-indigo-600 text-white flex items-center justify-center shadow-2xl shadow-indigo-200">
-            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 16V8l-4-4H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2zM9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
+          <div className="w-12 h-12 rounded-[1.25rem] bg-indigo-600 text-white flex items-center justify-center shadow-2xl shadow-indigo-200" style={{ fontSize: 24 }}>
+            🚛
           </div>
           <div>
             <h1 className="page-title uppercase tracking-tighter text-3xl font-black">DANH SÁCH XE</h1>
@@ -419,15 +417,9 @@ export default function VehiclesPage() {
                 <td className="py-7 px-8">
                   <span className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2.5 w-fit border shadow-sm ${r.type === "nội_bộ" ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
                     {r.type === "nội_bộ" ? (
-                      <>
-                        <TruckIcon className="w-5 h-5 text-indigo-600" />
-                        XE NỘI BỘ
-                      </>
+                      <><span className="text-base">🚛</span> XE NỘI BỘ</>
                     ) : (
-                      <>
-                        <TruckIcon className="w-5 h-5 text-amber-600" />
-                        XE THUÊ
-                      </>
+                      <><span className="text-base">🤝</span> XE THUÊ</>
                     )}
                   </span>
                 </td>

@@ -191,10 +191,10 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
           >
             {!collapsed && (
               <div style={{ overflow: "hidden", flex: 1, paddingLeft: 4 }}>
-                <div style={{ 
-                  fontWeight: 700, 
-                  color: "white", 
-                  fontSize: 14, 
+                <div style={{
+                  fontWeight: 700,
+                  color: "white",
+                  fontSize: 14,
                   lineHeight: 1.3,
                   letterSpacing: "0.01em"
                 }}>
