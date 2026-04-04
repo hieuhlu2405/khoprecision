@@ -1,16 +1,48 @@
 -- =========================================================================
--- v3.8: VEHICLE MANAGEMENT - ENFORCE MAX 3 PEOPLE & SMART UNDO
+-- v3.9: VEHICLE MANAGEMENT - FULL UPDATE (COLUMNS + RPC)
 -- =========================================================================
 
--- 1. Đảm bảo bảng shipment_logs có cột deleted_at (nếu chưa có)
+-- 1. Cập nhật cấu trúc bảng vehicles (Thêm 2 Lái - 2 Phụ)
+DO $$ 
+BEGIN 
+  -- Thêm cột Lái 1 (nếu chưa có)
+  IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='vehicles' AND COLUMN_NAME='driver_1_name') THEN
+    ALTER TABLE public.vehicles ADD COLUMN driver_1_name text;
+  END IF;
+  -- Thêm cột Lái 2 (nếu chưa có)
+  IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='vehicles' AND COLUMN_NAME='driver_2_name') THEN
+    ALTER TABLE public.vehicles ADD COLUMN driver_2_name text;
+  END IF;
+  -- Thêm các cột Phụ xe (nếu chưa có)
+  IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='vehicles' AND COLUMN_NAME='assistant_1_name') THEN
+    ALTER TABLE public.vehicles ADD COLUMN assistant_1_name text;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='vehicles' AND COLUMN_NAME='assistant_2_name') THEN
+    ALTER TABLE public.vehicles ADD COLUMN assistant_2_name text;
+  END IF;
+END $$;
+
+-- 2. Đảm bảo bảng shipment_logs có đủ các cột snapshot mới
 DO $$ 
 BEGIN 
   IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='shipment_logs' AND COLUMN_NAME='deleted_at') THEN
     ALTER TABLE public.shipment_logs ADD COLUMN deleted_at timestamptz;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='shipment_logs' AND COLUMN_NAME='driver_1_name_snapshot') THEN
+    ALTER TABLE public.shipment_logs ADD COLUMN driver_1_name_snapshot text;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='shipment_logs' AND COLUMN_NAME='driver_2_name_snapshot') THEN
+    ALTER TABLE public.shipment_logs ADD COLUMN driver_2_name_snapshot text;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='shipment_logs' AND COLUMN_NAME='assistant_1_name_snapshot') THEN
+    ALTER TABLE public.shipment_logs ADD COLUMN assistant_1_name_snapshot text;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='shipment_logs' AND COLUMN_NAME='assistant_2_name_snapshot') THEN
+    ALTER TABLE public.shipment_logs ADD COLUMN assistant_2_name_snapshot text;
+  END IF;
 END $$;
 
--- 2. Hàm RPC: Tính toán giá chuyến và sinh Phiếu xuất kho (v3.8)
+-- 3. Hàm RPC: Tính toán giá chuyến và sinh Phiếu xuất kho (v3.9)
 CREATE OR REPLACE FUNCTION public.shipment_outbound_delivery(
   p_payload jsonb,
   p_customer_id uuid,
@@ -163,16 +195,12 @@ BEGIN
         updated_by = v_user_id
     WHERE id = v_plan_id;
 
-    -- Xử lý Backlog (Tái cân đối)
+    -- Xử lý Backlog
     v_tomorrow := v_plan_date + interval '1 day';
     UPDATE public.delivery_plans
     SET planned_qty = GREATEST(0, planned_qty - v_actual_qty),
         updated_at = now()
-    WHERE plan_date = v_tomorrow
-      AND product_id = v_product_id
-      AND customer_id = v_customer_id
-      AND note LIKE 'Backlog từ %' || to_char(v_plan_date, 'DD/MM/YYYY') || '%'
-      AND actual_qty = 0;
+    WHERE plan_date = v_tomorrow AND product_id = v_product_id AND customer_id = v_customer_id AND note LIKE 'Backlog từ %' || to_char(v_plan_date, 'DD/MM/YYYY') || '%' AND actual_qty = 0;
 
     DELETE FROM public.delivery_plans 
     WHERE plan_date = v_tomorrow AND product_id = v_product_id AND customer_id = v_customer_id AND planned_qty <= 0 AND actual_qty = 0;
@@ -197,7 +225,7 @@ EXCEPTION
 END;
 $$;
 
--- 3. Hàm RPC: Hủy lệnh xuất kho (v3.8 - Tự động dọn dẹp shipment_logs)
+-- 4. Hàm RPC: Hủy lệnh xuất kho (v3.9)
 CREATE OR REPLACE FUNCTION public.undo_outbound_delivery(
   p_plan_id uuid
 )
@@ -218,22 +246,13 @@ BEGIN
     RAISE EXCEPTION 'Chỉ Admin mới có quyền hủy lệnh xuất kho.';
   END IF;
 
-  -- Lấy shipment_id trước khi xóa
-  SELECT shipment_id INTO v_shipment_id 
-  FROM public.inventory_transactions 
-  WHERE delivery_plan_id = p_plan_id 
-  LIMIT 1;
+  SELECT shipment_id INTO v_shipment_id FROM public.inventory_transactions WHERE delivery_plan_id = p_plan_id LIMIT 1;
 
-  -- 1. Xóa các giao dịch liên quan
   DELETE FROM public.inventory_transactions WHERE delivery_plan_id = p_plan_id;
   GET DIAGNOSTICS v_count_deleted = ROW_COUNT;
 
-  -- 2. Trả trạng thái kế hoạch
-  UPDATE public.delivery_plans
-  SET is_completed = false, actual_qty = 0, updated_at = now(), updated_by = auth.uid()
-  WHERE id = p_plan_id;
+  UPDATE public.delivery_plans SET is_completed = false, actual_qty = 0, updated_at = now(), updated_by = auth.uid() WHERE id = p_plan_id;
 
-  -- 3. Kiểm tra và dọn dẹp shipment_logs nếu chuyến xe không còn mã hàng nào
   IF v_shipment_id IS NOT NULL THEN
     SELECT count(*) INTO v_remaining_tx FROM public.inventory_transactions WHERE shipment_id = v_shipment_id;
     IF v_remaining_tx = 0 THEN
@@ -241,6 +260,12 @@ BEGIN
     END IF;
   END IF;
 
+  -- Kích hoạt reload schema (tùy chọn)
+  NOTIFY pgrst, 'reload schema';
+
   RETURN jsonb_build_object('success', true, 'deleted_tx_count', v_count_deleted);
 END;
 $$;
+
+-- CUỐI CÙNG: Ép buộc Reload Schema
+NOTIFY pgrst, 'reload schema';

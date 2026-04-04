@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, memo } from "react";
+import { useEffect, useMemo, useState, memo, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
@@ -72,56 +72,61 @@ const VehicleModal = memo(({
   if (!isOpen) return null;
 
   const handleSave = async () => {
-    setSaving(true);
-    const payload = {
-      license_plate: licensePlate.trim().toUpperCase(),
-      type,
-      driver_1_name: driverCount >= 1 ? (driver1Name.trim() || null) : null,
-      driver_2_name: driverCount === 2 ? (driver2Name.trim() || null) : null,
-      assistant_1_name: assistantCount >= 1 ? (assistant1Name.trim() || null) : null,
-      assistant_2_name: assistantCount === 2 ? (assistant2Name.trim() || null) : null,
-      default_external_cost: defaultCost,
-      is_active: isActive,
-    };
-    await onSave(payload);
-    setSaving(false);
+    try {
+      setSaving(true);
+      const payload = {
+        license_plate: licensePlate.trim().toUpperCase(),
+        type,
+        driver_1_name: driverCount >= 1 ? (driver1Name.trim() || null) : null,
+        driver_2_name: driverCount === 2 ? (driver2Name.trim() || null) : null,
+        assistant_1_name: assistantCount >= 1 ? (assistant1Name.trim() || null) : null,
+        assistant_2_name: assistantCount === 2 ? (assistant2Name.trim() || null) : null,
+        default_external_cost: defaultCost,
+        is_active: isActive,
+      };
+      await onSave(payload);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
-        <h2 className="modal-title font-black text-slate-900">{editingVehicle ? "CHỈNH SỬA XE" : "THÊM XE MỚI"}</h2>
+      <div className="modal-box !rounded-[2rem] shadow-2xl border-none p-8" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-xl font-black text-slate-900 border-b border-slate-100 pb-4 mb-6 uppercase tracking-tighter italic">
+          {editingVehicle ? "⚡ Cập nhật thông tin xe" : "✨ Thêm xe mới vào đội"}
+        </h2>
 
-        <div className="flex flex-col gap-4 mt-4">
+        <div className="flex flex-col gap-5">
           <label className="flex flex-col gap-1.5 focus-within:text-indigo-600 transition-colors">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Biển số xe *</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Biển số xe *</span>
             <input
               value={licensePlate}
               onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
-              className="input font-mono font-bold border-slate-200 focus:border-indigo-500 shadow-sm"
+              className="input font-mono font-black border-slate-100 !bg-slate-50/50 focus:!bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 rounded-2xl transition-all h-12 px-4 shadow-sm"
               placeholder="VD: 99A-123.45"
             />
           </label>
 
           <label className="flex flex-col gap-1.5 focus-within:text-indigo-600 transition-colors">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loại xe *</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Loại xe *</span>
             <select
               value={type}
               onChange={(e) => {
                 setType(e.target.value as any);
                 if (e.target.value === "nội_bộ") setDefaultCost(0);
               }}
-              className="input font-bold border-slate-200"
+              className="input font-black border-slate-100 !bg-slate-50/50 focus:!bg-white focus:border-indigo-400 rounded-2xl h-12 px-4 shadow-sm transition-all"
             >
-              <option value="nội_bộ">🚚 XE NỘI BỘ</option>
-              <option value="thuê_ngoài">🤝 XE THUÊ NGOÀI</option>
+              <option value="nội_bộ">🚚 XE NỘI BỘ (KHOPRECISION)</option>
+              <option value="thuê_ngoài">🤝 ĐỐI TÁC THUÊ NGOÀI</option>
             </select>
           </label>
 
           {type === "nội_bộ" ? (
-            <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Số lượng Lái xe</span>
+            <div className="bg-indigo-50/30 p-5 rounded-3xl border border-indigo-100/50 flex flex-col gap-5">
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400/80 ml-1">Số lượng Lái xe</span>
                 <div className="flex gap-2">
                   {[1, 2].map(num => (
                      <button
@@ -131,7 +136,7 @@ const VehicleModal = memo(({
                           setDriverCount(num as any);
                           if (num + assistantCount > 3) setAssistantCount((3 - num) as any);
                         }}
-                        className={`flex-1 py-2 rounded-xl text-[11px] font-black border transition-all ${driverCount === num ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'}`}
+                        className={`flex-1 py-2.5 rounded-2xl text-[11px] font-black border transition-all duration-300 ${driverCount === num ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300'}`}
                      >
                        {num} LÁI XE
                      </button>
@@ -143,21 +148,21 @@ const VehicleModal = memo(({
                 <input
                   value={driver1Name}
                   onChange={(e) => setDriver1Name(e.target.value)}
-                  className="input input-sm font-bold border-slate-200"
+                  className="input input-sm font-black border-slate-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 rounded-xl h-10 px-4 transition-all"
                   placeholder="Tên Lái Xe 1..."
                 />
                 {driverCount === 2 && (
                   <input
                     value={driver2Name}
                     onChange={(e) => setDriver2Name(e.target.value)}
-                    className="input input-sm font-bold border-slate-200"
+                    className="input input-sm font-black border-slate-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 rounded-xl h-10 px-4 transition-all"
                     placeholder="Tên Lái Xe 2..."
                   />
                 )}
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Số lượng Phụ xe</span>
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400/80 ml-1">Số lượng Phụ xe</span>
                 <div className="flex gap-2">
                   {[0, 1, 2].map(num => {
                     const disabled = (driverCount + num) > 3;
@@ -167,7 +172,7 @@ const VehicleModal = memo(({
                         type="button"
                         disabled={disabled}
                         onClick={() => setAssistantCount(num as any)}
-                        className={`flex-1 py-1.5 rounded-xl text-[10px] font-black border transition-all ${disabled ? 'opacity-30 cursor-not-allowed bg-slate-100' : assistantCount === num ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'}`}
+                        className={`flex-1 py-2 rounded-2xl text-[10px] font-black border transition-all duration-300 ${disabled ? 'opacity-20 cursor-not-allowed bg-slate-100' : assistantCount === num ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300'}`}
                       >
                         {num} PHỤ
                       </button>
@@ -181,14 +186,14 @@ const VehicleModal = memo(({
                   <input
                     value={assistant1Name}
                     onChange={(e) => setAssistant1Name(e.target.value)}
-                    className="input input-sm font-bold border-slate-200"
+                    className="input input-sm font-black border-slate-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 rounded-xl h-10 px-4 transition-all"
                     placeholder="Tên Phụ Xe 1..."
                   />
                   {assistantCount === 2 && (
                     <input
                       value={assistant2Name}
                       onChange={(e) => setAssistant2Name(e.target.value)}
-                      className="input input-sm font-bold border-slate-200"
+                      className="input input-sm font-black border-slate-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 rounded-xl h-10 px-4 transition-all"
                       placeholder="Tên Phụ Xe 2..."
                     />
                   )}
@@ -196,51 +201,51 @@ const VehicleModal = memo(({
               )}
             </div>
           ) : (
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tên tài xế chính</span>
+            <label className="flex flex-col gap-1.5 focus-within:text-amber-600 transition-colors">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Tên tài xế chính</span>
               <input
                 value={driver1Name}
                 onChange={(e) => setDriver1Name(e.target.value)}
-                className="input font-bold border-slate-200"
+                className="input font-black border-slate-100 !bg-slate-50/50 focus:!bg-white focus:border-amber-400 focus:ring-4 focus:ring-amber-50 rounded-2xl h-12 px-4 shadow-sm"
                 placeholder="Nguyễn Văn A..."
               />
             </label>
           )}
 
           {type === "thuê_ngoài" && (
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá thuê chuyến (VNĐ)</span>
+            <label className="flex flex-col gap-1.5 focus-within:text-amber-600 transition-colors">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Giá thuê chuyến (VNĐ)</span>
               <input
                 type="number"
                 value={defaultCost}
                 onChange={(e) => setDefaultCost(Number(e.target.value))}
-                className="input font-mono font-bold border-slate-200"
+                className="input font-mono font-black border-slate-100 !bg-slate-50/50 focus:!bg-white focus:border-amber-400 rounded-2xl h-12 px-4 shadow-sm"
                 placeholder="VD: 500000"
               />
             </label>
           )}
 
-          <label className="flex items-center gap-3 mt-2 bg-slate-50 p-3 rounded-2xl cursor-pointer hover:bg-slate-100 transition-colors">
+          <label className="flex items-center gap-3 mt-2 bg-slate-50 p-4 rounded-[1.5rem] cursor-pointer hover:bg-slate-100 transition-all active:scale-[0.98]">
             <input
               type="checkbox"
               checked={isActive}
               onChange={(e) => setIsActive(e.target.checked)}
-              className="w-5 h-5 accent-emerald-600 border-slate-300"
+              className="w-6 h-6 accent-emerald-600 border-none rounded-lg shadow-sm"
             />
-            <span className="font-black text-slate-800 text-[11px] uppercase tracking-widest">Đang hoạt động / Sẵn sàng</span>
+            <span className="font-black text-slate-800 text-[11px] uppercase tracking-[0.1em]">Xe đang sẵn sàng hoạt động</span>
           </label>
         </div>
 
         <div className="modal-footer flex gap-3 mt-8">
-          <button onClick={onClose} className="btn bg-slate-100 hover:bg-slate-200 text-slate-600 border-none font-black tracking-widest text-[11px] flex-1 py-3">
-            HỦY
+          <button onClick={onClose} className="btn bg-slate-100 hover:bg-slate-200 text-slate-500 border-none font-black tracking-widest text-[11px] flex-1 py-4 rounded-2xl transition-all">
+            HỦY BỎ
           </button>
           <button 
             onClick={handleSave} 
             disabled={saving || !licensePlate}
-            className="btn bg-indigo-600 hover:bg-indigo-700 text-white border-none shadow-lg shadow-indigo-100 font-black tracking-widest text-[11px] flex-1 py-3"
+            className="btn bg-gradient-to-r from-indigo-600 to-violet-600 hover:opacity-90 active:scale-95 text-white border-none shadow-xl shadow-indigo-100 font-black tracking-widest text-[11px] flex-1 py-4 rounded-2xl transition-all"
           >
-            {saving ? "ĐANG LƯU..." : "LƯU THÔNG TIN"}
+            {saving ? "⏳ ĐANG LƯU..." : "✅ LƯU THÔNG TIN"}
           </button>
         </div>
       </div>
@@ -261,7 +266,7 @@ export default function VehiclesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     setError("");
     setLoading(true);
     try {
@@ -280,9 +285,9 @@ export default function VehiclesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -294,17 +299,22 @@ export default function VehiclesPage() {
     );
   }, [rows, q]);
 
-  const handleOpenCreate = () => {
+  const handleOpenCreate = useCallback(() => {
     setEditingVehicle(null);
     setModalOpen(true);
-  };
+  }, []);
 
-  const handleOpenEdit = (v: Vehicle) => {
+  const handleOpenEdit = useCallback((v: Vehicle) => {
     setEditingVehicle(v);
     setModalOpen(true);
-  };
+  }, []);
 
-  const handleSave = async (payload: any) => {
+  const handleCloseModal = useCallback(() => {
+    setModalOpen(false);
+    setEditingVehicle(null);
+  }, []);
+
+  const handleSave = useCallback(async (payload: any) => {
     try {
       if (editingVehicle) {
         const { error } = await supabase.from("vehicles").update(payload).eq("id", editingVehicle.id);
@@ -319,7 +329,7 @@ export default function VehiclesPage() {
     } catch (err: any) {
       setError(err?.message ?? "Lỗi khi lưu");
     }
-  };
+  }, [editingVehicle, load, showToast]);
 
   const handleDelete = async (v: Vehicle) => {
     const ok = await showConfirm({ message: `Xóa xe ${v.license_plate}? Hành động không thể hoàn tác.`, danger: true, confirmLabel: "Xóa" });
@@ -340,106 +350,122 @@ export default function VehiclesPage() {
     <div className="page-root">
       <div className="page-header">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
+          <div className="w-12 h-12 rounded-[1.25rem] bg-indigo-600 text-white flex items-center justify-center shadow-2xl shadow-indigo-200" style={{ fontSize: 24 }}>
             🚛
           </div>
           <div>
-            <h1 className="page-title">DANH SÁCH XE</h1>
-            <p className="text-sm text-slate-500 font-bold uppercase tracking-widest opacity-60">Fleet Management Module</p>
+            <h1 className="page-title uppercase tracking-tighter text-3xl font-black">DANH SÁCH XE</h1>
+            <p className="text-sm text-slate-500 font-black uppercase tracking-widest opacity-90 mt-0.5">Quản lý thông tin các xe giao hàng</p>
           </div>
         </div>
       </div>
 
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
-      <div className="filter-panel toolbar bg-white shadow-xl shadow-slate-100 border border-slate-100 rounded-2xl mb-6">
-        <div className="relative group flex-1" style={{ maxWidth: 400 }}>
+      <div className="filter-panel toolbar bg-white/80 backdrop-blur-md shadow-2xl shadow-indigo-100/50 border border-white rounded-[2rem] mb-8 p-1.5 flex items-center gap-2">
+        <div className="relative group flex-1 ml-4">
            <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Tìm biển số hoặc tên tài xế..."
-            className="input !pl-10 !bg-slate-50 border-none transition-all focus:!bg-white focus:ring-2 focus:ring-indigo-100"
+            className="input !pl-10 !bg-transparent border-none transition-all focus:ring-0 text-slate-800 font-bold placeholder:text-slate-300"
           />
-          <span className="absolute left-3 top-2.5 opacity-30 select-none grayscale cursor-default">🔍</span>
+          <span className="absolute left-0 top-2.5 opacity-30 select-none grayscale cursor-default scale-125">🔍</span>
         </div>
 
-        <div className="flex gap-2 ml-auto">
+        <div className="flex gap-2 mr-1">
           {q && (
-            <button onClick={() => setQ("")} className="btn btn-secondary border-none !bg-slate-100 font-black text-[11px] tracking-widest">
-               CLEAR
+            <button onClick={() => setQ("")} className="btn bg-slate-100 hover:bg-slate-200 text-slate-500 border-none font-black text-[10px] tracking-widest px-5 rounded-full">
+               XÓA TÌM KIẾM
             </button>
           )}
-          <button onClick={handleOpenCreate} className="btn bg-indigo-600 hover:bg-indigo-700 text-white font-black tracking-widest text-[11px] px-6 shadow-lg shadow-indigo-100 border-none">
-            + THÊM XE MỚI
+          <button onClick={handleOpenCreate} className="btn bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600 hover:opacity-90 active:scale-95 text-white font-black tracking-widest text-[11px] px-8 py-4 shadow-xl shadow-indigo-200/50 border-none rounded-full transition-all duration-300">
+            THÊM XE MỚI
           </button>
-          <button onClick={load} className="btn border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-black tracking-widest text-[11px]">
-             REFRESH
+          <button onClick={load} className="btn w-12 h-12 p-0 border border-slate-100 bg-white hover:bg-slate-50 text-slate-400 rounded-full flex items-center justify-center transition-all shadow-sm">
+             🔄
           </button>
         </div>
       </div>
 
-      <div className="data-table-wrap !rounded-3xl shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-auto bg-white" style={{ minHeight: 400 }}>
+      <div className="data-table-wrap !rounded-[2.5rem] shadow-2xl shadow-slate-200/40 border border-white/50 overflow-auto bg-white/40 backdrop-blur-3xl" style={{ minHeight: 400 }}>
         <table className="data-table !border-separate !border-spacing-y-0 w-full">
-          <thead className="bg-slate-50/80 backdrop-blur sticky top-0 z-10 border-b border-slate-200">
+          <thead className="bg-slate-50/50 backdrop-blur sticky top-0 z-10 border-b border-slate-100">
             <tr>
-              <th className="px-6 py-4 text-left"><span className="text-slate-400 font-black text-[11px] uppercase tracking-[0.2em]">BIỂN SỐ XE</span></th>
-              <th className="px-6 py-4 text-left"><span className="text-slate-400 font-black text-[11px] uppercase tracking-[0.2em]">PHÂN LOẠI</span></th>
-              <th className="px-6 py-4 text-left"><span className="text-slate-400 font-black text-[11px] uppercase tracking-[0.2em]">TÀI XẾ (LÁI 1/2)</span></th>
-              <th className="px-6 py-4 text-left"><span className="text-slate-400 font-black text-[11px] uppercase tracking-[0.2em]">PHỤ XE (PHỤ 1/2)</span></th>
-              <th className="px-6 py-4 text-right"><span className="text-slate-400 font-black text-[11px] uppercase tracking-[0.2em]">CƯỚC XE NGOÀI</span></th>
-              <th className="px-6 py-4 text-center"><span className="text-slate-400 font-black text-[11px] uppercase tracking-[0.2em]">TRẠNG THÁI</span></th>
-              <th className="px-6 py-4 text-center"><span className="text-slate-400 font-black text-[11px] uppercase tracking-[0.2em]">THAO TÁC</span></th>
+              <th className="px-8 py-6 text-left"><span className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em]">BIỂN SỐ XE</span></th>
+              <th className="px-8 py-6 text-left"><span className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em]">PHÂN LOẠI</span></th>
+              <th className="px-8 py-6 text-left"><span className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em]">TÀI XẾ</span></th>
+              <th className="px-8 py-6 text-left"><span className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em]">PHỤ XE</span></th>
+              <th className="px-8 py-6 text-right"><span className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em]">GIÁ THUÊ</span></th>
+              <th className="px-8 py-6 text-center"><span className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em]">TRẠNG THÁI</span></th>
+              <th className="px-8 py-6 text-center"><span className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em]">THAO TÁC</span></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-100/50">
             {filtered.map((r) => (
-              <tr key={r.id} className="hover:bg-indigo-50/30 transition-colors">
-                <td className="py-5 px-6">
-                  <div className="font-extrabold text-slate-900 font-mono text-base tracking-tight">{r.license_plate}</div>
+              <tr key={r.id} className="hover:bg-white/80 transition-all group">
+                <td className="py-7 px-8">
+                  <div className="font-black text-slate-900 font-mono text-[17px] tracking-tight group-hover:text-indigo-600 transition-colors uppercase">{r.license_plate}</div>
                 </td>
-                <td className="py-5 px-6">
-                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${r.type === "nội_bộ" ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>
-                    {r.type === "nội_bộ" ? '🚛 Nội bộ' : '🤝 XE THUÊ'}
+                <td className="py-7 px-8">
+                  <span className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2.5 w-fit border shadow-sm ${r.type === "nội_bộ" ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
+                    {r.type === "nội_bộ" ? (
+                      <><span className="text-base">🚚</span> XE NỘI BỘ</>
+                    ) : (
+                      <><span className="text-base">🤝</span> XE THUÊ NGOÀI</>
+                    )}
                   </span>
                 </td>
-                <td className="py-5 px-6">
-                   <div className="flex flex-col gap-0.5">
-                      <div className="font-bold text-slate-900 text-[13px]">{r.driver_1_name || "-"}</div>
-                      {r.driver_2_name && <div className="font-bold text-slate-400 text-[11px]">{r.driver_2_name}</div>}
+                <td className="py-7 px-8">
+                   <div className="flex flex-col gap-1.5">
+                      <div className="font-black text-[#000000] text-sm uppercase tracking-tight">{r.driver_1_name || "-"}</div>
+                      {r.driver_2_name && <div className="font-black text-[#000000] text-sm uppercase tracking-tight opacity-100">{r.driver_2_name}</div>}
                    </div>
                 </td>
-                <td className="py-5 px-6">
-                   <div className="flex flex-col gap-0.5">
-                      {r.assistant_1_name ? <div className="font-bold text-slate-700 text-[13px]">{r.assistant_1_name}</div> : <div className="text-slate-300">-</div>}
-                      {r.assistant_2_name && <div className="font-bold text-slate-400 text-[11px]">{r.assistant_2_name}</div>}
+                <td className="py-7 px-8">
+                   <div className="flex flex-col gap-1.5">
+                      {r.assistant_1_name ? <div className="font-black text-[#000000] text-sm uppercase tracking-tight">{r.assistant_1_name}</div> : <div className="text-slate-300 font-black">-</div>}
+                      {r.assistant_2_name && <div className="font-black text-[#000000] text-sm uppercase tracking-tight opacity-100">{r.assistant_2_name}</div>}
                    </div>
                 </td>
-                <td className="py-5 px-6 text-right font-mono font-black text-[14px] text-slate-700">
+                <td className="py-7 px-8 text-right font-mono font-black text-base text-slate-800">
                   {r.type === "thuê_ngoài" ? r.default_external_cost.toLocaleString() + " đ" : "-"}
                 </td>
-                <td className="py-5 px-6 text-center">
-                  <span className={`inline-block w-2.5 h-2.5 rounded-full ${r.is_active ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`}></span>
-                  <span className="ml-2 font-bold text-[11px] uppercase tracking-widest text-slate-500">{r.is_active ? 'Online' : 'Offline'}</span>
+                <td className="py-7 px-8 text-center">
+                  <div className="flex items-center justify-center gap-3">
+                    <span className={`w-3.5 h-3.5 rounded-full ring-4 ${r.is_active ? 'bg-emerald-500 ring-emerald-100' : 'bg-slate-300 ring-slate-100'}`}></span>
+                    <span className="font-black text-[11px] uppercase tracking-[0.2em] text-slate-700">{r.is_active ? 'Online' : 'Offline'}</span>
+                  </div>
                 </td>
-                <td className="py-5 px-6">
-                  <div className="flex justify-center items-center gap-2">
-                    <button onClick={() => handleOpenEdit(r)} className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-[10px] text-slate-600 font-black border-none rounded-xl transition-all uppercase tracking-widest">
-                       Edit
+                <td className="py-7 px-8">
+                  <div className="flex justify-center items-center gap-3">
+                    <button onClick={() => handleOpenEdit(r)} className="px-6 py-3 bg-violet-50 hover:bg-violet-600 text-[10px] text-violet-600 hover:text-white font-black border border-violet-100 rounded-2xl transition-all uppercase tracking-widest active:scale-90 shadow-sm">
+                       Sửa
                     </button>
-                    <button onClick={() => handleDelete(r)} className="p-2 hover:bg-red-50 text-red-400 hover:text-red-600 transition-all">
-                       🗑️
+                    <button onClick={() => handleDelete(r)} className="px-6 py-3 bg-red-50 hover:bg-red-600 text-[10px] text-red-600 hover:text-white font-black border border-red-200 rounded-2xl transition-all uppercase tracking-widest active:scale-90 shadow-sm">
+                       Xóa
                     </button>
                   </div>
                 </td>
               </tr>
             ))}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={7} className="py-32 text-center">
+                  <div className="flex flex-col items-center gap-4 opacity-20 grayscale">
+                    <span className="text-7xl">🚚</span>
+                    <p className="font-black text-xl uppercase tracking-tighter">Không tìm thấy xe nào trong hệ thống</p>
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
       <VehicleModal 
         isOpen={modalOpen} 
-        onClose={() => setModalOpen(false)} 
+        onClose={handleCloseModal} 
         onSave={handleSave} 
         editingVehicle={editingVehicle} 
       />
