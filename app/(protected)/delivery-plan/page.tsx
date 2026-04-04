@@ -1355,23 +1355,49 @@ export default function DeliveryPlanPage() {
                   </div>
 
                   {shipmentVehicleId && (
-                    <div className="flex gap-4 mt-3 pt-3 border-t border-slate-200 border-dashed">
-                       <div className="flex-1">
-                         <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">CẬP NHẬT LÁI 1</label>
-                         <input className="input input-bordered input-sm w-full font-bold text-xs" value={overrideDriver1Name} onChange={e=>setOverrideDriver1Name(e.target.value)} placeholder="Tên Lái Xe 1" />
+                    <div className="mt-3 pt-3 border-t border-slate-200 border-dashed space-y-3">
+                       <div className="flex justify-between items-center px-1">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cấu hình nhân sự chuyến này</label>
+                          <div className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
+                            (() => {
+                              const count = [overrideDriver1Name, overrideDriver2Name, overrideAst1Name, overrideAst2Name].filter(x => x.trim()).length;
+                              if (count > 3) return "bg-red-100 text-red-600 border-red-200 animate-pulse";
+                              if (count === 3) return "bg-amber-100 text-amber-600 border-amber-200";
+                              return "bg-slate-100 text-slate-600 border-slate-200";
+                            })()
+                          }`}>
+                            NHÂN SỰ: {[overrideDriver1Name, overrideDriver2Name, overrideAst1Name, overrideAst2Name].filter(x => x.trim()).length}/3
+                          </div>
                        </div>
-                       <div className="flex-1">
-                         <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">CẬP NHẬT LÁI 2</label>
-                         <input className="input input-bordered input-sm w-full font-bold text-xs" value={overrideDriver2Name} onChange={e=>setOverrideDriver2Name(e.target.value)} placeholder="Tên Lái Xe 2" />
+
+                       <div className="flex gap-3">
+                         <div className="flex-1">
+                           <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">LÁI XE 1</label>
+                           <input className="input input-bordered input-sm w-full font-bold text-xs bg-white focus:bg-indigo-50/30 transition-colors" value={overrideDriver1Name} onChange={e=>setOverrideDriver1Name(e.target.value)} placeholder="Tên Lái Xe 1" />
+                         </div>
+                         <div className="flex-1">
+                           <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">LÁI XE 2</label>
+                           <input className="input input-bordered input-sm w-full font-bold text-xs bg-white focus:bg-indigo-50/30 transition-colors" value={overrideDriver2Name} onChange={e=>setOverrideDriver2Name(e.target.value)} placeholder="Tên Lái Xe 2" />
+                         </div>
                        </div>
-                       <div className="flex-1">
-                         <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">CẬP NHẬT PHỤ 1</label>
-                         <input className="input input-bordered input-sm w-full font-bold text-xs" value={overrideAst1Name} onChange={e=>setOverrideAst1Name(e.target.value)} placeholder="Tên Phụ 1" />
+
+                       <div className="flex gap-3">
+                         <div className="flex-1">
+                           <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">PHỤ XE 1</label>
+                           <input className="input input-bordered input-sm w-full font-bold text-xs bg-white focus:bg-indigo-50/30 transition-colors" value={overrideAst1Name} onChange={e=>setOverrideAst1Name(e.target.value)} placeholder="Tên Phụ 1" />
+                         </div>
+                         <div className="flex-1">
+                           <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">PHỤ XE 2</label>
+                           <input className="input input-bordered input-sm w-full font-bold text-xs bg-white focus:bg-indigo-50/30 transition-colors" value={overrideAst2Name} onChange={e=>setOverrideAst2Name(e.target.value)} placeholder="Tên Phụ 2" />
+                         </div>
                        </div>
-                       <div className="flex-1">
-                         <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">CẬP NHẬT PHỤ 2</label>
-                         <input className="input input-bordered input-sm w-full font-bold text-xs" value={overrideAst2Name} onChange={e=>setOverrideAst2Name(e.target.value)} placeholder="Tên Phụ 2" />
-                       </div>
+                       
+                       {[overrideDriver1Name, overrideDriver2Name, overrideAst1Name, overrideAst2Name].filter(x => x.trim()).length > 3 && (
+                         <div className="p-2 rounded bg-red-50 border border-red-100 flex items-center gap-2 text-red-600">
+                           <span className="text-sm">⚠️</span>
+                           <span className="text-[10px] font-black uppercase tracking-tight">Cảnh báo: Tổng nhân sự không được vượt quá 3 người!</span>
+                         </div>
+                       )}
                     </div>
                   )}
                 </div>

@@ -1,49 +1,16 @@
 -- =========================================================================
--- v3.7: VEHICLE MANAGEMENT & TRIP COSTS (2 LÁI - 2 PHỤ - TỐI ĐA 3 NGƯỜI)
+-- v3.8: VEHICLE MANAGEMENT - ENFORCE MAX 3 PEOPLE & SMART UNDO
 -- =========================================================================
 
--- 1. Xóa toàn bộ dữ liệu shipment cũ (dọn rác/test)
-DELETE FROM public.inventory_transactions WHERE shipment_id IS NOT NULL;
-DELETE FROM public.shipment_logs;
+-- 1. Đảm bảo bảng shipment_logs có cột deleted_at (nếu chưa có)
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='shipment_logs' AND COLUMN_NAME='deleted_at') THEN
+    ALTER TABLE public.shipment_logs ADD COLUMN deleted_at timestamptz;
+  END IF;
+END $$;
 
--- Xóa bảng nếu đã có để tạo lại cấu trúc mới nhất
-DROP TABLE IF EXISTS public.vehicles CASCADE;
-
--- 2. Bảng Xe (Vehicles)
-CREATE TABLE public.vehicles (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  license_plate text NOT NULL UNIQUE,
-  type text NOT NULL CHECK (type IN ('nội_bộ', 'thuê_ngoài')),
-  driver_1_name text,
-  driver_2_name text,
-  assistant_1_name text,
-  assistant_2_name text,
-  default_external_cost numeric DEFAULT 0,
-  is_active boolean DEFAULT true,
-  created_at timestamptz DEFAULT now()
-);
-
--- Bật RLS
-ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "vehicles_select" ON public.vehicles FOR SELECT TO authenticated USING (true);
-CREATE POLICY "vehicles_insert" ON public.vehicles FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "vehicles_update" ON public.vehicles FOR UPDATE TO authenticated USING (true);
-CREATE POLICY "vehicles_delete" ON public.vehicles FOR DELETE TO authenticated USING (true);
-
--- 3. Cập nhật bảng shipment_logs
-ALTER TABLE public.shipment_logs 
-  DROP COLUMN IF EXISTS driver_info,
-  DROP COLUMN IF EXISTS driver_name_snapshot,
-  ADD COLUMN IF NOT EXISTS vehicle_id uuid REFERENCES public.vehicles(id),
-  ADD COLUMN IF NOT EXISTS driver_1_name_snapshot text,
-  ADD COLUMN IF NOT EXISTS driver_2_name_snapshot text,
-  ADD COLUMN IF NOT EXISTS assistant_1_name_snapshot text,
-  ADD COLUMN IF NOT EXISTS assistant_2_name_snapshot text,
-  ADD COLUMN IF NOT EXISTS driver_cost numeric DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS assistant_cost numeric DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS external_cost numeric DEFAULT 0;
-
--- 4. Hàm RPC: Tính toán giá chuyến và sinh Phiếu xuất kho sửa đổi
+-- 2. Hàm RPC: Tính toán giá chuyến và sinh Phiếu xuất kho (v3.8)
 CREATE OR REPLACE FUNCTION public.shipment_outbound_delivery(
   p_payload jsonb,
   p_customer_id uuid,
@@ -116,10 +83,15 @@ BEGIN
   IF v_final_ast_1 IS NOT NULL AND TRIM(v_final_ast_1) <> '' THEN v_ast_count := v_ast_count + 1; END IF;
   IF v_final_ast_2 IS NOT NULL AND TRIM(v_final_ast_2) <> '' THEN v_ast_count := v_ast_count + 1; END IF;
 
+  -- RÀNG BUỘC: Tối đa 3 người
+  IF (v_driver_count + v_ast_count) > 3 THEN
+    RAISE EXCEPTION 'Tổng số người (Lái + Phụ) không được vượt quá 3 người!';
+  END IF;
+
   -- Tính toán số chuyến xe trong ngày của xe này
   SELECT count(*) INTO v_trip_count
   FROM public.shipment_logs
-  WHERE vehicle_id = p_vehicle_id AND shipment_date = p_shipment_date;
+  WHERE vehicle_id = p_vehicle_id AND shipment_date = p_shipment_date AND deleted_at IS NULL;
   
   v_trip_count := v_trip_count + 1; -- Tính cả chuyến đang tạo
   
@@ -191,9 +163,8 @@ BEGIN
         updated_by = v_user_id
     WHERE id = v_plan_id;
 
-    -- Xử lý Backlog
+    -- Xử lý Backlog (Tái cân đối)
     v_tomorrow := v_plan_date + interval '1 day';
-    
     UPDATE public.delivery_plans
     SET planned_qty = GREATEST(0, planned_qty - v_actual_qty),
         updated_at = now()
@@ -204,42 +175,72 @@ BEGIN
       AND actual_qty = 0;
 
     DELETE FROM public.delivery_plans 
-    WHERE plan_date = v_tomorrow 
-      AND product_id = v_product_id 
-      AND customer_id = v_customer_id 
-      AND planned_qty <= 0 
-      AND actual_qty = 0;
+    WHERE plan_date = v_tomorrow AND product_id = v_product_id AND customer_id = v_customer_id AND planned_qty <= 0 AND actual_qty = 0;
     
     IF v_push_backlog = true AND v_actual_qty < v_planned_qty THEN
       v_backlog_qty := v_planned_qty - v_new_total;
       IF v_backlog_qty > 0 THEN
-        INSERT INTO public.delivery_plans (
-          plan_date, product_id, customer_id, planned_qty, note, created_by
-        ) VALUES (
-          v_tomorrow, v_product_id, v_customer_id, v_backlog_qty,
-          'Backlog từ chuyến ' || v_shipment_no || ' ngày ' || to_char(v_plan_date, 'DD/MM/YYYY'),
-          v_user_id
-        )
+        INSERT INTO public.delivery_plans (plan_date, product_id, customer_id, planned_qty, note, created_by)
+        VALUES (v_tomorrow, v_product_id, v_customer_id, v_backlog_qty, 'Backlog từ chuyến ' || v_shipment_no || ' ngày ' || to_char(v_plan_date, 'DD/MM/YYYY'), v_user_id)
         ON CONFLICT (plan_date, product_id, customer_id)
-        DO UPDATE SET 
-          planned_qty = public.delivery_plans.planned_qty + EXCLUDED.planned_qty,
-          note = COALESCE(public.delivery_plans.note, '') || ' | ' || EXCLUDED.note,
-          updated_at = now();
+        DO UPDATE SET planned_qty = public.delivery_plans.planned_qty + EXCLUDED.planned_qty, note = COALESCE(public.delivery_plans.note, '') || ' | ' || EXCLUDED.note, updated_at = now();
       END IF;
     END IF;
     
     v_count := v_count + 1;
   END LOOP;
   
-  RETURN jsonb_build_object(
-    'success', true,
-    'shipment_id', v_shipment_id,
-    'shipment_no', v_shipment_no,
-    'trip_cost', v_driver_cost + v_assistant_cost + v_external_cost,
-    'processed_count', v_count
-  );
+  RETURN jsonb_build_object('success', true, 'shipment_id', v_shipment_id, 'shipment_no', v_shipment_no, 'processed_count', v_count);
 EXCEPTION
   WHEN OTHERS THEN
     RAISE EXCEPTION 'Lỗi xuất kho chuyến %: %', v_shipment_no, SQLERRM;
+END;
+$$;
+
+-- 3. Hàm RPC: Hủy lệnh xuất kho (v3.8 - Tự động dọn dẹp shipment_logs)
+CREATE OR REPLACE FUNCTION public.undo_outbound_delivery(
+  p_plan_id uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_role text;
+  v_count_deleted int := 0;
+  v_shipment_id uuid;
+  v_remaining_tx int := 0;
+BEGIN
+  -- KIỂM TRA QUYỀN
+  SELECT role INTO v_user_role FROM public.profiles WHERE id = auth.uid();
+  IF v_user_role <> 'admin' THEN
+    RAISE EXCEPTION 'Chỉ Admin mới có quyền hủy lệnh xuất kho.';
+  END IF;
+
+  -- Lấy shipment_id trước khi xóa
+  SELECT shipment_id INTO v_shipment_id 
+  FROM public.inventory_transactions 
+  WHERE delivery_plan_id = p_plan_id 
+  LIMIT 1;
+
+  -- 1. Xóa các giao dịch liên quan
+  DELETE FROM public.inventory_transactions WHERE delivery_plan_id = p_plan_id;
+  GET DIAGNOSTICS v_count_deleted = ROW_COUNT;
+
+  -- 2. Trả trạng thái kế hoạch
+  UPDATE public.delivery_plans
+  SET is_completed = false, actual_qty = 0, updated_at = now(), updated_by = auth.uid()
+  WHERE id = p_plan_id;
+
+  -- 3. Kiểm tra và dọn dẹp shipment_logs nếu chuyến xe không còn mã hàng nào
+  IF v_shipment_id IS NOT NULL THEN
+    SELECT count(*) INTO v_remaining_tx FROM public.inventory_transactions WHERE shipment_id = v_shipment_id;
+    IF v_remaining_tx = 0 THEN
+      UPDATE public.shipment_logs SET deleted_at = now() WHERE id = v_shipment_id;
+    END IF;
+  END IF;
+
+  RETURN jsonb_build_object('success', true, 'deleted_tx_count', v_count_deleted);
 END;
 $$;

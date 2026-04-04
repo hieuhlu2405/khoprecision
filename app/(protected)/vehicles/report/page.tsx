@@ -356,6 +356,35 @@ export default function VehiclesReportPage() {
                 })
               )}
             </div>
+
+            {/* GRAND TOTAL ROW */}
+            {vehicleGroups.length > 0 && (
+              <div className="mt-6 p-6 bg-slate-900 rounded-3xl flex flex-col md:flex-row items-center justify-between text-white shadow-2xl shadow-indigo-200/50 border border-white/10 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-indigo-500/10 to-transparent pointer-events-none"></div>
+                <div className="flex items-center gap-5 relative z-10">
+                   <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-3xl shadow-inner">
+                     🏆
+                   </div>
+                   <div>
+                      <div className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-300/80 mb-1">TỔNG KẾT VẬN TẢI THÁNG</div>
+                      <div className="text-2xl font-black tracking-tight text-white uppercase italic">Grand Total Summary</div>
+                   </div>
+                </div>
+
+                <div className="flex flex-wrap gap-8 md:gap-16 mt-6 md:mt-0 relative z-10">
+                   <div className="text-right">
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">TỔNG CHUYẾN</div>
+                      <div className="text-3xl font-black text-white leading-none">{stats.totalTrips.toLocaleString()}</div>
+                   </div>
+                   <div className="text-right border-l border-white/10 pl-8 md:pl-16">
+                      <div className="text-[10px] font-black text-indigo-300/80 uppercase tracking-widest mb-1">TỔNG CHI PHÍ CẢ THÁNG</div>
+                      <div className="text-4xl font-black text-emerald-400 leading-none drop-shadow-[0_0_15px_rgba(52,211,153,0.3)]">
+                        {stats.totalCost.toLocaleString()} <span className="text-lg">đ</span>
+                      </div>
+                   </div>
+                </div>
+              </div>
+            )}
             
           </div>
         </div>
