@@ -19,11 +19,13 @@
 
   /* Sidebar */
   --sidebar-bg: #0d4f7c;
+  --sidebar-gradient: linear-gradient(180deg, #0d4f7c 0%, #072a43 100%);
   --sidebar-fg: #f1f5f9;
-  --sidebar-fg-muted: #94a3b8;
-  --sidebar-active-bg: rgba(255, 255, 255, 0.15);
+  --sidebar-fg-muted: rgba(241, 245, 249, 0.6);
+  --sidebar-active-bg: rgba(255, 255, 255, 0.12);
   --sidebar-active-fg: #ffffff;
-  --sidebar-header-fg: #cbd5e1;
+  --sidebar-active-glow: 0 0 12px rgba(255, 255, 255, 0.15);
+  --sidebar-header-fg: rgba(255, 255, 255, 0.45);
   --sidebar-w: 240px;
   --sidebar-w-collapsed: 0px;
 
