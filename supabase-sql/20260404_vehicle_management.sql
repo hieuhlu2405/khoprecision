@@ -1,19 +1,22 @@
 -- =========================================================================
--- v3.6: VEHICLE MANAGEMENT & TRIP COSTS
+-- v3.6: VEHICLE MANAGEMENT & TRIP COSTS (UPDATED: 2 ASSISTANTS & SNAPSHOTS)
 -- =========================================================================
 
 -- 1. Xóa toàn bộ dữ liệu shipment cũ (dọn rác/test)
 DELETE FROM public.inventory_transactions WHERE shipment_id IS NOT NULL;
 DELETE FROM public.shipment_logs;
 
+-- Xóa bảng nếu đã có để tạo lại cấu trúc mới nhất
+DROP TABLE IF EXISTS public.vehicles CASCADE;
+
 -- 2. Bảng Xe (Vehicles)
-CREATE TABLE IF NOT EXISTS public.vehicles (
+CREATE TABLE public.vehicles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   license_plate text NOT NULL UNIQUE,
   type text NOT NULL CHECK (type IN ('nội_bộ', 'thuê_ngoài')),
   driver_name text,
-  has_assistant boolean DEFAULT false,
-  assistant_name text,
+  assistant_1_name text,
+  assistant_2_name text,
   default_external_cost numeric DEFAULT 0,
   is_active boolean DEFAULT true,
   created_at timestamptz DEFAULT now()
@@ -21,35 +24,31 @@ CREATE TABLE IF NOT EXISTS public.vehicles (
 
 -- Bật RLS
 ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "vehicles_select" ON public.vehicles;
 CREATE POLICY "vehicles_select" ON public.vehicles FOR SELECT TO authenticated USING (true);
-
-DROP POLICY IF EXISTS "vehicles_insert" ON public.vehicles;
 CREATE POLICY "vehicles_insert" ON public.vehicles FOR INSERT TO authenticated WITH CHECK (true);
-
-DROP POLICY IF EXISTS "vehicles_update" ON public.vehicles;
 CREATE POLICY "vehicles_update" ON public.vehicles FOR UPDATE TO authenticated USING (true);
-
-DROP POLICY IF EXISTS "vehicles_delete" ON public.vehicles;
 CREATE POLICY "vehicles_delete" ON public.vehicles FOR DELETE TO authenticated USING (true);
 
 -- 3. Cập nhật bảng shipment_logs
 ALTER TABLE public.shipment_logs 
-  ADD COLUMN vehicle_id uuid REFERENCES public.vehicles(id),
-  ADD COLUMN driver_cost numeric DEFAULT 0,
-  ADD COLUMN assistant_cost numeric DEFAULT 0,
-  ADD COLUMN external_cost numeric DEFAULT 0;
-
--- Xóa cột driver_info (cũ)
-ALTER TABLE public.shipment_logs DROP COLUMN IF EXISTS driver_info;
+  DROP COLUMN IF EXISTS driver_info,
+  ADD COLUMN IF NOT EXISTS vehicle_id uuid REFERENCES public.vehicles(id),
+  ADD COLUMN IF NOT EXISTS driver_name_snapshot text,
+  ADD COLUMN IF NOT EXISTS assistant_1_name_snapshot text,
+  ADD COLUMN IF NOT EXISTS assistant_2_name_snapshot text,
+  ADD COLUMN IF NOT EXISTS driver_cost numeric DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS assistant_cost numeric DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS external_cost numeric DEFAULT 0;
 
 -- 4. Hàm RPC: Tính toán giá chuyến và sinh Phiếu xuất kho sửa đổi
 CREATE OR REPLACE FUNCTION public.shipment_outbound_delivery(
   p_payload jsonb,
   p_customer_id uuid,
   p_entity_id uuid,
-  p_vehicle_id uuid,          -- THAY ĐỔI: nhận vehicle_id thay cho driver_info text
+  p_vehicle_id uuid,
+  p_driver_name text DEFAULT NULL,
+  p_assistant_1_name text DEFAULT NULL,
+  p_assistant_2_name text DEFAULT NULL,
   p_note text DEFAULT NULL,
   p_shipment_date date DEFAULT CURRENT_DATE
 )
@@ -81,6 +80,12 @@ DECLARE
   
   v_vehicle record;
   v_trip_count int := 0;
+  
+  v_final_driver text;
+  v_final_ast_1 text;
+  v_final_ast_2 text;
+  v_ast_count int := 0;
+  
   v_driver_cost numeric := 0;
   v_assistant_cost numeric := 0;
   v_external_cost numeric := 0;
@@ -90,6 +95,15 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Không tìm thấy xe được chọn!';
   END IF;
+
+  -- Nạp Snapshot dữ liệu nhân sự (Nếu UI truyền xuống thì nhận UI, không thì lấy mặc định của Xe)
+  v_final_driver := COALESCE(p_driver_name, v_vehicle.driver_name);
+  v_final_ast_1 := COALESCE(p_assistant_1_name, v_vehicle.assistant_1_name);
+  v_final_ast_2 := COALESCE(p_assistant_2_name, v_vehicle.assistant_2_name);
+  
+  -- Đếm số lượng phụ xe có mặt
+  IF v_final_ast_1 IS NOT NULL AND TRIM(v_final_ast_1) <> '' THEN v_ast_count := v_ast_count + 1; END IF;
+  IF v_final_ast_2 IS NOT NULL AND TRIM(v_final_ast_2) <> '' THEN v_ast_count := v_ast_count + 1; END IF;
 
   -- Tính toán số chuyến xe trong ngày của xe này
   SELECT count(*) INTO v_trip_count
@@ -102,10 +116,10 @@ BEGIN
   IF v_vehicle.type = 'nội_bộ' THEN
     IF v_trip_count <= 3 THEN
       v_driver_cost := 170000;
-      IF v_vehicle.has_assistant THEN v_assistant_cost := 120000; END IF;
+      v_assistant_cost := 120000 * v_ast_count;
     ELSE
       v_driver_cost := 230000;
-      IF v_vehicle.has_assistant THEN v_assistant_cost := 170000; END IF;
+      v_assistant_cost := 170000 * v_ast_count;
     END IF;
   ELSE
     v_external_cost := v_vehicle.default_external_cost;
@@ -116,10 +130,12 @@ BEGIN
   
   INSERT INTO public.shipment_logs (
     shipment_no, shipment_date, customer_id, entity_id, vehicle_id, 
+    driver_name_snapshot, assistant_1_name_snapshot, assistant_2_name_snapshot,
     driver_cost, assistant_cost, external_cost, note, created_by
   )
   VALUES (
     v_shipment_no, p_shipment_date, p_customer_id, p_entity_id, p_vehicle_id, 
+    v_final_driver, v_final_ast_1, v_final_ast_2,
     v_driver_cost, v_assistant_cost, v_external_cost, p_note, v_user_id
   )
   RETURNING id INTO v_shipment_id;
@@ -131,7 +147,7 @@ BEGIN
     v_actual_qty := (v_item->>'actual_qty')::numeric;
     v_push_backlog := COALESCE((v_item->>'push_backlog')::boolean, false);
     
-    -- Khóa dòng kế hoạch (Row-level Lock)
+    -- Khóa dòng kế hoạch
     SELECT plan_date, product_id, customer_id, planned_qty, actual_qty
     INTO v_plan_date, v_product_id, v_customer_id, v_planned_qty, v_existing_actual
     FROM public.delivery_plans
@@ -140,7 +156,7 @@ BEGIN
     
     IF NOT FOUND THEN CONTINUE; END IF;
     
-    -- BƯỚC 1: Tạo giao dịch trừ kho + liên kết shipment
+    -- BƯỚC 1: Tạo giao dịch trừ kho
     IF v_actual_qty > 0 THEN
       INSERT INTO public.inventory_transactions (
         tx_type, tx_date, product_id, customer_id, qty, note, created_by,
@@ -153,9 +169,8 @@ BEGIN
       FROM public.products WHERE id = v_product_id;
     END IF;
     
-    -- BƯỚC 2: Cập nhật lũy kế actual_qty
+    -- BƯỚC 2: Cập nhật kế hoạch
     v_new_total := COALESCE(v_existing_actual, 0) + v_actual_qty;
-    
     UPDATE public.delivery_plans
     SET actual_qty = v_new_total,
         is_completed = (v_new_total >= v_planned_qty),
@@ -163,7 +178,7 @@ BEGIN
         updated_by = v_user_id
     WHERE id = v_plan_id;
 
-    -- BƯỚC 2.5: [TỰ ĐỘNG DỌN DẸP BACKLOG]
+    -- Xử lý Backlog (Tái cân đối kho)
     v_tomorrow := v_plan_date + interval '1 day';
     
     UPDATE public.delivery_plans
@@ -182,11 +197,9 @@ BEGIN
       AND planned_qty <= 0 
       AND actual_qty = 0;
     
-    -- BƯỚC 3: Xử lý Backlog
     IF v_push_backlog = true AND v_actual_qty < v_planned_qty THEN
       v_backlog_qty := v_planned_qty - v_new_total;
       IF v_backlog_qty > 0 THEN
-        v_tomorrow := v_plan_date + interval '1 day';
         INSERT INTO public.delivery_plans (
           plan_date, product_id, customer_id, planned_qty, note, created_by
         ) VALUES (

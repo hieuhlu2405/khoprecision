@@ -10,8 +10,8 @@ type Vehicle = {
   license_plate: string;
   type: "nội_bộ" | "thuê_ngoài";
   driver_name: string | null;
-  has_assistant: boolean;
-  assistant_name: string | null;
+  assistant_1_name: string | null;
+  assistant_2_name: string | null;
   default_external_cost: number;
   is_active: boolean;
   created_at: string;
@@ -30,8 +30,9 @@ export default function VehiclesPage() {
   const [licensePlate, setLicensePlate] = useState("");
   const [type, setType] = useState<"nội_bộ" | "thuê_ngoài">("nội_bộ");
   const [driverName, setDriverName] = useState("");
-  const [hasAssistant, setHasAssistant] = useState(false);
-  const [assistantName, setAssistantName] = useState("");
+  const [assistantCount, setAssistantCount] = useState<0 | 1 | 2>(0);
+  const [assistant1Name, setAssistant1Name] = useState("");
+  const [assistant2Name, setAssistant2Name] = useState("");
   const [defaultCost, setDefaultCost] = useState(0);
   const [isActive, setIsActive] = useState(true);
 
@@ -77,8 +78,9 @@ export default function VehiclesPage() {
     setLicensePlate("");
     setType("nội_bộ");
     setDriverName("");
-    setHasAssistant(false);
-    setAssistantName("");
+    setAssistantCount(0);
+    setAssistant1Name("");
+    setAssistant2Name("");
     setDefaultCost(0);
     setIsActive(true);
   }
@@ -93,8 +95,10 @@ export default function VehiclesPage() {
     setLicensePlate(v.license_plate);
     setType(v.type);
     setDriverName(v.driver_name || "");
-    setHasAssistant(v.has_assistant);
-    setAssistantName(v.assistant_name || "");
+    const c = (v.assistant_2_name ? 2 : (v.assistant_1_name ? 1 : 0));
+    setAssistantCount(c as any);
+    setAssistant1Name(v.assistant_1_name || "");
+    setAssistant2Name(v.assistant_2_name || "");
     setDefaultCost(v.default_external_cost);
     setIsActive(v.is_active);
     setOpen(true);
@@ -113,8 +117,8 @@ export default function VehiclesPage() {
         license_plate: p,
         type,
         driver_name: driverName.trim() || null,
-        has_assistant: hasAssistant,
-        assistant_name: hasAssistant ? (assistantName.trim() || null) : null,
+        assistant_1_name: assistantCount >= 1 ? (assistant1Name.trim() || null) : null,
+        assistant_2_name: assistantCount === 2 ? (assistant2Name.trim() || null) : null,
         default_external_cost: defaultCost,
         is_active: isActive,
       };
@@ -237,7 +241,12 @@ export default function VehiclesPage() {
                   {r.driver_name || "-"}
                 </td>
                 <td className="py-4 px-4 border-r border-slate-50 text-[14px] text-slate-700 font-bold">
-                  {r.has_assistant ? (r.assistant_name || "✅ Có") : "-"}
+                  {r.assistant_1_name || r.assistant_2_name ? (
+                    <div className="flex flex-col">
+                      {r.assistant_1_name && <span>{r.assistant_1_name}</span>}
+                      {r.assistant_2_name && <span>{r.assistant_2_name}</span>}
+                    </div>
+                  ) : "-"}
                 </td>
                 <td className="py-4 px-4 border-r border-slate-50 text-right font-mono font-bold text-[14px]">
                   {r.type === "thuê_ngoài" ? r.default_external_cost.toLocaleString() + " đ" : "-"}
@@ -316,24 +325,39 @@ export default function VehiclesPage() {
 
               {type === "nội_bộ" && (
                 <>
-                  <label className="flex items-center gap-2 mt-2 border border-slate-200 p-2 rounded bg-slate-50">
-                    <input
-                      type="checkbox"
-                      checked={hasAssistant}
-                      onChange={(e) => setHasAssistant(e.target.checked)}
-                      className="w-4 h-4 text-indigo-600 rounded border-slate-300"
-                    />
-                    <span className="font-bold text-slate-800 text-sm">Có phụ xe?</span>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Số lượng phụ xe
+                    <select
+                      value={assistantCount}
+                      onChange={(e) => setAssistantCount(Number(e.target.value) as any)}
+                      className="input"
+                    >
+                      <option value={0}>Không có phụ xe</option>
+                      <option value={1}>1 Phụ xe</option>
+                      <option value={2}>2 Phụ xe</option>
+                    </select>
                   </label>
                   
-                  {hasAssistant && (
+                  {assistantCount >= 1 && (
                     <label style={{ display: "grid", gap: 6 }}>
-                      Tên phụ xe
+                      Tên phụ xe 1
                       <input
-                        value={assistantName}
-                        onChange={(e) => setAssistantName(e.target.value)}
+                        value={assistant1Name}
+                        onChange={(e) => setAssistant1Name(e.target.value)}
                         className="input"
-                        placeholder="Nguyễn Văn B..."
+                        placeholder="Vd: Nguyễn Văn B..."
+                      />
+                    </label>
+                  )}
+
+                  {assistantCount === 2 && (
+                    <label style={{ display: "grid", gap: 6 }}>
+                      Tên phụ xe 2
+                      <input
+                        value={assistant2Name}
+                        onChange={(e) => setAssistant2Name(e.target.value)}
+                        className="input"
+                        placeholder="Vd: Trần Văn C..."
                       />
                     </label>
                   )}

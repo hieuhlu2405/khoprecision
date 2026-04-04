@@ -172,6 +172,10 @@ export default function DeliveryPlanPage() {
   const [shipmentModalOpen, setShipmentModalOpen] = useState(false);
   const [shipmentItems, setShipmentItems] = useState<ShipmentItem[]>([]);
   const [shipmentVehicleId, setShipmentVehicleId] = useState("");
+  const [overrideDriverName, setOverrideDriverName] = useState("");
+  const [overrideAst1Name, setOverrideAst1Name] = useState("");
+  const [overrideAst2Name, setOverrideAst2Name] = useState("");
+  const [tripCountAlert, setTripCountAlert] = useState<number>(0);
   const [shipmentEntityId, setShipmentEntityId] = useState<string>("");
   const [shipmentProcessing, setShipmentProcessing] = useState(false);
 
@@ -456,6 +460,10 @@ export default function DeliveryPlanPage() {
 
       setShipmentItems(items);
       setShipmentVehicleId("");
+      setOverrideDriverName("");
+      setOverrideAst1Name("");
+      setOverrideAst2Name("");
+      setTripCountAlert(0);
       
       // Fix flickering: Clear processing state BEFORE opening modal
       setShipmentProcessing(false);
@@ -511,6 +519,9 @@ export default function DeliveryPlanPage() {
         p_customer_id: custId,
         p_entity_id: shipmentEntityId || null,
         p_vehicle_id: shipmentVehicleId,
+        p_driver_name: overrideDriverName || null,
+        p_assistant_1_name: overrideAst1Name || null,
+        p_assistant_2_name: overrideAst2Name || null,
         p_note: `Xuất kho chuyến hàng`,
         p_shipment_date: selectedOutboundDay,
       });
@@ -1293,20 +1304,67 @@ export default function DeliveryPlanPage() {
                     {entities.map(e => <option key={e.id} value={e.id}>{e.code} - {e.name}</option>)}
                   </select>
                 </div>
-                <div className="flex-1 min-w-[200px]">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">🚛 Chọn Xe / Tài xế *</label>
-                  <select
-                    value={shipmentVehicleId}
-                    onChange={e => setShipmentVehicleId(e.target.value)}
-                    className="select select-bordered select-sm w-full text-xs font-bold"
-                  >
-                    <option value="">-- Chọn chuyến xe --</option>
-                    {vehicles.map(v => (
-                       <option key={v.id} value={v.id}>
-                         {v.license_plate} {v.driver_name ? `- ${v.driver_name}` : ""} {v.type === "nội_bộ" ? "(Xe Nội Bộ)" : "(Thuê Ngoài)"}
-                       </option>
-                    ))}
-                  </select>
+                <div className="flex-1 w-full mt-2">
+                  <div className="flex gap-4">
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">🚛 Chọn Xe / Tài xế *</label>
+                      <select
+                        value={shipmentVehicleId}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          setShipmentVehicleId(val);
+                          const v = vehicles.find(x => x.id === val);
+                          if (v) {
+                            setOverrideDriverName(v.driver_name || "");
+                            setOverrideAst1Name(v.assistant_1_name || "");
+                            setOverrideAst2Name(v.assistant_2_name || "");
+                            if (v.type === "nội_bộ") {
+                              const { count } = await supabase.from("shipment_logs").select("*", {count: "exact", head: true}).eq("vehicle_id", val).eq("shipment_date", selectedOutboundDay).is("deleted_at", null);
+                              setTripCountAlert(count || 0);
+                            } else {
+                              setTripCountAlert(0);
+                            }
+                          } else {
+                            setOverrideDriverName("");
+                            setOverrideAst1Name("");
+                            setOverrideAst2Name("");
+                            setTripCountAlert(0);
+                          }
+                        }}
+                        className="select select-bordered select-sm w-full text-xs font-bold"
+                      >
+                        <option value="">-- Chọn chuyến xe --</option>
+                        {vehicles.map(v => (
+                           <option key={v.id} value={v.id}>
+                             {v.license_plate} {v.driver_name ? `- ${v.driver_name}` : ""} {v.type === "nội_bộ" ? "(Xe Nội Bộ)" : "(Thuê Ngoài)"}
+                           </option>
+                        ))}
+                      </select>
+                      
+                      {shipmentVehicleId && tripCountAlert > 0 && vehicles.find(v => v.id === shipmentVehicleId)?.type === "nội_bộ" && (
+                        <div className={`mt-2 text-[11px] font-black px-2 py-1 flex items-center gap-1 rounded border inline-flex ${tripCountAlert >= 3 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
+                          {tripCountAlert >= 3 ? `🔥 LƯU Ý: Chuyến thứ ${tripCountAlert + 1} (Rate 230k/170k)` : `🚛 Chuyến thứ ${tripCountAlert + 1} (Rate 170k/120k)`}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {shipmentVehicleId && (
+                    <div className="flex gap-4 mt-3 pt-3 border-t border-slate-200 border-dashed">
+                       <div className="flex-1">
+                         <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">CẬP NHẬT TÀI XẾ</label>
+                         <input className="input input-bordered input-sm w-full font-bold text-xs" value={overrideDriverName} onChange={e=>setOverrideDriverName(e.target.value)} placeholder="Tên Lái Xe" />
+                       </div>
+                       <div className="flex-1">
+                         <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">CẬP NHẬT PHỤ 1</label>
+                         <input className="input input-bordered input-sm w-full font-bold text-xs" value={overrideAst1Name} onChange={e=>setOverrideAst1Name(e.target.value)} placeholder="Tên Phụ 1" />
+                       </div>
+                       <div className="flex-1">
+                         <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">CẬP NHẬT PHỤ 2</label>
+                         <input className="input input-bordered input-sm w-full font-bold text-xs" value={overrideAst2Name} onChange={e=>setOverrideAst2Name(e.target.value)} placeholder="Tên Phụ 2" />
+                       </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
