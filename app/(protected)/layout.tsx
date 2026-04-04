@@ -45,10 +45,10 @@ function buildMenu(p: Profile, isAdmin: boolean) {
 
     { label: "Báo cáo", show: canViewReports, isHeader: true },
     { label: "💰 Giá trị tồn kho", href: "/inventory/value-report", show: canViewReports },
-    { label: "⏳ Tồn dài kỳ (Aging)", href: "/inventory/aging", show: canViewReports },
+    { label: "⏳ Tồn dài kỳ", href: "/inventory/aging", show: canViewReports },
     { label: "⚖️ Đối chiếu tồn kho", href: "/inventory/comparison", show: canViewReports },
     { label: "📜 Lịch sử chốt kho", href: "/inventory/report-history", show: canViewReports },
-    { label: "📊 Báo cáo Logistics", href: "/vehicles/report", show: canViewReports },
+    { label: "📊 Logistics", href: "/vehicles/report", show: canViewReports },
 
     { label: "Quản trị hệ thống", show: isAdmin, isHeader: true },
     { label: "🛡️ Người dùng", href: "/admin/users", show: isAdmin },
