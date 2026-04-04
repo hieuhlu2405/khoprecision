@@ -1,5 +1,5 @@
 -- =========================================================================
--- v3.6: VEHICLE MANAGEMENT & TRIP COSTS (UPDATED: 2 ASSISTANTS & SNAPSHOTS)
+-- v3.7: VEHICLE MANAGEMENT & TRIP COSTS (2 LÁI - 2 PHỤ - TỐI ĐA 3 NGƯỜI)
 -- =========================================================================
 
 -- 1. Xóa toàn bộ dữ liệu shipment cũ (dọn rác/test)
@@ -14,7 +14,8 @@ CREATE TABLE public.vehicles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   license_plate text NOT NULL UNIQUE,
   type text NOT NULL CHECK (type IN ('nội_bộ', 'thuê_ngoài')),
-  driver_name text,
+  driver_1_name text,
+  driver_2_name text,
   assistant_1_name text,
   assistant_2_name text,
   default_external_cost numeric DEFAULT 0,
@@ -32,8 +33,10 @@ CREATE POLICY "vehicles_delete" ON public.vehicles FOR DELETE TO authenticated U
 -- 3. Cập nhật bảng shipment_logs
 ALTER TABLE public.shipment_logs 
   DROP COLUMN IF EXISTS driver_info,
+  DROP COLUMN IF EXISTS driver_name_snapshot,
   ADD COLUMN IF NOT EXISTS vehicle_id uuid REFERENCES public.vehicles(id),
-  ADD COLUMN IF NOT EXISTS driver_name_snapshot text,
+  ADD COLUMN IF NOT EXISTS driver_1_name_snapshot text,
+  ADD COLUMN IF NOT EXISTS driver_2_name_snapshot text,
   ADD COLUMN IF NOT EXISTS assistant_1_name_snapshot text,
   ADD COLUMN IF NOT EXISTS assistant_2_name_snapshot text,
   ADD COLUMN IF NOT EXISTS driver_cost numeric DEFAULT 0,
@@ -46,7 +49,8 @@ CREATE OR REPLACE FUNCTION public.shipment_outbound_delivery(
   p_customer_id uuid,
   p_entity_id uuid,
   p_vehicle_id uuid,
-  p_driver_name text DEFAULT NULL,
+  p_driver_1_name text DEFAULT NULL,
+  p_driver_2_name text DEFAULT NULL,
   p_assistant_1_name text DEFAULT NULL,
   p_assistant_2_name text DEFAULT NULL,
   p_note text DEFAULT NULL,
@@ -81,9 +85,12 @@ DECLARE
   v_vehicle record;
   v_trip_count int := 0;
   
-  v_final_driver text;
+  v_final_dr_1 text;
+  v_final_dr_2 text;
   v_final_ast_1 text;
   v_final_ast_2 text;
+  
+  v_driver_count int := 0;
   v_ast_count int := 0;
   
   v_driver_cost numeric := 0;
@@ -96,12 +103,16 @@ BEGIN
     RAISE EXCEPTION 'Không tìm thấy xe được chọn!';
   END IF;
 
-  -- Nạp Snapshot dữ liệu nhân sự (Nếu UI truyền xuống thì nhận UI, không thì lấy mặc định của Xe)
-  v_final_driver := COALESCE(p_driver_name, v_vehicle.driver_name);
+  -- Nạp Snapshot dữ liệu nhân sự
+  v_final_dr_1 := COALESCE(p_driver_1_name, v_vehicle.driver_1_name);
+  v_final_dr_2 := COALESCE(p_driver_2_name, v_vehicle.driver_2_name);
   v_final_ast_1 := COALESCE(p_assistant_1_name, v_vehicle.assistant_1_name);
   v_final_ast_2 := COALESCE(p_assistant_2_name, v_vehicle.assistant_2_name);
   
-  -- Đếm số lượng phụ xe có mặt
+  -- Đếm số lượng thực tế
+  IF v_final_dr_1 IS NOT NULL AND TRIM(v_final_dr_1) <> '' THEN v_driver_count := v_driver_count + 1; END IF;
+  IF v_final_dr_2 IS NOT NULL AND TRIM(v_final_dr_2) <> '' THEN v_driver_count := v_driver_count + 1; END IF;
+  
   IF v_final_ast_1 IS NOT NULL AND TRIM(v_final_ast_1) <> '' THEN v_ast_count := v_ast_count + 1; END IF;
   IF v_final_ast_2 IS NOT NULL AND TRIM(v_final_ast_2) <> '' THEN v_ast_count := v_ast_count + 1; END IF;
 
@@ -115,27 +126,29 @@ BEGIN
   -- Xác định chi phí
   IF v_vehicle.type = 'nội_bộ' THEN
     IF v_trip_count <= 3 THEN
-      v_driver_cost := 170000;
+      v_driver_cost := 170000 * v_driver_count;
       v_assistant_cost := 120000 * v_ast_count;
     ELSE
-      v_driver_cost := 230000;
+      v_driver_cost := 230000 * v_driver_count;
       v_assistant_cost := 170000 * v_ast_count;
     END IF;
   ELSE
     v_external_cost := v_vehicle.default_external_cost;
   END IF;
 
-  -- BƯỚC 0: Tạo Shipment Log (Đầu phiếu xuất)
+  -- BƯỚC 0: Tạo Shipment Log
   v_shipment_no := generate_shipment_no(p_shipment_date);
   
   INSERT INTO public.shipment_logs (
     shipment_no, shipment_date, customer_id, entity_id, vehicle_id, 
-    driver_name_snapshot, assistant_1_name_snapshot, assistant_2_name_snapshot,
+    driver_1_name_snapshot, driver_2_name_snapshot, 
+    assistant_1_name_snapshot, assistant_2_name_snapshot,
     driver_cost, assistant_cost, external_cost, note, created_by
   )
   VALUES (
     v_shipment_no, p_shipment_date, p_customer_id, p_entity_id, p_vehicle_id, 
-    v_final_driver, v_final_ast_1, v_final_ast_2,
+    v_final_dr_1, v_final_dr_2, 
+    v_final_ast_1, v_final_ast_2,
     v_driver_cost, v_assistant_cost, v_external_cost, p_note, v_user_id
   )
   RETURNING id INTO v_shipment_id;
@@ -178,7 +191,7 @@ BEGIN
         updated_by = v_user_id
     WHERE id = v_plan_id;
 
-    -- Xử lý Backlog (Tái cân đối kho)
+    -- Xử lý Backlog
     v_tomorrow := v_plan_date + interval '1 day';
     
     UPDATE public.delivery_plans

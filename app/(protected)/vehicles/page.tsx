@@ -9,7 +9,8 @@ type Vehicle = {
   id: string;
   license_plate: string;
   type: "nội_bộ" | "thuê_ngoài";
-  driver_name: string | null;
+  driver_1_name: string | null;
+  driver_2_name: string | null;
   assistant_1_name: string | null;
   assistant_2_name: string | null;
   default_external_cost: number;
@@ -29,7 +30,9 @@ export default function VehiclesPage() {
   const [editing, setEditing] = useState<Vehicle | null>(null);
   const [licensePlate, setLicensePlate] = useState("");
   const [type, setType] = useState<"nội_bộ" | "thuê_ngoài">("nội_bộ");
-  const [driverName, setDriverName] = useState("");
+  const [driverCount, setDriverCount] = useState<1 | 2>(1);
+  const [driver1Name, setDriver1Name] = useState("");
+  const [driver2Name, setDriver2Name] = useState("");
   const [assistantCount, setAssistantCount] = useState<0 | 1 | 2>(0);
   const [assistant1Name, setAssistant1Name] = useState("");
   const [assistant2Name, setAssistant2Name] = useState("");
@@ -69,7 +72,8 @@ export default function VehiclesPage() {
     return rows.filter(
       (r) =>
         r.license_plate.toLowerCase().includes(s) ||
-        (r.driver_name && r.driver_name.toLowerCase().includes(s))
+        (r.driver_1_name && r.driver_1_name.toLowerCase().includes(s)) ||
+        (r.driver_2_name && r.driver_2_name.toLowerCase().includes(s))
     );
   }, [rows, q]);
 
@@ -77,7 +81,9 @@ export default function VehiclesPage() {
     setEditing(null);
     setLicensePlate("");
     setType("nội_bộ");
-    setDriverName("");
+    setDriverCount(1);
+    setDriver1Name("");
+    setDriver2Name("");
     setAssistantCount(0);
     setAssistant1Name("");
     setAssistant2Name("");
@@ -94,7 +100,10 @@ export default function VehiclesPage() {
     setEditing(v);
     setLicensePlate(v.license_plate);
     setType(v.type);
-    setDriverName(v.driver_name || "");
+    const dc = v.driver_2_name ? 2 : 1;
+    setDriverCount(dc as any);
+    setDriver1Name(v.driver_1_name || "");
+    setDriver2Name(v.driver_2_name || "");
     const c = (v.assistant_2_name ? 2 : (v.assistant_1_name ? 1 : 0));
     setAssistantCount(c as any);
     setAssistant1Name(v.assistant_1_name || "");
@@ -116,7 +125,8 @@ export default function VehiclesPage() {
       const payload = {
         license_plate: p,
         type,
-        driver_name: driverName.trim() || null,
+        driver_1_name: driverCount >= 1 ? (driver1Name.trim() || null) : null,
+        driver_2_name: driverCount === 2 ? (driver2Name.trim() || null) : null,
         assistant_1_name: assistantCount >= 1 ? (assistant1Name.trim() || null) : null,
         assistant_2_name: assistantCount === 2 ? (assistant2Name.trim() || null) : null,
         default_external_cost: defaultCost,
@@ -238,7 +248,12 @@ export default function VehiclesPage() {
                   )}
                 </td>
                 <td className="py-4 px-4 border-r border-slate-50 text-[14px] text-slate-900 font-bold">
-                  {r.driver_name || "-"}
+                  {r.driver_1_name || r.driver_2_name ? (
+                    <div className="flex flex-col">
+                      {r.driver_1_name && <span>{r.driver_1_name}</span>}
+                      {r.driver_2_name && <span>{r.driver_2_name}</span>}
+                    </div>
+                  ) : "-"}
                 </td>
                 <td className="py-4 px-4 border-r border-slate-50 text-[14px] text-slate-700 font-bold">
                   {r.assistant_1_name || r.assistant_2_name ? (
@@ -313,18 +328,50 @@ export default function VehiclesPage() {
                 </select>
               </label>
 
-              <label style={{ display: "grid", gap: 6 }}>
-                Tên tài xế
-                <input
-                  value={driverName}
-                  onChange={(e) => setDriverName(e.target.value)}
-                  className="input"
-                  placeholder="Nguyễn Văn A..."
-                />
-              </label>
-
-              {type === "nội_bộ" && (
+              {type === "nội_bộ" ? (
                 <>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    Số lượng Lái xe
+                    <select
+                      value={driverCount}
+                      onChange={(e) => {
+                        const dc = Number(e.target.value) as 1 | 2;
+                        setDriverCount(dc);
+                        if (dc + assistantCount > 3) {
+                          setAssistantCount((3 - dc) as any);
+                        }
+                      }}
+                      className="input"
+                    >
+                      <option value={1}>1 Lái xe</option>
+                      <option value={2}>2 Lái xe</option>
+                    </select>
+                  </label>
+                  
+                  {driverCount >= 1 && (
+                    <label style={{ display: "grid", gap: 6 }}>
+                      Tên Lái Xe 1 *
+                      <input
+                        value={driver1Name}
+                        onChange={(e) => setDriver1Name(e.target.value)}
+                        className="input"
+                        placeholder="Vd: Nguyễn Văn Lái 1..."
+                      />
+                    </label>
+                  )}
+
+                  {driverCount === 2 && (
+                    <label style={{ display: "grid", gap: 6 }}>
+                      Tên Lái Xe 2 *
+                      <input
+                        value={driver2Name}
+                        onChange={(e) => setDriver2Name(e.target.value)}
+                        className="input"
+                        placeholder="Vd: Trần Văn Lái 2..."
+                      />
+                    </label>
+                  )}
+
                   <label style={{ display: "grid", gap: 6 }}>
                     Số lượng phụ xe
                     <select
@@ -333,8 +380,8 @@ export default function VehiclesPage() {
                       className="input"
                     >
                       <option value={0}>Không có phụ xe</option>
-                      <option value={1}>1 Phụ xe</option>
-                      <option value={2}>2 Phụ xe</option>
+                      {(3 - driverCount) >= 1 && <option value={1}>1 Phụ xe</option>}
+                      {(3 - driverCount) >= 2 && <option value={2}>2 Phụ xe</option>}
                     </select>
                   </label>
                   
@@ -345,7 +392,7 @@ export default function VehiclesPage() {
                         value={assistant1Name}
                         onChange={(e) => setAssistant1Name(e.target.value)}
                         className="input"
-                        placeholder="Vd: Nguyễn Văn B..."
+                        placeholder="Vd: Nguyễn Văn Phụ 1..."
                       />
                     </label>
                   )}
@@ -357,11 +404,21 @@ export default function VehiclesPage() {
                         value={assistant2Name}
                         onChange={(e) => setAssistant2Name(e.target.value)}
                         className="input"
-                        placeholder="Vd: Trần Văn C..."
+                        placeholder="Vd: Trần Văn Phụ 2..."
                       />
                     </label>
                   )}
                 </>
+              ) : (
+                <label style={{ display: "grid", gap: 6 }}>
+                  Tên tài xế
+                  <input
+                    value={driver1Name}
+                    onChange={(e) => setDriver1Name(e.target.value)}
+                    className="input"
+                    placeholder="Nguyễn Văn A..."
+                  />
+                </label>
               )}
 
               {type === "thuê_ngoài" && (

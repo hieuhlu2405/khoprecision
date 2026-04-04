@@ -17,7 +17,8 @@ type ShipmentLog = {
   shipment_no: string;
   shipment_date: string;
   vehicle_id: string | null;
-  driver_name_snapshot: string | null;
+  driver_1_name_snapshot: string | null;
+  driver_2_name_snapshot: string | null;
   assistant_1_name_snapshot: string | null;
   assistant_2_name_snapshot: string | null;
   driver_cost: number;
@@ -53,7 +54,7 @@ export default function VehiclesReportPage() {
         .from("shipment_logs")
         .select(`
           id, shipment_no, shipment_date, vehicle_id, 
-          driver_name_snapshot, assistant_1_name_snapshot, assistant_2_name_snapshot,
+          driver_1_name_snapshot, driver_2_name_snapshot, assistant_1_name_snapshot, assistant_2_name_snapshot,
           driver_cost, assistant_cost, external_cost,
           vehicles ( id, license_plate, type )
         `)
@@ -147,7 +148,8 @@ export default function VehiclesReportPage() {
           "Tháng": month,
           "Biển số xe": g.vehicle?.license_plate || "N/A",
           "Loại xe": typeLabel,
-          "Lái xe (Snapshot)": x.driver_name_snapshot || "-",
+          "Lái xe 1 (Snapshot)": x.driver_1_name_snapshot || "-",
+          "Lái xe 2 (Snapshot)": x.driver_2_name_snapshot || "-",
           "Phụ xe 1 (Snapshot)": x.assistant_1_name_snapshot || "-",
           "Phụ xe 2 (Snapshot)": x.assistant_2_name_snapshot || "-",
           "Ngày chạy": x.shipment_date,
@@ -316,7 +318,13 @@ export default function VehiclesReportPage() {
                                         <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                                            <td className="px-4 py-3 font-bold text-slate-600 text-xs">{log.shipment_date}</td>
                                            <td className="px-4 py-3 font-mono font-bold text-indigo-600 text-xs">{log.shipment_no}</td>
-                                           <td className="px-4 py-3 font-black text-slate-800 text-xs">{log.driver_name_snapshot || "-"}</td>
+                                           <td className="px-4 py-3 font-black text-slate-800 text-xs">
+                                              <div className="flex flex-col gap-0.5">
+                                                {log.driver_1_name_snapshot ? <div>Lái 1: {log.driver_1_name_snapshot}</div> : null}
+                                                {log.driver_2_name_snapshot ? <div>Lái 2: {log.driver_2_name_snapshot}</div> : null}
+                                                {!log.driver_1_name_snapshot && !log.driver_2_name_snapshot ? "-" : null}
+                                              </div>
+                                           </td>
                                            <td className="px-4 py-3 font-bold text-slate-700 text-xs">
                                               <div className="flex flex-col gap-0.5">
                                                 {log.assistant_1_name_snapshot ? <div>Phụ 1: {log.assistant_1_name_snapshot}</div> : null}
