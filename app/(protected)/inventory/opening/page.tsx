@@ -219,7 +219,8 @@ export default function InventoryOpeningBalancesPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [records, setRecords] = useState<OpeningBalance[]>([]);
 
-  const [canCreateEdit, setCanCreateEdit] = useState(false);
+  const [canCreate, setCanCreate] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
   const [canDelete, setCanDelete] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -282,8 +283,9 @@ export default function InventoryOpeningBalancesPage() {
     const { data: profile } = await supabase.from("profiles").select("role, department").eq("id", u.user.id).single();
     if (profile) {
       const isManager = profile.role === "admin" || (profile.role === "manager" && profile.department === "warehouse");
-      setCanCreateEdit(isManager);
-      setCanDelete(isManager);
+      setCanCreate(isManager);
+      setCanEdit(profile.role === "admin");
+      setCanDelete(profile.role === "admin");
     }
   }
 
@@ -619,10 +621,10 @@ export default function InventoryOpeningBalancesPage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span className="hidden sm:inline">Xuất Excel</span>
           </button>
-          {canCreateEdit && !showCreate && (
+          {canCreate && (
             <button
-              onClick={() => { resetCreateForm(); setShowCreate(true); }}
-              className="btn btn-primary"
+              onClick={() => { resetCreateForm(); setShowCreate(!showCreate); }}
+              className="btn btn-primary shadow-lg shadow-brand/20 relative overflow-hidden group"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span>Tạo mới</span>
@@ -877,7 +879,7 @@ export default function InventoryOpeningBalancesPage() {
               <thead>
                   <tr>
                     <ThCell label="#" colKey="stt_header" sortable={false} filterable={false} colType="text" align="center" w="48px" />
-                    {canCreateEdit && <th className="!text-center !w-12 !p-0 !m-0" style={{ position: "sticky", top: 0, left: 0, zIndex: 100, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0", boxShadow: "1px 0 0 #e2e8f0" }}>
+                    {canCreate && <th className="!text-center !w-12 !p-0 !m-0" style={{ position: "sticky", top: 0, left: 0, zIndex: 100, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0", boxShadow: "1px 0 0 #e2e8f0" }}>
                        <div className="flex items-center justify-center h-full w-full">
                         <input
                           type="checkbox"
@@ -892,21 +894,21 @@ export default function InventoryOpeningBalancesPage() {
                     </th>}
                     <ThCell label="Kỳ" colKey="period" sortable colType="date" w="110px" />
                     <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
-                    <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" extra={{ position: "sticky", left: canCreateEdit ? 48 : 0, zIndex: 101, boxShadow: "2px 0 10px rgba(0,0,0,0.02)" }} />
+                    <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="150px" extra={{ position: "sticky", left: canCreate ? 48 : 0, zIndex: 101, boxShadow: "2px 0 10px rgba(0,0,0,0.02)" }} />
                     <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
                     <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" w="110px" />
                     <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" w="120px" />
                     <ThCell label="Tồn dài" colKey="isLongAging" sortable colType="bool" align="center" w="100px" />
-                    {canCreateEdit && <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="100px" />}
+                    {(canEdit || canDelete) && <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="120px" />}
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedFiltered.length === 0 ? (
-                    <tr><td colSpan={canCreateEdit ? 10 : 9} className="py-20 text-center opacity-40 italic">Không có dữ liệu khớp bộ lọc.</td></tr>
+                    <tr><td colSpan={canCreate ? 10 : 9} className="py-20 text-center opacity-40 italic">Không có dữ liệu khớp bộ lọc.</td></tr>
                   ) : paginatedFiltered.map((r, i) => (
                     <tr key={r.id} className={`${selectedIds.has(r.id) ? "!bg-brand/[0.04]" : ""} group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-brand/5`}>
                       <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{(currentPage - 1) * itemsPerPage + i + 1}</td>
-                    {canCreateEdit && (
+                    {canCreate && (
                       <td className="py-4 px-4 border-r border-slate-50 text-center sticky left-0 z-20 bg-white group-hover:bg-brand/5">
                         <input
                           type="checkbox"
@@ -923,7 +925,7 @@ export default function InventoryOpeningBalancesPage() {
                     )}
                     <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-900 text-[15px]" style={{ width: colWidths["period_month"], minWidth: colWidths["period_month"] || 140 }}>{fmtDate(r.period_month)}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-slate-900 font-bold text-[15px] uppercase" style={{ width: colWidths["customer_id"], minWidth: colWidths["customer_id"] || 180 }}>{customerLabel(r.customer_id)}</td>
-                    <td className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]`} style={{ left: canCreateEdit ? 48 : 0, width: colWidths["sku"] || 150, minWidth: colWidths["sku"] || 150 }}>
+                    <td className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]`} style={{ left: canCreate ? 48 : 0, width: colWidths["sku"] || 150, minWidth: colWidths["sku"] || 150 }}>
                       <div className="font-extrabold text-slate-900 font-mono text-[15px] uppercase tracking-wide">{r.products?.sku}</div>
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["name"], minWidth: colWidths["name"] || 250 }}>
@@ -949,19 +951,19 @@ export default function InventoryOpeningBalancesPage() {
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-400 border border-slate-200 uppercase tracking-widest">Thường</span>
                       )}
                     </td>
-                    {canCreateEdit && (
+                    {(canEdit || canDelete) && (
                       <td className="py-4 px-4 text-center">
                         <div className="flex justify-center gap-2 mt-1">
-                          {canCreateEdit && <button onClick={() => openEditForm(r)} className="px-3 py-1 bg-white border border-slate-200 hover:border-brand hover:bg-brand/10 text-[11px] text-brand font-black uppercase tracking-widest shadow-sm rounded-lg transition-all" title="Sửa">Sửa</button>}
+                          {canEdit && <button onClick={() => openEditForm(r)} className="px-3 py-1 bg-white border border-slate-200 hover:border-brand hover:bg-brand/10 text-[11px] text-brand font-black uppercase tracking-widest shadow-sm rounded-lg transition-all" title="Chỉnh sửa">Sửa</button>}
                           {canDelete && <button onClick={() => del(r)} className="px-3 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all" title="Xóa">Xóa</button>}
                         </div>
                       </td>
                     )}
                   </tr>
                 ))}
-                {finalFiltered.length === 0 && (
+                {records.length === 0 && finalFiltered.length === 0 && !loading && (
                   <tr>
-                    <td colSpan={canCreateEdit ? 10 : 8} className="py-24 text-center">
+                    <td colSpan={canCreate ? 10 : 9} style={{ padding: 16, textAlign: "center", color: "#999" }}>
                       <div className="flex flex-col items-center gap-2 text-slate-400">
                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M21 21l-6-6"/><circle cx="10" cy="10" r="7"/><path d="M7 10h6"/></svg>
                         <p className="text-sm font-medium">Không tìm thấy bản ghi nào khớp điều kiện lọc.</p>

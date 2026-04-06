@@ -102,8 +102,9 @@ export default function PhoiPage() {
   /* Helpers                                                             */
   /* ------------------------------------------------------------------ */
   const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
-  const canCreateEdit = isManager;
-  const canDelete = isManager;
+  const canCreate = isManager;
+  const canEdit = profile?.role === "admin";
+  const canDelete = profile?.role === "admin";
 
   function customerLabel(cid: string | null): string {
     if (!cid) return "—";
@@ -632,7 +633,7 @@ export default function PhoiPage() {
             <svg className="mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Xuất Excel
           </button>
-          {canCreateEdit && (
+          {canCreate && (
             <button onClick={() => { resetCreateForm(); setShowCreate(!showCreate); }} className="btn btn-primary shadow-lg shadow-brand/20">
               {showCreate ? "✕ Đóng form" : "+ Thêm phiếu nhập"}
             </button>
@@ -828,7 +829,7 @@ export default function PhoiPage() {
               <ThCell label="Đơn giá" colKey="cost" sortable colType="num" align="right" w="140px" />
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="180px" />
               <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="160px" />
-              {canCreateEdit && <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="140px" />}
+              {(canEdit || canDelete) && <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="140px" />}
             </tr>
           </thead>
           <tbody>
@@ -859,10 +860,10 @@ export default function PhoiPage() {
                 <td className="py-4 px-4 border-r border-slate-50 text-right font-medium text-slate-600 text-[15px]">{r.unit_cost != null ? fmtNum(r.unit_cost) : "—"}</td>
                 <td className="py-4 px-4 border-r border-slate-50 text-slate-500 italic text-[13px] break-all">{r.note ?? "—"}</td>
                 <td className="py-4 px-4 border-r border-slate-50 text-[12px] text-slate-400 font-medium">{mounted ? fmtDatetime(r.created_at) : "..."}</td>
-                {canCreateEdit && (
+                {(canEdit || canDelete) && (
                   <td className="py-4 px-4 text-center">
                     <div className="flex justify-center gap-2 mt-1">
-                      {canCreateEdit && <button onClick={() => openEdit(r)} className="px-3 py-1 bg-white border border-slate-200 hover:border-brand hover:bg-brand/10 text-[11px] text-brand font-black uppercase tracking-widest shadow-sm rounded-lg transition-all">Sửa</button>}
+                      {canEdit && <button onClick={() => openEdit(r)} className="px-3 py-1 bg-white border border-slate-200 hover:border-brand hover:bg-brand/10 text-[11px] text-brand font-black uppercase tracking-widest shadow-sm rounded-lg transition-all">Sửa</button>}
                       {canDelete && <button onClick={() => del(r)} className="px-3 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all">Xóa</button>}
                     </div>
                   </td>

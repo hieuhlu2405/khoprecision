@@ -625,8 +625,9 @@ export default function InventoryInboundPage() {
 
   /* ---- permissions ---- */
   const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
-  const canCreateEdit = isManager;
-  const canDelete = isManager;
+  const canCreate = isManager;
+  const canEdit = profile?.role === "admin";
+  const canDelete = profile?.role === "admin";
 
   /* ---- inline expansion UI state ---- */
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -1001,7 +1002,7 @@ export default function InventoryInboundPage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
             Làm mới
           </button>
-          {canCreateEdit && (
+          {canCreate && (
             <button onClick={() => { resetCreateForm(); setShowCreate(true); }} className="btn btn-primary">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Tạo phiếu nhập mới
@@ -1319,7 +1320,7 @@ export default function InventoryInboundPage() {
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="200px" />
               <ThCell label="Tạo lúc" colKey="createdAt" sortable colType="date" />
               <ThCell label="Cập nhật" colKey="updatedAt" sortable colType="date" />
-              {canCreateEdit && <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="120px" />}
+              {(canEdit || canDelete) && <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="120px" />}
             </tr>
           </thead>
           <tbody>
@@ -1382,10 +1383,10 @@ export default function InventoryInboundPage() {
                     <td className="py-4 px-4 border-r border-slate-50 text-slate-500 italic text-[13px] max-w-[200px] truncate" title={r.note ?? ""}>{r.note ?? ""}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-[12px] text-slate-400 font-medium">{mounted ? fmtDatetime(r.created_at) : "..."}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-[12px] text-slate-400 font-medium">{mounted ? fmtDatetime(r.updated_at) : "..."}</td>
-                    {canCreateEdit && (
+                    {(canEdit || canDelete) && (
                       <td className="py-4 px-4 text-center">
                         <div className="flex justify-center gap-2 mt-1">
-                          {canCreateEdit && (
+                          {canEdit && (
                             <>
                               <button onClick={(e) => { e.stopPropagation(); openEdit(r); }} className="px-2 py-1 bg-white border border-slate-200 hover:border-brand hover:bg-brand/10 text-[11px] text-brand font-black uppercase tracking-widest shadow-sm rounded-lg transition-all" title="Sửa thông tin">Sửa</button>
                               <button onClick={(e) => { e.stopPropagation(); openAdjustment(r); }} className="px-2 py-1 bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50 text-[11px] text-amber-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all" title="Điều chỉnh">Đ.C</button>
