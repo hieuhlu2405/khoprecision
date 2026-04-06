@@ -495,11 +495,12 @@ export default function StocktakeDetailPage() {
     return true;
   }
 
-  async function handleSaveLinesAndApply() {
+  async function handleSaveLinesAndApply(isConfirmingOverride = false) {
     if (!header || !validateSave()) return;
     setSaving(true);
     try {
       const now = new Date().toISOString();
+      const currentIsConfirmed = isConfirmingOverride || isConfirmed;
 
       let headerUpdateData: any = {
         stocktake_date: header.stocktake_date,
@@ -507,20 +508,31 @@ export default function StocktakeDetailPage() {
         updated_at: now,
         updated_by: me?.id
       };
-      if (isConfirmed) {
-        headerUpdateData.post_confirm_edit_reason = editReason;
-        headerUpdateData.post_confirm_edited_at = now;
-        headerUpdateData.post_confirm_edited_by = me?.id;
+      
+      if (currentIsConfirmed) {
+        if (header.status === "confirmed") {
+          headerUpdateData.post_confirm_edit_reason = editReason;
+          headerUpdateData.post_confirm_edited_at = now;
+          headerUpdateData.post_confirm_edited_by = me?.id;
+        } else {
+          // First time confirming
+          headerUpdateData.status = "confirmed";
+          headerUpdateData.confirmed_at = now;
+          headerUpdateData.confirmed_by = me?.id;
+        }
       }
 
       const { error: hdrErr } = await supabase.from("inventory_stocktakes")
         .update(headerUpdateData).eq("id", header.id);
+      
       if (hdrErr) {
         console.warn("Could not update header", hdrErr);
+        throw hdrErr;
       }
 
+      // 1. Save Stocktake Lines
       await supabase.from("inventory_stocktake_lines").delete().eq("stocktake_id", header.id);
-
+      
       const inserts = lines.map(l => ({
         stocktake_id: header.id,
         customer_id: l.customer_id,
@@ -541,59 +553,44 @@ export default function StocktakeDetailPage() {
       const { error: eInst } = await supabase.from("inventory_stocktake_lines").insert(inserts);
       if (eInst) throw eInst;
 
-      // Ensure Opening Balance Sync precisely tied to confirmation date
-      if (isConfirmed && header.confirmed_at) {
+      // 2. Sync to Opening Balances (UPSERT)
+      if (currentIsConfirmed) {
         const confirmedDateOnly = header.stocktake_date;
+        const openingBalancePayloads = lines.map(l => ({
+          period_month: confirmedDateOnly,
+          product_id: l.product_id,
+          customer_id: l.customer_id,
+          opening_qty: l.actual_qty_after,
+          opening_unit_cost: l.unit_price_snapshot,
+          source_stocktake_id: header.id,
+          edit_reason: (header.status === "confirmed") ? editReason : "Chốt phiếu kiểm kê",
+          edited_after_confirm: header.status === "confirmed",
+          edited_after_confirm_at: (header.status === "confirmed") ? now : null,
+          edited_after_confirm_by: (header.status === "confirmed") ? me?.id : null,
+          updated_at: now,
+          updated_by: me?.id
+        }));
 
-        for (const l of lines) {
-          let q = supabase.from("inventory_opening_balances")
-            .select("id")
-            .eq("period_month", confirmedDateOnly)
-            .eq("product_id", l.product_id)
-            .is("deleted_at", null);
+        // Use UPSERT for better atomicity and performance
+        const { error: upsertErr } = await supabase.from("inventory_opening_balances").upsert(openingBalancePayloads, {
+          onConflict: "period_month, product_id"
+        });
 
-          if (l.customer_id) q = q.eq("customer_id", l.customer_id);
-          else q = q.is("customer_id", null);
-
-          const { data: existRows } = await q;
-
-          if (existRows && existRows.length > 0) {
-            await supabase.from("inventory_opening_balances").update({
-              opening_qty: l.actual_qty_after,
-              opening_unit_cost: l.unit_price_snapshot,
-              source_stocktake_id: header.id,
-              edit_reason: editReason,
-              edited_after_confirm: true,
-              edited_after_confirm_at: now,
-              edited_after_confirm_by: me?.id,
-              updated_at: now,
-              updated_by: me?.id
-            }).eq("id", existRows[0].id);
-          } else {
-            await supabase.from("inventory_opening_balances").insert({
-              period_month: confirmedDateOnly,
-              customer_id: l.customer_id,
-              product_id: l.product_id,
-              opening_qty: l.actual_qty_after,
-              opening_unit_cost: l.unit_price_snapshot,
-              source_stocktake_id: header.id,
-              edit_reason: editReason,
-              edited_after_confirm: true,
-              edited_after_confirm_at: now,
-              edited_after_confirm_by: me?.id,
-              created_at: now,
-              created_by: me?.id,
-              updated_at: now,
-              updated_by: me?.id
-            });
-          }
+        if (upsertErr) {
+          console.error("Failed to upsert opening balances:", upsertErr);
+          throw upsertErr;
         }
       }
 
-      showToast("Đã lưu chi tiết phiếu kiểm kê!", "success");
-      loadAll(header.id);
+      showToast(currentIsConfirmed ? "Đã lưu và chốt phiếu thành công!" : "Đã lưu chi tiết phiếu kiểm kê!", "success");
+      
+      if (currentIsConfirmed && header.status !== "confirmed") {
+          window.location.reload();
+      } else {
+          loadAll(header.id);
+      }
     } catch (err: any) {
-      showToast("Lỗi lưu chi tiết: " + err.message, "error");
+      showToast("Lỗi lưu dữ liệu: " + err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -601,70 +598,14 @@ export default function StocktakeDetailPage() {
 
   async function handleConfirm() {
     if (!header || !validateSave()) return;
-    const ok = await showConfirm({ message: "Bạn có chắc chắn chốt phiếu kiểm kê này?\nDữ liệu sẽ được ghi nhận là Tồn đầu kỳ tại thời điểm chốt.", confirmLabel: "Chốt phiếu" });
+    const ok = await showConfirm({ 
+      message: "Bạn có chắc chắn chốt phiếu kiểm kê này?\nDữ liệu sẽ được ghi nhận là Tồn đầu kỳ tại thời điểm chốt.", 
+      confirmLabel: "Chốt phiếu" 
+    });
     if (!ok) return;
 
-    setSaving(true);
-    try {
-      const now = new Date().toISOString();
-      await handleSaveLinesAndApply();
-
-      const { error: eH } = await supabase.from("inventory_stocktakes").update({
-        status: "confirmed",
-        stocktake_date: header.stocktake_date,
-        note: header.note,
-        confirmed_at: now,
-        confirmed_by: me?.id,
-        updated_at: now,
-        updated_by: me?.id
-      }).eq("id", header.id);
-      if (eH) throw eH;
-
-      const confirmedDateOnly = header.stocktake_date;
-
-      for (const val of lines) {
-        let q = supabase.from("inventory_opening_balances")
-          .select("id")
-          .eq("period_month", confirmedDateOnly)
-          .eq("product_id", val.product_id)
-          .is("deleted_at", null);
-
-        if (val.customer_id) q = q.eq("customer_id", val.customer_id);
-        else q = q.is("customer_id", null);
-
-        const { data: existRows } = await q;
-
-        if (existRows && existRows.length > 0) {
-          await supabase.from("inventory_opening_balances").update({
-            opening_qty: val.actual_qty_after,
-            opening_unit_cost: val.unit_price_snapshot,
-            source_stocktake_id: header.id,
-            updated_at: now,
-            updated_by: me?.id
-          }).eq("id", existRows[0].id);
-        } else {
-          await supabase.from("inventory_opening_balances").insert({
-            period_month: confirmedDateOnly,
-            customer_id: val.customer_id,
-            product_id: val.product_id,
-            opening_qty: val.actual_qty_after,
-            opening_unit_cost: val.unit_price_snapshot,
-            source_stocktake_id: header.id,
-            created_at: now,
-            created_by: me?.id,
-            updated_at: now,
-            updated_by: me?.id
-          });
-        }
-      }
-
-      showToast("Đã chốt phiếu thành công!", "success");
-      window.location.reload();
-    } catch (err: any) {
-      showToast("Lỗi khi chốt: " + err.message, "error");
-    } finally {
-      setSaving(false);
-    }
+    // Direct call to refactored save lines function with confirm flag
+    await handleSaveLinesAndApply(true);
   }
 
   function getCustomerLabel(cId: string | null) {
@@ -895,19 +836,19 @@ export default function StocktakeDetailPage() {
         </div>
         <div className="toolbar">
           {canEditDraft && (
-            <button onClick={handleSaveLinesAndApply} disabled={saving} className="btn btn-secondary">
+            <button onClick={() => handleSaveLinesAndApply()} disabled={saving} className="btn btn-secondary">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
               Lưu bản nháp
             </button>
           )}
           {canEditDraft && (
-            <button onClick={handleConfirm} disabled={saving} className="btn btn-primary">
+            <button onClick={() => handleConfirm()} disabled={saving} className="btn btn-primary">
               🚀 Chốt kiểm kê
             </button>
           )}
           {canEditConfirmed && (
             <button 
-              onClick={handleSaveLinesAndApply} 
+              onClick={() => handleSaveLinesAndApply()} 
               disabled={saving || !editReason.trim()} 
               className="btn btn-danger"
             >
@@ -1132,13 +1073,13 @@ export default function StocktakeDetailPage() {
       {canEdit && (
         <div className="toolbar" style={{ marginTop: 32, justifyContent: "flex-end", gap: 16 }}>
           {canEditDraft && (
-            <button onClick={handleSaveLinesAndApply} disabled={saving} className="btn btn-secondary" style={{ minWidth: 160 }}>
+            <button onClick={() => handleSaveLinesAndApply()} disabled={saving} className="btn btn-secondary" style={{ minWidth: 160 }}>
               {saving ? "Đang lưu..." : "💾 Lưu bản nháp"}
             </button>
           )}
 
           {canEditDraft && (
-            <button onClick={handleConfirm} disabled={saving} className="btn btn-primary" style={{ minWidth: 160 }}>
+            <button onClick={() => handleConfirm()} disabled={saving} className="btn btn-primary" style={{ minWidth: 160 }}>
               🚀 Chốt kiểm kê
             </button>
           )}
