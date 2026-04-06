@@ -1086,7 +1086,7 @@ export default function StocktakeDetailPage() {
 
           {canEditConfirmed && (
             <button 
-              onClick={handleSaveLinesAndApply} 
+              onClick={() => handleSaveLinesAndApply()} 
               disabled={saving || !editReason.trim()} 
               className="btn btn-danger" 
               style={{ minWidth: 200 }}
