@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { motion, AnimatePresence } from "framer-motion";
 
 type Profile = {
   id: string;
@@ -70,9 +72,6 @@ function fmtNum(n: number | null | undefined): string {
   return parts.join(".");
 }
 
-const thStyle = { textAlign: "left", border: "1px solid #ddd", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap" } as const;
-const tdStyle = { border: "1px solid #ddd", padding: "10px 8px" } as const;
-
 /* ------------------------------------------------------------------ */
 /* Column Filters & Popups                                             */
 /* ------------------------------------------------------------------ */
@@ -121,24 +120,20 @@ const popupStyle: React.CSSProperties = {
   padding: 10, minWidth: 210, boxShadow: "0 4px 12px rgba(0,0,0,.12)",
 };
 
-const btnSmall: React.CSSProperties = {
-  padding: "4px 10px", fontSize: 12, cursor: "pointer", borderRadius: 4, border: "1px solid #cbd5e1", background: "#f8fafc",
-};
-
 function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | null; onChange: (f: TextFilter | null) => void; onClose: () => void }) {
   const [mode, setMode] = useState<TextFilter["mode"]>(filter?.mode ?? "contains");
   const [val, setVal] = useState(filter?.value ?? "");
   return (
     <div style={popupStyle} onClick={e => e.stopPropagation()}>
-      <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc cột</div>
-      <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
+      <div style={{ marginBottom: 6, fontWeight: 900, fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Lọc tài liệu</div>
+      <select value={mode} onChange={e => setMode(e.target.value as any)} className="select select-xs w-full mb-2 bg-slate-50 border-slate-200 font-bold outline-none">
         <option value="contains">Chứa</option>
         <option value="equals">Bằng</option>
       </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, backgroundColor: "#f3f2acbb", boxSizing: "border-box" }} autoFocus />
+      <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." className="input input-xs w-full mb-3 bg-indigo-50/50 border-indigo-100 font-bold" autoFocus />
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-        <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-        <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Áp dụng</button>
+        <button className="btn btn-xs btn-ghost text-[10px] font-black uppercase tracking-widest" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+        <button className="btn btn-xs btn-primary font-black px-4 text-[10px] uppercase tracking-widest" onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Lọc</button>
       </div>
     </div>
   );
@@ -150,20 +145,20 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
   const [valTo, setValTo] = useState(filter?.valueTo ?? "");
   return (
     <div style={popupStyle} onClick={e => e.stopPropagation()}>
-      <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc cột (số)</div>
-      <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
+      <div style={{ marginBottom: 6, fontWeight: 900, fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Lọc số</div>
+      <select value={mode} onChange={e => setMode(e.target.value as any)} className="select select-xs w-full mb-2 bg-slate-50 border-slate-200 font-bold outline-none">
         <option value="eq">Bằng (=)</option>
         <option value="gt">Lớn hơn (&gt;)</option>
         <option value="lt">Nhỏ hơn (&lt;)</option>
         <option value="range">Từ … đến …</option>
       </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder={mode === "range" ? "Từ" : "Giá trị"} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} autoFocus />
+      <input value={val} onChange={e => setVal(e.target.value)} placeholder={mode === "range" ? "Từ" : "Giá trị"} className="input input-xs w-full mb-1 bg-slate-50 border-slate-200 font-bold" autoFocus />
       {mode === "range" && (
-        <input value={valTo} onChange={e => setValTo(e.target.value)} placeholder="Đến" style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} />
+        <input value={valTo} onChange={e => setValTo(e.target.value)} placeholder="Đến" className="input input-xs w-full mb-1 bg-slate-50 border-slate-200 font-bold" />
       )}
-      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 4 }}>
-        <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-        <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val ? { mode, value: val, valueTo: valTo } : null); onClose(); }}>Áp dụng</button>
+      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 8 }}>
+        <button className="btn btn-xs btn-ghost text-[10px] font-black uppercase tracking-widest" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+        <button className="btn btn-xs btn-primary font-black px-4 text-[10px] uppercase tracking-widest" onClick={() => { onChange(val ? { mode, value: val, valueTo: valTo } : null); onClose(); }}>Lọc</button>
       </div>
     </div>
   );
@@ -173,15 +168,15 @@ function BoolFilterPopup({ filter, onChange, onClose }: { filter: BoolFilter | n
   const [val, setVal] = useState<BoolFilter["value"]>(filter?.value ?? "all");
   return (
     <div style={popupStyle} onClick={e => e.stopPropagation()}>
-      <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc trạng thái</div>
-      <select value={val} onChange={e => setVal(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8 }}>
+      <div style={{ marginBottom: 6, fontWeight: 900, fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Cảnh báo</div>
+      <select value={val} onChange={e => setVal(e.target.value as any)} className="select select-xs w-full mb-3 bg-slate-50 border-slate-200 font-bold outline-none">
         <option value="all">Tất cả</option>
-        <option value="yes">Có</option>
-        <option value="no">Không</option>
+        <option value="yes">Có cảnh báo</option>
+        <option value="no">Bình thường</option>
       </select>
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-        <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-        <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val !== "all" ? { value: val } : null); onClose(); }}>Áp dụng</button>
+        <button className="btn btn-xs btn-ghost text-[10px] font-black uppercase tracking-widest" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+        <button className="btn btn-xs btn-primary font-black px-4 text-[10px] uppercase tracking-widest" onClick={() => { onChange(val !== "all" ? { value: val } : null); onClose(); }}>Lọc</button>
       </div>
     </div>
   );
@@ -252,8 +247,10 @@ export default function StocktakeDetailPage() {
       }
       const { data: isAd } = await supabase.rpc("check_is_admin");
       const role = pData?.role || "staff";
-      setIsAdminOrManager(isAd === true || role === "manager" || role === "admin");
-      setIsAdmin(isAd === true || role === "admin");
+      const isMngr = role === "manager" || role === "admin" || (isAd === true);
+      
+      setIsAdminOrManager(isMngr);
+      setIsAdmin((isAd === true) || role === "admin");
 
       const [rH, rL, rP, rC] = await Promise.all([
         supabase.from("inventory_stocktakes").select("*").eq("id", stkId).single(),
@@ -305,20 +302,11 @@ export default function StocktakeDetailPage() {
       let inbound = 0;
       let outbound = 0;
 
-      const txs = rT.data;
-      const originals = new Map<string, any>();
-      txs.forEach((t: any) => { if (t.tx_type === "in" || t.tx_type === "out") originals.set(t.id, t); });
-
-      txs.forEach((t: any) => {
+      rT.data.forEach((t: any) => {
         if (t.tx_type === "in") inbound += Number(t.qty);
         else if (t.tx_type === "out") outbound += Number(t.qty);
-        else if (t.tx_type === "adjust_in" || t.tx_type === "adjust_out") {
-          const p = t.adjusted_from_transaction_id ? originals.get(t.adjusted_from_transaction_id) : null;
-          if (p) {
-            if (p.tx_type === "in") inbound += (t.tx_type === "adjust_in" ? Number(t.qty) : -Number(t.qty));
-            else if (p.tx_type === "out") outbound += (t.tx_type === "adjust_in" ? Number(t.qty) : -Number(t.qty));
-          }
-        }
+        else if (t.tx_type === "adjust_in") inbound += Number(t.qty);
+        else if (t.tx_type === "adjust_out") outbound += Number(t.qty);
       });
       currentQty += (inbound - outbound);
     }
@@ -373,7 +361,6 @@ export default function StocktakeDetailPage() {
   async function handleProductSearchChange(lineId: string, skuInput: string) {
     const p = products.find(x => x.sku === skuInput || `${x.sku} - ${x.name}` === skuInput);
 
-    // 1) Optimistic UI Update purely for search state
     setLines(prev => prev.map(l => {
       if (l.id !== lineId) return l;
       if (!p) {
@@ -403,7 +390,7 @@ export default function StocktakeDetailPage() {
 
       setLines(prev => prev.map(l => {
         if (l.id !== lineId) return l;
-        if (l._searchQuery !== skuInput) return l; // Do not apply if user typed something else
+        if (l._searchQuery !== skuInput) return l; 
 
         const logic = applyDiffLogic({ ...l, system_qty_before: qtyB4 }, qtyB4);
 
@@ -462,25 +449,6 @@ export default function StocktakeDetailPage() {
     setSelectedLineIds(new Set());
   }
 
-  async function handleSaveHeader() {
-    if (!header) return;
-    setSaving(true);
-    try {
-      const { error } = await supabase.from("inventory_stocktakes").update({
-        stocktake_date: header.stocktake_date,
-        note: header.note,
-        updated_at: new Date().toISOString(),
-        updated_by: me?.id
-      }).eq("id", header.id);
-      if (error) throw error;
-      showToast("Đã lưu tiêu đề!", "success");
-    } catch (err: any) {
-      showToast("Lỗi lưu phiếu: " + err.message, "error");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   function validateSave(): boolean {
     if (isConfirmed && !editReason.trim()) {
       showToast("Bạn phải nhập [Lý do sửa sau chốt] khi sửa phiếu đã chốt!", "error");
@@ -515,20 +483,14 @@ export default function StocktakeDetailPage() {
           headerUpdateData.post_confirm_edited_at = now;
           headerUpdateData.post_confirm_edited_by = me?.id;
         } else {
-          // First time confirming
           headerUpdateData.status = "confirmed";
           headerUpdateData.confirmed_at = now;
           headerUpdateData.confirmed_by = me?.id;
         }
       }
 
-      const { error: hdrErr } = await supabase.from("inventory_stocktakes")
-        .update(headerUpdateData).eq("id", header.id);
-      
-      if (hdrErr) {
-        console.warn("Could not update header", hdrErr);
-        throw hdrErr;
-      }
+      const { error: hdrErr } = await supabase.from("inventory_stocktakes").update(headerUpdateData).eq("id", header.id);
+      if (hdrErr) throw hdrErr;
 
       // 1. Save Stocktake Lines
       await supabase.from("inventory_stocktake_lines").delete().eq("stocktake_id", header.id);
@@ -553,75 +515,38 @@ export default function StocktakeDetailPage() {
       const { error: eInst } = await supabase.from("inventory_stocktake_lines").insert(inserts);
       if (eInst) throw eInst;
 
-      // 2. Sync to Opening Balances (Xóa rồi Insert để tránh lỗi ON CONFLICT)
+      // 2. Sync to Transactions (Immutable Standard)
       if (currentIsConfirmed) {
         const confirmedDateOnly = header.stocktake_date;
 
-        // Gom nhóm theo product_id đề phòng phiếu kiểm kê có 2 dòng cùng 1 sản phẩm
-        const groupedMap = new Map();
-        for (const l of lines) {
-          const key = l.product_id;
-          if (groupedMap.has(key)) {
-            const existing = groupedMap.get(key);
-            existing.actual_qty_after += (l.actual_qty_after || 0);
-          } else {
-            groupedMap.set(key, { ...l });
-          }
-        }
-        const consolidatedLines: any[] = Array.from(groupedMap.values());
-
-        const openingBalancePayloads = consolidatedLines.map(l => ({
-          period_month: confirmedDateOnly,
+        const adjustmentPayloads = lines.filter(l => l.qty_diff !== 0).map(l => ({
+          tx_date: confirmedDateOnly,
+          tx_type: l.qty_diff > 0 ? "adjust_in" : "adjust_out",
           product_id: l.product_id,
           customer_id: l.customer_id,
-          opening_qty: l.actual_qty_after,
-          opening_unit_cost: l.unit_price_snapshot,
-          source_stocktake_id: header.id,
-          edit_reason: (header.status === "confirmed") ? editReason : "Chốt phiếu kiểm kê",
-          edited_after_confirm: header.status === "confirmed",
-          edited_after_confirm_at: (header.status === "confirmed") ? now : null,
-          edited_after_confirm_by: (header.status === "confirmed") ? me?.id : null,
+          qty: Math.abs(l.qty_diff),
+          note: `Điều chỉnh kiểm kê phiếu #${header.id.slice(0,8)}` + (editReason ? ` (Sửa: ${editReason})` : ""),
+          product_name_snapshot: l.product_name_snapshot,
+          product_spec_snapshot: l.product_spec_snapshot,
+          unit_cost: l.unit_price_snapshot,
+          stocktake_id: header.id,
+          created_by: me?.id,
           updated_at: now,
           updated_by: me?.id
         }));
 
-        const pids = consolidatedLines.map(l => l.product_id);
-        const chunkSize = 100;
+        await supabase.from("inventory_transactions").delete().eq("stocktake_id", header.id);
 
-        // 2a. Xoá dữ liệu cũ theo chunk
-        for (let i = 0; i < pids.length; i += chunkSize) {
-          const chunkPids = pids.slice(i, i + chunkSize);
-          const { error: delErr } = await supabase
-            .from("inventory_opening_balances")
-            .delete()
-            .eq("period_month", confirmedDateOnly)
-            .in("product_id", chunkPids);
-          if (delErr) {
-            console.error("Failed to delete old balances:", delErr);
-            throw new Error("Lỗi xoá tồn đầu kỳ cũ: " + delErr.message);
-          }
-        }
-
-        // 2b. Thêm dữ liệu mới theo chunk
-        for (let i = 0; i < openingBalancePayloads.length; i += chunkSize) {
-          const chunkPayloads = openingBalancePayloads.slice(i, i + chunkSize);
-          const { error: insErr } = await supabase
-            .from("inventory_opening_balances")
-            .insert(chunkPayloads);
-          if (insErr) {
-            console.error("Failed to insert new balances:", insErr);
-            throw new Error("Lỗi thêm tồn đầu kỳ mới: " + insErr.message);
-          }
+        if (adjustmentPayloads.length > 0) {
+          const { error: insErr } = await supabase.from("inventory_transactions").insert(adjustmentPayloads);
+          if (insErr) throw insErr;
         }
       }
 
-      showToast(currentIsConfirmed ? "Đã lưu và chốt phiếu thành công!" : "Đã lưu chi tiết phiếu kiểm kê!", "success");
-      
-      if (currentIsConfirmed && header.status !== "confirmed") {
-          window.location.reload();
-      } else {
-          loadAll(header.id);
-      }
+      showToast(currentIsConfirmed ? "Đã chốt phiếu thành công!" : "Đã lưu bản nháp!", "success");
+      if (currentIsConfirmed && header.status !== "confirmed") window.location.reload();
+      else loadAll(header.id);
+
     } catch (err: any) {
       showToast("Lỗi lưu dữ liệu: " + err.message, "error");
     } finally {
@@ -631,14 +556,8 @@ export default function StocktakeDetailPage() {
 
   async function handleConfirm() {
     if (!header || !validateSave()) return;
-    const ok = await showConfirm({ 
-      message: "Bạn có chắc chắn chốt phiếu kiểm kê này?\nDữ liệu sẽ được ghi nhận là Tồn đầu kỳ tại thời điểm chốt.", 
-      confirmLabel: "Chốt phiếu" 
-    });
-    if (!ok) return;
-
-    // Direct call to refactored save lines function with confirm flag
-    await handleSaveLinesAndApply(true);
+    const ok = await showConfirm({ message: "Xác nhận chốt phiếu? Hệ thống sẽ sinh giao dịch cân bằng kho.", confirmLabel: "Xác nhận" });
+    if (ok) await handleSaveLinesAndApply(true);
   }
 
   function getCustomerLabel(cId: string | null) {
@@ -650,7 +569,6 @@ export default function StocktakeDetailPage() {
     return products.find(x => x.id === pId)?.sku || "";
   }
 
-  /* ---- Filter & Sort Pipeline ---- */
   const enrichedLines = useMemo(() => {
     return lines.map(l => ({
       ...l,
@@ -660,7 +578,6 @@ export default function StocktakeDetailPage() {
 
   const finalFiltered = useMemo(() => {
     let result = [...enrichedLines];
-
     for (const [key, f] of Object.entries(colFilters)) {
       if (["customer", "sku", "name", "spec", "reason"].includes(key)) {
         result = result.filter(r => {
@@ -687,448 +604,180 @@ export default function StocktakeDetailPage() {
         result = result.filter(r => passesBoolFilter(r.is_large_diff, f as BoolFilter));
       }
     }
-
     if (sortCol && sortDir) {
       const dir = sortDir === "asc" ? 1 : -1;
       result.sort((a, b) => {
-        let va: string | number | null = null;
-        let vb: string | number | null = null;
-        
+        let va: any = "";
+        let vb: any = "";
         if (sortCol === "customer") { va = getCustomerLabel(a.customer_id); vb = getCustomerLabel(b.customer_id); }
         else if (sortCol === "sku") { va = getProductSku(a.product_id); vb = getProductSku(b.product_id); }
         else if (sortCol === "name") { va = a.product_name_snapshot; vb = b.product_name_snapshot; }
-        else if (sortCol === "spec") { va = a.product_spec_snapshot || ""; vb = b.product_spec_snapshot || ""; }
-        else if (sortCol === "reason") { va = a.diff_reason || ""; vb = b.diff_reason || ""; }
         else if (sortCol === "sysQty") { va = a.system_qty_before; vb = b.system_qty_before; }
         else if (sortCol === "actQty") { va = a.actual_qty_after; vb = b.actual_qty_after; }
-        else if (sortCol === "diffQty") { va = a.qty_diff; vb = b.qty_diff; }
-        else if (sortCol === "diffPct") { va = a.diff_percent || 0; vb = b.diff_percent || 0; }
-        else if (sortCol === "price") { va = a.unit_price_snapshot || 0; vb = b.unit_price_snapshot || 0; }
-        else if (sortCol === "valDiff") { va = a.rowValDiff; vb = b.rowValDiff; }
-        else if (sortCol === "warning") { va = a.is_large_diff ? 1 : 0; vb = b.is_large_diff ? 1 : 0; }
-
-        if (va == null && vb != null) return -1 * dir;
-        if (vb == null && va != null) return 1 * dir;
-        if (va != null && vb != null) {
-          if (typeof va === "string" && typeof vb === "string") {
-            if (va.toLowerCase() < vb.toLowerCase()) return -1 * dir;
-            if (va.toLowerCase() > vb.toLowerCase()) return 1 * dir;
-          } else {
-            if (va < vb) return -1 * dir;
-            if (va > vb) return 1 * dir;
-          }
-        }
-        return 0;
+        if (typeof va === "string" && typeof vb === "string") return va.localeCompare(vb) * dir;
+        return (va < vb ? -1 : 1) * dir;
       });
     }
-
     return result;
   }, [enrichedLines, colFilters, sortCol, sortDir, customers, products]);
 
-  /* ---- Column resizing ---- */
-  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("inventory_stocktake_detail_col_widths");
-        const parsed = saved ? JSON.parse(saved) : {};
-        return (parsed && typeof parsed === "object") ? parsed : {};
-      } catch (e) {
-        console.error("Failed to parse colWidths", e);
-        return {};
-      }
-    }
-    return {};
+  // ---- Virtualization ----
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: finalFiltered.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 60,
+    overscan: 10,
   });
 
-  const onResize = (key: string, width: number) => {
-    setColWidths(prev => {
-      const next = { ...prev, [key]: width };
-      localStorage.setItem("inventory_stocktake_detail_col_widths", JSON.stringify(next));
-      return next;
-    });
-  };
-
-  /* ---- Table Header Cell Component ---- */
-  function ThCell({ label, colKey, sortable, colType, align, w, extra }: {
-    label: string; colKey: string; sortable: boolean; colType: "text" | "num" | "bool";
-    align?: "left" | "right" | "center"; w?: string; extra?: React.CSSProperties;
-  }) {
+  function ThCell({ label, colKey, sortable, colType, align, w }: { label: string; colKey: string; sortable: boolean; colType: "text" | "num" | "bool"; align?: "left" | "right" | "center"; w?: string; }) {
     const active = !!colFilters[colKey];
-    const isSortTarget = sortCol === colKey;
-    const width = colWidths[colKey] || (w ? parseInt(w) : undefined);
-    const thRef = useRef<HTMLTableCellElement>(null);
-
-    const startResizing = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      const startX = e.pageX;
-      const startWidth = thRef.current?.offsetWidth || 0;
-      const onMouseMove = (me: MouseEvent) => {
-        const newW = Math.max(50, startWidth + (me.pageX - startX));
-        onResize(colKey, newW);
-      };
-      const onMouseUp = () => {
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
-      };
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
-    };
-
-    const baseStyle: React.CSSProperties = {
-      textAlign: align || "left",
-      position: "relative",
-      whiteSpace: "nowrap",
-      width: width ? `${width}px` : w,
-      minWidth: width ? `${width}px` : "50px",
-      ...extra
-    };
-    const popupOpen = openPopupId === colKey;
-
+    const isSort = sortCol === colKey;
     return (
-      <th style={baseStyle} ref={thRef} className="group">
-        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
-          <div className="flex items-center gap-0.5">
-            {sortable && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isSortTarget) {
-                    if (sortDir === "asc") setSortDir("desc");
-                    else { setSortDir(null); setSortCol(null); }
-                  } else { setSortCol(colKey); setSortDir("asc"); }
-                }}
-                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
-                title="Sắp xếp"
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-                </svg>
-              </button>
-            )}
-            <button
-              onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
-              className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
-              title="Lọc dữ liệu"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <th style={{ width: w ? parseInt(w) : 150 }} className="p-4 border-b border-slate-100 sticky top-0 bg-white/90 backdrop-blur-md z-20">
+         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : ""}`}>
+            <span className="font-black text-[10px] text-slate-400 uppercase tracking-widest">{label}</span>
+            <button onClick={() => setOpenPopupId(openPopupId === colKey ? null : colKey)} className={`p-1 rounded ${active ? "bg-indigo-600 text-white" : "text-slate-300 hover:bg-slate-100"}`}>
+               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
             </button>
-          </div>
-        </div>
-
-        {/* Resize Handle */}
-        <div
-          onMouseDown={startResizing}
-          onDoubleClick={() => onResize(colKey, 150)}
-          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
-          title="Kéo để chỉnh độ rộng"
-        />
-
-        {popupOpen && (
-          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
-            {colType === "text" && <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
-            {colType === "num" && <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
-            {colType === "bool" && <BoolFilterPopup filter={(colFilters[colKey] as BoolFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
-          </div>
-        )}
+            {sortable && (
+               <button onClick={() => { if(isSort) { setSortDir(sortDir === "asc" ? "desc" : null); if(sortDir === "desc") setSortCol(null); } else { setSortCol(colKey); setSortDir("asc"); } }} className={`p-1 rounded ${isSort ? "text-indigo-600" : "text-slate-200"}`}>
+                 {isSort && sortDir === "asc" ? "▲" : isSort && sortDir === "desc" ? "▼" : "⇅"}
+               </button>
+            )}
+         </div>
+         {openPopupId === colKey && (
+           <div className="absolute top-full left-0 z-50">
+             {colType === "text" && <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />}
+             {colType === "num" && <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />}
+             {colType === "bool" && <BoolFilterPopup filter={(colFilters[colKey] as BoolFilter) || null} onChange={f => setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />}
+           </div>
+         )}
       </th>
     );
   }
 
-  if (loading) return <LoadingPage text="Đang tải dữ liệu phiếu kiểm kê..." />;
-  if (!header) return <div style={{ padding: 24, fontFamily: "sans-serif", color: "crimson" }}>Không tìm thấy phiếu kiểm kê</div>;
+  if (loading) return <LoadingPage />;
+  if (!header) return <div className="p-8 text-red-500 font-black">Lỗi: Không tìm thấy phiếu.</div>;
 
   return (
-    <div className="page-root" style={{ paddingBottom: 80 }}>
-      <div className="page-header">
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="m9 14 2 2 4-4"/></svg>
-          </div>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <button 
-                onClick={() => router.push("/inventory/stocktake")} 
-                className="btn btn-ghost btn-sm"
-                style={{ padding: "4px 8px", marginLeft: -8 }}
-              >
-                ← Danh sách
-              </button>
-              <span style={{ color: "var(--slate-300)" }}>/</span>
-              <span style={{ fontSize: 13, color: "var(--slate-500)", fontWeight: 500 }}>Chi tiết kiểm kê</span>
+    <div className="page-root min-h-screen bg-slate-50">
+      <div className="page-header px-8 py-6 bg-white border-b border-slate-200 sticky top-0 z-[60] shadow-sm flex items-center justify-between">
+         <div className="flex items-center gap-6">
+            <div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-200 relative overflow-hidden group">
+               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
             </div>
-            <h1 className="page-title">
-              {stocktakeId ? `Phiếu kiểm kê #${stocktakeId.toString().slice(-6).toUpperCase()}` : "Chi tiết kiểm kê"}
-              {isConfirmed ? (
-                <span className="badge badge-success" style={{ marginLeft: 12 }}>Đã chốt (Xác nhận)</span>
-              ) : (
-                <span className="badge badge-warning" style={{ marginLeft: 12 }}>Bản nháp (Draft)</span>
-              )}
-            </h1>
-          </div>
-        </div>
-        <div className="toolbar">
-          {canEditDraft && (
-            <button onClick={() => handleSaveLinesAndApply()} disabled={saving} className="btn btn-secondary">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-              Lưu bản nháp
-            </button>
-          )}
-          {canEditDraft && (
-            <button onClick={() => handleConfirm()} disabled={saving} className="btn btn-primary">
-              🚀 Chốt kiểm kê
-            </button>
-          )}
-          {canEditConfirmed && (
-            <button 
-              onClick={() => handleSaveLinesAndApply()} 
-              disabled={saving || !editReason.trim()} 
-              className="btn btn-danger"
-            >
-              ⚠️ Cập nhật sau chốt
-            </button>
-          )}
-        </div>
-      </div>
-
-      <ErrorBanner message={error} onDismiss={() => setError("")} />
-
-      <div className="filter-panel" style={{ marginBottom: 24 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-          <div>
-            <label className="filter-label">Ngày kiểm kê *</label>
-            <input
-              type="date"
-              value={header.stocktake_date}
-              onChange={e => setHeader({ ...header, stocktake_date: e.target.value })}
-              disabled={!canEdit || isConfirmed}
-              className="input"
-            />
-          </div>
-          <div>
-            <label className="filter-label">Ghi chú phiếu</label>
-            <input
-              value={header.note || ""}
-              onChange={e => setHeader({ ...header, note: e.target.value })}
-              disabled={!canEdit}
-              className="input"
-              placeholder="Ghi chú thêm về đợt kiểm kê này..."
-            />
-          </div>
-        </div>
-
-        {isConfirmed && (
-          <div style={{ padding: 16, background: "rgba(239, 68, 68, 0.05)", border: "1px solid var(--color-danger)", borderRadius: 8, marginTop: 16 }}>
-            <label className="filter-label" style={{ color: "var(--color-danger)", fontWeight: 700, marginBottom: 8, display: "block" }}>
-              Lý do hiệu chỉnh sau khi chốt *
-            </label>
-            <input
-              value={editReason}
-              onChange={e => setEditReason(e.target.value)}
-              disabled={!canEditConfirmed}
-              className="input"
-              placeholder="Nhập lý do tại sao bạn cần thay đổi dữ liệu đã chốt..."
-            />
-            {header.post_confirm_edit_reason && (
-              <div style={{ marginTop: 12, fontSize: 12, color: "var(--color-danger)", opacity: 0.8 }}>
-                <strong>Lịch sử sửa đổi:</strong> {header.post_confirm_edit_reason}
-                {header.post_confirm_edited_at && ` (${new Date(header.post_confirm_edited_at).toLocaleString('vi-VN')})`}
-              </div>
+            <div>
+               <div className="flex items-center gap-2 mb-1">
+                  <button onClick={() => router.push("/inventory/stocktake")} className="text-[10px] font-black text-slate-400 hover:text-indigo-600 uppercase tracking-widest transition-colors">← Trở về</button>
+                  <span className="text-slate-300">/</span>
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Kiểm kê điện tử</span>
+               </div>
+               <h1 className="text-3xl font-black text-slate-900 tracking-tighter flex items-center gap-3">
+                  {stocktakeId.slice(-6).toUpperCase()}
+                  <span className={`text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest ${isConfirmed ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-600"}`}>
+                    {isConfirmed ? "📦 Đã chốt" : "📝 Bản nháp"}
+                  </span>
+               </h1>
+            </div>
+         </div>
+         <div className="flex items-center gap-3">
+            {canEditDraft && (
+              <button onClick={() => handleConfirm()} disabled={saving} className="btn h-12 px-8 bg-indigo-600 hover:bg-indigo-700 text-white border-none shadow-xl shadow-indigo-100 font-black text-sm uppercase tracking-widest transform transition active:scale-95">🚀 Chốt phiếu</button>
             )}
-          </div>
-        )}
-      </div>
-
-      <div className="toolbar" style={{ marginTop: 32, marginBottom: 12 }}>
-        <h3 className="modal-title" style={{ margin: 0 }}>Danh sách chi tiết kiểm kê</h3>
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          {Object.keys(colFilters).length > 0 && (
-            <button
-               onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-               className="btn btn-clear-filter"
-            >
-               Xóa lọc cột ({Object.keys(colFilters).length})
-            </button>
-          )}
-          {canEdit && selectedLineIds.size > 0 && (
-            <button onClick={bulkRemoveLines} className="btn btn-danger">
-              Xóa đã chọn ({selectedLineIds.size})
-            </button>
-          )}
-          {canEdit && (
-            <button onClick={addEmptyLine} className="btn btn-primary">
-              + Thêm dòng mới
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="data-table-wrap" ref={containerRef}>
-        <table className="data-table" style={{ minWidth: 1600 }}>
-          <thead>
-            <tr>
-              {canEdit && (
-                <th style={{ width: 40, textAlign: "center" }}>
-                  <input type="checkbox"
-                    checked={finalFiltered.length > 0 && finalFiltered.every(l => selectedLineIds.has(l.id))}
-                    onChange={e => {
-                      if (e.target.checked) setSelectedLineIds(new Set(finalFiltered.map(l => l.id)));
-                      else setSelectedLineIds(new Set());
-                    }}
-                    style={{ cursor: "pointer" }}
-                  />
-                </th>
-              )}
-              <th style={{ width: 50, textAlign: "center" }}>STT</th>
-              <ThCell label="Khách hàng" colKey="customer" sortable colType="text" />
-              <ThCell label="Mã hàng" colKey="sku" sortable colType="text" extra={{ width: 220 }} />
-              <ThCell label="Tên sản phẩm" colKey="name" sortable colType="text" />
-              <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" />
-              <ThCell label="Tồn hệ thống" colKey="sysQty" sortable colType="num" align="right" />
-              <ThCell label="Số lượng thực tế" colKey="actQty" sortable colType="num" align="right" />
-              <ThCell label="Chênh lệch" colKey="diffQty" sortable colType="num" align="right" />
-              <ThCell label="% chênh" colKey="diffPct" sortable colType="num" align="right" />
-              <ThCell label="Cảnh báo" colKey="warning" sortable colType="bool" align="center" />
-              <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" />
-              <ThCell label="Giá trị chênh" colKey="valDiff" sortable colType="num" align="right" />
-              <ThCell label="Lý do & Ghi chú" colKey="reason" sortable colType="text" />
-              {canEdit && <th style={{ textAlign: "center", width: 60 }}>Xóa</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {finalFiltered.map((l, i) => {
-              const rowValDiff = l.qty_diff * (l.unit_price_snapshot || 0);
-              return (
-                <tr key={l.id}>
-                  {canEdit && (
-                    <td style={{ textAlign: "center" }}>
-                      <input type="checkbox" checked={selectedLineIds.has(l.id)}
-                        onChange={e => {
-                          const next = new Set(selectedLineIds);
-                          if (e.target.checked) next.add(l.id); else next.delete(l.id);
-                          setSelectedLineIds(next);
-                        }}
-                        style={{ cursor: "pointer" }}
-                      />
-                    </td>
-                  )}
-                  <td style={{ textAlign: "center", color: "var(--slate-500)" }}>{i + 1}</td>
-                  <td style={{ whiteSpace: "nowrap" }}>{getCustomerLabel(l.customer_id)}</td>
-                  <td style={{ fontWeight: 600 }}>
-                    {!canEdit ? (
-                      getProductSku(l.product_id) || "---"
-                    ) : (
-                      <div style={{ position: "relative" }}>
-                        <input
-                          list={"dl-products-stocktake-" + i}
-                          placeholder="Mã/Tên sản phẩm..."
-                          value={l._searchQuery !== undefined ? l._searchQuery : (l.product_id ? getProductSku(l.product_id) : "")}
-                          onChange={(e) => handleProductSearchChange(l.id, e.target.value)}
-                          className="input"
-                          style={{ width: "100%" }}
-                        />
-                        <datalist id={"dl-products-stocktake-" + i}>
-                          {products.map(p => (
-                            <option key={p.id} value={`${p.sku} - ${p.name}`} />
-                          ))}
-                        </datalist>
-                      </div>
-                    )}
-                  </td>
-                  <td>{l.product_name_snapshot}</td>
-                  <td style={{ color: "var(--slate-500)" }}>{l.product_spec_snapshot || "—"}</td>
-                  <td style={{ textAlign: "right", backgroundColor: "var(--slate-50)", fontWeight: 500 }}>
-                    {fmtNum(l.system_qty_before)}
-                  </td>
-                  <td style={{ textAlign: "right", backgroundColor: "var(--slate-50)" }}>
-                    {!canEdit ? (
-                      <span style={{ fontWeight: 700 }}>{fmtNum(l.actual_qty_after)}</span>
-                    ) : (
-                      <input
-                        type="number"
-                        value={l._newQtyInput !== undefined ? l._newQtyInput : l.actual_qty_after}
-                        step="0.01"
-                        onChange={e => handleActualQtyChange(l.id, e.target.value)}
-                        className="input"
-                        style={{ width: 100, textAlign: "right", fontWeight: 700, backgroundColor: "white" }}
-                      />
-                    )}
-                  </td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: l.qty_diff > 0 ? "var(--color-success)" : l.qty_diff < 0 ? "var(--color-danger)" : "inherit" }}>
-                    {l.qty_diff > 0 ? "+" : ""}{fmtNum(l.qty_diff)}
-                  </td>
-                  <td style={{ textAlign: "right", fontSize: 12, color: "var(--slate-500)" }}>
-                    {l.diff_percent !== null ? l.diff_percent.toFixed(2) + "%" : "—"}
-                  </td>
-                  <td style={{ textAlign: "center" }}>
-                    {l.is_large_diff && (
-                      <span className="badge badge-danger">Chênh lệch lớn</span>
-                    )}
-                  </td>
-                  <td style={{ textAlign: "right", color: "var(--slate-600)" }}>
-                    {fmtNum(l.unit_price_snapshot)}
-                  </td>
-                  <td style={{ textAlign: "right", color: rowValDiff > 0 ? "var(--color-success)" : rowValDiff < 0 ? "var(--color-danger)" : "inherit", fontWeight: 700 }}>
-                    {rowValDiff > 0 ? "+" : ""}{fmtNum(rowValDiff)}
-                  </td>
-                  <td>
-                    {!canEdit ? (
-                      <span style={{ color: "var(--slate-600)" }}>{l.diff_reason || "—"}</span>
-                    ) : (
-                      <input
-                        value={l.diff_reason || ""}
-                        onChange={e => handleDiffReasonChange(l.id, e.target.value)}
-                        placeholder="Lý do & ghi chú..."
-                        className="input"
-                        style={{ width: "100%" }}
-                      />
-                    )}
-                  </td>
-                  {canEdit && (
-                    <td style={{ textAlign: "center" }}>
-                      <button onClick={() => removeLine(l.id)} className="btn btn-ghost btn-sm" style={{ color: "var(--color-danger)" }}>×</button>
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-            {finalFiltered.length === 0 && (
-              <tr>
-                <td colSpan={canEdit ? 15 : 13} style={{ padding: 48, textAlign: "center", color: "var(--slate-500)" }}>
-                  Chưa có dữ liệu kiểm kê nào. Hãy thêm dòng mới để bắt đầu.
-                </td>
-              </tr>
+            {canEditConfirmed && (
+              <button onClick={() => handleSaveLinesAndApply()} disabled={saving || !editReason.trim()} className="btn h-12 px-8 bg-red-600 hover:bg-red-700 text-white border-none shadow-xl shadow-red-100 font-black text-sm uppercase tracking-widest transform transition active:scale-95">⚠️ Lưu thay đổi</button>
             )}
-          </tbody>
-        </table>
+         </div>
       </div>
 
-      {canEdit && (
-        <div className="toolbar" style={{ marginTop: 32, justifyContent: "flex-end", gap: 16 }}>
-          {canEditDraft && (
-            <button onClick={() => handleSaveLinesAndApply()} disabled={saving} className="btn btn-secondary" style={{ minWidth: 160 }}>
-              {saving ? "Đang lưu..." : "💾 Lưu bản nháp"}
-            </button>
-          )}
+      <div className="p-8 max-w-[1700px] mx-auto">
+         <ErrorBanner message={error} onDismiss={() => setError("")} />
 
-          {canEditDraft && (
-            <button onClick={() => handleConfirm()} disabled={saving} className="btn btn-primary" style={{ minWidth: 160 }}>
-              🚀 Chốt kiểm kê
-            </button>
-          )}
+         <div className="grid grid-cols-3 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Kỳ kiểm kê</label>
+               <input type="date" value={header.stocktake_date} onChange={e => setHeader({...header, stocktake_date: e.target.value})} disabled={isConfirmed} className="input w-full bg-slate-50 border-none font-black h-12 text-slate-700" />
+            </div>
+            <div className={`grid col-span-2 p-6 rounded-3xl border shadow-sm transition-all ${isConfirmed ? "bg-red-50/30 border-red-100" : "bg-white border-slate-200"}`}>
+               <label className={`text-[10px] font-black uppercase tracking-widest mb-2 block ${isConfirmed ? "text-red-500" : "text-slate-400"}`}>
+                 {isConfirmed ? "Lý do hiệu chỉnh sau chốt (Bắt buộc)" : "Ghi chú nội bộ"}
+               </label>
+               <input 
+                  value={isConfirmed ? editReason : (header.note || "")} 
+                  onChange={e => isConfirmed ? setEditReason(e.target.value) : setHeader({...header, note: e.target.value})} 
+                  placeholder="..."
+                  className={`input w-full bg-transparent border-none font-black h-12 ${isConfirmed ? "text-red-600" : "text-slate-700"}`}
+               />
+            </div>
+         </div>
 
-          {canEditConfirmed && (
-            <button 
-              onClick={() => handleSaveLinesAndApply()} 
-              disabled={saving || !editReason.trim()} 
-              className="btn btn-danger" 
-              style={{ minWidth: 200 }}
-            >
-              {saving ? "Đang cập nhật..." : "⚠️ LƯU CHỈNH SỬA (ĐÃ CHỐT)"}
-            </button>
-          )}
-        </div>
-      )}
+         <div className="bg-white rounded-[2rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden" ref={containerRef}>
+            <div ref={parentRef} className="h-[calc(100vh-420px)] overflow-auto scrollbar-hide relative">
+               <table className="w-full text-sm border-separate border-spacing-0 table-fixed">
+                  <thead>
+                     <tr>
+                        <th className="w-16 p-4 border-b border-slate-100 font-black text-[10px] text-slate-400 uppercase text-center sticky top-0 bg-white z-20">STT</th>
+                        <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="180" />
+                        <ThCell label="Sản phẩm / SKU" colKey="sku" sortable colType="text" w="220" />
+                        <ThCell label="Tên hàng" colKey="name" sortable colType="text" w="280" />
+                        <ThCell label="Tồn máy" colKey="sysQty" sortable colType="num" align="right" w="130" />
+                        <ThCell label="Tực tế" colKey="actQty" sortable colType="num" align="right" w="140" />
+                        <ThCell label="Lệch" colKey="diffQty" sortable colType="num" align="right" w="120" />
+                        <ThCell label="Ghi chú" colKey="reason" sortable colType="text" w="220" />
+                        {canEdit && <th className="w-20 p-4 border-b border-slate-100 font-black text-[10px] text-slate-400 uppercase text-center sticky top-0 bg-white z-20">Xóa</th>}
+                     </tr>
+                  </thead>
+                  <tbody style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }}>
+                     {rowVirtualizer.getVirtualItems().map(v => {
+                        const l = finalFiltered[v.index];
+                        const isSystemHidden = !isAdmin && !isConfirmed;
+                        return (
+                           <tr key={l.id} style={{ position:'absolute', top:0, left:0, width:'100%', height:`${v.size}px`, transform:`translateY(${v.start}px)` }} className="hover:bg-slate-50 transition-colors bg-white flex items-center border-b border-slate-50">
+                              <td className="w-16 text-center font-black text-slate-300 text-xs italic">{v.index+1}</td>
+                              <td className="w-[180px] px-4 font-black text-[11px] uppercase text-slate-900 truncate">{getCustomerLabel(l.customer_id)}</td>
+                              <td className="w-[220px] px-4">
+                                 {canEdit ? (
+                                   <input list={"dl-"+v.index} value={l._searchQuery ?? getProductSku(l.product_id)} onChange={e => handleProductSearchChange(l.id, e.target.value)} className="input input-xs h-9 w-full bg-slate-50 border-none font-black uppercase text-xs focus:bg-white" />
+                                 ) : <span className="font-black text-slate-900 font-mono tracking-tighter uppercase">{getProductSku(l.product_id)}</span>}
+                                 <datalist id={"dl-"+v.index}>{products.map(p => <option key={p.id} value={`${p.sku} - ${p.name}`} />)}</datalist>
+                              </td>
+                              <td className="w-[280px] px-4 truncate font-bold text-slate-700 text-xs uppercase">{l.product_name_snapshot}</td>
+                              <td className="w-[130px] px-4 text-right">
+                                 {isSystemHidden ? <span className="text-[10px] font-black text-slate-200 italic tracking-tighter">ẨN</span> : <span className="font-black text-slate-400">{fmtNum(l.system_qty_before)}</span>}
+                              </td>
+                              <td className="w-[140px] px-4 text-right">
+                                 {canEdit ? (
+                                   <input type="text" value={l._newQtyInput ?? l.actual_qty_after} onChange={e => handleActualQtyChange(l.id, e.target.value)} className="input input-xs h-10 w-full text-right bg-indigo-50 border-none font-black text-indigo-700 text-base focus:ring-2 focus:ring-indigo-300" />
+                                 ) : <span className="font-black text-indigo-600 text-base">{fmtNum(l.actual_qty_after)}</span>}
+                              </td>
+                              <td className={`w-[120px] px-4 text-right font-black text-sm ${l.qty_diff > 0 ? "text-emerald-500" : l.qty_diff < 0 ? "text-red-500" : "text-slate-300"}`}>
+                                 {isSystemHidden ? "---" : (l.qty_diff > 0 ? "+" : "") + fmtNum(l.qty_diff)}
+                              </td>
+                              <td className="w-[220px] px-4">
+                                 {canEdit ? <input value={l.diff_reason || ""} onChange={e => handleDiffReasonChange(l.id, e.target.value)} className="input input-xs h-9 w-full bg-slate-50 border-none text-[11px] font-bold" /> : <span className="text-xs font-bold text-slate-500">{l.diff_reason || "-"}</span>}
+                              </td>
+                              {canEdit && (
+                                <td className="w-20 text-center">
+                                   <button onClick={() => removeLine(l.id)} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-red-50 text-slate-200 hover:text-red-500 transition-all font-black text-xs">✕</button>
+                                </td>
+                              )}
+                           </tr>
+                        )
+                     })}
+                  </tbody>
+               </table>
+            </div>
+            {finalFiltered.length === 0 && <div className="py-32 text-center text-slate-300 font-black text-xs uppercase tracking-widest">Không có dữ liệu khống chế</div>}
+         </div>
+         
+         {canEdit && (
+           <div className="mt-8 flex justify-end">
+              <button onClick={addEmptyLine} className="btn h-14 px-10 bg-black text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-800 shadow-2xl shadow-slate-300 transition-all active:scale-95">+ Thêm dòng mới</button>
+           </div>
+         )}
+      </div>
     </div>
   );
 }

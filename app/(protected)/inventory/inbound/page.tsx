@@ -1,12 +1,12 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
-import { Pagination } from "@/app/components/ui/Pagination";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -41,6 +41,11 @@ type InboundTx = {
   created_at: string;
   updated_at: string;
   created_by: string | null;
+  adjs?: any[];
+  originalQty?: number;
+  adjTotal?: number;
+  finalQty?: number;
+  hasAdjs?: boolean;
 };
 
 type AdjTx = {
@@ -60,14 +65,14 @@ type Profile = {
   department: string;
 };
 
-/** One detail line in the multi-line form */
 type FormLine = {
-  key: number;
+  key: string;
   productId: string;
-  qty: string;
-  unitCost: string;
   productSearch?: string;
   showSuggestions?: boolean;
+  qty: string;
+  unitCost: string;
+  note: string;
 };
 
 /* ------------------------------------------------------------------ */
@@ -90,7 +95,7 @@ function fmtDatetime(d: string | null): string {
 }
 
 const thStyle = { textAlign: "left", background: "#f8fafc", whiteSpace: "nowrap" } as const;
-const tdStyle = { padding: "12px 12px", borderBottom: "1px solid var(--slate-100)" } as const;
+const tdStyle = { padding: "12px 12px", borderBottom: "1px solid #e2e8f0" } as const;
 
 function fmtNum(n: number | null | undefined): string {
   if (n == null) return "";
@@ -299,23 +304,10 @@ export default function InventoryInboundPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [mounted, setMounted] = useState(false);
 
-  /* ---- pagination state ---- */
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 50;
-
   /* ---- multi-line create form state ---- */
   const [showCreate, setShowCreate] = useState(false);
   const [hDate, setHDate] = useState("");
   const [hNote, setHNote] = useState("");
-  type FormLine = {
-    key: string;
-    productId: string;
-    productSearch?: string;
-    showSuggestions?: boolean;
-    qty: string;
-    unitCost: string;
-    note: string;
-  };
   const [lines, setLines] = useState<FormLine[]>(() => [
     { key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }
   ]);
@@ -492,18 +484,14 @@ export default function InventoryInboundPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseFiltered, colFilters, sortCol, sortDir, customers, products]);
 
-  /* ---- reset page on filter change ---- */
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [baseFiltered, colFilters, sortCol, sortDir]);
-
   /* ---- pagination ---- */
-  const totalItems = finalFiltered.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const paginatedFiltered = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return finalFiltered.slice(start, start + itemsPerPage);
-  }, [finalFiltered, currentPage, itemsPerPage]);
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: finalFiltered.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 60,
+    overscan: 15,
+  });
 
   /* ---- Column resizing ---- */
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
@@ -566,6 +554,7 @@ export default function InventoryInboundPage() {
       whiteSpace: "nowrap",
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
+      padding: "12px",
       ...extra
     };
     const popupOpen = openPopupId === colKey;
@@ -584,36 +573,26 @@ export default function InventoryInboundPage() {
                     else { setSortDir(null); setSortCol(null); }
                   } else { setSortCol(colKey); setSortDir("asc"); }
                 }}
-                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
-                title="Sắp xếp"
+                className={`p-1 hover:bg-slate-100 rounded transition-colors ${isSortTarget ? "text-indigo-600" : "text-slate-400"}`}
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6" /> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6" /> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3" />}
                 </svg>
               </button>
             )}
             {filterable !== false && (
               <button
                 onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
-                className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
-                title="Lọc dữ liệu"
+                className={`p-1 rounded transition-all ${active ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-100"}`}
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
               </button>
             )}
           </div>
         </div>
-
-        {/* Resize Handle */}
-        <div
-          onMouseDown={startResizing}
-          onDoubleClick={() => onResize(colKey, 150)}
-          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-brand/50 transition-colors z-20"
-          title="Kéo để chỉnh độ rộng"
-        />
-
+        <div onMouseDown={startResizing} className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-500 transition-colors z-20" />
         {popupOpen && (
-          <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
+          <div className="absolute top-[calc(100%+4px)] left-0 z-[100]" onClick={e => e.stopPropagation()}>
             {colType === "text" && <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
             {colType === "num" && <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
             {colType === "date" && <DateFilterPopup filter={(colFilters[colKey] as DateFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
@@ -683,9 +662,9 @@ export default function InventoryInboundPage() {
   /* ---- adjustment helpers ---- */
   function openAdjustment(r: InboundTx) {
     setAdjBaseTx(r);
-    setAType("adjust_in"); // default
+    setAType("adjust_in");
     const now = new Date();
-    setADate(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`); // today
+    setADate(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`);
     setAQty("");
     setACost("");
     setANote("");
@@ -698,54 +677,23 @@ export default function InventoryInboundPage() {
     setLoading(true);
     try {
       const { data: u } = await supabase.auth.getUser();
-      if (!u.user) {
-        window.location.href = "/login";
-        return;
-      }
+      if (!u.user) return window.location.href = "/login";
 
-      const { data: p, error: e1 } = await supabase
-        .from("profiles")
-        .select("id, role, department")
-        .eq("id", u.user.id)
-        .maybeSingle();
+      const { data: p, error: e1 } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle();
       if (e1) throw e1;
-      if (!p) throw new Error("Profile not found");
       setProfile(p as Profile);
 
-      const { data: prods, error: e2 } = await supabase
-        .from("products")
-        .select("id, sku, name, spec, customer_id, unit_price")
-        .is("deleted_at", null)
-        .order("sku");
-      if (e2) throw e2;
-      setProducts((prods ?? []) as Product[]);
-
-      const { data: custs, error: e3 } = await supabase
-        .from("customers")
-        .select("id, code, name")
-        .is("deleted_at", null)
-        .order("code");
-      if (e3) throw e3;
-      setCustomers((custs ?? []) as Customer[]);
-
-      const { data, error: e4 } = await supabase
-        .from("inventory_transactions")
-        .select("*")
-        .eq("tx_type", "in")
-        .is("deleted_at", null)
-        .order("tx_date", { ascending: false });
-      if (e4) throw e4;
-      setRows((data ?? []) as InboundTx[]);
-
-      const { data: adjs, error: e5 } = await supabase
-        .from("inventory_transactions")
-        .select("id, tx_date, tx_type, qty, note, created_at, created_by, adjusted_from_transaction_id")
-        .in("tx_type", ["adjust_in", "adjust_out"])
-        .not("adjusted_from_transaction_id", "is", null)
-        .is("deleted_at", null)
-        .order("tx_date", { ascending: false });
-      if (e5) throw e5;
-      setAdjRows((adjs ?? []) as AdjTx[]);
+      const [rP, rC, rT, rA] = await Promise.all([
+        supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null).order("sku"),
+        supabase.from("customers").select("id, code, name").is("deleted_at", null).order("code"),
+        supabase.from("inventory_transactions").select("*").eq("tx_type", "in").is("deleted_at", null).order("tx_date", { ascending: false }),
+        supabase.from("inventory_transactions").select("*").in("tx_type", ["adjust_in", "adjust_out"]).not("adjusted_from_transaction_id", "is", null).is("deleted_at", null)
+      ]);
+      if (rP.error) throw rP.error;
+      setProducts(rP.data || []);
+      setCustomers(rC.data || []);
+      setRows(rT.data || []);
+      setAdjRows(rA.data || []);
     } catch (err: any) {
       setError(err?.message ?? "Có lỗi xảy ra");
     } finally {
@@ -753,956 +701,382 @@ export default function InventoryInboundPage() {
     }
   }
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { load(); }, []);
+  useEffect(() => { setMounted(true); }, []);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  /* ---- multi-line save ---- */
+  /* ---- business logic: save, edit, delete ---- */
   async function saveMulti() {
-    setError("");
-
-    if (!hDate) {
-      setError("Thiếu ngày nhập.");
-      return;
-    }
-
-    // Filter out completely empty lines
-    const validLines = lines.filter((l) => l.productId || l.qty);
-
-    if (validLines.length === 0) {
-      setError("Chưa có dòng sản phẩm nào.");
-      return;
-    }
-
-    // Validate each non-empty line
-    for (let i = 0; i < validLines.length; i++) {
-      const l = validLines[i];
-      if (!l.productId) {
-        setError(`Dòng ${i + 1}: chưa chọn sản phẩm.`);
-        return;
-      }
-      if (!l.qty || Number(l.qty) <= 0) {
-        setError(`Dòng ${i + 1}: số lượng phải > 0.`);
-        return;
-      }
-    }
-
+    if (!hDate) return showToast("Thiếu ngày nhập.", "error");
+    const valid = lines.filter(l => l.productId && l.qty);
+    if (valid.length === 0) return showToast("Vui lòng nhập ít nhất 1 dòng sản phẩm hợp lệ.", "error");
     setSaving(true);
     try {
-      const insertRows = validLines.map((l) => {
-        const prod = products.find((p) => p.id === l.productId);
+      const { data: u } = await supabase.auth.getUser();
+      const insertRows = valid.map(l => {
+        const p = products.find(x => x.id === l.productId);
         return {
           tx_date: hDate,
-          customer_id: prod?.customer_id ?? null,
+          customer_id: p?.customer_id,
           product_id: l.productId,
-          product_name_snapshot: prod?.name ?? "",
-          product_spec_snapshot: prod?.spec ?? null,
+          product_name_snapshot: p?.name || "",
+          product_spec_snapshot: p?.spec,
           tx_type: "in",
           qty: Number(l.qty),
           unit_cost: l.unitCost ? Number(l.unitCost) : null,
-          note: hNote.trim() || null,
+          note: l.note || hNote || null,
+          created_by: u.user?.id
         };
       });
-
-      const { error } = await supabase
-        .from("inventory_transactions")
-        .insert(insertRows);
+      const { error } = await supabase.from("inventory_transactions").insert(insertRows);
       if (error) throw error;
-
-      resetCreateForm();
+      showToast("Đã lưu phiếu nhập kho!", "success");
       setShowCreate(false);
-      await load();
+      resetCreateForm();
+      load();
     } catch (err: any) {
-      setError(err?.message ?? "Lỗi khi lưu phiếu nhập");
+      showToast(err.message, "error");
     } finally {
       setSaving(false);
     }
   }
 
-  /* ---- single-row edit save ---- */
   async function saveEdit() {
-    setError("");
+    if (!editing) return;
     try {
-      if (!eDate || !eProductId || !eQty) {
-        setError("Thiếu ngày nhập, sản phẩm, hoặc số lượng.");
-        return;
-      }
-
-      const prod = products.find((p) => p.id === eProductId);
-      if (!prod) {
-        setError("Không tìm thấy sản phẩm.");
-        return;
-      }
-
-      const payload = {
+      const p = products.find(x => x.id === eProductId);
+      const { error } = await supabase.from("inventory_transactions").update({
         tx_date: eDate,
-        customer_id: prod.customer_id ?? null,
         product_id: eProductId,
-        product_name_snapshot: prod.name,
-        product_spec_snapshot: prod.spec ?? null,
-        tx_type: "in" as const,
+        product_name_snapshot: p?.name || editing.product_name_snapshot,
+        product_spec_snapshot: p?.spec || editing.product_spec_snapshot,
         qty: Number(eQty),
         unit_cost: eCost ? Number(eCost) : null,
-        note: eNote.trim() || null,
-      };
-
-      const { error } = await supabase
-        .from("inventory_transactions")
-        .update(payload)
-        .eq("id", editing!.id);
+        note: eNote || null,
+        updated_at: new Date().toISOString()
+      }).eq("id", editing.id);
       if (error) throw error;
-
+      showToast("Đã cập nhật giao dịch!", "success");
       setEditOpen(false);
-      await load();
+      load();
     } catch (err: any) {
-      setError(err?.message ?? "Lỗi khi lưu");
+      showToast(err.message, "error");
     }
   }
 
-  /* ---- adjustment save ---- */
   async function saveAdjustment() {
-    setError("");
     if (!adjBaseTx) return;
-
+    if (!aQty || Number(aQty) <= 0 || !aNote) return showToast("Vui lòng nhập đủ số lượng và lý do.", "error");
     try {
-      if (!aDate || !aQty || !aNote.trim()) {
-        setError("Thiếu ngày, số lượng hoặc lý do điều chỉnh.");
-        return;
-      }
-
-      const prod = products.find((p) => p.id === adjBaseTx.product_id);
-      if (!prod) {
-        setError("Không tìm thấy sản phẩm gốc.");
-        return;
-      }
-
-      const payload = {
+      const { data: u } = await supabase.auth.getUser();
+      const p = products.find(x => x.id === adjBaseTx.product_id);
+      const { error } = await supabase.from("inventory_transactions").insert([{
         tx_date: aDate,
-        customer_id: prod.customer_id ?? null,
-        product_id: prod.id,
-        product_name_snapshot: prod.name,
-        product_spec_snapshot: prod.spec ?? null,
+        customer_id: adjBaseTx.customer_id,
+        product_id: adjBaseTx.product_id,
+        product_name_snapshot: adjBaseTx.product_name_snapshot,
+        product_spec_snapshot: adjBaseTx.product_spec_snapshot,
         tx_type: aType,
         qty: Number(aQty),
-        unit_cost: aCost ? Number(aCost) : null,
-        note: aNote.trim(), 
+        unit_cost: aCost ? Number(aCost) : (adjBaseTx.unit_cost || null),
+        note: aNote,
         adjusted_from_transaction_id: adjBaseTx.id,
-      };
-
-      const { error } = await supabase
-        .from("inventory_transactions")
-        .insert(payload);
+        created_by: u.user?.id
+      }]);
       if (error) throw error;
-
+      showToast("Đã lưu giao dịch điều chỉnh!", "success");
       setAdjOpen(false);
-      await load(); // Note: adjust_in / adjust_out won't show in the 'in' list table, but they are saved
+      load();
     } catch (err: any) {
-      setError(err?.message ?? "Lỗi khi lưu điều chỉnh");
+      showToast(err.message, "error");
     }
   }
 
-  /* ---- bulk delete ---- */
+  async function handleDelete(id: string) {
+    const ok = await showConfirm({ message: "Xóa giao dịch này? Hành động này không thể hoàn tác.", danger: true });
+    if (!ok) return;
+    try {
+      const { error } = await supabase.from("inventory_transactions").update({ deleted_at: new Date().toISOString() }).eq("id", id);
+      if (error) throw error;
+      showToast("Đã xóa giao dịch.", "info");
+      load();
+    } catch (err: any) {
+      showToast(err.message, "error");
+    }
+  }
+
   async function bulkDelete() {
-    if (selectedIds.size === 0) return;
-    const ok = await showConfirm({ message: `Xóa ${selectedIds.size} phiếu nhập đã chọn? (Bao gồm cả điều chỉnh liên quan)`, danger: true, confirmLabel: "Xóa" });
+    const ok = await showConfirm({ message: `Xóa ${selectedIds.size} giao dịch đã chọn?`, danger: true });
     if (!ok) return;
-    setError("");
     try {
-      const { data: u, error: uErr } = await supabase.auth.getUser();
-      if (uErr) throw uErr;
-      const userId = u.user?.id ?? null;
-      const ids = Array.from(selectedIds);
-      const now = new Date().toISOString();
-      const { error } = await supabase
-        .from("inventory_transactions")
-        .update({ deleted_at: now, deleted_by: userId })
-        .or(ids.map(id => `id.eq.${id},adjusted_from_transaction_id.eq.${id}`).join(','));
+      const { error } = await supabase.from("inventory_transactions").update({ deleted_at: new Date().toISOString() }).in("id", Array.from(selectedIds));
       if (error) throw error;
+      showToast("Đã xóa các giao dịch.", "info");
       setSelectedIds(new Set());
-      showToast(`Đã xóa ${selectedIds.size} phiếu nhập.`, "success");
-      await load();
+      load();
     } catch (err: any) {
-      setError(err?.message ?? "Lỗi khi xóa");
+      showToast(err.message, "error");
     }
   }
 
-  /* ---- soft delete ---- */
-  async function del(r: InboundTx) {
-    const ok = await showConfirm({ message: `Xóa phiếu nhập: ${r.product_name_snapshot}?`, danger: true, confirmLabel: "Xóa" });
-    if (!ok) return;
-    setError("");
-    try {
-      const { data: u, error: uErr } = await supabase.auth.getUser();
-      if (uErr) throw uErr;
-      const userId = u.user?.id ?? null;
-
-      const { error } = await supabase
-        .from("inventory_transactions")
-        .update({
-          deleted_at: new Date().toISOString(),
-          deleted_by: userId,
-        })
-        .or(`id.eq.${r.id},adjusted_from_transaction_id.eq.${r.id}`);
-      if (error) throw error;
-
-      await load();
-    } catch (err: any) {
-      setError(err?.message ?? "Lỗi khi xóa");
-    }
-  }
-
-  function handleExportExcel() {
-    const data = finalFiltered.map((r, i) => {
-      return {
-        "STT": i + 1,
-        "Ngày nhập": fmtDate(r.tx_date),
-        "Khách hàng": customerLabel(r.customer_id),
-        "Mã hàng": skuFor(r),
-        "Tên hàng": r.product_name_snapshot,
-        "Kích thước (MM)": r.product_spec_snapshot ?? "",
-        "Số lượng (Cuối cùng)": r.finalQty,
-        "Số lượng (Gốc)": r.originalQty,
-        "Điều chỉnh": r.adjTotal,
-        "Đơn giá": r.unit_cost ?? "",
-        "Ghi chú": r.note ?? "",
-        "Tạo lúc": fmtDatetime(r.created_at)
-      };
-    });
-    exportToExcel(data, `Lich_su_nhap_kho_${new Date().toISOString().slice(0,10)}`, "Inbounds");
-  }
-
-  /* ================================================================ */
-  /* Render                                                            */
-  /* ================================================================ */
-  if (loading) return <LoadingPage text="Đang tải dữ liệu nhập kho..." />;
+  if (loading && rows.length === 0) return <LoadingPage />;
 
   return (
-    <div className="page-root">
-      <div className="page-header">
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div className="w-10 h-10 rounded-xl bg-[#d97706]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
-            📥
-          </div>
-          <div>
-            <h1 className="page-title">NHẬP KHO</h1>
-            <p className="text-sm text-slate-500">Quản lý và theo dõi các giao dịch nhập hàng vào kho.</p>
-          </div>
+    <div className="page-root" style={{ padding: 24 }} ref={containerRef}>
+      <header className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <div>
+          <h1 className="page-title" style={{ fontSize: 24, fontWeight: 800 }}>NHẬP KHO (INBOUND)</h1>
+          <p className="page-description">Quản lý lịch sử nhập kho và điều chỉnh tồn kho tăng.</p>
         </div>
-        <div className="toolbar">
-          <button className="btn btn-secondary" onClick={handleExportExcel}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Xuất Excel
-          </button>
-          <button onClick={load} className="btn btn-secondary">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
-            Làm mới
-          </button>
+        <div style={{ display: "flex", gap: 12 }}>
           {canCreate && (
-            <button onClick={() => { resetCreateForm(); setShowCreate(true); }} className="btn btn-primary">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Tạo phiếu nhập mới
+            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+              + NHẬP KHO MỚI
             </button>
           )}
+          <button className="btn btn-secondary" onClick={() => exportToExcel(finalFiltered, "LichSuNhapKho")}>
+             XUẤT EXCEL
+          </button>
         </div>
-      </div>
-
-      <ErrorBanner message={error} onDismiss={() => setError("")} />
-
+      </header>
 
       {showCreate && (
-        <div className="filter-panel" style={{ marginTop: 12 }}>
-          <h2 style={{ marginTop: 0, fontSize: 18, marginBottom: 16 }}>Tạo phiếu nhập</h2>
-
-          {/* ---- Header fields ---- */}
-          <fieldset>
-            <legend>Thông tin chung</legend>
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-              <label style={{ display: "grid", gap: 4 }}>
-                Ngày nhập *
-                <input
-                  type="date"
-                  value={hDate}
-                  onChange={(e) => setHDate(e.target.value)}
-                  className="input"
-                />
-              </label>
-
-              <label style={{ display: "grid", gap: 4, flex: 1, minWidth: 200 }}>
-                Ghi chú chung
-                <input
-                  value={hNote}
-                  onChange={(e) => setHNote(e.target.value)}
-                  className="input"
-                  placeholder="Không bắt buộc"
-                />
-              </label>
-            </div>
-          </fieldset>
-
-          {/* ---- Detail lines ---- */}
-          <fieldset>
-            <legend>Chi tiết nhập kho</legend>
-
-            <div className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" style={{ maxHeight: "calc(100vh - 350px)" }}>
-            <table className="data-table !border-separate !border-spacing-0 overflow-visible" style={{ minWidth: 1200 }}>
-              <thead>
-                <tr>
-                  {["#", "Sản phẩm *", "Số lượng *", "Đơn giá", ""].map((h) => (
-                    <th key={h} style={thStyle}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {lines.map((line, idx) => (
-                  <tr key={line.key}>
-                    <td style={{ ...tdStyle, width: 36, verticalAlign: "top" }}>{idx + 1}</td>
-                    <td style={{ ...tdStyle, verticalAlign: "top", position: "relative" }}>
-                      <input
-                        placeholder="Tìm mã, tên hàng, tên khách..."
-                        value={line.productSearch ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          updateLine(line.key, "productSearch", val);
-                          updateLine(line.key, "showSuggestions", true);
-                          updateLine(line.key, "productId", "");
+        <div className="card shadow-lg" style={{ marginBottom: 24, background: "white", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+             <h2 style={{ fontSize: 18, fontWeight: 700 }}>Tạo phiếu nhập mới</h2>
+             <button onClick={handleCancelCreate} className="btn-icon">✕</button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 20, marginBottom: 16 }}>
+            <label style={{ display: "grid", gap: 6 }}>
+              Ngày nhập *
+              <input type="date" value={hDate} onChange={e => setHDate(e.target.value)} className="input" />
+            </label>
+            <label style={{ display: "grid", gap: 6 }}>
+              Ghi chú chung
+              <input type="text" value={hNote} onChange={e => setHNote(e.target.value)} className="input" placeholder="Ví dụ: Nhập hàng từ xưởng..." />
+            </label>
+          </div>
+          <table style={{ width: "100%", marginBottom: 16 }}>
+            <thead>
+              <tr style={{ textAlign: "left" }}>
+                <th style={{ padding: "8px 0" }}>Sản phẩm / Khách hàng *</th>
+                <th style={{ width: 120 }}>Số lượng *</th>
+                <th style={{ width: 150 }}>Đơn giá</th>
+                <th style={{ width: 200, paddingLeft: 10 }}>Ghi chú riêng</th>
+                <th style={{ width: 40 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((l, idx) => (
+                <tr key={l.key}>
+                   <td style={{ padding: "4px 4px 4px 0", position: "relative" }}>
+                      <input 
+                        className="input w-full"
+                        placeholder="Tìm mã hàng, tên hàng..."
+                        value={l.productSearch || ""}
+                        onChange={e => {
+                          updateLine(l.key, "productSearch", e.target.value);
+                          updateLine(l.key, "showSuggestions", true);
+                          updateLine(l.key, "productId", "");
                         }}
-                        onFocus={() => updateLine(line.key, "showSuggestions" as any, true as any)}
-                        onBlur={() => setTimeout(() => updateLine(line.key, "showSuggestions" as any, false as any), 200)}
-                        className="input"
-                        style={{ width: "100%" }}
-                        autoFocus={idx === lines.length - 1 && idx > 0}
+                        onFocus={() => updateLine(l.key, "showSuggestions", true)}
+                        onBlur={() => setTimeout(() => updateLine(l.key, "showSuggestions", false), 200)}
                       />
-                      {line.showSuggestions && (
-                        <div style={{
-                          position: "absolute", zIndex: 10, background: "#fff",
-                          border: "1px solid #ccc", width: "100%", maxHeight: 250,
-                          overflowY: "auto", boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-                          left: 0, top: "100%"
-                        }}>
+                      {l.showSuggestions && (
+                        <div className="suggestions-box shadow-xl" style={{ position: "absolute", zIndex: 100, background: "white", border: "1px solid #e2e8f0", width: "100%", maxHeight: 200, overflowY: "auto", borderRadius: 8, top: "100%" }}>
                           {products.filter(p => {
-                            const s = (line.productSearch || "").toLowerCase();
-                            if (!s) return true;
+                            const s = (l.productSearch || "").toLowerCase();
                             const c = customers.find(x => x.id === p.customer_id);
-                            return p.sku.toLowerCase().includes(s) || 
-                                   p.name.toLowerCase().includes(s) || 
-                                   (c?.name || "").toLowerCase().includes(s) ||
-                                   (c?.code || "").toLowerCase().includes(s);
+                            return p.sku.toLowerCase().includes(s) || p.name.toLowerCase().includes(s) || (c?.code || "").toLowerCase().includes(s);
                           }).slice(0, 50).map(p => {
                             const c = customers.find(x => x.id === p.customer_id);
                             return (
-                              <div
-                                key={p.id}
-                                style={{ padding: "6px 8px", cursor: "pointer", borderBottom: "1px solid #eee" }}
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  updateLine(line.key, "productId", p.id);
-                                  updateLine(line.key, "productSearch" as any, `${p.sku} - ${p.name}`);
-                                  updateLine(line.key, "showSuggestions" as any, false as any);
-                                  if (p.unit_price != null && !line.unitCost) {
-                                    updateLine(line.key, "unitCost", String(p.unit_price));
-                                  }
-                                }}
-                              >
-                                <div style={{ fontWeight: "bold" }}>{p.sku} - {p.name}</div>
-                                <div style={{ fontSize: "0.85em", color: "#666" }}>
-                                  Khách hàng: {c ? `${c.code} - ${c.name}` : "---"}
-                                  {p.spec ? ` | Kích thước: ${p.spec}` : ""}
-                                </div>
+                              <div key={p.id} className="p-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100" onMouseDown={(e) => {
+                                e.preventDefault();
+                                updateLine(l.key, "productId", p.id);
+                                updateLine(l.key, "productSearch", `${p.sku} - ${p.name}`);
+                                updateLine(l.key, "showSuggestions", false);
+                                if (!l.unitCost && p.unit_price) updateLine(l.key, "unitCost", String(p.unit_price));
+                              }}>
+                                <div style={{ fontWeight: 700 }}>{p.sku} - {p.name}</div>
+                                <div style={{ fontSize: 11, color: "#64748b" }}>KH: {c ? `${c.code} - ${c.name}` : "---"}</div>
                               </div>
                             );
                           })}
                         </div>
                       )}
-
-                      {line.productId && (() => {
-                        const p = products.find(x => x.id === line.productId);
-                        if (!p) return null;
-                        const cLabel = customerLabel(p.customer_id);
-                        return (
-                          <div style={{ fontSize: "0.85em", color: "#666", marginTop: 6, lineHeight: 1.4, background: "#f8fafc", padding: 8, borderRadius: 4 }}>
-                            <strong>Khách hàng:</strong> {cLabel || "---"}<br/>
-                            <strong>Tên hàng:</strong> {p.name}<br/>
-                            <strong>Kích thước (MM):</strong> {p.spec || "---"}<br/>
-                            <strong>Đơn giá:</strong> {p.unit_price != null ? fmtNum(p.unit_price) : "---"}
-                          </div>
-                        );
-                      })()}
-                    </td>
-                    <td style={{ ...tdStyle, width: 120, verticalAlign: "top" }}>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        value={line.qty}
-                        onChange={(e) => updateLine(line.key, "qty", e.target.value)}
-                        onKeyDown={e => {
-                            if (e.key === "Enter") {
-                              // Jump to unitCost
-                              const tr = e.currentTarget.closest("tr");
-                              tr?.querySelectorAll("input")[1]?.focus();
-                            }
-                        }}
-                        className="input w-full text-right font-bold !bg-white border-transparent focus:border-brand"
-                        min="0.001"
-                        step="any"
-                      />
-                    </td>
-                    <td style={{ ...tdStyle, width: 140, verticalAlign: "top" }}>
-                      <input
-                        type="number"
-                        placeholder="Giá (VNĐ)"
-                        value={line.unitCost}
-                        onChange={(e) => updateLine(line.key, "unitCost", e.target.value)}
-                        onKeyDown={e => {
-                            if (e.key === "Enter") {
-                                e.preventDefault(); // Stop default form submit if any
-                                if (idx === lines.length - 1) {
-                                  // Only add line if the current one has basic info
-                                  if (line.productId && line.qty) {
-                                    addLine();
-                                  } else {
-                                    showToast("Vui lòng chọn sản phẩm và số lượng trước khi thêm dòng mới.", "error");
-                                  }
-                                } else {
-                                  // Jump to next row's productSearch
-                                  const nextTr = e.currentTarget.closest("tr")?.nextElementSibling;
-                                  nextTr?.querySelector("input")?.focus();
-                                }
-                            }
-                        }}
-                        className="input w-full text-right !bg-white border-transparent focus:border-brand"
-                        min="0"
-                        step="any"
-                      />
-                    </td>
-                    <td style={{ ...tdStyle, width: 80, verticalAlign: "top" }}>
-                      {lines.length > 1 && (
-                        <button
-                          onClick={() => removeLine(line.key)}
-                          style={{ padding: "4px 8px", cursor: "pointer", color: "crimson" }}
-                        >
-                          Xóa dòng
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              </table>
-            </div>
-
-            <button onClick={addLine} className="btn btn-secondary" style={{ marginTop: 12 }}>
-              + Thêm dòng
-            </button>
-          </fieldset>
-
-          {/* ---- Actions ---- */}
-          <div className="toolbar" style={{ marginTop: 16, justifyContent: "flex-end" }}>
-            <div className="flex gap-4">
-                  <button onClick={handleCancelCreate} className="btn btn-secondary !text-slate-500 !border-slate-200 hover:!bg-slate-50">
-                    Hủy bỏ
-                  </button>
-                  <button
-                    onClick={saveMulti}
-                    disabled={saving}
-                    className="btn btn-primary h-11 px-8 shadow-md shadow-brand/20"
-                  >
-                    {saving ? "Đang lưu..." : "Lưu phiếu nhập"}
-                  </button>
-                </div>
+                   </td>
+                   <td style={{ padding: "4px" }}><input type="number" className="input text-center" value={l.qty} onChange={e => updateLine(l.key, "qty", e.target.value)} /></td>
+                   <td style={{ padding: "4px" }}><input type="number" className="input text-right" value={l.unitCost} onChange={e => updateLine(l.key, "unitCost", e.target.value)} placeholder="Mặc định" /></td>
+                   <td style={{ padding: "4px" }}><input type="text" className="input" value={l.note} onChange={e => updateLine(l.key, "note", e.target.value)} /></td>
+                   <td style={{ padding: "4px", textAlign: "center" }}>
+                      <button onClick={() => removeLine(l.key)} className="text-red-500 hover:scale-110 transition-transform">✕</button>
+                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+             <button onClick={addLine} className="btn btn-secondary btn-sm" style={{ fontWeight: 700 }}>+ THÊM DÒNG (F2)</button>
+             <div style={{ display: "flex", gap: 12 }}>
+                <button onClick={handleCancelCreate} className="btn btn-ghost" disabled={saving}>HỦY</button>
+                <button onClick={saveMulti} className="btn btn-primary" disabled={saving}>
+                   {saving ? "ĐANG LƯU..." : "💾 LƯU PHIẾU NHẬP"}
+                </button>
+             </div>
           </div>
         </div>
       )}
 
-      {/* ============================================================ */}
-      {/* Filters                                                       */}
-      {/* ============================================================ */}
-      <div className="filter-panel" style={{ marginTop: 20, marginBottom: 20 }}>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <div style={{ width: 220 }}>
-            <label className="filter-label">Khách hàng</label>
-            <select
-              value={qCustomer}
-              onChange={(e) => setQCustomer(e.target.value)}
-              className="input"
-            >
-              <option value="">Tất cả khách hàng</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code} - {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ width: 160 }}>
-            <label className="filter-label">Ngày nhập</label>
-            <input
-              type="date"
-              value={qDate}
-              onChange={(e) => setQDate(e.target.value)}
-              className="input"
-            />
-          </div>
-
-          <div style={{ width: 260 }}>
-            <label className="filter-label">Tìm kiếm</label>
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Mã hàng, tên sản phẩm..."
-              className="input"
-            />
-          </div>
-
-          <div style={{ display: "flex", gap: 8, marginLeft: "auto", paddingBottom: 4 }}>
-            {(qDate || qCustomer || q) && (
-              <button 
-                onClick={() => { setQDate(""); setQCustomer(""); setQ(""); }} 
-                className="btn btn-ghost btn-sm"
-              >
-                Xóa lọc tổng
-              </button>
-            )}
-            {Object.keys(colFilters).length > 0 && (
-              <button
-                 onClick={() => { setColFilters({}); setSortCol(null); setSortDir(null); }}
-                 className="btn btn-clear-filter"
-              >
-                 Xóa lọc cột ({Object.keys(colFilters).length})
-              </button>
-            )}
-            {canDelete && selectedIds.size > 0 && (
-              <button onClick={bulkDelete} className="btn btn-danger">
-                Xóa {selectedIds.size} đã chọn
-              </button>
-            )}
-          </div>
+      {/* FILTER BAR */}
+      <div className="toolbar shadow-sm" style={{ background: "#f8fafc", padding: "16px 20px", borderRadius: 12, marginBottom: 20, display: "flex", gap: 16, alignItems: "center", border: "1px solid #e2e8f0" }}>
+        <div style={{ position: "relative", flex: 1 }}>
+          <span style={{ position: "absolute", left: 12, top: 10, color: "#94a3b8" }}>🔍</span>
+          <input className="input" style={{ paddingLeft: 36 }} placeholder="Tìm nhanh theo SKU, Tên hàng..." value={q} onChange={e => setQ(e.target.value)} />
         </div>
+        <input type="date" className="input" style={{ width: 160 }} value={qDate} onChange={e => setQDate(e.target.value)} />
+        <select className="select input" style={{ width: 220 }} value={qCustomer} onChange={e => setQCustomer(e.target.value)}>
+           <option value="">Tất cả khách hàng</option>
+           {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+        </select>
+        {Object.keys(colFilters).length > 0 && (
+          <button onClick={() => setColFilters({})} className="text-brand text-xs font-black uppercase underline">XÓA LỌC ({Object.keys(colFilters).length})</button>
+        )}
+        {selectedIds.size > 0 && <button onClick={bulkDelete} className="btn btn-danger btn-sm">XÓA {selectedIds.size} DÒNG</button>}
       </div>
 
-      {/* ============================================================ */}
-      {/* Existing transactions table                                   */}
-      {/* ============================================================ */}
-      <div className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" style={{ marginTop: 24, maxHeight: "calc(100vh - 350px)" }}>
-        <table className="data-table">
-          <thead>
-            <tr className="bg-white/95 backdrop-blur-md">
-              {canDelete && (
-                <th className="!text-center !w-12 !p-0 !m-0" style={{ position: "sticky", top: 0, left: 0, zIndex: 100, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0", boxShadow: "1px 0 0 #e2e8f0" }}>
-                  <div className="flex items-center justify-center h-full w-full">
-                    <input
-                      type="checkbox"
-                      className="rounded border-slate-300 text-brand focus:ring-brand w-4 h-4 transition-all"
-                      checked={finalFiltered.length > 0 && finalFiltered.every((r) => selectedIds.has(r.id))}
-                      onChange={(e) => {
-                        if (e.target.checked) setSelectedIds(new Set(finalFiltered.map((r) => r.id)));
-                        else setSelectedIds(new Set());
-                      }}
-                    />
-                  </div>
-                </th>
-              )}
-              <ThCell label="#" colKey="stt" sortable={false} filterable={false} colType="text" w="50px" align="center" />
-              <ThCell label="Ngày nhập" colKey="date" sortable colType="date" w="120px" />
-              <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="220px" />
-              <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="140px" extra={{ position: "sticky", left: canDelete ? 48 : 0, zIndex: 101, boxShadow: "2px 0 10px rgba(0,0,0,0.02)" }} />
-              <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
-              < ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" />
-              <ThCell label="Số lượng" colKey="qty" sortable colType="num" w="120px" align="right" />
-              <ThCell label="Đơn giá" colKey="unitCost" sortable colType="num" w="120px" align="right" />
+      {/* VIRTUAL TABLE */}
+      <div 
+        ref={parentRef}
+        className="data-table-wrap !rounded-xl overflow-auto border border-slate-200" 
+        style={{ maxHeight: "calc(100vh - 380px)", position: "relative" }}
+      >
+        <table className="w-full text-sm !border-separate !border-spacing-0 table-fixed">
+          <thead className="sticky top-0 z-50 bg-white">
+            <tr>
+              <th style={{ ...thStyle, width: 40, textAlign: "center", left: 0, zIndex: 101, background: "white", borderBottom: "1px solid #e2e8f0" }}>
+                <input type="checkbox" checked={finalFiltered.length > 0 && selectedIds.size === finalFiltered.length} onChange={e => setSelectedIds(e.target.checked ? new Set(finalFiltered.map(r => r.id)) : new Set())} />
+              </th>
+              <ThCell label="Ngày" colKey="date" sortable colType="date" w="110px" />
+              <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="180px" />
+              <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="140px" />
+              <ThCell label="Tên hàng" colKey="name" sortable colType="text" w="250px" />
+              <ThCell label="Quy cách" colKey="spec" sortable colType="text" w="160px" />
+              <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" w="100px" />
+              <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" w="110px" />
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="200px" />
-              <ThCell label="Tạo lúc" colKey="createdAt" sortable colType="date" />
-              <ThCell label="Cập nhật" colKey="updatedAt" sortable colType="date" />
-              {(canEdit || canDelete) && <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="120px" />}
+              <ThCell label="Tạo lúc" colKey="createdAt" sortable colType="date" w="160px" />
+              <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="120px" />
             </tr>
           </thead>
-          <tbody>
-            {paginatedFiltered.length === 0 ? (
-                    <tr><td colSpan={canDelete ? 13 : 12} className="py-20 text-center opacity-40 italic">Không tìm thấy phiếu nhập nào khớp bộ lọc.</td></tr>
-                  ) : paginatedFiltered.map((r, i) => {
-              const adjs = r.adjs;
-              const hasAdjs = r.hasAdjs;
+          <tbody style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }}>
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const r = finalFiltered[virtualRow.index];
               const isExpanded = expandedRow === r.id;
-              const originalQty = r.originalQty;
-              const adjTotal = r.adjTotal;
-              const finalQty = r.finalQty;
-
+              const { adjs, originalQty, adjTotal, finalQty, hasAdjs } = r;
+              
               return (
                 <Fragment key={r.id}>
                   <tr 
-                        className={`group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-brand/5 ${selectedIds.has(r.id) ? "!bg-brand/[0.04]" : ""}`}
-                        onClick={() => toggleExpanded(r.id)}
-                        style={{ cursor: "pointer" }}
-                      >
-                    {canDelete && (
-                      <td className="py-4 px-4 border-r border-slate-50 text-center vertical-align-top sticky left-0 z-20 bg-white group-hover:bg-brand/5">
-                        <input type="checkbox" checked={selectedIds.has(r.id)}
-                          onChange={e => {
-                            const next = new Set(selectedIds);
-                            if (e.target.checked) next.add(r.id); else next.delete(r.id);
-                            setSelectedIds(next);
-                          }}
-                          className="rounded border-slate-300 text-brand focus:ring-brand w-4 h-4 transition-all"
-                        />
-                      </td>
-                    )}
-                    <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{(currentPage - 1) * itemsPerPage + i + 1}</td>
-                    <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-900 text-[15px]" style={{ width: colWidths["tx_date"], minWidth: colWidths["tx_date"] || 140 }}>{fmtDate(r.tx_date)}</td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-slate-900 font-bold text-[15px] uppercase" style={{ width: colWidths["customer_id"], minWidth: colWidths["customer_id"] || 180 }}>{customerLabel(r.customer_id)}</td>
-                    <td className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]`} style={{ left: canDelete ? 48 : 0, width: colWidths["sku"] || 150, minWidth: colWidths["sku"] || 150 }}>
-                      <div className="font-extrabold text-slate-900 font-mono text-[15px] uppercase tracking-wide">{skuFor(r)}</div>
+                    ref={rowVirtualizer.measureElement}
+                    data-index={virtualRow.index}
+                    style={{ 
+                      position: "absolute", top: 0, transform: `translateY(${virtualRow.start}px)`, 
+                      width: "100%", display: "flex", background: selectedIds.has(r.id) ? "#f1f5f9" : virtualRow.index % 2 === 0 ? "white" : "#f8fafc" 
+                    }}
+                    className="hover:bg-indigo-50/50 transition-colors"
+                  >
+                    <td style={{ ...tdStyle, width: 40, textAlign: "center", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                       <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => { const n = new Set(selectedIds); if(n.has(r.id)) n.delete(r.id); else n.add(r.id); setSelectedIds(n); }} />
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["name"], minWidth: colWidths["name"] || 250 }}>
-                      <div className="text-slate-900 font-bold text-[15px] leading-tight break-all">{r.product_name_snapshot}</div>
+                    <td style={{ ...tdStyle, width: colWidths["date"] || 110, flexShrink: 0 }}>{fmtDate(r.tx_date)}</td>
+                    <td style={{ ...tdStyle, width: colWidths["customer"] || 180, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }} title={customerLabel(r.customer_id)}>{customerLabel(r.customer_id)}</td>
+                    <td style={{ ...tdStyle, width: colWidths["sku"] || 140, flexShrink: 0, fontWeight: 700, color: "#1e293b" }}>{skuFor(r)}</td>
+                    <td style={{ ...tdStyle, width: colWidths["name"] || 250, flexShrink: 0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
+                    <td style={{ ...tdStyle, width: colWidths["spec"] || 160, flexShrink: 0, color: "#64748b" }}>{r.product_spec_snapshot}</td>
+                    <td style={{ ...tdStyle, width: colWidths["qty"] || 100, textAlign: "right", flexShrink: 0 }}>
+                       <div className="flex flex-col items-end">
+                         <span style={{ fontWeight: 800, fontSize: 15, color: "#0f172a" }}>{fmtNum(finalQty)}</span>
+                         {hasAdjs && <span style={{ fontSize: 9, color: adjTotal >= 0 ? "green" : "red" }}>(Gốc: {fmtNum(originalQty)})</span>}
+                       </div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-[12px] font-bold text-slate-900 uppercase tracking-wider" style={{ width: colWidths["spec"], minWidth: colWidths["spec"] || 180 }}>{r.product_spec_snapshot ?? ""}</td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-right">
-                      <div className="flex flex-col items-end">
-                        <span className={`font-black text-[15px] ${hasAdjs ? "text-brand" : "text-slate-800"}`}>{fmtNum(finalQty)}</span>
-                        {hasAdjs && (
-                          <div style={{ marginTop: 4 }}>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); toggleExpanded(r.id); }}
-                              className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter transition-all ${isExpanded ? 'bg-brand text-white' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}
-                              title="Xem chi tiết điều chỉnh"
-                            >
-                              {isExpanded ? 'Ẩn điều chỉnh ▲' : 'CÓ ĐIỀU CHỈNH ▼'}
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                    <td style={{ ...tdStyle, width: colWidths["price"] || 110, textAlign: "right", flexShrink: 0, color: "#64748b" }}>{r.unit_cost != null ? fmtNum(r.unit_cost) : "---"}</td>
+                    <td style={{ ...tdStyle, width: colWidths["note"] || 200, flexShrink: 0, fontStyle: "italic", color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis" }} title={r.note || ""}>{r.note || ""}</td>
+                    <td style={{ ...tdStyle, width: colWidths["createdAt"] || 160, flexShrink: 0, fontSize: 11, color: "#cbd5e1" }}>{fmtDatetime(r.created_at)}</td>
+                    <td style={{ ...tdStyle, width: 120, textAlign: "center", flexShrink: 0 }}>
+                       <div className="flex gap-2 justify-center">
+                          <button onClick={() => toggleExpanded(r.id)} className="btn-icon">{isExpanded ? "▲" : "▼"}</button>
+                          {canEdit && <button onClick={() => openEdit(r)} className="btn-icon">✏️</button>}
+                          <button onClick={() => openAdjustment(r)} className="btn-icon">🛠️</button>
+                          {canDelete && <button onClick={() => handleDelete(r.id)} className="btn-icon text-red-500">🗑️</button>}
+                       </div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-right text-slate-600 font-medium text-[15px]">{fmtNum(r.unit_cost)}</td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-slate-500 italic text-[13px] max-w-[200px] truncate" title={r.note ?? ""}>{r.note ?? ""}</td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-[12px] text-slate-400 font-medium">{mounted ? fmtDatetime(r.created_at) : "..."}</td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-[12px] text-slate-400 font-medium">{mounted ? fmtDatetime(r.updated_at) : "..."}</td>
-                    {(canEdit || canDelete) && (
-                      <td className="py-4 px-4 text-center">
-                        <div className="flex justify-center gap-2 mt-1">
-                          {canEdit && (
-                            <>
-                              <button onClick={(e) => { e.stopPropagation(); openEdit(r); }} className="px-2 py-1 bg-white border border-slate-200 hover:border-brand hover:bg-brand/10 text-[11px] text-brand font-black uppercase tracking-widest shadow-sm rounded-lg transition-all" title="Sửa thông tin">Sửa</button>
-                              <button onClick={(e) => { e.stopPropagation(); openAdjustment(r); }} className="px-2 py-1 bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50 text-[11px] text-amber-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all" title="Điều chỉnh">Đ.C</button>
-                            </>
-                          )}
-                          {canDelete && (
-                            <button onClick={(e) => { e.stopPropagation(); del(r); }} className="px-2 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all" title="Xóa">Xóa</button>
-                          )}
-                        </div>
-                      </td>
-                    )}
                   </tr>
-                  {/* Inline Expanded Adjs row */}
                   {isExpanded && hasAdjs && (
-                    <tr style={{ background: "var(--slate-50)" }}>
-                      <td colSpan={canDelete ? 13 : 12} style={{ padding: "16px 24px" }}>
-                        <div style={{ fontSize: "13px" }}>
-                          <h4 style={{ margin: "0 0 12px", color: "var(--slate-800)", fontSize: "14px", fontWeight: 700 }}>Chi tiết điều chỉnh</h4>
-                          
-                          <div className="data-table-wrap">
-                            <table className="data-table" style={{ background: "white" }}>
-                              <thead>
-                                <tr>
-                                  <th>Ngày ĐC</th>
-                                  <th>Loại</th>
-                                  <th style={{ textAlign: "right" }}>Số lượng</th>
-                                  <th>Lý do</th>
-                                  <th>Người thực hiện</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {adjs.map((a) => (
-                                  <tr key={a.id}>
-                                    <td style={{ whiteSpace: "nowrap" }}>{fmtDate(a.tx_date)}</td>
-                                    <td>
-                                      {a.tx_type === "adjust_in" ? 
-                                        <span className="badge badge-active">Tăng (+)</span> : 
-                                        <span className="badge badge-inactive" style={{ color: "var(--color-danger)", background: "#fee2e2" }}>Giảm (-)</span>
-                                      }
-                                    </td>
-                                    <td style={{ textAlign: "right", fontWeight: 600 }}>
-                                      {a.tx_type === "adjust_in" ? `+${fmtNum(a.qty)}` : `-${fmtNum(a.qty)}`}
-                                    </td>
-                                    <td>{a.note}</td>
-                                    <td>{a.created_by ?? "---"}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                    <tr style={{ position: "absolute", top: (virtualRow.start + 60), width: "100%", background: "#f1f5f9", zIndex: 10 }}>
+                       <td colSpan={10} style={{ padding: "12px 24px" }}>
+                          <div style={{ fontSize: 13, background: "white", padding: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                             <div className="font-bold mb-2">Chi tiết điều chỉnh:</div>
+                             {r.adjs?.map((a: any) => (
+                               <div key={a.id} className="flex justify-between py-1 border-b border-slate-50 last:border-0">
+                                  <span>{fmtDate(a.tx_date)} | {a.tx_type === "adjust_in" ? "Tăng (+)" : "Giảm (-)"} | {a.note}</span>
+                                  <span className="font-bold">{a.tx_type === "adjust_in" ? "+" : "-"}{fmtNum(a.qty)}</span>
+                               </div>
+                             ))}
                           </div>
-
-                          <div className="toolbar" style={{ marginTop: 12, fontSize: "12px", fontWeight: 500 }}>
-                            <span>Tổng kết:</span>
-                            <span className="badge" style={{ background: "var(--slate-200)", color: "var(--slate-700)" }}>Trước: {fmtNum(originalQty)}</span>
-                            <span>➡</span>
-                            <span className={`badge ${adjTotal >= 0 ? 'badge-active' : 'badge-inactive'}`} style={adjTotal < 0 ? { color: "var(--color-danger)", background: "#fee2e2" } : {}}>
-                              Biến động: {adjTotal >= 0 ? "+" : ""}{fmtNum(adjTotal)}
-                            </span>
-                            <span>➡</span>
-                            <span className="badge badge-role">Sau: {fmtNum(finalQty)}</span>
-                          </div>
-                        </div>
-                      </td>
+                       </td>
                     </tr>
                   )}
                 </Fragment>
               );
             })}
-            {finalFiltered.length === 0 && (
-              <tr>
-                <td colSpan={canDelete ? 13 : 12} style={{ padding: 16, textAlign: "center", color: "#999" }}>
-                  Không có dữ liệu
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>
 
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
-        totalItems={totalItems}
-        itemsPerPage={itemsPerPage}
-      />
-
-      {/* ============================================================ */}
-      {/* Single-row edit modal                                         */}
-      {/* ============================================================ */}
-      {editOpen && editing ? (
-        <div className="modal-overlay" onClick={() => setEditOpen(false)}>
-          <div className="modal-box" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Sửa phiếu nhập</h2>
-
-            <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-              <label style={{ display: "grid", gap: 6 }}>
-                Ngày nhập
-                <input
-                  type="date"
-                  value={eDate}
-                  onChange={(e) => setEDate(e.target.value)}
-                  style={{ padding: 10 }}
-                />
-              </label>
-
-              <label style={{ display: "grid", gap: 6, position: "relative" }}>
-                Sản phẩm *
-                <input
-                  placeholder="Gõ tìm mã, tên hàng, tên khách..."
-                  value={eProductSearch}
-                  onChange={(e) => {
-                    setEProductSearch(e.target.value);
-                    setEShowSuggestions(true);
-                    setEProductId("");
-                  }}
-                  onFocus={() => setEShowSuggestions(true)}
-                  onBlur={() => setTimeout(() => setEShowSuggestions(false), 200)}
-                  style={{ padding: 8 }}
-                />
-                {eShowSuggestions && (
-                  <div style={{
-                    position: "absolute", zIndex: 10, background: "#fff",
-                    border: "1px solid #ccc", width: "100%", maxHeight: 250,
-                    overflowY: "auto", boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-                    left: 0, top: "100%"
-                  }}>
-                    {products.filter(p => {
-                      const s = (eProductSearch || "").toLowerCase();
-                      if (!s) return true;
-                      const c = customers.find(x => x.id === p.customer_id);
-                      return p.sku.toLowerCase().includes(s) || 
-                             p.name.toLowerCase().includes(s) || 
-                             (c?.name || "").toLowerCase().includes(s) ||
-                             (c?.code || "").toLowerCase().includes(s);
-                    }).slice(0, 50).map(p => {
-                      const c = customers.find(x => x.id === p.customer_id);
-                      return (
-                        <div
-                          key={p.id}
-                          style={{ padding: "6px 8px", cursor: "pointer", borderBottom: "1px solid #eee" }}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            setEProductId(p.id);
-                            setEProductSearch(`${p.sku} - ${p.name}`);
-                            setEShowSuggestions(false);
-                            if (p.unit_price != null && !eCost) {
-                              setECost(String(p.unit_price));
-                            }
-                          }}
-                        >
-                          <div style={{ fontWeight: "bold" }}>{p.sku} - {p.name}</div>
-                          <div style={{ fontSize: "0.85em", color: "#666" }}>
-                            Khách hàng: {c ? `${c.code} - ${c.name}` : "---"}
-                            {p.spec ? ` | Kích thước: ${p.spec}` : ""}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </label>
-              
-              {eProductId && (() => {
-                const p = products.find(x => x.id === eProductId);
-                if (!p) return null;
-                const cLabel = customerLabel(p.customer_id);
-                return (
-                  <div style={{ fontSize: "0.85em", color: "#666", padding: "8px 10px", background: "#f9f9f9", borderRadius: 4, lineHeight: 1.5 }}>
-                    <strong>Khách hàng:</strong> {cLabel || "---"}<br/>
-                    <strong>Tên hàng:</strong> {p.name}<br/>
-                    <strong>Kích thước (MM):</strong> {p.spec || "---"}<br/>
-                    <strong>Đơn giá:</strong> {p.unit_price != null ? fmtNum(p.unit_price) : "---"}
-                  </div>
-                );
-              })()}
-
-              <label style={{ display: "grid", gap: 6 }}>
-                Số lượng
-                <input
-                  type="number"
-                  value={eQty}
-                  onChange={(e) => setEQty(e.target.value)}
-                  className="input"
-                  min="0"
-                  step="any"
-                />
-              </label>
-
-              <label style={{ display: "grid", gap: 6 }}>
-                Đơn giá
-                <input
-                  type="number"
-                  value={eCost}
-                  onChange={(e) => setECost(e.target.value)}
-                  className="input"
-                  min="0"
-                  step="any"
-                  placeholder="Không bắt buộc"
-                />
-              </label>
-
-              <label style={{ display: "grid", gap: 6 }}>
-                Ghi chú
-                <textarea
-                  value={eNote}
-                  onChange={(e) => setENote(e.target.value)}
-                  className="input"
-                  style={{ minHeight: 60 }}
-                  placeholder="Không bắt buộc"
-                />
-              </label>
-
-              <div className="modal-footer">
-                <button onClick={() => setEditOpen(false)} className="btn btn-secondary">
-                  Hủy
-                </button>
-                <button onClick={saveEdit} className="btn btn-primary">
-                  Lưu thay đổi
-                </button>
-              </div>
-            </div>
+      {editOpen && editing && (
+        <div className="modal-overlay" onClick={() => setEditOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="modal-box bg-white p-6 rounded-2xl shadow-2xl w-[500px]" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-4">Sửa giao dịch</h2>
+             <div className="grid gap-4">
+                <label className="grid gap-1">Ngày<input type="date" className="input" value={eDate} onChange={e => setEDate(e.target.value)} /></label>
+                <label className="grid gap-1">Số lượng<input type="number" className="input" value={eQty} onChange={e => setEQty(e.target.value)} /></label>
+                <label className="grid gap-1">Đơn giá<input type="number" className="input" value={eCost} onChange={e => setECost(e.target.value)} /></label>
+                <label className="grid gap-1">Ghi chú<textarea className="input min-h-[80px]" value={eNote} onChange={e => setENote(e.target.value)} /></label>
+             </div>
+             <div className="flex justify-end gap-3 mt-6">
+                <button onClick={() => setEditOpen(false)} className="btn btn-secondary">HỦY</button>
+                <button onClick={saveEdit} className="btn btn-primary">LƯU</button>
+             </div>
           </div>
         </div>
-      ) : null}
-      {/* ============================================================ */}
-      {/* Adjustment modal                                              */}
-      {/* ============================================================ */}
-      {adjOpen && adjBaseTx ? (() => {
-        const p = products.find((x) => x.id === adjBaseTx.product_id);
-        const cLabel = p ? customerLabel(p.customer_id) : "";
-        return (
-          <div className="modal-overlay" onClick={() => setAdjOpen(false)}>
-            <div className="modal-box" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
-              <h2 className="modal-title">Điều chỉnh kho</h2>
+      )}
 
-              <div style={{ fontSize: "13px", color: "var(--slate-600)", padding: "12px", background: "var(--slate-50)", borderRadius: 8, lineHeight: 1.6, marginBottom: 16 }}>
-                <strong>Sản phẩm:</strong> <span style={{ color: "var(--slate-900)" }}>{p?.sku} - {p?.name}</span><br/>
-                <strong>Kích thước (MM):</strong> {p?.spec || "---"}<br/>
-                <strong>Khách hàng:</strong> {cLabel || "---"}
-              </div>
-
-              <div style={{ display: "grid", gap: 12 }}>
-                <label style={{ display: "grid", gap: 6 }}>
-                  Loại điều chỉnh *
-                  <select
-                    value={aType}
-                    onChange={(e) => setAType(e.target.value as any)}
-                    className="input"
-                  >
-                    <option value="adjust_in">Điều chỉnh tăng (In)</option>
-                    <option value="adjust_out">Điều chỉnh giảm (Out)</option>
-                  </select>
-                </label>
-
-                <label style={{ display: "grid", gap: 6 }}>
-                  Ngày điều chỉnh *
-                  <input
-                    type="date"
-                    value={aDate}
-                    onChange={(e) => setADate(e.target.value)}
-                    className="input"
-                  />
-                </label>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <label style={{ display: "grid", gap: 6 }}>
-                    Số lượng *
-                    <input
-                      type="number"
-                      value={aQty}
-                      onChange={(e) => setAQty(e.target.value)}
-                      className="input"
-                      min="0"
-                      step="any"
-                    />
-                  </label>
-
-                  <label style={{ display: "grid", gap: 6 }}>
-                    Đơn giá
-                    <input
-                      type="number"
-                      value={aCost}
-                      onChange={(e) => setACost(e.target.value)}
-                      className="input"
-                      min="0"
-                      step="any"
-                      placeholder="Không bắt buộc"
-                    />
-                  </label>
-                </div>
-
-                <label style={{ display: "grid", gap: 6 }}>
-                  Lý do điều chỉnh *
-                  <textarea
-                    value={aNote}
-                    onChange={(e) => setANote(e.target.value)}
-                    className="input"
-                    style={{ minHeight: 80 }}
-                    placeholder="Bắt buộc nhập lý do điều chỉnh..."
-                  />
-                </label>
-
-                <div className="modal-footer">
-                  <button onClick={() => setAdjOpen(false)} className="btn btn-secondary">
-                    Hủy
-                  </button>
-                  <button onClick={saveAdjustment} className="btn btn-primary">
-                    Lưu điều chỉnh
-                  </button>
-                </div>
-              </div>
+      {adjOpen && adjBaseTx && (
+        <div className="modal-overlay" onClick={() => setAdjOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="modal-box bg-white p-8 rounded-2xl shadow-2xl w-[600px]" onClick={e => e.stopPropagation()}>
+            <h2 className="text-2xl font-black mb-6 flex items-center gap-2">🛠️ ĐIỀU CHỈNH KHO</h2>
+            <div className="p-4 bg-slate-50 rounded-xl mb-6">
+                <div className="font-bold text-slate-900">{skuFor(adjBaseTx)} - {adjBaseTx.product_name_snapshot}</div>
+                <div className="text-xs text-slate-500 uppercase tracking-widest mt-1">Giao dịch gốc: {fmtDate(adjBaseTx.tx_date)} | Số lượng: {fmtNum(adjBaseTx.qty)}</div>
             </div>
+             <div className="grid gap-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="grid gap-1 text-[10px] font-black uppercase text-slate-400">Loại<select className="input" value={aType} onChange={e => setAType(e.target.value as any)}><option value="adjust_in">Tăng (+)</option><option value="adjust_out">Giảm (-)</option></select></label>
+                  <label className="grid gap-1 text-[10px] font-black uppercase text-slate-400">Ngày ĐC<input type="date" className="input" value={aDate} onChange={e => setADate(e.target.value)} /></label>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="grid gap-1 text-[10px] font-black uppercase text-slate-400">Số lượng ĐC *<input type="number" className="input" value={aQty} onChange={e => setAQty(e.target.value)} /></label>
+                  <label className="grid gap-1 text-[10px] font-black uppercase text-slate-400">Đơn giá<input type="number" className="input" value={aCost} onChange={e => setACost(e.target.value)} /></label>
+                </div>
+                <label className="grid gap-1 text-[10px] font-black uppercase text-slate-400">Lý do điều chỉnh *<textarea className="input min-h-[100px]" value={aNote} onChange={e => setANote(e.target.value)} placeholder="Bắt buộc nhập lý do chi tiết..." /></label>
+             </div>
+             <div className="flex justify-end gap-3 mt-8">
+                <button onClick={() => setAdjOpen(false)} className="btn btn-ghost">HỦY</button>
+                <button onClick={saveAdjustment} className="btn btn-primary px-8">XÁC NHẬN ĐIỀU CHỈNH</button>
+             </div>
           </div>
-        );
-      })() : null}
+        </div>
+      )}
     </div>
   );
 }

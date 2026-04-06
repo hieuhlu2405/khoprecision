@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -186,7 +187,8 @@ export default function DeliveryPlanPage() {
   const [shipmentHistory, setShipmentHistory] = useState<ShipmentLog[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Column Resizing state
+  const parentRef = useRef<HTMLDivElement>(null);
+
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -856,6 +858,13 @@ export default function DeliveryPlanPage() {
     return list;
   }, [products, customers, plans, edits, onlyScheduled, colFilters, sortCol, sortDir]);
 
+  const rowVirtualizer = useVirtualizer({
+    count: displayProducts.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 56,
+    overscan: 10,
+  });
+
   const activeFilterCount = Object.keys(colFilters).length;
 
   const toggleSort = (col: string) => {
@@ -1055,11 +1064,15 @@ export default function DeliveryPlanPage() {
       <div className="page-content">
         {activeTab === 'plan' ? (
         <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20">
-          <div className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" style={{ marginTop: 24, maxHeight: "calc(100vh - 350px)" }}>
+          <div 
+            ref={parentRef}
+            className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" 
+            style={{ marginTop: 24, maxHeight: "calc(100vh - 350px)", position: 'relative' }}
+          >
             <table className="w-full text-sm !border-separate !border-spacing-0 table-fixed">
               <thead>
-                <tr>
-                  <th style={{ width: '50px', minWidth: '50px', textAlign: 'center', position: 'sticky', top: 0, left: 0, zIndex: 42, background: 'white', borderBottom: '1px solid #e2e8f0' }} className="py-4 px-2 border-r border-slate-200/60">
+                <tr className="z-[50]">
+                  <th style={{ width: '50px', minWidth: '50px', textAlign: 'center', position: 'sticky', top: 0, left: 0, zIndex: 62, background: 'white', borderBottom: '1px solid #e2e8f0' }} className="py-4 px-2 border-r border-slate-200/60">
                     <input 
                       type="checkbox" 
                       className="checkbox checkbox-primary checkbox-sm rounded cursor-pointer"
@@ -1093,7 +1106,10 @@ export default function DeliveryPlanPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody 
+                className="divide-y divide-slate-100 relative"
+                style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+              >
                 {loading ? (
                   Array.from({ length: 8 }).map((_, i) => (
                     <tr key={i} className="animate-pulse">
@@ -1102,17 +1118,29 @@ export default function DeliveryPlanPage() {
                   ))
                 ) : displayProducts.length === 0 ? (
                   <tr><td colSpan={10} className="py-32 text-center text-slate-300 font-bold italic">Không tìm thấy dữ liệu khớp bộ lọc.</td></tr>
-                ) : displayProducts.map((p, i) => {
+                ) : rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const p = displayProducts[virtualRow.index];
                   const c = customers.find(x => x.id === p.customer_id);
-                  // Find ALL plans for this product across all displayed days for checkbox
                   const todayPlans = plans.filter(pl => pl.product_id === p.id && pl.plan_date === selectedOutboundDay && pl.planned_qty > 0);
                   const todayPlan = todayPlans[0];
                   const isSelected = todayPlan ? selectedPlanIds.has(todayPlan.id) : false;
                   const canSelect = todayPlan && !todayPlan.is_completed && todayPlan.planned_qty > 0;
+                  
                   return (
-                    <tr key={p.id} className={`hover:bg-brand/5 group transition-colors odd:bg-white even:bg-slate-50/20 ${isSelected ? 'bg-indigo-50/40 !odd:bg-indigo-50/40 !even:bg-indigo-50/40' : ''}`}>
-                      {/* Checkbox Column */}
-                      <td className="py-4 px-2 border-r border-slate-100 text-center sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors" style={{ width: '50px' }}>
+                    <tr 
+                      key={p.id} 
+                      data-index={virtualRow.index}
+                      ref={rowVirtualizer.measureElement}
+                      className={`hover:bg-brand/5 group transition-colors odd:bg-white even:bg-slate-50/20 ${isSelected ? 'bg-indigo-50/40 !odd:bg-indigo-50/40 !even:bg-indigo-50/40' : ''}`}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        transform: `translateY(${virtualRow.start}px)`,
+                        width: '100%',
+                        display: 'flex'
+                      }}
+                    >
+                      <td className="py-2 px-2 border-r border-slate-100 text-center sticky left-0 z-40 bg-white group-hover:bg-brand/10 transition-colors flex items-center justify-center shrink-0" style={{ width: '50px' }}>
                         {canSelect && (
                           <input
                             type="checkbox"
@@ -1122,18 +1150,18 @@ export default function DeliveryPlanPage() {
                           />
                         )}
                       </td>
-                      <td className="py-4 px-4 border-r border-slate-100 sticky left-[50px] z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                      <td className="py-2 px-4 border-r border-slate-100 sticky left-[50px] z-40 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)] shrink-0" style={{ width: colWidths['sku'] || 180 }}>
                         <div className="font-extrabold text-slate-900 font-mono tracking-tight text-[15px] break-all uppercase">{p.sku}</div>
                       </td>
-                      <td className="py-4 px-4 border-r border-slate-100">
-                        <div className="text-slate-900 font-bold text-[15px] leading-tight" title={p.name}>{p.name}</div>
-                        <div className="text-[11px] text-slate-900 font-bold uppercase tracking-wider mt-1">{p.spec || ""}</div>
+                      <td className="py-2 px-4 border-r border-slate-100 shrink-0 overflow-hidden" style={{ width: colWidths['name'] || 320 }}>
+                        <div className="text-slate-900 font-bold text-[14px] leading-tight truncate" title={p.name}>{p.name}</div>
+                        <div className="text-[10px] text-slate-900 font-bold uppercase tracking-wider mt-0.5 truncate">{p.spec || ""}</div>
                       </td>
-                      <td className="py-4 px-4 border-r border-slate-100 text-center">
-                        <div className="text-black font-black text-[15px] uppercase">{c?.code || "-"}</div>
-                        <div className="text-[10px] text-black font-black uppercase tracking-wider" title={c?.name}>{c?.name}</div>
+                      <td className="py-2 px-4 border-r border-slate-100 text-center shrink-0" style={{ width: colWidths['customer'] || 140 }}>
+                        <div className="text-black font-black text-[14px] uppercase truncate">{c?.code || "-"}</div>
+                        <div className="text-[9px] text-black font-black uppercase tracking-wider truncate" title={c?.name}>{c?.name}</div>
                       </td>
-                      <td className="py-4 px-4 border-r border-slate-100">
+                      <td className="py-2 px-4 border-r border-slate-100 shrink-0" style={{ width: colWidths['note_today'] || 250 }}>
                         {(() => {
                            const today = days[0];
                            const plan = plans.find(x => x.product_id === p.id && x.plan_date === today);
@@ -1142,7 +1170,7 @@ export default function DeliveryPlanPage() {
                              <input 
                                type="text" 
                                placeholder="Nhập ghi chú..." 
-                               className="input input-ghost input-xs w-full text-[13px] font-black text-black focus:bg-white focus:ring-1 focus:ring-indigo-300 placeholder:text-slate-300 italic" 
+                               className="input input-ghost input-xs h-7 w-full text-[12px] font-black text-black focus:bg-white focus:ring-1 focus:ring-indigo-300 placeholder:text-slate-300 italic" 
                                value={noteVal}
                                onChange={e => handleNoteChange(p.id, today, e.target.value)} 
                              />
@@ -1162,13 +1190,14 @@ export default function DeliveryPlanPage() {
                         const plannedQty = plan?.planned_qty || 0;
                         const progressPct = plannedQty > 0 ? Math.min(100, Math.round((actualQty / plannedQty) * 100)) : 0;
                         const hasPartialShipment = actualQty > 0 && !isDone;
+                        const colW = colWidths[d] || 100;
 
                         return (
-                          <td key={d} className={`p-1 border-r border-slate-50 hover:bg-white transition-all ${isChanged ? 'bg-amber-50/60' : ''} ${itdr ? 'bg-red-50/20' : ''}`}>
-                            <div className="relative group/cell">
+                          <td key={d} className={`p-1 border-r border-slate-50 hover:bg-white transition-all shrink-0 ${isChanged ? 'bg-amber-50/60' : ''} ${itdr ? 'bg-red-50/20' : ''}`} style={{ width: colW }}>
+                            <div className="relative group/cell w-full h-full">
                               <input
                                 type="text"
-                                className={`w-full text-center py-2 px-1 rounded-lg border-2 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-black text-sm
+                                className={`w-full text-center py-1.5 px-1 rounded-lg border-2 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-black text-sm
                                     ${isChanged
                                     ? 'border-amber-400 bg-white text-amber-700 shadow-md shadow-amber-200/40 z-10 relative scale-105'
                                     : isDone ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600 shadow-inner' 
@@ -1183,7 +1212,6 @@ export default function DeliveryPlanPage() {
                                 title={isDone ? `Đã xuất đủ: ${actualQty}/${plannedQty}` : hasPartialShipment ? `Đang xuất dở: ${actualQty}/${plannedQty}` : (editData?.note ?? plan?.note ?? "")}
                                 onChange={e => handleQtyChange(p.id, d, e.target.value)}
                               />
-                              {/* === PROGRESS BAR === */}
                               {(isDone || hasPartialShipment) && (
                                 <div className="absolute bottom-0 left-1 right-1 h-1 rounded-full bg-slate-200 overflow-hidden">
                                   <div className={`h-full rounded-full transition-all ${isDone ? 'bg-emerald-500' : progressPct > 50 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${progressPct}%` }} />
