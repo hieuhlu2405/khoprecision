@@ -5,7 +5,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
-import { useDebounce } from "@/app/hooks/useDebounce";
+import { useDebounce } from "@/lib/hooks/useDebounce";
+import { Pagination } from "@/app/components/ui/Pagination";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -235,6 +236,10 @@ export default function InventoryOpeningBalancesPage() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  /* ---- pagination ---- */
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+
   /* ---- Column resizing ---- */
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     if (typeof window !== "undefined") {
@@ -417,6 +422,19 @@ export default function InventoryOpeningBalancesPage() {
 
     return list;
   }, [baseFiltered, colFilters, sortCol, sortDir]);
+
+  /* ---- reset page on filter change ---- */
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [baseFiltered, colFilters, sortCol, sortDir]);
+
+  /* ---- Pagination Slice ---- */
+  const totalItems = finalFiltered.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const paginatedFiltered = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return finalFiltered.slice(start, start + itemsPerPage);
+  }, [finalFiltered, currentPage, itemsPerPage]);
 
   /* ---- Handlers ---- */
   async function del(r: OpeningBalance) {
@@ -883,11 +901,11 @@ export default function InventoryOpeningBalancesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {finalFiltered.length === 0 ? (
+                  {paginatedFiltered.length === 0 ? (
                     <tr><td colSpan={canCreateEdit ? 10 : 9} className="py-20 text-center opacity-40 italic">Không có dữ liệu khớp bộ lọc.</td></tr>
-                  ) : finalFiltered.map((r, i) => (
+                  ) : paginatedFiltered.map((r, i) => (
                     <tr key={r.id} className={`${selectedIds.has(r.id) ? "!bg-brand/[0.04]" : ""} group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-brand/5`}>
-                      <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{i + 1}</td>
+                      <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{(currentPage - 1) * itemsPerPage + i + 1}</td>
                     {canCreateEdit && (
                       <td className="py-4 px-4 border-r border-slate-50 text-center sticky left-0 z-20 bg-white group-hover:bg-brand/5">
                         <input
@@ -954,6 +972,14 @@ export default function InventoryOpeningBalancesPage() {
               </tbody>
             </table>
           </div>
+          
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+          />
         </>
       )}
 

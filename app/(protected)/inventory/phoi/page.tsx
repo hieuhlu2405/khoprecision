@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
+import { useDebounce } from "@/lib/hooks/useDebounce";
+import { Pagination } from "@/app/components/ui/Pagination";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -87,9 +89,14 @@ export default function PhoiPage() {
 
   /* ---- global filters ---- */
   const [q, setQ] = useState("");
+  const debouncedQ = useDebounce(q, 300);
   const [qDate, setQDate] = useState("");
   const [qCustomer, setQCustomer] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+
+  /* ---- pagination ---- */
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
 
   /* ------------------------------------------------------------------ */
   /* Helpers                                                             */
@@ -406,7 +413,7 @@ export default function PhoiPage() {
     let list = [...rows];
 
     // Global filters
-    const sGlobal = q.trim().toLowerCase();
+    const sGlobal = debouncedQ.trim().toLowerCase();
     if (sGlobal) {
       list = list.filter(r => r.product_name_snapshot.toLowerCase().includes(sGlobal) || skuFor(r).toLowerCase().includes(sGlobal));
     }
@@ -449,7 +456,20 @@ export default function PhoiPage() {
     }
 
     return list;
-  }, [rows, q, qDate, qCustomer, products, colFilters, sortCol, sortDir]);
+  }, [rows, debouncedQ, qDate, qCustomer, products, colFilters, sortCol, sortDir]);
+
+  /* ---- reset page on filter change ---- */
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedQ, qDate, qCustomer, colFilters, sortCol, sortDir]);
+
+  /* ---- pagination slice ---- */
+  const totalItems = filtered.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const paginatedFiltered = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filtered.slice(start, start + itemsPerPage);
+  }, [filtered, currentPage, itemsPerPage]);
 
   /* ---- Column resizing ---- */
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
@@ -812,9 +832,9 @@ export default function PhoiPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((r, i) => (
+            {paginatedFiltered.map((r, i) => (
               <tr key={r.id} className="group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-brand/5">
-                <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{i + 1}</td>
+                <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{(currentPage - 1) * itemsPerPage + i + 1}</td>
                 {canDelete && (
                   <td className="py-4 px-4 border-r border-slate-50 text-center">
                     <input type="checkbox" checked={selectedIds.has(r.id)}
@@ -852,6 +872,14 @@ export default function PhoiPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+        totalItems={totalItems}
+        itemsPerPage={itemsPerPage}
+      />
 
       {/* ── Edit Modal ── */}
       {editOpen && editing && (

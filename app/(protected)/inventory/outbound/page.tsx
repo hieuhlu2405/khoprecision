@@ -5,7 +5,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
-import { useDebounce } from "@/app/hooks/useDebounce";
+import { useDebounce } from "@/lib/hooks/useDebounce";
+import { Pagination } from "@/app/components/ui/Pagination";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -298,6 +299,10 @@ export default function InventoryOutboundPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [mounted, setMounted] = useState(false);
 
+  /* ---- pagination state ---- */
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+
   /* ---- multi-line create form state ---- */
   const [showCreate, setShowCreate] = useState(false);
   const [hDate, setHDate] = useState("");
@@ -479,6 +484,20 @@ export default function InventoryOutboundPage() {
     return result;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseFiltered, colFilters, sortCol, sortDir, customers, products]);
+
+  /* ---- reset page on filter change ---- */
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [baseFiltered, colFilters, sortCol, sortDir]);
+
+  /* ---- pagination ---- */
+  const totalItems = finalFiltered.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const paginatedFiltered = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return finalFiltered.slice(start, start + itemsPerPage);
+  }, [finalFiltered, currentPage, itemsPerPage]);
+
   /* ---- Column resizing ---- */
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     if (typeof window !== "undefined") {
@@ -1302,9 +1321,9 @@ export default function InventoryOutboundPage() {
             </tr>
           </thead>
           <tbody>
-            {finalFiltered.length === 0 ? (
+            {paginatedFiltered.length === 0 ? (
               <tr><td colSpan={canCreateEdit ? 13 : 11} className="py-20 text-center opacity-40 italic">Không tìm thấy phiếu xuất nào khớp bộ lọc.</td></tr>
-            ) : finalFiltered.map((r, i) => {
+            ) : paginatedFiltered.map((r, i) => {
               const adjs = r.adjs;
               const hasAdjs = r.hasAdjs;
               const isExpanded = expandedRow === r.id;
@@ -1331,7 +1350,7 @@ export default function InventoryOutboundPage() {
                          />
                        </td>
                      )}
-                    <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{i + 1}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{(currentPage - 1) * itemsPerPage + i + 1}</td>
                     <td className="py-4 px-4 border-r border-slate-50 font-medium text-slate-900 text-[15px]" style={{ width: colWidths["tx_date"], minWidth: colWidths["tx_date"] || 140 }}>{fmtDate(r.tx_date)}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-slate-900 font-bold text-[15px] uppercase" style={{ width: colWidths["customer_id"], minWidth: colWidths["customer_id"] || 180 }}>{customerLabel(r.customer_id)}</td>
                     <td className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]`} style={{ left: canDelete ? 48 : 0, width: colWidths["sku"] || 150, minWidth: colWidths["sku"] || 150 }}>
@@ -1443,6 +1462,14 @@ export default function InventoryOutboundPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+        totalItems={totalItems}
+        itemsPerPage={itemsPerPage}
+      />
 
       {/* ============================================================ */}
       {/* Single-row edit modal                                         */}

@@ -553,10 +553,24 @@ export default function StocktakeDetailPage() {
       const { error: eInst } = await supabase.from("inventory_stocktake_lines").insert(inserts);
       if (eInst) throw eInst;
 
-      // 2. Sync to Opening Balances (UPSERT)
+      // 2. Sync to Opening Balances (Xóa rồi Insert để tránh lỗi ON CONFLICT)
       if (currentIsConfirmed) {
         const confirmedDateOnly = header.stocktake_date;
-        const openingBalancePayloads = lines.map(l => ({
+
+        // Gom nhóm theo product_id đề phòng phiếu kiểm kê có 2 dòng cùng 1 sản phẩm
+        const groupedMap = new Map();
+        for (const l of lines) {
+          const key = l.product_id;
+          if (groupedMap.has(key)) {
+            const existing = groupedMap.get(key);
+            existing.actual_qty_after += (l.actual_qty_after || 0);
+          } else {
+            groupedMap.set(key, { ...l });
+          }
+        }
+        const consolidatedLines: any[] = Array.from(groupedMap.values());
+
+        const openingBalancePayloads = consolidatedLines.map(l => ({
           period_month: confirmedDateOnly,
           product_id: l.product_id,
           customer_id: l.customer_id,
@@ -571,14 +585,33 @@ export default function StocktakeDetailPage() {
           updated_by: me?.id
         }));
 
-        // Use UPSERT for better atomicity and performance
-        const { error: upsertErr } = await supabase.from("inventory_opening_balances").upsert(openingBalancePayloads, {
-          onConflict: "period_month, product_id"
-        });
+        const pids = consolidatedLines.map(l => l.product_id);
+        const chunkSize = 100;
 
-        if (upsertErr) {
-          console.error("Failed to upsert opening balances:", upsertErr);
-          throw upsertErr;
+        // 2a. Xoá dữ liệu cũ theo chunk
+        for (let i = 0; i < pids.length; i += chunkSize) {
+          const chunkPids = pids.slice(i, i + chunkSize);
+          const { error: delErr } = await supabase
+            .from("inventory_opening_balances")
+            .delete()
+            .eq("period_month", confirmedDateOnly)
+            .in("product_id", chunkPids);
+          if (delErr) {
+            console.error("Failed to delete old balances:", delErr);
+            throw new Error("Lỗi xoá tồn đầu kỳ cũ: " + delErr.message);
+          }
+        }
+
+        // 2b. Thêm dữ liệu mới theo chunk
+        for (let i = 0; i < openingBalancePayloads.length; i += chunkSize) {
+          const chunkPayloads = openingBalancePayloads.slice(i, i + chunkSize);
+          const { error: insErr } = await supabase
+            .from("inventory_opening_balances")
+            .insert(chunkPayloads);
+          if (insErr) {
+            console.error("Failed to insert new balances:", insErr);
+            throw new Error("Lỗi thêm tồn đầu kỳ mới: " + insErr.message);
+          }
         }
       }
 
