@@ -41,6 +41,7 @@ type Plan = {
   actual_qty: number;
   is_completed: boolean;
   note: string | null;
+  is_backlog?: boolean;
 };
 type ShipmentLog = {
   id: string;
@@ -1193,6 +1194,11 @@ export default function DeliveryPlanPage() {
                                   {actualQty}/{plannedQty}
                                 </div>
                               )}
+                              {plan?.is_backlog && !isDone && (
+                                <div className="absolute -top-2 right-1 text-[8px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded shadow-sm z-30 animate-pulse tracking-widest pointer-events-none">
+                                  NỢ
+                                </div>
+                              )}
                               {hasNote && (
                                 <div className="absolute top-0 right-0 w-2 h-2 bg-indigo-500 rounded-bl-full shadow-sm z-20" title={editData?.note ?? plan?.note ?? ""} />
                               )}
@@ -1450,22 +1456,11 @@ export default function DeliveryPlanPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center bg-amber-50/10">
-                          {Number(item.actual) > 0 && Number(item.actual) < item.remaining && (
-                            <label className="flex items-center justify-center gap-2 cursor-pointer bg-amber-100/50 px-2 py-1.5 rounded-lg border border-amber-200">
-                              <input
-                                type="checkbox"
-                                className="checkbox checkbox-warning checkbox-xs rounded"
-                                checked={item.push_backlog}
-                                onChange={e => {
-                                  setShipmentItems(prev => {
-                                    const n = [...prev];
-                                    n[idx] = { ...n[idx], push_backlog: e.target.checked };
-                                    return n;
-                                  });
-                                }}
-                              />
-                              <span className="text-[9px] font-black text-amber-700 uppercase">Ghi nợ</span>
-                            </label>
+                          {Number(item.actual) >= 0 && Number(item.actual) < item.remaining && (
+                            <div className="flex flex-col items-center justify-center gap-1 bg-amber-100/50 px-2 py-1.5 rounded-lg border border-amber-200">
+                              <span className="text-[10px] font-black text-amber-700 tracking-widest uppercase text-center block" style={{ lineHeight: 1.2 }}>TỰ CẬP NHẬT NỢ LÊN T+1</span>
+                              <span className="text-[11px] font-bold text-amber-600 block text-center">{(item.remaining - Number(item.actual)).toLocaleString()}</span>
+                            </div>
                           )}
                         </td>
                       </tr>
