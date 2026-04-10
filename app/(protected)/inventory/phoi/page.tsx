@@ -146,6 +146,17 @@ export default function PhoiPage() {
   useEffect(() => { load(); }, []);
   useEffect(() => { setMounted(true); }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F2" && showCreate) {
+        e.preventDefault();
+        addLine();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showCreate]);
+
   /* ------------------------------------------------------------------ */
   /* Form helpers                                                        */
   /* ------------------------------------------------------------------ */
@@ -596,7 +607,6 @@ export default function PhoiPage() {
       "Tên hàng": r.product_name_snapshot,
       "Kích thước (MM)": r.product_spec_snapshot ?? "",
       "Số lượng": r.qty,
-      "Đơn giá": r.unit_cost ?? "",
       "Ghi chú": r.note ?? "",
       "Tạo lúc": fmtDatetime(r.created_at)
     }));
@@ -676,7 +686,6 @@ export default function PhoiPage() {
                   <th className="w-10 text-center">#</th>
                   <th>Sản phẩm *</th>
                   <th className="w-40 text-right">Số lượng *</th>
-                  <th className="w-48 text-right">Đơn giá</th>
                   <th className="w-16 text-center"></th>
                 </tr>
               </thead>
@@ -727,21 +736,6 @@ export default function PhoiPage() {
                           onChange={e => updateLine(l.key, "qty", e.target.value)} 
                           onKeyDown={e => {
                             if (e.key === "Enter") {
-                                const tr = e.currentTarget.closest("tr");
-                                tr?.querySelector<HTMLInputElement>("input[placeholder='Đơn giá']")?.focus();
-                            }
-                          }}
-                          className="input w-full text-right font-bold h-10 border-transparent bg-slate-50 focus:bg-white focus:border-brand" 
-                          placeholder="0" 
-                        />
-                      </td>
-                      <td>
-                        <input 
-                          type="number" 
-                          value={l.unitCost} 
-                          onChange={e => updateLine(l.key, "unitCost", e.target.value)} 
-                          onKeyDown={e => {
-                            if (e.key === "Enter") {
                                 e.preventDefault();
                                 if (idx === lines.length - 1) {
                                     if (l.productId && l.qty) {
@@ -755,8 +749,8 @@ export default function PhoiPage() {
                                 }
                             }
                           }}
-                          className="input w-full text-right h-10 border-transparent bg-slate-50 focus:bg-white focus:border-brand" 
-                          placeholder="Đơn giá" 
+                          className="input w-full text-right font-bold h-10 border-transparent bg-slate-50 focus:bg-white focus:border-brand" 
+                          placeholder="0" 
                         />
                       </td>
                       <td className="text-center">
@@ -826,7 +820,6 @@ export default function PhoiPage() {
               <ThCell label="Ngày nhập" colKey="tx_date" sortable colType="date" w="140px" />
               <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="180px" />
               <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" w="120px" />
-              <ThCell label="Đơn giá" colKey="cost" sortable colType="num" align="right" w="140px" />
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="180px" />
               <ThCell label="Ngày tạo" colKey="createdAt" sortable colType="date" w="160px" />
               {(canEdit || canDelete) && <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="140px" />}
@@ -857,7 +850,6 @@ export default function PhoiPage() {
                   <div className="text-slate-900 font-bold text-[15px] uppercase">{customerLabel(r.customer_id)}</div>
                 </td>
                 <td className="py-4 px-4 border-r border-slate-50 text-right font-black text-slate-800 text-[15px]">{fmtNum(r.qty)}</td>
-                <td className="py-4 px-4 border-r border-slate-50 text-right font-medium text-slate-600 text-[15px]">{r.unit_cost != null ? fmtNum(r.unit_cost) : "—"}</td>
                 <td className="py-4 px-4 border-r border-slate-50 text-slate-500 italic text-[13px] break-all">{r.note ?? "—"}</td>
                 <td className="py-4 px-4 border-r border-slate-50 text-[12px] text-slate-400 font-medium">{mounted ? fmtDatetime(r.created_at) : "..."}</td>
                 {(canEdit || canDelete) && (
@@ -927,14 +919,10 @@ export default function PhoiPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <label className="flex flex-col gap-2">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Số lượng</span>
                   <input type="number" value={eQty} onChange={e => setEQty(e.target.value)} className="input h-11 font-black" />
-                </label>
-                <label className="flex flex-col gap-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Đơn giá</span>
-                  <input type="number" value={eCost} onChange={e => setECost(e.target.value)} className="input h-11" />
                 </label>
               </div>
 

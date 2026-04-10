@@ -229,6 +229,17 @@ export default function StocktakeDetailPage() {
   const canEdit = canEditDraft || canEditConfirmed;
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F2" && canEdit) {
+        e.preventDefault();
+        addEmptyLine();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [canEdit]);
+
+  useEffect(() => {
     if (!stocktakeId || typeof stocktakeId !== "string") return;
     loadAll(stocktakeId);
     // eslint-disable-next-line react-hooks/exhaustive-deps

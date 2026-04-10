@@ -705,6 +705,17 @@ export default function InventoryOutboundPage() {
   useEffect(() => { load(); }, []);
   useEffect(() => { setMounted(true); }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F2" && showCreate) {
+        e.preventDefault();
+        addLine();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showCreate]);
+
   /* ---- business logic: save, edit, delete ---- */
   async function saveMulti() {
     if (!hDate) return showToast("Thiếu ngày xuất.", "error");
