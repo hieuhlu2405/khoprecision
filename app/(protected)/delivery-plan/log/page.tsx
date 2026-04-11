@@ -526,7 +526,7 @@ export default function DeliveryLogPage() {
                            return (
                              <div className="flex flex-col">
                                <div className="font-black text-black text-[15px] leading-tight" style={{ color: '#000000' }}>
-                                 {totalQty > 0 ? totalQty.toLocaleString("vi-VN") : "0"} <span className="text-[10px] text-slate-400 font-bold uppercase ml-0.5">Sản phẩm</span>
+                                 {totalQty > 0 ? totalQty.toLocaleString("vi-VN") : "0"} <span className="text-[10px] text-black font-bold uppercase ml-0.5" style={{ color: '#000000' }}>Sản phẩm</span>
                                </div>
                                <div className="text-[10px] text-slate-500 font-black uppercase tracking-tighter mt-0.5">
                                  📦 {skuCount} mã hàng
