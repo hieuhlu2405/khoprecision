@@ -86,10 +86,17 @@ type TextFilter = { mode: "contains" | "equals"; value: string };
 type ColFilter = TextFilter;
 type SortDir = "asc" | "desc" | null;
 
-// Next 7 days
+// Vietnam Time Helper (GMT+7)
+function getVNTime() {
+  const now = new Date();
+  // If the browser is already in GMT+7, new Date() is fine, but to be sure:
+  return new Date(now.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+}
+
+// Next 7 days based on Vietnam Time
 function getNext7Days() {
   const dates = [];
-  const today = new Date();
+  const today = getVNTime();
   for (let i = 0; i < 7; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
@@ -97,6 +104,8 @@ function getNext7Days() {
   }
   return dates;
 }
+
+const TABLE_MIN_WIDTH = 1640; // Total width of all columns sum
 
 /* ------------------------------------------------------------------ */
 /* UI Components                                                       */
@@ -170,7 +179,7 @@ export default function DeliveryPlanPage() {
   const [outboundDay, setOutboundDay] = useState<string | null>(null);
   const [outboundItems, setOutboundItems] = useState<any[]>([]);
   const [selectedOutboundDay, setSelectedOutboundDay] = useState<string>(() => {
-    const now = new Date();
+    const now = getVNTime();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   });
 
@@ -285,7 +294,7 @@ export default function DeliveryPlanPage() {
         return;
       }
 
-      const currD = new Date();
+      const currD = getVNTime();
       const qStart = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-01`;
       const qEnd = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-${String(currD.getDate()).padStart(2, "0")}`;
       const { data: ops } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", qEnd + "T23:59:59.999Z").is("deleted_at", null);
@@ -410,7 +419,7 @@ export default function DeliveryPlanPage() {
     }
     setShipmentProcessing(true);
     try {
-      const currD = new Date();
+      const currD = getVNTime();
       const qStart = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-01`;
       const qEnd = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-${String(currD.getDate()).padStart(2, "0")}`;
       const { data: ops } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", qEnd + "T23:59:59.999Z").is("deleted_at", null);
@@ -694,7 +703,7 @@ export default function DeliveryPlanPage() {
   };
 
   const handleExportDraft = async () => {
-    const now = new Date();
+    const now = getVNTime();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const dateLabel = todayStr.split('-').reverse().join('/');
 
@@ -877,6 +886,7 @@ export default function DeliveryPlanPage() {
         style={{
           width: width ? `${width}px` : w,
           minWidth: width ? `${width}px` : w || "80px",
+          flexBasis: width ? `${width}px` : w,
           textAlign: align,
           left: sticky ? 0 : undefined,
           zIndex: sticky ? 41 : 40,
@@ -934,7 +944,7 @@ export default function DeliveryPlanPage() {
     const d = new Date(dateStr);
     const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
     const pts = dateStr.split("-");
-    const now = new Date();
+    const now = getVNTime();
     const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     const isToday = todayLocal === dateStr;
 
@@ -993,7 +1003,7 @@ export default function DeliveryPlanPage() {
               const pts = d.split("-");
               const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
               const dayOfWeek = dayNames[new Date(d).getDay()];
-              const now = new Date();
+              const now = getVNTime();
               const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
               return (
                 <option key={d} value={d}>
@@ -1045,10 +1055,10 @@ export default function DeliveryPlanPage() {
             className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" 
             style={{ marginTop: 24, maxHeight: "calc(100vh - 350px)", position: 'relative' }}
           >
-            <table className="w-full text-sm !border-separate !border-spacing-0 table-fixed">
+            <table className="w-full text-sm !border-separate !border-spacing-0 table-fixed" style={{ minWidth: TABLE_MIN_WIDTH }}>
               <thead>
-                <tr className="z-[50]" style={{ display: 'flex', width: '100%' }}>
-                  <th style={{ width: '50px', minWidth: '50px', textAlign: 'center', position: 'sticky', top: 0, left: 0, zIndex: 62, background: 'white', borderBottom: '1px solid #e2e8f0', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="py-4 px-2 border-r border-slate-200/60">
+                <tr className="z-[50]" style={{ display: 'flex', width: '100%', minWidth: TABLE_MIN_WIDTH }}>
+                  <th style={{ width: '50px', minWidth: '50px', flexBasis: '50px', textAlign: 'center', position: 'sticky', top: 0, left: 0, zIndex: 62, background: 'white', borderBottom: '1px solid #e2e8f0', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="py-4 px-2 border-r border-slate-200/60">
                     <input 
                       type="checkbox" 
                       className="checkbox checkbox-primary checkbox-sm rounded cursor-pointer"
@@ -1075,7 +1085,10 @@ export default function DeliveryPlanPage() {
                       w="100px"
                       align="center"
                       isToday={
-                        `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}` === d
+                        (() => {
+                           const vnNow = getVNTime();
+                           return `${vnNow.getFullYear()}-${String(vnNow.getMonth() + 1).padStart(2, '0')}-${String(vnNow.getDate()).padStart(2, '0')}` === d;
+                        })()
                       }
                       extra={formatDate(d)}
                     />
@@ -1113,10 +1126,11 @@ export default function DeliveryPlanPage() {
                         top: 0,
                         transform: `translateY(${virtualRow.start}px)`,
                         width: '100%',
+                        minWidth: TABLE_MIN_WIDTH,
                         display: 'flex'
                       }}
                     >
-                      <td className="py-2 px-2 border-r border-slate-100 text-center sticky left-0 z-40 bg-white group-hover:bg-brand/10 transition-colors flex items-center justify-center shrink-0" style={{ width: '50px' }}>
+                      <td className="py-2 px-2 border-r border-slate-100 text-center sticky left-0 z-40 bg-white group-hover:bg-brand/10 transition-colors flex items-center justify-center shrink-0" style={{ width: '50px', flexBasis: '50px' }}>
                         {canSelect && (
                           <input
                             type="checkbox"
@@ -1126,18 +1140,18 @@ export default function DeliveryPlanPage() {
                           />
                         )}
                       </td>
-                      <td className="py-2 px-4 border-r border-slate-100 sticky left-[50px] z-40 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)] shrink-0" style={{ width: colWidths['sku'] || 180 }}>
+                      <td className="py-2 px-4 border-r border-slate-100 sticky left-[50px] z-40 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)] shrink-0" style={{ width: colWidths['sku'] || 180, flexBasis: colWidths['sku'] || 180 }}>
                         <div className="font-extrabold text-slate-900 font-mono tracking-tight text-[15px] break-all uppercase">{p.sku}</div>
                       </td>
-                      <td className="py-2 px-4 border-r border-slate-100 shrink-0 overflow-hidden" style={{ width: colWidths['name'] || 320 }}>
+                      <td className="py-2 px-4 border-r border-slate-100 shrink-0 overflow-hidden" style={{ width: colWidths['name'] || 320, flexBasis: colWidths['name'] || 320 }}>
                         <div className="text-slate-900 font-bold text-[14px] leading-tight truncate" title={p.name}>{p.name}</div>
                         <div className="text-[10px] text-slate-900 font-bold uppercase tracking-wider mt-0.5 truncate">{p.spec || ""}</div>
                       </td>
-                      <td className="py-2 px-4 border-r border-slate-100 text-center shrink-0" style={{ width: colWidths['customer'] || 140 }}>
+                      <td className="py-2 px-4 border-r border-slate-100 text-center shrink-0" style={{ width: colWidths['customer'] || 140, flexBasis: colWidths['customer'] || 140 }}>
                         <div className="text-black font-black text-[14px] uppercase truncate">{c?.code || "-"}</div>
                         <div className="text-[9px] text-black font-black uppercase tracking-wider truncate" title={c?.name}>{c?.name}</div>
                       </td>
-                      <td className="py-2 px-4 border-r border-slate-100 shrink-0" style={{ width: colWidths['note_today'] || 250 }}>
+                      <td className="py-2 px-4 border-r border-slate-100 shrink-0" style={{ width: colWidths['note_today'] || 250, flexBasis: colWidths['note_today'] || 250 }}>
                         {(() => {
                            const today = days[0];
                            const plan = plans.find(x => x.product_id === p.id && x.plan_date === today);
@@ -1158,7 +1172,7 @@ export default function DeliveryPlanPage() {
                         const editData = edits[`${p.id}_${d}`];
                         const val = editData?.qty ?? (plan?.planned_qty && plan.planned_qty > 0 ? String(plan.planned_qty) : "");
                         const isChanged = editData?.qty !== undefined || editData?.note !== undefined;
-                        const nd = new Date();
+                        const nd = getVNTime();
                         const itdr = `${nd.getFullYear()}-${String(nd.getMonth() + 1).padStart(2, '0')}-${String(nd.getDate()).padStart(2, '0')}` === d;
                         const isDone = plan?.is_completed;
                         const hasNote = !!(editData?.note ?? plan?.note);
@@ -1169,7 +1183,7 @@ export default function DeliveryPlanPage() {
                         const colW = colWidths[d] || 100;
 
                         return (
-                          <td key={d} className={`p-1 border-r border-slate-50 hover:bg-white transition-all shrink-0 ${isChanged ? 'bg-amber-50/60' : ''} ${itdr ? 'bg-red-50/20' : ''}`} style={{ width: colW }}>
+                          <td key={d} className={`p-1 border-r border-slate-50 hover:bg-white transition-all shrink-0 ${isChanged ? 'bg-amber-50/60' : ''} ${itdr ? 'bg-red-50/20' : ''}`} style={{ width: colW, flexBasis: colW }}>
                             <div className="relative group/cell w-full h-full">
                               <input
                                 type="text"
