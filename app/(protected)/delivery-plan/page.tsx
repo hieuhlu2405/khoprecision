@@ -784,14 +784,12 @@ export default function DeliveryPlanPage() {
         if (!p) return;
 
         upserts.push({
-          ...(existing?.id ? { id: existing.id } : {}),
+          id: existing?.id ?? crypto.randomUUID(), // Luôn cung cấp id để tránh PostgREST gửi NULL
           plan_date,
           product_id,
           customer_id: p.customer_id,
           planned_qty: qty,
           note: newNote,
-          // Luôn cung cấp created_at: giữ giá trị cũ nếu record đã tồn tại, tạo mới nếu chưa có
-          // Nếu không làm vậy, PostgREST sẽ gửi NULL cho cột NOT NULL trong phần INSERT của UPSERT
           created_at: (existing as any)?.created_at ?? new Date().toISOString(),
           created_by: (existing as any)?.created_by ?? u.user?.id,
           updated_at: new Date().toISOString(),
