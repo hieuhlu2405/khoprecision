@@ -7,7 +7,7 @@
 CREATE TABLE IF NOT EXISTS public.shipment_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shipment_no text NOT NULL UNIQUE,       -- PX-20260402-001
-  shipment_date date NOT NULL DEFAULT CURRENT_DATE,
+  shipment_date date NOT NULL DEFAULT (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,
   customer_id uuid REFERENCES public.customers(id),
   entity_id uuid REFERENCES public.selling_entities(id),
   driver_info text,                        -- Biển số xe / Tài xế
@@ -34,7 +34,7 @@ ALTER TABLE public.inventory_transactions
   ADD COLUMN IF NOT EXISTS shipment_id uuid REFERENCES public.shipment_logs(id) ON DELETE SET NULL;
 
 -- 3. Hàm sinh số lệnh xuất tự động: PX-YYYYMMDD-XXX
-CREATE OR REPLACE FUNCTION public.generate_shipment_no(p_date date DEFAULT CURRENT_DATE)
+CREATE OR REPLACE FUNCTION public.generate_shipment_no(p_date date DEFAULT (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
 RETURNS text
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -62,7 +62,7 @@ CREATE OR REPLACE FUNCTION public.shipment_outbound_delivery(
   p_entity_id uuid,
   p_driver_info text DEFAULT NULL,
   p_note text DEFAULT NULL,
-  p_shipment_date date DEFAULT CURRENT_DATE
+  p_shipment_date date DEFAULT (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
 )
 RETURNS jsonb
 LANGUAGE plpgsql

@@ -1297,7 +1297,9 @@ export default function DeliveryPlanPage() {
                            <div className="font-extrabold text-indigo-600 font-mono text-[14px]">{s.shipment_no}</div>
                          </td>
                          <td className="px-6 py-4 text-center">
-                           <div className="font-bold text-slate-600">{new Date(s.shipment_date).toLocaleDateString("vi-VN")}</div>
+                           <div className="font-bold text-slate-600">
+                             {new Date(s.shipment_date).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}
+                           </div>
                          </td>
                          <td className="px-6 py-4">
                            <div className="flex flex-wrap gap-1.5 min-w-[200px]">
@@ -1482,7 +1484,7 @@ export default function DeliveryPlanPage() {
                                     Phát hiện xe vừa đi chuyến <span className="text-indigo-600">#{recentShipment.shipment_no}</span>
                                   </div>
                                   <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                                     Tạo lúc: {new Date(recentShipment.created_at).toLocaleTimeString()} ({Math.round((new Date().getTime() - new Date(recentShipment.created_at).getTime()) / 60000)} phút trước)
+                                     Tạo lúc: {new Date(recentShipment.created_at).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} ({Math.round((new Date().getTime() - new Date(recentShipment.created_at).getTime()) / 60000)} phút trước)
                                   </div>
                                 </div>
                               </div>

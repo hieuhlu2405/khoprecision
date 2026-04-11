@@ -53,7 +53,7 @@ CREATE OR REPLACE FUNCTION public.shipment_outbound_delivery(
   p_assistant_1_name text DEFAULT NULL,
   p_assistant_2_name text DEFAULT NULL,
   p_note text DEFAULT NULL,
-  p_shipment_date date DEFAULT CURRENT_DATE,
+  p_shipment_date date DEFAULT (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,
   p_existing_shipment_id uuid DEFAULT NULL
 )
 RETURNS jsonb
@@ -211,15 +211,15 @@ BEGIN
     UPDATE public.delivery_plans
     SET actual_qty = v_new_total,
         is_completed = (v_new_total >= v_planned_qty),
-        updated_at = now(),
+        updated_at = timezone('Asia/Ho_Chi_Minh', now()),
         updated_by = v_user_id
     WHERE id = v_plan_id;
 
-    -- Xử lý Backlog
+    -- Xử lý Backlog (GMT+7)
     v_tomorrow := v_plan_date + interval '1 day';
     UPDATE public.delivery_plans
     SET planned_qty = GREATEST(0, planned_qty - v_actual_qty),
-        updated_at = now()
+        updated_at = timezone('Asia/Ho_Chi_Minh', now())
     WHERE plan_date = v_tomorrow AND product_id = v_product_id AND customer_id = v_customer_id AND note LIKE 'Backlog từ %' || to_char(v_plan_date, 'DD/MM/YYYY') || '%' AND actual_qty = 0;
 
     DELETE FROM public.delivery_plans 

@@ -224,3 +224,20 @@ Dùng cho các tiêu đề mục lục nhỏ hơn (H2) bên trong trang.
 
 > [!WARNING]
 > Mọi thay đổi `layout.tsx` **KHÔNG ĐƯỢC** vô tình xóa Menu cũ (đặc biệt nhóm "Báo cáo"). Khi thêm/sửa menu, phải giữ nguyên tất cả mục hiện có.
+
+## 12. QUY TẮC THỜI GIAN (TIMEZONE — QUAN TRỌNG)
+
+Mọi dữ liệu thời gian hiển thị hoặc tính toán log trong hệ thống **BẮT BUỘC** sử dụng múi giờ Việt Nam (**GMT+7**).
+
+### Quy tắc Frontend (Javascript/React)
+- Hiển thị ngày giờ: Dùng `.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })`.
+- Hiển thị ngày: `toLocaleDateString("vi-VN")`.
+- Khi tính toán `today`, lưu ý sự sai lệch nếu dùng máy chủ UTC.
+
+### Quy tắc Database (SQL/RPC)
+- Tuyệt đối **KHÔNG** dùng `CURRENT_DATE` trực tiếp vì nó phụ thuộc vào cấu hình session của database (thường là UTC).
+- **Phải dùng**: `(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date` để lấy ngày hiện tại của Việt Nam.
+- Lấy giờ hiện tại Việt Nam: `now() AT TIME ZONE 'Asia/Ho_Chi_Minh'`.
+
+> [!IMPORTANT]
+> Việc hiển thị sai giờ (lệch 7 tiếng) là lỗi nghiêm trọng ảnh hưởng đến tính chính xác của báo cáo. Mọi tính năng mới phải tự kiểm tra (self-test) múi giờ này.
