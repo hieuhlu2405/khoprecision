@@ -1131,7 +1131,7 @@ export default function DeliveryPlanPage() {
                         )}
                       </td>
                       <td className="py-2 px-4 border-r border-slate-100 sticky left-[50px] z-40 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)] shrink-0 grow-0" style={{ width: colWidths['sku'] || 180, flexBasis: colWidths['sku'] || 180 }}>
-                        <div className="font-black text-black tracking-tighter text-[15px] break-all uppercase" style={{ color: '#000000' }}>{p.sku}</div>
+                        <div className="font-black text-black tracking-wider text-[15px] break-all uppercase" style={{ color: '#000000' }}>{p.sku}</div>
                       </td>
                       <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0 overflow-hidden" style={{ width: colWidths['name'] || 320, flexBasis: colWidths['name'] || 320 }}>
                         <div className="text-slate-900 font-bold text-[14px] leading-tight truncate" title={p.name}>{p.name}</div>
@@ -1257,7 +1257,7 @@ export default function DeliveryPlanPage() {
                   <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl">📋</div>
                   <div>
                     <h3 className="text-lg font-black text-slate-900 leading-tight">LỊCH SỬ CHUYẾN HÀNG</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Danh sách 100 chuyến hàng gần đây nhất</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Danh sách 100 chuyến hàng gần đây nhất</p>
                   </div>
                 </div>
                 <button onClick={loadShipmentHistory} className="btn btn-ghost btn-sm text-indigo-600 font-black">🔄 LÀM MỚI</button>

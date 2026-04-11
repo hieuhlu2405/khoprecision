@@ -174,10 +174,10 @@ Dùng cho các tiêu đề mục lục nhỏ hơn (H2) bên trong trang.
 
 ## 4. Visual Hierarchy
 
-- Mã hàng (SKU): `font-black text-black text-[15px] font-mono`.
-- Tên hàng: `font-bold text-black text-[15px]`.
-- Quy cách: `text-[11px] text-black font-bold uppercase`.
-- Khách hàng: `font-black text-black uppercase`.
+- Mã hàng (SKU): `font-black text-black text-[15px] tracking-wider` (Bắt buộc dùng Inter Black, dãn chữ rộng, TUYỆT ĐỐI không dùng font-mono).
+- Tên hàng: `font-bold text-black text-[14px]`.
+- Quy cách: `text-[11px] text-black font-bold uppercase tracking-wider`.
+- Khách hàng: `font-black text-black uppercase` (Có thể dùng `text-slate-500` để làm mờ nếu ở các bảng kế hoạch cần ưu tiên độ nổi bật của mã hàng).
 
 ## 6. Bộ Lọc & Sắp Xếp Nâng Cao
 

@@ -491,7 +491,7 @@ export default function DeliveryLogPage() {
                         <input type="checkbox" className="checkbox checkbox-xs rounded border-slate-300" checked={isSel} onChange={() => toggleSelect(log.id)} />
                       </td>
                       <td className="px-6 py-4 border-r border-slate-200" style={{ width: colWidths["shipment_no"] || 150 }}>
-                        <span className="font-black text-indigo-600 text-base tracking-tighter">{log.shipment_no}</span>
+                        <span className="font-black text-indigo-600 text-base tracking-wider">{log.shipment_no}</span>
                         {log.note && <div className="text-[10px] text-black font-black italic mt-0.5" style={{ color: '#000000' }}>{log.note}</div>}
                       </td>
                       <td className="px-6 py-4 font-medium text-black text-[14px] border-r border-slate-200" style={{ color: '#000000', width: colWidths["shipment_date"] || 120 }}>
