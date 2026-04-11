@@ -510,7 +510,7 @@ export default function DeliveryLogPage() {
                               return (
                                 <div key={cid} className="flex flex-col">
                                   <div className="font-black text-black leading-tight text-[13px]">{c.code}</div>
-                                  <div className="text-[10px] text-slate-500 font-bold truncate max-w-[220px]" title={c.name}>{c.name}</div>
+                                  <div className="text-[10px] text-slate-500 font-bold truncate" title={c.name}>{c.name}</div>
                                 </div>
                               );
                             });
