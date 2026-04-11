@@ -1131,15 +1131,15 @@ export default function DeliveryPlanPage() {
                         )}
                       </td>
                       <td className="py-2 px-4 border-r border-slate-100 sticky left-[50px] z-40 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)] shrink-0 grow-0" style={{ width: colWidths['sku'] || 180, flexBasis: colWidths['sku'] || 180 }}>
-                        <div className="font-extrabold text-slate-900 font-mono tracking-tight text-[15px] break-all uppercase">{p.sku}</div>
+                        <div className="font-black text-black tracking-tighter text-[15px] break-all uppercase" style={{ color: '#000000' }}>{p.sku}</div>
                       </td>
                       <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0 overflow-hidden" style={{ width: colWidths['name'] || 320, flexBasis: colWidths['name'] || 320 }}>
                         <div className="text-slate-900 font-bold text-[14px] leading-tight truncate" title={p.name}>{p.name}</div>
                         <div className="text-[10px] text-slate-900 font-bold uppercase tracking-wider mt-0.5 truncate">{p.spec || ""}</div>
                       </td>
                       <td className="py-2 px-4 border-r border-slate-100 text-center shrink-0 grow-0" style={{ width: colWidths['customer'] || 140, flexBasis: colWidths['customer'] || 140 }}>
-                        <div className="text-black font-black text-[14px] uppercase truncate">{c?.code || "-"}</div>
-                        <div className="text-[9px] text-black font-black uppercase tracking-wider truncate" title={c?.name}>{c?.name}</div>
+                        <div className="text-slate-500 font-medium text-[13px] uppercase truncate">{c?.code || "-"}</div>
+                        <div className="text-[9px] text-slate-400 font-medium uppercase tracking-wider truncate" title={c?.name}>{c?.name}</div>
                       </td>
                       <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today'] || 250, flexBasis: colWidths['note_today'] || 250 }}>
                         {(() => {
