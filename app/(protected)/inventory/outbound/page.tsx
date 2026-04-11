@@ -1035,7 +1035,7 @@ export default function InventoryOutboundPage() {
                     <td style={{ ...tdStyle, width: colWidths["customer"] || 180, overflow: "hidden", textOverflow: "ellipsis", color: "#4b5563" }} title={customerLabel(r.customer_id)}>{customerLabel(r.customer_id)}</td>
                     <td style={{ ...tdStyle, width: colWidths["sku"] || 140, fontWeight: 900, color: "#000000", fontFamily: "var(--font-inter), monospace", fontSize: "15px" }}>{skuFor(r)}</td>
                     <td style={{ ...tdStyle, width: colWidths["name"] || 250, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", fontSize: "15px", color: "#4b5563" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
-                    <td style={{ ...tdStyle, width: colWidths["spec"] || 160, color: "#000000", fontSize: "11px", fontWeight: 700, textTransform: "uppercase" }}>{r.product_spec_snapshot}</td>
+                    <td style={{ ...tdStyle, width: colWidths["spec"] || 160, color: "#000000", fontSize: "15px", fontWeight: 700, textTransform: "uppercase" }}>{r.product_spec_snapshot}</td>
                     <td style={{ ...tdStyle, width: colWidths["qty"] || 100, textAlign: "right" }}>
                        <div className="flex flex-col items-end">
                          <span style={{ fontWeight: 800, fontSize: 16, color: "#000000" }}>{fmtNum(finalQty)}</span>
