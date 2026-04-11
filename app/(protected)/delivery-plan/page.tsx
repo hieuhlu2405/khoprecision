@@ -44,6 +44,7 @@ type Plan = {
   is_completed: boolean;
   note: string | null;
   is_backlog?: boolean;
+  backlog_qty?: number;
 };
 type ShipmentLog = {
   id: string;
@@ -313,6 +314,7 @@ export default function DeliveryPlanPage() {
         const prod = products.find(x => x.id === p.product_id);
         const cust = customers.find(x => x.id === (p.customer_id || prod?.customer_id));
         const ent = cust?.selling_entity_id ? entities.find(e => e.id === cust.selling_entity_id) : null;
+        const totalTarget = (p.planned_qty || 0) + (p.backlog_qty || 0);
         return {
           plan_id: p.id,
           product_name: prod?.name || "",
@@ -330,9 +332,9 @@ export default function DeliveryPlanPage() {
           entity_name: ent?.name || "",
           entity_address: ent?.address || "",
           entity_tax_code: ent?.tax_code || "",
-          planned: p.planned_qty,
+          planned: totalTarget,
           stock: mapping[p.product_id] || 0,
-          actual: p.planned_qty,
+          actual: totalTarget,
           push_backlog: false
         };
       });
@@ -1109,10 +1111,16 @@ export default function DeliveryPlanPage() {
                 ) : rowVirtualizer.getVirtualItems().map((virtualRow) => {
                   const p = displayProducts[virtualRow.index];
                   const c = customers.find(x => x.id === p.customer_id);
-                  const todayPlans = plans.filter(pl => pl.product_id === p.id && pl.plan_date === selectedOutboundDay && pl.planned_qty > 0);
+                  // Nhận diện cả dòng có planned_qty > 0 LẪN dòng chỉ có backlog_qty > 0 (nợ từ ngày trước)
+                  const todayPlans = plans.filter(pl =>
+                    pl.product_id === p.id &&
+                    pl.plan_date === selectedOutboundDay &&
+                    ((pl.planned_qty || 0) + (pl.backlog_qty || 0)) > 0
+                  );
                   const todayPlan = todayPlans[0];
                   const isSelected = todayPlan ? selectedPlanIds.has(todayPlan.id) : false;
-                  const canSelect = todayPlan && !todayPlan.is_completed && todayPlan.planned_qty > 0;
+                  const totalPlanTarget = (todayPlan?.planned_qty || 0) + (todayPlan?.backlog_qty || 0);
+                  const canSelect = todayPlan && !todayPlan.is_completed && totalPlanTarget > 0;
                   
                   return (
                     <tr 
@@ -1210,7 +1218,10 @@ export default function DeliveryPlanPage() {
                                 </div>
                               )}
                               {plan?.is_backlog && !isDone && (
-                                <div className="absolute -top-2 right-1 text-[8px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded shadow-sm z-30 animate-pulse tracking-widest pointer-events-none">
+                                <div 
+                                  className="absolute -top-2 right-1 text-[8px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded shadow-sm z-30 animate-pulse tracking-widest pointer-events-auto cursor-help"
+                                  title={`TỔNG CẦN GIAO: ${(plan?.planned_qty || 0) + (plan?.backlog_qty || 0)}\n(Kế hoạch gốc: ${plan?.planned_qty || 0} + Nợ: ${plan?.backlog_qty || 0})\n${plan?.note || ""}`}
+                                >
                                   NỢ
                                 </div>
                               )}
