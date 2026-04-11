@@ -1032,9 +1032,9 @@ export default function InventoryOutboundPage() {
                        <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => { const n = new Set(selectedIds); if(n.has(r.id)) n.delete(r.id); else n.add(r.id); setSelectedIds(n); }} />
                     </td>
                     <td style={{ ...tdStyle, width: colWidths["date"] || 110 }}>{fmtDate(r.tx_date)}</td>
-                    <td style={{ ...tdStyle, width: colWidths["customer"] || 180, overflow: "hidden", textOverflow: "ellipsis" }} title={customerLabel(r.customer_id)}>{customerLabel(r.customer_id)}</td>
+                    <td style={{ ...tdStyle, width: colWidths["customer"] || 180, overflow: "hidden", textOverflow: "ellipsis", color: "#64748b" }} title={customerLabel(r.customer_id)}>{customerLabel(r.customer_id)}</td>
                     <td style={{ ...tdStyle, width: colWidths["sku"] || 140, fontWeight: 900, color: "#000000", fontFamily: "var(--font-inter), monospace", fontSize: "15px" }}>{skuFor(r)}</td>
-                    <td style={{ ...tdStyle, width: colWidths["name"] || 250, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", fontSize: "15px", color: "#000000" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
+                    <td style={{ ...tdStyle, width: colWidths["name"] || 250, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", fontSize: "15px", color: "#64748b" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
                     <td style={{ ...tdStyle, width: colWidths["spec"] || 160, color: "#000000", fontSize: "11px", fontWeight: 700, textTransform: "uppercase" }}>{r.product_spec_snapshot}</td>
                     <td style={{ ...tdStyle, width: colWidths["qty"] || 100, textAlign: "right" }}>
                        <div className="flex flex-col items-end">
