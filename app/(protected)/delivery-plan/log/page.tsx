@@ -21,7 +21,7 @@ type ShipmentLog = {
   note: string;
   created_at: string;
   // Join data
-  inventory_transactions?: { customer_id: string }[];
+  inventory_transactions?: { customer_id: string; product_id: string; qty: number }[];
 };
 
 type Product = { id: string; sku: string; name: string; spec: string; uom: string; sap_code: string; external_sku: string; customer_id: string };
@@ -97,7 +97,7 @@ export default function DeliveryLogPage() {
         .from("shipment_logs")
         .select(`
           *,
-          inventory_transactions(customer_id)
+          inventory_transactions(customer_id, product_id, qty)
         `)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
@@ -383,7 +383,14 @@ export default function DeliveryLogPage() {
             const allCustIds = Array.from(new Set([l.customer_id, ...txCustIds])).filter(Boolean);
             target = allCustIds.map(cid => customers.find(x => x.id === cid)?.code || "").join(" ");
         }
-        else if (key === "entity") target = entities.find(e => e.id === l.entity_id)?.code || "";
+        else if (key === "total_qty") {
+            const sum = (l.inventory_transactions || []).reduce((a, b) => a + (b.qty || 0), 0);
+            target = String(sum);
+        }
+        else if (key === "sku_count") {
+            const set = new Set((l.inventory_transactions || []).map(t => t.product_id));
+            target = String(set.size);
+        }
         else if (key === "driver") {
             const v = vehicles.find(x => x.id === l.vehicle_id);
             const snapshots = [v?.license_plate, l.driver_1_name_snapshot, l.driver_2_name_snapshot, l.assistant_1_name_snapshot, l.assistant_2_name_snapshot].filter(Boolean).join(" ");
@@ -402,7 +409,10 @@ export default function DeliveryLogPage() {
         let vB: any = b[sortCol as keyof ShipmentLog] || "";
         
         if (sortCol === "shipment_no") { vA = a.shipment_no; vB = b.shipment_no; }
-        else if (sortCol === "shipment_date") { vA = a.shipment_date; vB = b.shipment_date; }
+        else if (sortCol === "total_qty") {
+            vA = (a.inventory_transactions || []).reduce((sum, t) => sum + (t.qty || 0), 0);
+            vB = (b.inventory_transactions || []).reduce((sum, t) => sum + (t.qty || 0), 0);
+        }
 
         if (vA < vB) return sortDir === "asc" ? -1 : 1;
         if (vA > vB) return sortDir === "asc" ? 1 : -1;
@@ -460,7 +470,7 @@ export default function DeliveryLogPage() {
                 <ThCell label="Số phiếu" colKey="shipment_no" w="150px" />
                 <ThCell label="Ngày xuất" colKey="shipment_date" w="120px" />
                 <ThCell label="Khách hàng" colKey="customer" w="250px" />
-                <ThCell label="Pháp nhân" colKey="entity" w="120px" />
+                <ThCell label="Tổng hàng" colKey="total_qty" w="120px" />
                 <ThCell label="Xe / Tài xế" colKey="driver" w="250px" />
                 <th className="px-6 py-4 text-center font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200 bg-slate-50/80 backdrop-blur-md sticky top-0 z-20 w-[120px]" style={{ color: '#000000' }}>Thao tác</th>
               </tr>
@@ -507,12 +517,23 @@ export default function DeliveryLogPage() {
                           })()}
                         </div>
                       </td>
-                      <td className="px-6 py-4 border-r border-slate-200" style={{ width: colWidths["entity"] || 120 }}>
-                        {ent ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-200/60 text-indigo-600 text-[10px] font-black uppercase tracking-wider shadow-sm">
-                            🏢 {ent.code}
-                          </span>
-                        ) : <span className="text-slate-300">-</span>}
+                      <td className="px-6 py-4 border-r border-slate-200" style={{ width: colWidths["total_qty"] || 120 }}>
+                        {(() => {
+                           const txs = log.inventory_transactions || [];
+                           const totalQty = txs.reduce((a, b) => a + (b.qty || 0), 0);
+                           const skuCount = new Set(txs.map(t => t.product_id)).size;
+                           
+                           return (
+                             <div className="flex flex-col">
+                               <div className="font-black text-black text-[15px] leading-tight" style={{ color: '#000000' }}>
+                                 {totalQty > 0 ? totalQty.toLocaleString("vi-VN") : "0"} <span className="text-[10px] text-slate-400 font-bold uppercase ml-0.5">SP</span>
+                               </div>
+                               <div className="text-[10px] text-slate-500 font-black uppercase tracking-tighter mt-0.5">
+                                 📦 {skuCount} mã hàng
+                               </div>
+                             </div>
+                           );
+                        })()}
                       </td>
                       <td className="px-6 py-4 border-r border-slate-200" style={{ width: colWidths["driver"] || 250 }}>
                         {(() => {
