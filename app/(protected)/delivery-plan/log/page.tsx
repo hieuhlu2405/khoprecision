@@ -312,7 +312,7 @@ export default function DeliveryLogPage() {
           style={{ width: width ? `${width}px` : w, minWidth: width ? `${width}px` : "50px" }}
         >
           <div className="flex items-center justify-between px-4 py-4 h-full relative group">
-            <span className="font-black text-[11px] text-black uppercase tracking-tighter truncate" style={{ color: '#000000' }}>{label}</span>
+            <span className="font-black text-xs text-black uppercase tracking-wider truncate" style={{ color: '#000000' }}>{label}</span>
             <div className="flex items-center gap-0.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
               <button 
                 onClick={(e) => { e.stopPropagation(); handleSort(colKey); }}
@@ -472,7 +472,7 @@ export default function DeliveryLogPage() {
                 <ThCell label="Khách hàng" colKey="customer" w="250px" />
                 <ThCell label="Tổng hàng" colKey="total_qty" w="120px" />
                 <ThCell label="Xe / Tài xế" colKey="driver" w="250px" />
-                <th className="px-6 py-4 text-center font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200 bg-slate-50/80 backdrop-blur-md sticky top-0 z-20 w-[120px]" style={{ color: '#000000' }}>Thao tác</th>
+                <th className="px-6 py-4 text-center font-black text-xs text-black uppercase tracking-wider border-b border-slate-200 bg-slate-50/80 backdrop-blur-md sticky top-0 z-20 w-[120px]" style={{ color: '#000000' }}>Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -526,7 +526,7 @@ export default function DeliveryLogPage() {
                            return (
                              <div className="flex flex-col">
                                <div className="font-black text-black text-[15px] leading-tight" style={{ color: '#000000' }}>
-                                 {totalQty > 0 ? totalQty.toLocaleString("vi-VN") : "0"} <span className="text-[10px] text-slate-400 font-bold uppercase ml-0.5">SP</span>
+                                 {totalQty > 0 ? totalQty.toLocaleString("vi-VN") : "0"} <span className="text-[10px] text-slate-400 font-bold uppercase ml-0.5">Sản phẩm</span>
                                </div>
                                <div className="text-[10px] text-slate-500 font-black uppercase tracking-tighter mt-0.5">
                                  📦 {skuCount} mã hàng
