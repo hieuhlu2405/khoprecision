@@ -558,9 +558,15 @@ export default function InventoryOutboundPage() {
 
     return (
       <th style={baseStyle} ref={thRef} className="group">
-        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-black font-black text-xs uppercase tracking-wider !text-black" style={{ color: "#000000" }}>{label}</span>
-          <div className="flex items-center gap-0.5">
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: "4px", 
+          width: "100%",
+          justifyContent: align === "right" ? "flex-end" : align === "center" ? "center" : "flex-start"
+        }}>
+          <span className="text-black font-black text-xs uppercase tracking-wider !text-black truncate" style={{ color: "#000000" }}>{label}</span>
+          <div className="flex items-center flex-shrink-0" style={{ gap: "2px" }}>
             {sortable && (
               <button
                 onClick={(e) => {
@@ -570,9 +576,9 @@ export default function InventoryOutboundPage() {
                     else { setSortDir(null); setSortCol(null); }
                   } else { setSortCol(colKey); setSortDir("asc"); }
                 }}
-                className={`p-1 hover:bg-slate-100 rounded transition-colors ${isSortTarget ? "text-indigo-600" : "text-slate-400"}`}
+                className={`p-0.5 hover:bg-slate-100 rounded transition-colors ${isSortTarget ? "text-indigo-600" : "text-slate-400"}`}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
                   {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6" /> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6" /> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3" />}
                 </svg>
               </button>
@@ -580,9 +586,9 @@ export default function InventoryOutboundPage() {
             {filterable !== false && (
               <button
                 onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
-                className={`p-1 rounded transition-all ${active ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-100"}`}
+                className={`p-0.5 rounded transition-all ${active ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-100"}`}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
               </button>
             )}
           </div>
@@ -729,7 +735,7 @@ export default function InventoryOutboundPage() {
           product_spec_snapshot: p?.spec,
           tx_type: "out",
           qty: Number(l.qty),
-          unit_cost: l.unitCost ? Number(l.unitCost) : null,
+          unit_cost: l.unitCost ? Number(l.unitCost) : (p?.unit_price || null),
           note: l.note || hNote || null,
           created_by: u.user?.id
         };
@@ -757,7 +763,7 @@ export default function InventoryOutboundPage() {
         product_name_snapshot: p?.name || editing.product_name_snapshot,
         product_spec_snapshot: p?.spec || editing.product_spec_snapshot,
         qty: Number(eQty),
-        unit_cost: eCost ? Number(eCost) : null,
+        unit_cost: eCost ? Number(eCost) : (p?.unit_price || null),
         note: eNote || null,
         updated_at: new Date().toISOString()
       }).eq("id", editing.id);
@@ -1036,7 +1042,17 @@ export default function InventoryOutboundPage() {
                          {hasAdjs && <span style={{ fontSize: 10, color: adjTotal >= 0 ? "green" : "red", fontWeight: 900 }}>(Gốc: {fmtNum(originalQty)})</span>}
                        </div>
                     </td>
-                    <td style={{ ...tdStyle, width: colWidths["price"] || 110, textAlign: "right", color: "#000000" }}>{r.unit_cost != null ? fmtNum(r.unit_cost) : "---"}</td>
+                    <td style={{ ...tdStyle, width: colWidths["price"] || 110, textAlign: "right" }}>
+                       {r.unit_cost != null ? (
+                         <span style={{ color: "#000000" }}>{fmtNum(r.unit_cost)}</span>
+                       ) : (
+                         <span style={{ color: "#94a3b8", fontStyle: "italic", fontSize: "12px" }}>
+                           {products.find(p => p.id === r.product_id)?.unit_price != null 
+                             ? fmtNum(products.find(p => p.id === r.product_id)?.unit_price) 
+                             : "---"}
+                         </span>
+                       )}
+                    </td>
                     <td className="table-note-black" style={{ ...tdStyle, width: colWidths["note"] || 200, overflow: "hidden", textOverflow: "ellipsis" }} title={r.note || ""}>{r.note || ""}</td>
                     <td style={{ ...tdStyle, width: colWidths["createdAt"] || 160, fontSize: 11, color: "#64748b" }}>{fmtDatetime(r.created_at)}</td>
                     <td style={{ ...tdStyle, width: 120, textAlign: "center" }}>
