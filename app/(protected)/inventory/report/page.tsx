@@ -614,7 +614,7 @@ export default function InventoryReportPage() {
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Số lượng</span>
             </div>
             <div className="stat-card-label text-slate-500 font-medium text-xs mb-1">Tổng lượng tồn</div>
-            <div className="text-3xl font-black text-slate-900 tracking-tight group-hover:text-amber-600 transition-colors uppercase">{fmtNum(totals.qty)}</div>
+            <div className="text-3xl font-black text-slate-900 tracking-tight group-hover:text-amber-600 transition-colors">{fmtNum(totals.qty)}</div>
           </div>
         </motion.div>
 
@@ -628,7 +628,7 @@ export default function InventoryReportPage() {
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Giá trị</span>
             </div>
             <div className="stat-card-label text-slate-500 font-medium text-xs mb-1">Tổng giá trị (VNĐ)</div>
-            <div className="text-3xl font-black text-slate-900 tracking-tighter group-hover:text-emerald-600 transition-colors font-mono">{fmtNum(totals.val)}</div>
+            <div className="text-3xl font-black text-slate-900 tracking-tighter group-hover:text-emerald-600 transition-colors">{fmtNum(totals.val)}</div>
           </div>
         </motion.div>
 
@@ -716,7 +716,7 @@ export default function InventoryReportPage() {
                 <ThCell label="Tồn đầu" colKey="opening_qty" sortable isNum align="right" w="100px" />
                 <ThCell label="Nhập" colKey="inbound_qty" sortable isNum align="right" w="100px" />
                 <ThCell label="Xuất" colKey="outbound_qty" sortable isNum align="right" w="100px" />
-                <ThCell label="Tồn hiện tại" colKey="current_qty" sortable isNum align="right" w="110px" extra={{ background: "transparent", color: "var(--brand-700)" }} />
+                <ThCell label="Tồn hiện tại" colKey="current_qty" sortable isNum align="right" w="110px" extra={{ background: "#fef08a", color: "#000000" }} />
                 <ThCell label="Đơn giá" colKey="unit_price" sortable isNum align="right" w="110px" />
                 <ThCell label="Giá trị tồn" colKey="inventory_value" sortable isNum align="right" w="130px" extra={{ background: "transparent", color: "var(--color-success)" }} />
               </tr>
@@ -730,13 +730,13 @@ export default function InventoryReportPage() {
                 return (
                   <tr key={`${r.product.id}-${r.customer_id}`} className="hover:bg-brand/[0.02] transition-colors group odd:bg-white even:bg-slate-50/30">
                     <td className="font-medium text-[15px] leading-tight" style={{ color: "#64748b" }}>{customerLabel(r.customer_id)}</td>
-                    <td className="font-mono text-black font-black text-[15px]">{r.product.sku}</td>
+                    <td className="font-bold text-[15px] uppercase" style={{ color: "#000000" }}>{r.product.sku}</td>
                     <td className="font-medium text-[15px] leading-tight" style={{ color: "#64748b" }}>{r.product.name}</td>
-                    <td className="text-black font-bold text-[15px] uppercase">{r.product.spec}</td>
+                    <td className="font-normal text-[15px] uppercase" style={{ color: "#64748b" }}>{r.product.spec}</td>
                     <td className="text-right text-black font-medium text-[15px]">{fmtNum(r.opening_qty)}</td>
                     <td className="text-right text-green-600 font-medium text-[15px]">+{fmtNum(r.inbound_qty)}</td>
                     <td className="text-right text-red-500 font-medium text-[15px]">-{fmtNum(r.outbound_qty)}</td>
-                    <td className={`text-right font-bold text-[15px] ${isZero ? "bg-red-50 text-red-600" : isLow ? "text-amber-600 bg-amber-50/50" : "text-black"}`}>{fmtNum(r.current_qty)}</td>
+                    <td className="text-right font-bold text-[15px]" style={{ backgroundColor: isZero ? "#fecaca" : isLow ? "#fde047" : "#fef08a", color: isZero ? "#991b1b" : "#000000" }}>{fmtNum(r.current_qty)}</td>
                     <td className="text-right font-medium text-[15px]" style={{ color: "#64748b" }}>{fmtNum(r.product.unit_price)}</td>
                     <td className="text-right font-bold text-[15px] text-green-700 bg-green-50/30">{fmtNum(r.inventory_value)}</td>
 
