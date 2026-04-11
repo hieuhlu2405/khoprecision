@@ -429,11 +429,10 @@ export default function DeliveryLogPage() {
 
         <div className="flex items-center gap-3">
           <div className="relative group">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors z-10 pointer-events-none">🔍</span>
             <input
               type="text"
               placeholder="Tìm Số phiếu, Biển số..."
-              className="input input-bordered input-sm pl-20 w-80 font-bold text-xs rounded-xl focus:ring-2 focus:ring-indigo-500/20 border-slate-200"
+              className="input input-bordered input-sm pl-4 w-80 font-bold text-xs rounded-xl focus:ring-2 focus:ring-indigo-500/20 border-slate-200"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
