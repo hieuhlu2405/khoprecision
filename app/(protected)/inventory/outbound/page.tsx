@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
+import { formatDateVN, formatDateTimeVN, getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 
 /* ------------------------------------------------------------------ */
@@ -80,18 +81,11 @@ type FormLine = {
 /* ------------------------------------------------------------------ */
 
 function fmtDate(d: string | null): string {
-  if (!d) return "";
-  const parts = d.slice(0, 10).split("-");
-  if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-  return d;
+  return formatDateVN(d);
 }
 
 function fmtDatetime(d: string | null): string {
-  if (!d) return "";
-  const dp = d.slice(0, 10).split("-");
-  const tp = d.slice(11, 19);
-  if (dp.length === 3) return `${dp[2]}-${dp[1]}-${dp[0]} ${tp}`;
-  return d.replace("T", " ").slice(0, 19);
+  return formatDateTimeVN(d);
 }
 
 const thStyle = { textAlign: "left", background: "#f8fafc", whiteSpace: "nowrap" } as const;
@@ -549,13 +543,15 @@ export default function InventoryOutboundPage() {
       position: "sticky",
       top: 0,
       zIndex: 40,
-      background: "rgba(255,255,255,0.95)",
-      backdropFilter: "blur(8px)",
-      borderBottom: "1px solid #e2e8f0",
+      background: "rgba(255,255,255,1)",
+      borderBottom: "2px solid #000000",
+      borderRight: "1px solid #e2e8f0",
       whiteSpace: "nowrap",
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
       padding: "12px",
+      color: "#000000",
+      fontWeight: 900,
       ...extra
     };
     const popupOpen = openPopupId === colKey;
@@ -563,7 +559,7 @@ export default function InventoryOutboundPage() {
     return (
       <th style={baseStyle} ref={thRef} className="group">
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
+          <span className="text-black font-black text-xs uppercase tracking-wider !text-black" style={{ color: "#000000" }}>{label}</span>
           <div className="flex items-center gap-0.5">
             {sortable && (
               <button
@@ -664,8 +660,7 @@ export default function InventoryOutboundPage() {
   function openAdjustment(r: OutboundTx) {
     setAdjBaseTx(r);
     setAType("adjust_out");
-    const now = new Date();
-    setADate(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`);
+    setADate(getTodayVNStr());
     setAQty("");
     setACost("");
     setANote("");
@@ -866,7 +861,7 @@ export default function InventoryOutboundPage() {
     <div className="page-root" style={{ padding: 24 }} ref={containerRef}>
       <header className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <div>
-          <h1 className="page-title" style={{ fontSize: 24, fontWeight: 800 }}>XUẤT KHO (OUTBOUND)</h1>
+          <h1 className="page-title">XUẤT KHO (OUTBOUND)</h1>
           <p className="page-description">Quản lý lịch sử xuất hàng và điều chỉnh tồn kho.</p>
         </div>
         <div style={{ display: "flex", gap: 12 }}>
@@ -992,10 +987,10 @@ export default function InventoryOutboundPage() {
         className="data-table-wrap !rounded-xl overflow-auto border border-slate-200" 
         style={{ maxHeight: "calc(100vh - 380px)", position: "relative" }}
       >
-        <table className="w-full text-sm !border-separate !border-spacing-0 table-fixed">
+        <table className="data-table !border-separate !border-spacing-0 table-fixed" style={{ width: "100%", minWidth: "100%" }}>
           <thead className="sticky top-0 z-50 bg-white">
             <tr>
-              <th style={{ ...thStyle, width: 40, textAlign: "center", left: 0, zIndex: 101, background: "white", borderBottom: "1px solid #e2e8f0" }}>
+              <th style={{ ...thStyle, width: 40, textAlign: "center", left: 0, zIndex: 101, background: "white", borderBottom: "2px solid #000000", color: "#000000", fontWeight: 900 }}>
                 <input type="checkbox" checked={finalFiltered.length > 0 && selectedIds.size === finalFiltered.length} onChange={e => setSelectedIds(e.target.checked ? new Set(finalFiltered.map(r => r.id)) : new Set())} />
               </th>
               <ThCell label="Ngày" colKey="date" sortable colType="date" w="110px" />
@@ -1023,28 +1018,28 @@ export default function InventoryOutboundPage() {
                     data-index={virtualRow.index}
                     style={{ 
                       position: "absolute", top: 0, transform: `translateY(${virtualRow.start}px)`, 
-                      width: "100%", display: "flex", background: selectedIds.has(r.id) ? "#f1f5f9" : virtualRow.index % 2 === 0 ? "white" : "#f8fafc" 
+                      width: "100%", display: "table", tableLayout: "fixed", background: selectedIds.has(r.id) ? "#f1f5f9" : virtualRow.index % 2 === 0 ? "white" : "#f8fafc" 
                     }}
                     className="hover:bg-indigo-50/50 transition-colors"
                   >
-                    <td style={{ ...tdStyle, width: 40, textAlign: "center", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                    <td style={{ ...tdStyle, width: 40, textAlign: "center" }} onClick={e => e.stopPropagation()}>
                        <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => { const n = new Set(selectedIds); if(n.has(r.id)) n.delete(r.id); else n.add(r.id); setSelectedIds(n); }} />
                     </td>
-                    <td style={{ ...tdStyle, width: colWidths["date"] || 110, flexShrink: 0 }}>{fmtDate(r.tx_date)}</td>
-                    <td style={{ ...tdStyle, width: colWidths["customer"] || 180, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }} title={customerLabel(r.customer_id)}>{customerLabel(r.customer_id)}</td>
-                    <td style={{ ...tdStyle, width: colWidths["sku"] || 140, flexShrink: 0, fontWeight: 700, color: "#1e293b" }}>{skuFor(r)}</td>
-                    <td style={{ ...tdStyle, width: colWidths["name"] || 250, flexShrink: 0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
-                    <td style={{ ...tdStyle, width: colWidths["spec"] || 160, flexShrink: 0, color: "#64748b" }}>{r.product_spec_snapshot}</td>
-                    <td style={{ ...tdStyle, width: colWidths["qty"] || 100, textAlign: "right", flexShrink: 0 }}>
+                    <td style={{ ...tdStyle, width: colWidths["date"] || 110 }}>{fmtDate(r.tx_date)}</td>
+                    <td style={{ ...tdStyle, width: colWidths["customer"] || 180, overflow: "hidden", textOverflow: "ellipsis" }} title={customerLabel(r.customer_id)}>{customerLabel(r.customer_id)}</td>
+                    <td style={{ ...tdStyle, width: colWidths["sku"] || 140, fontWeight: 900, color: "#000000", fontFamily: "var(--font-inter), monospace", fontSize: "15px" }}>{skuFor(r)}</td>
+                    <td style={{ ...tdStyle, width: colWidths["name"] || 250, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", fontSize: "15px", color: "#000000" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
+                    <td style={{ ...tdStyle, width: colWidths["spec"] || 160, color: "#000000", fontSize: "11px", fontWeight: 700, textTransform: "uppercase" }}>{r.product_spec_snapshot}</td>
+                    <td style={{ ...tdStyle, width: colWidths["qty"] || 100, textAlign: "right" }}>
                        <div className="flex flex-col items-end">
-                         <span style={{ fontWeight: 800, fontSize: 15, color: "#0f172a" }}>{fmtNum(finalQty)}</span>
-                         {hasAdjs && <span style={{ fontSize: 9, color: adjTotal >= 0 ? "green" : "red" }}>(Gốc: {fmtNum(originalQty)})</span>}
+                         <span style={{ fontWeight: 800, fontSize: 16, color: "#000000" }}>{fmtNum(finalQty)}</span>
+                         {hasAdjs && <span style={{ fontSize: 10, color: adjTotal >= 0 ? "green" : "red", fontWeight: 900 }}>(Gốc: {fmtNum(originalQty)})</span>}
                        </div>
                     </td>
-                    <td style={{ ...tdStyle, width: colWidths["price"] || 110, textAlign: "right", flexShrink: 0, color: "#64748b" }}>{r.unit_cost != null ? fmtNum(r.unit_cost) : "---"}</td>
-                    <td style={{ ...tdStyle, width: colWidths["note"] || 200, flexShrink: 0, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis" }} title={r.note || ""}>{r.note || ""}</td>
-                    <td style={{ ...tdStyle, width: colWidths["createdAt"] || 160, flexShrink: 0, fontSize: 11, color: "#cbd5e1" }}>{fmtDatetime(r.created_at)}</td>
-                    <td style={{ ...tdStyle, width: 120, textAlign: "center", flexShrink: 0 }}>
+                    <td style={{ ...tdStyle, width: colWidths["price"] || 110, textAlign: "right", color: "#000000" }}>{r.unit_cost != null ? fmtNum(r.unit_cost) : "---"}</td>
+                    <td className="table-note-black" style={{ ...tdStyle, width: colWidths["note"] || 200, overflow: "hidden", textOverflow: "ellipsis" }} title={r.note || ""}>{r.note || ""}</td>
+                    <td style={{ ...tdStyle, width: colWidths["createdAt"] || 160, fontSize: 11, color: "#64748b" }}>{fmtDatetime(r.created_at)}</td>
+                    <td style={{ ...tdStyle, width: 120, textAlign: "center" }}>
                        <div className="flex gap-2 justify-center">
                           <button onClick={() => toggleExpanded(r.id)} className="btn-icon">{isExpanded ? "▲" : "▼"}</button>
                           {canEdit && <button onClick={() => openEdit(r)} className="btn-icon">✏️</button>}
