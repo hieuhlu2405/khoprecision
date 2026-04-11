@@ -803,12 +803,27 @@ export default function InventoryInboundPage() {
   }
 
   async function handleDelete(id: string) {
-    const ok = await showConfirm({ message: "Xóa giao dịch này? Hành động này không thể hoàn tác.", danger: true });
+    const ok = await showConfirm({ message: "Xóa giao dịch này và tất cả các bản điều chỉnh liên quan?", danger: true });
     if (!ok) return;
     try {
-      const { error } = await supabase.from("inventory_transactions").update({ deleted_at: new Date().toISOString() }).eq("id", id);
-      if (error) throw error;
-      showToast("Đã xóa giao dịch.", "info");
+      const now = new Date().toISOString();
+      // 1. Delete main transaction
+      const { error: e1 } = await supabase.from("inventory_transactions").update({ deleted_at: now }).eq("id", id);
+      if (e1) throw e1;
+
+      // 2. Delete linked adjustments
+      const { data: adjs, error: e2 } = await supabase.from("inventory_transactions")
+        .update({ deleted_at: now })
+        .eq("adjusted_from_transaction_id", id)
+        .select("id");
+      if (e2) throw e2;
+
+      const adjCount = adjs?.length || 0;
+      const msg = adjCount > 0 
+        ? `Đã xóa 1 giao dịch và ${adjCount} bản điều chỉnh liên quan.`
+        : "Đã xóa giao dịch.";
+
+      showToast(msg, "info");
       load();
     } catch (err: any) {
       showToast(err.message, "error");
@@ -816,12 +831,28 @@ export default function InventoryInboundPage() {
   }
 
   async function bulkDelete() {
-    const ok = await showConfirm({ message: `Xóa ${selectedIds.size} giao dịch đã chọn?`, danger: true });
+    const ids = Array.from(selectedIds);
+    const ok = await showConfirm({ message: `Xóa ${ids.length} giao dịch đã chọn và tất cả điều chỉnh liên quan?`, danger: true });
     if (!ok) return;
     try {
-      const { error } = await supabase.from("inventory_transactions").update({ deleted_at: new Date().toISOString() }).in("id", Array.from(selectedIds));
-      if (error) throw error;
-      showToast("Đã xóa các giao dịch.", "info");
+      const now = new Date().toISOString();
+      // 1. Delete main transactions
+      const { error: e1 } = await supabase.from("inventory_transactions").update({ deleted_at: now }).in("id", ids);
+      if (e1) throw e1;
+
+      // 2. Delete linked adjustments
+      const { data: adjs, error: e2 } = await supabase.from("inventory_transactions")
+        .update({ deleted_at: now })
+        .in("adjusted_from_transaction_id", ids)
+        .select("id");
+      if (e2) throw e2;
+
+      const adjCount = adjs?.length || 0;
+      const msg = adjCount > 0 
+        ? `Đã xóa ${ids.length} giao dịch và ${adjCount} bản điều chỉnh liên quan.`
+        : `Đã xóa ${ids.length} giao dịch.`;
+
+      showToast(msg, "info");
       setSelectedIds(new Set());
       load();
     } catch (err: any) {
