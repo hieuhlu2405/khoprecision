@@ -66,7 +66,7 @@ BEGIN
     v_plan_id := (v_item->>'plan_id')::uuid;
     v_actual_qty := (v_item->>'actual_qty')::numeric;
     
-    -- Khóa dòng kế hoạch (Row-level Lock)
+    -- Khóa bản ghi kế hoạch để tránh Race Condition
     SELECT plan_date, product_id, customer_id, planned_qty, actual_qty
     INTO v_plan_date, v_product_id, v_customer_id, v_planned_qty, v_old_actual
     FROM public.delivery_plans
@@ -87,9 +87,9 @@ BEGIN
         v_user_id, name, spec, v_plan_id, v_shipment_id
       FROM public.products WHERE id = v_product_id;
       
-      -- BƯỚC 2: Cập nhật lũy kế actual_qty của ngày hiện tại
+      -- BƯỚC 2: Cập nhật lũy kế thực xuất hôm nay
       v_new_total := COALESCE(v_old_actual, 0) + v_actual_qty;
-      v_actual_delta := v_actual_qty; -- Số lượng xuất lần này là delta cho nợ ngày mai
+      v_actual_delta := v_actual_qty; 
       
       UPDATE public.delivery_plans
       SET actual_qty = v_new_total,
@@ -98,42 +98,27 @@ BEGIN
           updated_by = v_user_id
       WHERE id = v_plan_id;
 
-      -- BƯỚC 3: Xử lý Backlog (Logic đồng bộ delta)
+      -- BƯỚC 3: Xử lý Backlog (Sync nợ sang ngày mai)
       v_tomorrow := v_plan_date + interval '1 day';
       
-      -- Nếu chúng ta đang xuất thêm hàng cho hôm nay, chúng ta phải GIẢM nợ ở ngày mai đi tương ứng.
-      -- Nếu ngày mai chưa có dòng nợ, chúng ta sẽ tạo mới với số lượng còn thiếu.
-      
-      -- Trường hợp 1: Ngày mai đã có bản ghi (có thể là nợ hoặc kế hoạch gốc)
-      INSERT INTO public.delivery_plans (
-        plan_date, product_id, customer_id, planned_qty, note, created_by, is_backlog
-      ) 
-      VALUES (
-        v_tomorrow, v_product_id, v_customer_id, 
-        GREATEST(0, v_planned_qty - v_new_total), 
-        'NỢ TỪ CHUYẾN ' || v_shipment_no || ' NGÀY ' || to_char(v_plan_date, 'DD/MM/YYYY'),
-        v_user_id, true
-      )
-      ON CONFLICT (plan_date, product_id, customer_id)
-      DO UPDATE SET
-        -- Quan trọng: Nếu hôm nay xuất THÊM (v_actual_delta > 0), thì nợ ngày mai phải GIẢM đi bấy nhiêu.
-        -- Chúng ta dùng GREATEST(0, ...) để tránh âm nếu người dùng thay đổi kế hoạch gốc của ngày mai.
-        planned_qty = GREATEST(0, public.delivery_plans.planned_qty - EXCLUDED.actual_delta_placeholder), -- Placeholder logic below
-        is_backlog = true,
-        updated_at = now()
-      WHERE public.delivery_plans.is_completed = false; 
-      
-      -- Lưu ý: Câu lệnh trên cần tinh chỉnh để truyền delta. Vì ON CONFLICT không nhận biến local trực tiếp dễ dàng trong DO UPDATE.
-      -- Tôi sẽ viết lại theo kiểu truyền thống để an toàn hơn.
-      
-      IF EXISTS (SELECT 1 FROM public.delivery_plans WHERE plan_date = v_tomorrow AND product_id = v_product_id AND (customer_id = v_customer_id OR (customer_id IS NULL AND v_customer_id IS NULL))) THEN
+      -- Nếu ngày mai đã có bản ghi (do đã đẻ nợ từ chuyến trước hoặc có plan sẵn)
+      IF EXISTS (
+        SELECT 1 FROM public.delivery_plans 
+        WHERE plan_date = v_tomorrow 
+          AND product_id = v_product_id 
+          AND (customer_id = v_customer_id OR (customer_id IS NULL AND v_customer_id IS NULL))
+      ) THEN
+          -- Cập nhật dòng ngày mai: Giảm số lượng kế hoạch đi tương ứng với phần vừa xuất thêm hôm nay
           UPDATE public.delivery_plans
           SET planned_qty = GREATEST(0, planned_qty - v_actual_delta),
               is_backlog = true,
               updated_at = now()
-          WHERE plan_date = v_tomorrow AND product_id = v_product_id AND (customer_id = v_customer_id OR (customer_id IS NULL AND v_customer_id IS NULL));
+          WHERE plan_date = v_tomorrow 
+            AND product_id = v_product_id 
+            AND (customer_id = v_customer_id OR (customer_id IS NULL AND v_customer_id IS NULL))
+            AND is_completed = false;
       ELSE
-          -- Nếu chưa có dòng cho ngày mai, và hôm nay vẫn còn thiếu hàng
+          -- Nếu chưa có dòng cho ngày mai và hôm nay vẫn đang thiếu hàng
           IF v_new_total < v_planned_qty THEN
              INSERT INTO public.delivery_plans (
                plan_date, product_id, customer_id, planned_qty, note, created_by, is_backlog
@@ -160,7 +145,7 @@ END;
 $$;
 
 
--- 2. Viết đè lại hàm `auto_outbound_delivery` (Chốt tự động)
+-- 2. Viết đè lại hàm `auto_outbound_delivery` (Chốt tự động cuối ngày)
 CREATE OR REPLACE FUNCTION public.auto_outbound_delivery(
   p_payload jsonb, 
   p_note text
@@ -207,12 +192,20 @@ BEGIN
       v_backlog_qty := v_planned_qty - v_actual_qty;
       v_tomorrow := v_plan_date + interval '1 day';
 
-      IF EXISTS (SELECT 1 FROM public.delivery_plans WHERE plan_date = v_tomorrow AND product_id = v_product_id AND (customer_id = v_customer_id OR (customer_id IS NULL AND v_customer_id IS NULL))) THEN
+      IF EXISTS (
+        SELECT 1 FROM public.delivery_plans 
+        WHERE plan_date = v_tomorrow 
+          AND product_id = v_product_id 
+          AND (customer_id = v_customer_id OR (customer_id IS NULL AND v_customer_id IS NULL))
+      ) THEN
           UPDATE public.delivery_plans
           SET planned_qty = planned_qty + GREATEST(0, v_backlog_qty),
               is_backlog = true,
               updated_at = now()
-          WHERE plan_date = v_tomorrow AND product_id = v_product_id AND (customer_id = v_customer_id OR (customer_id IS NULL AND v_customer_id IS NULL));
+          WHERE plan_date = v_tomorrow 
+            AND product_id = v_product_id 
+            AND (customer_id = v_customer_id OR (customer_id IS NULL AND v_customer_id IS NULL))
+            AND is_completed = false;
       ELSE
           IF v_backlog_qty > 0 THEN
              INSERT INTO public.delivery_plans (
