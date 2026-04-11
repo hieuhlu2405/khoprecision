@@ -224,7 +224,7 @@ export default function ShortageReportPage() {
     };
 
     return (
-      <th ref={thRef} style={{ width: width ? `${width}px` : w, minWidth: width ? `${width}px` : w, textAlign: align, left: sticky ? 0 : undefined, zIndex: sticky ? 41 : 40, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0" }}
+      <th ref={thRef} style={{ width: width ? `${width}px` : w, minWidth: width ? `${width}px` : w, textAlign: align, left: sticky ? 0 : undefined, zIndex: sticky ? 41 : 40, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e2e8f0", flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', boxSizing: 'border-box' }}
         className={`py-4 px-4 sticky top-0 group select-none ${sticky ? "shadow-[2px_0_10px_rgba(0,0,0,0.02)]" : ""} ${isToday ? "bg-red-50/50 text-red-600" : "text-slate-900"}`}
       >
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
@@ -302,7 +302,7 @@ export default function ShortageReportPage() {
         <div className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" style={{ marginTop: 12, maxHeight: "calc(100vh - 350px)" }}>
           <table className="w-full text-xs !border-separate !border-spacing-0 table-fixed">
             <thead>
-              <tr>
+              <tr style={{ display: 'flex', width: '100%' }}>
                 <ThCell label="Mã hàng" colKey="sku" sortable sticky w="180px" />
                 <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="300px" />
                 <ThCell label="Khách hàng" colKey="customer" w="150px" align="center" />
@@ -320,7 +320,7 @@ export default function ShortageReportPage() {
                     extra={formatShortDate(d)}
                   />
                 ))}
-                <th className="py-4 font-black uppercase text-[10px] tracking-widest text-slate-400 w-[100px] sticky top-0 bg-slate-50/50 z-40">Dự kiến Cuối</th>
+                <th style={{ width: '100px', minWidth: '100px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }} className="py-4 font-black uppercase text-[10px] tracking-widest text-slate-400 sticky top-0 bg-slate-50/50 z-40">Dự kiến Cuối</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -330,15 +330,15 @@ export default function ShortageReportPage() {
                 <tr><td colSpan={11} className="py-40 text-center text-emerald-500 text-xl font-black italic">🎉 Tuyệt vời! Không phát hiện mã hàng bị thiếu hụt nào.</td></tr>
               ) : reportData.map(r => {
                 return (
-                  <tr key={r.p.id} className="group hover:bg-brand/5 transition-colors odd:bg-white even:bg-slate-50/10">
-                    <td className="py-4 px-4 sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                  <tr key={r.p.id} style={{ display: 'flex', width: '100%' }} className="group hover:bg-brand/5 transition-colors odd:bg-white even:bg-slate-50/10">
+                    <td style={{ width: '180px', minWidth: '180px', flexShrink: 0, boxSizing: 'border-box' }} className="py-4 px-4 sticky left-0 z-10 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
                        <div className="font-extrabold text-slate-900 font-mono text-[15px] tracking-tighter uppercase">{r.p.sku}</div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50">
+                    <td style={{ width: '300px', minWidth: '300px', flexShrink: 0, boxSizing: 'border-box' }} className="py-4 px-4 border-r border-slate-50">
                        <div className="font-bold text-slate-900 text-[15px] leading-tight" title={r.p.name}>{r.p.name}</div>
                        <div className="text-[11px] text-slate-900 font-bold uppercase tracking-wider mt-1">{r.p.spec || ""}</div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-100 text-center">
+                    <td style={{ width: '150px', minWidth: '150px', flexShrink: 0, boxSizing: 'border-box' }} className="py-4 px-4 border-r border-slate-100 text-center">
                        {(() => {
                          const c = customers.find(x => x.id === r.p.customer_id);
                          return (
@@ -349,7 +349,7 @@ export default function ShortageReportPage() {
                          )
                        })()}
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-100 text-right bg-blue-50/20">
+                    <td style={{ width: '120px', minWidth: '120px', flexShrink: 0, boxSizing: 'border-box' }} className="py-4 px-4 border-r border-slate-100 text-right bg-blue-50/20">
                        <span className="font-black text-blue-700 text-[15px]">{r.currentStock?.toLocaleString() || "-"}</span>
                     </td>
                     
@@ -359,7 +359,7 @@ export default function ShortageReportPage() {
                       const isShort = deficit > 0;
                       
                       return (
-                        <td key={d} className={`p-2 border-r border-slate-50 text-center transition-all ${isShort ? 'bg-red-50/60 relative overflow-hidden' : ''}`}>
+                        <td key={d} style={{ width: '120px', minWidth: '120px', flexShrink: 0, boxSizing: 'border-box' }} className={`p-2 border-r border-slate-50 text-center transition-all ${isShort ? 'bg-red-50/60 relative overflow-hidden' : ''}`}>
                            {isShort && <div className="absolute inset-0 bg-red-400/5 animate-pulse" />}
                            {plan > 0 && <div className="text-[10px] font-bold text-slate-400 mb-1 opacity-60">Cần: {plan.toLocaleString()}</div>}
                            
@@ -378,7 +378,7 @@ export default function ShortageReportPage() {
                       );
                     })}
                     
-                    <td className={`py-4 px-4 text-center font-black text-sm border-l-2 ${r.finalStock < 0 ? 'text-red-500 bg-red-100/50' : 'text-emerald-600 bg-emerald-50/30'}`}>
+                    <td style={{ width: '100px', minWidth: '100px', flexShrink: 0, boxSizing: 'border-box' }} className={`py-4 px-4 text-center font-black text-sm border-l-2 ${r.finalStock < 0 ? 'text-red-500 bg-red-100/50' : 'text-emerald-600 bg-emerald-50/30'}`}>
                        {r.finalStock.toLocaleString()}
                     </td>
                   </tr>

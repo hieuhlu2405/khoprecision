@@ -906,6 +906,11 @@ export default function DeliveryPlanPage() {
           background: "rgba(255,255,255,0.95)",
           backdropFilter: "blur(8px)",
           borderBottom: "1px solid #e2e8f0",
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          boxSizing: 'border-box'
         }}
         className={`py-4 px-4 border-r border-slate-200/60 sticky top-0 group select-none ${sticky ? "shadow-[2px_0_10px_rgba(0,0,0,0.02)]" : ""} ${isToday ? "bg-red-50/50 text-red-600" : "text-slate-900"}`}
       >
@@ -1071,8 +1076,8 @@ export default function DeliveryPlanPage() {
           >
             <table className="w-full text-sm !border-separate !border-spacing-0 table-fixed">
               <thead>
-                <tr className="z-[50]">
-                  <th style={{ width: '50px', minWidth: '50px', textAlign: 'center', position: 'sticky', top: 0, left: 0, zIndex: 62, background: 'white', borderBottom: '1px solid #e2e8f0' }} className="py-4 px-2 border-r border-slate-200/60">
+                <tr className="z-[50]" style={{ display: 'flex', width: '100%' }}>
+                  <th style={{ width: '50px', minWidth: '50px', textAlign: 'center', position: 'sticky', top: 0, left: 0, zIndex: 62, background: 'white', borderBottom: '1px solid #e2e8f0', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="py-4 px-2 border-r border-slate-200/60">
                     <input 
                       type="checkbox" 
                       className="checkbox checkbox-primary checkbox-sm rounded cursor-pointer"
