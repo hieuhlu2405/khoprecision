@@ -433,7 +433,7 @@ export default function DeliveryLogPage() {
             <input
               type="text"
               placeholder="Tìm Số phiếu, Biển số..."
-              className="input input-bordered input-sm pl-9 w-64 font-bold text-xs rounded-xl focus:ring-2 focus:ring-indigo-500/20 border-slate-200"
+              className="input input-bordered input-sm pl-11 w-64 font-bold text-xs rounded-xl focus:ring-2 focus:ring-indigo-500/20 border-slate-200"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
