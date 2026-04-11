@@ -962,7 +962,7 @@ export default function DeliveryPlanPage() {
             📅
           </div>
           <div>
-            <h1 className="page-title tracking-widest">KẾ HOẠCH GIAO HÀNG</h1>
+            <h1 className="page-title !tracking-[0.3em]">KẾ HOẠCH GIAO HÀNG</h1>
           </div>
         </div>
 
