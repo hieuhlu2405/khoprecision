@@ -475,9 +475,9 @@ export default function DeliveryPlanPage() {
           entity_code: ent?.code || "",
           entity_name: ent?.name || "",
           entity_address: ent?.address || "",
-          planned: plan.planned_qty,
+          planned: (plan.planned_qty || 0) + (plan.backlog_qty || 0),
           already_shipped: plan.actual_qty || 0,
-          remaining: plan.planned_qty - (plan.actual_qty || 0),
+          remaining: (plan.planned_qty || 0) + (plan.backlog_qty || 0) - (plan.actual_qty || 0),
           actual: "",
           push_backlog: false,
         });
@@ -510,7 +510,12 @@ export default function DeliveryPlanPage() {
 
   const toggleSelectAll = () => {
     const selectablePlans = displayProducts
-      .map(p => plans.find(pl => pl.product_id === p.id && pl.plan_date === selectedOutboundDay && pl.planned_qty > 0 && !pl.is_completed))
+      .map(p => plans.find(pl =>
+        pl.product_id === p.id &&
+        pl.plan_date === selectedOutboundDay &&
+        ((pl.planned_qty || 0) + (pl.backlog_qty || 0)) > 0 &&
+        !pl.is_completed
+      ))
       .filter(Boolean) as any[];
 
     const allSelected = selectablePlans.length > 0 && selectablePlans.every(p => selectedPlanIds.has(p.id));
@@ -726,7 +731,7 @@ export default function DeliveryPlanPage() {
     const todayItems = products
       .filter(p => {
         const plan = plans.find(pl => pl.product_id === p.id && pl.plan_date === todayStr);
-        return plan && (plan.planned_qty || 0) > 0 && !plan.is_completed;
+        return plan && ((plan.planned_qty || 0) + (plan.backlog_qty || 0)) > 0 && !plan.is_completed;
       })
       .map(p => {
         const plan = plans.find(pl => pl.product_id === p.id && pl.plan_date === todayStr)!;
@@ -844,7 +849,10 @@ export default function DeliveryPlanPage() {
 
     if (onlyScheduled) {
       list = list.filter(p => {
-        const hasP = plans.some(pl => pl.product_id === p.id && (pl.planned_qty || 0) > 0);
+        const hasP = plans.some(pl =>
+          pl.product_id === p.id &&
+          ((pl.planned_qty || 0) + (pl.backlog_qty || 0)) > 0
+        );
         const hasE = Object.keys(edits).some(k => k.startsWith(p.id + "_") && Number(edits[k]) > 0);
         return hasP || hasE;
       });
@@ -1097,7 +1105,14 @@ export default function DeliveryPlanPage() {
                       type="checkbox" 
                       className="checkbox checkbox-primary checkbox-sm rounded cursor-pointer"
                       checked={(() => {
-                        const selectable = displayProducts.filter(p => plans.some(pl => pl.product_id === p.id && pl.plan_date === selectedOutboundDay && pl.planned_qty > 0 && !pl.is_completed));
+                        const selectable = displayProducts.filter(p =>
+                          plans.some(pl =>
+                            pl.product_id === p.id &&
+                            pl.plan_date === selectedOutboundDay &&
+                            ((pl.planned_qty || 0) + (pl.backlog_qty || 0)) > 0 &&
+                            !pl.is_completed
+                          )
+                        );
                         return selectable.length > 0 && selectable.every(p => {
                           const plan = plans.find(pl => pl.product_id === p.id && pl.plan_date === selectedOutboundDay);
                           return plan && selectedPlanIds.has(plan.id);
