@@ -811,6 +811,34 @@ export default function DeliveryPlanPage() {
     }
   };
 
+  const handleCancelBacklog = async (planId: string) => {
+    if (!canEdit) return;
+    const ok = await showConfirm({
+      message: "Bạn có chắc chắn muốn HỦY NỢ của mã hàng này? (Số nợ sẽ bị xóa và không cộng vào kế hoạch ngày hôm nay nữa)",
+      confirmLabel: "HỦY NỢ",
+      danger: true
+    });
+    if (!ok) return;
+
+    try {
+      const { error } = await supabase
+        .from("delivery_plans")
+        .update({ 
+          backlog_qty: 0, 
+          is_backlog: false,
+          updated_at: new Date().toISOString(),
+          updated_by: profile?.id
+        })
+        .eq("id", planId);
+
+      if (error) throw error;
+      showToast("Đã hủy nợ thành công!", "success");
+      loadData();
+    } catch (err: any) {
+      showToast(err.message, "error");
+    }
+  };
+
   const displayProducts = useMemo(() => {
     let list = products.slice();
 
@@ -1219,8 +1247,9 @@ export default function DeliveryPlanPage() {
                               )}
                               {plan?.is_backlog && !isDone && (
                                 <div 
-                                  className="absolute -top-2 right-1 text-[8px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded shadow-sm z-30 animate-pulse tracking-widest pointer-events-auto cursor-help"
-                                  title={`TỔNG CẦN GIAO: ${(plan?.planned_qty || 0) + (plan?.backlog_qty || 0)}\n(Kế hoạch gốc: ${plan?.planned_qty || 0} + Nợ: ${plan?.backlog_qty || 0})\n${plan?.note || ""}`}
+                                  className="absolute -top-2 right-1 text-[8px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded shadow-sm z-30 animate-pulse tracking-widest pointer-events-auto cursor-pointer hover:bg-red-600 hover:scale-110 transition-all"
+                                  title={`BẤM ĐỂ HỦY NỢ\nTỔNG CẦN GIAO: ${(plan?.planned_qty || 0) + (plan?.backlog_qty || 0)}\n(Kế hoạch gốc: ${plan?.planned_qty || 0} + Nợ: ${plan?.backlog_qty || 0})\n${plan?.note || ""}`}
+                                  onClick={(e) => { e.stopPropagation(); handleCancelBacklog(plan!.id); }}
                                 >
                                   NỢ
                                 </div>
