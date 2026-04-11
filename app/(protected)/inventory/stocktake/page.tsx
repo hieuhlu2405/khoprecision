@@ -263,9 +263,9 @@ export default function StocktakeListPage() {
     }
     const isConfirmed = item.status === "confirmed";
     const msg = isConfirmed 
-      ? "CẢNH BÁO: Phiếu kiểm kê này ĐÃ CHỐT.\nViệc xóa phiếu sẽ hủy bỏ các bản ghi Tồn đầu kỳ liên quan và có thể làm thay đổi số liệu báo cáo hiện tại.\nBạn có chắc chắn muốn tiếp tục xóa mềm?"
-      : "Bạn có chắc muốn xóa phiếu kiểm kê này?\nToàn bộ chi tiết kiểm kê và dữ liệu tồn đầu kỳ được tạo từ phiếu này cũng sẽ bị xóa mềm.";
-    const ok = await showConfirm({ message: msg, danger: true, confirmLabel: isConfirmed ? "Xác nhận xóa phiếu đã chốt" : "Xóa" });
+      ? "CẢNH BÁO: Phiếu kiểm kê này ĐÃ CHỐT.\nViệc xóa phiếu sẽ hủy bỏ các giao dịch cân bằng kho liên quan và làm thay đổi số liệu báo cáo hiện tại.\nBạn có chắc chắn muốn tiếp tục?"
+      : "Bạn có chắc muốn xóa phiếu kiểm kê này?\nToàn bộ chi tiết kiểm kê liên quan cũng sẽ bị xóa.";
+    const ok = await showConfirm({ message: msg, danger: true, confirmLabel: "Xác nhận xóa" });
     if (!ok) return;
 
     try {
@@ -274,14 +274,21 @@ export default function StocktakeListPage() {
       const uid = u.user.id;
       const now = new Date().toISOString();
 
-      // Soft delete stocktake lines
+      // 1. Soft delete inventory transactions (The main fix)
+      const { error: errTx } = await supabase.from("inventory_transactions")
+        .update({ deleted_at: now, updated_by: uid })
+        .eq("stocktake_id", item.id)
+        .is("deleted_at", null);
+      if (errTx) console.warn("Failed soft delete stocktake transactions:", errTx);
+
+      // 2. Soft delete stocktake lines
       const { error: errLines } = await supabase.from("inventory_stocktake_lines")
-        .update({ deleted_at: now, deleted_by: uid })
+        .update({ deleted_at: now, updated_by: uid })
         .eq("stocktake_id", item.id)
         .is("deleted_at", null);
       if (errLines) console.warn("Failed soft delete lines:", errLines);
 
-      // Soft delete opening balances
+      // 3. Soft delete opening balances (if any linked to this)
       const { error: errOB } = await supabase.from("inventory_opening_balances")
         .update({ 
           deleted_at: now, 
@@ -295,13 +302,13 @@ export default function StocktakeListPage() {
         .is("deleted_at", null);
       if (errOB) console.warn("Failed soft delete balances:", errOB);
 
-      // Soft delete stocktake header
+      // 4. Soft delete stocktake header
       const { error: errHeader } = await supabase.from("inventory_stocktakes")
         .update({ deleted_at: now, deleted_by: uid })
         .eq("id", item.id);
       if (errHeader) throw errHeader;
       
-      showToast("Đã xóa phiếu kiểm kê thành công!", "success");
+      showToast("Đã xóa phiếu kiểm kê và các giao dịch liên quan thành công!", "success");
       loadData();
     } catch (err: any) {
       showToast("Lỗi khi xóa: " + err.message, "error");
