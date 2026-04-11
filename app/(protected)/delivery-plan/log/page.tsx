@@ -12,14 +12,22 @@ type ShipmentLog = {
   shipment_date: string;
   customer_id: string;
   entity_id: string;
+  vehicle_id: string;
+  driver_1_name_snapshot: string;
+  driver_2_name_snapshot: string;
+  assistant_1_name_snapshot: string;
+  assistant_2_name_snapshot: string;
   driver_info: string;
   note: string;
   created_at: string;
+  // Join data
+  inventory_transactions?: { customer_id: string }[];
 };
 
 type Product = { id: string; sku: string; name: string; spec: string; uom: string; sap_code: string; external_sku: string; customer_id: string };
 type Customer = { id: string; code: string; name: string; address: string; external_code: string; selling_entity_id: string };
 type Entity = { id: string; code: string; name: string; address: string };
+type Vehicle = { id: string; license_plate: string; model: string; type: string };
 type Profile = { id: string; role: string; department: string };
 
 export default function DeliveryLogPage() {
@@ -28,6 +36,7 @@ export default function DeliveryLogPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   
   const [loading, setLoading] = useState(true);
@@ -38,15 +47,17 @@ export default function DeliveryLogPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const loadBaseData = useCallback(async () => {
-    const [rP, rC, rE, { data: u }] = await Promise.all([
+    const [rP, rC, rE, rV, { data: u }] = await Promise.all([
       supabase.from("products").select("*").is("deleted_at", null),
       supabase.from("customers").select("*").is("deleted_at", null),
       supabase.from("selling_entities").select("*"),
+      supabase.from("vehicles").select("*"),
       supabase.auth.getUser()
     ]);
     setProducts(rP.data || []);
     setCustomers(rC.data || []);
     setEntities(rE.data || []);
+    setVehicles(rV.data || []);
     
     if (u?.user) {
       const { data: p } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).single();
@@ -61,13 +72,17 @@ export default function DeliveryLogPage() {
     try {
       let query = supabase
         .from("shipment_logs")
-        .select("*")
+        .select(`
+          *,
+          inventory_transactions(customer_id)
+        `)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(currentLimit);
 
       if (search) {
-        query = query.or(`shipment_no.ilike.%${search}%,driver_info.ilike.%${search}%`);
+        // Since we can't join-search easily with local aggregation, we keep searching shipment fields
+        query = query.or(`shipment_no.ilike.%${search}%,driver_1_name_snapshot.ilike.%${search}%,driver_2_name_snapshot.ilike.%${search}%`);
       }
 
       const { data, error } = await query;
@@ -243,7 +258,7 @@ export default function DeliveryLogPage() {
             <span className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100" style={{fontSize: '1.2rem'}}>📜</span>
             NHẬT KÝ GIAO HÀNG (PGH)
           </h1>
-          <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-2 ml-1">
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-2 ml-1">
             Quản lý và tra cứu lịch sử các chuyến hàng đã xuất
           </p>
         </div>
@@ -274,17 +289,17 @@ export default function DeliveryLogPage() {
       <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden">
         <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 250px)" }}>
           <table className="w-full text-sm !border-separate !border-spacing-0">
-            <thead className="bg-slate-50 sticky top-0 z-20 shadow-sm">
+            <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-20">
               <tr>
-                <th className="px-4 py-4 text-center border-b border-slate-200 w-12 bg-slate-50">
-                   <input type="checkbox" className="checkbox checkbox-xs rounded" checked={selectedIds.size === logs.length && logs.length > 0} onChange={toggleSelectAll} />
+                <th className="px-4 py-4 text-center border-b border-slate-200 w-12 bg-transparent">
+                   <input type="checkbox" className="checkbox checkbox-xs rounded border-slate-300" checked={selectedIds.size === logs.length && logs.length > 0} onChange={toggleSelectAll} />
                 </th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-widest border-b border-slate-200">Số phiếu PGH</th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-widest border-b border-slate-200">Ngày xuất</th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-widest border-b border-slate-200">Khách hàng</th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-widest border-b border-slate-200">Pháp nhân</th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-widest border-b border-slate-200">Xe / Tài xế</th>
-                <th className="px-6 py-4 text-center font-black text-[11px] text-black uppercase tracking-widest border-b border-slate-200">Thao tác</th>
+                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200">Số phiếu PGH</th>
+                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200">Ngày xuất</th>
+                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200">Khách hàng</th>
+                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200">Pháp nhân</th>
+                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200">Xe / Tài xế</th>
+                <th className="px-6 py-4 text-center font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -298,40 +313,91 @@ export default function DeliveryLogPage() {
                   const ent = entities.find(e => e.id === log.entity_id);
                   const isSel = selectedIds.has(log.id);
                   return (
-                    <tr key={log.id} className={`group hover:bg-slate-50 transition-colors ${isSel ? 'bg-indigo-50/40' : ''}`}>
-                      <td className="px-4 py-4 text-center border-r border-slate-50">
-                        <input type="checkbox" className="checkbox checkbox-xs rounded" checked={isSel} onChange={() => toggleSelect(log.id)} />
+                    <tr key={log.id} className={`group hover:bg-slate-50/80 transition-colors ${isSel ? 'bg-indigo-50' : 'odd:bg-white even:bg-slate-50/30'}`}>
+                      <td className="px-4 py-4 text-center border-r border-slate-100/50">
+                        <input type="checkbox" className="checkbox checkbox-xs rounded border-slate-300" checked={isSel} onChange={() => toggleSelect(log.id)} />
                       </td>
                       <td className="px-6 py-4">
-                        <span className="font-black text-indigo-600 text-base">{log.shipment_no}</span>
-                        {log.note && <div className="text-[10px] text-black font-black italic mt-0.5">{log.note}</div>}
+                        <span className="font-black text-indigo-600 text-base tracking-tighter">{log.shipment_no}</span>
+                        {log.note && <div className="text-[10px] text-black font-black italic mt-0.5" style={{ color: '#000000' }}>{log.note}</div>}
                       </td>
-                      <td className="px-6 py-4 font-black text-black">
+                      <td className="px-6 py-4 font-medium text-black text-[14px]" style={{ color: '#000000' }}>
                         {log.shipment_date.split("-").reverse().join("/")}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-black text-black">{cust?.code || "-"}</div>
-                        <div className="text-[10px] text-black font-black truncate max-w-[200px]" title={cust?.name}>{cust?.name || ""}</div>
+                        <div className="flex flex-col gap-1">
+                          {(() => {
+                            // Aggregate all unique customers in this shipment
+                            const txCustIds = (log.inventory_transactions || []).map(t => t.customer_id);
+                            const allCustIds = Array.from(new Set([log.customer_id, ...txCustIds])).filter(Boolean);
+                            
+                            return allCustIds.map(cid => {
+                              const c = customers.find(x => x.id === cid);
+                              if (!c) return null;
+                              return (
+                                <div key={cid} className="flex flex-col">
+                                  <div className="font-black text-black leading-tight text-[13px]">{c.code}</div>
+                                  <div className="text-[10px] text-slate-500 font-bold truncate max-w-[220px]" title={c.name}>{c.name}</div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         {ent ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200/60 text-indigo-600 text-[10px] font-black uppercase tracking-wider">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-200/60 text-indigo-600 text-[10px] font-black uppercase tracking-wider shadow-sm">
                             🏢 {ent.code}
                           </span>
                         ) : <span className="text-slate-300">-</span>}
                       </td>
-                      <td className="px-6 py-4 font-black text-black uppercase text-xs">
-                        {log.driver_info || "-"}
+                      <td className="px-6 py-4">
+                        {(() => {
+                          const v = vehicles.find(x => x.id === log.vehicle_id);
+                          const drivers = [
+                            log.driver_1_name_snapshot,
+                            log.driver_2_name_snapshot
+                          ].filter(Boolean);
+                          const assistants = [
+                            log.assistant_1_name_snapshot,
+                            log.assistant_2_name_snapshot
+                          ].filter(Boolean);
+
+                          return (
+                            <div className="flex flex-col gap-1">
+                              {v && (
+                                <div className="inline-flex items-center w-fit px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-md font-black text-xs">
+                                  🚛 {v.license_plate}
+                                </div>
+                              )}
+                              <div className="flex flex-col">
+                                {drivers.map((d, idx) => (
+                                  <div key={idx} className="text-[11px] font-black text-black uppercase leading-tight">
+                                    👤 {d}
+                                  </div>
+                                ))}
+                                {assistants.map((a, idx) => (
+                                  <div key={idx} className="text-[10px] font-bold text-slate-500 uppercase leading-tight">
+                                    🤝 {a}
+                                  </div>
+                                ))}
+                                {!v && !log.driver_1_name_snapshot && (
+                                  <span className="text-slate-400 italic text-xs">{log.driver_info || "-"}</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => handleReprintPGH(log)}
-                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-all shadow-sm"
-                            title="In lại Phiếu giao hàng (PGH)"
-                          >
-                            📊
-                          </button>
+                             <button
+                                onClick={() => handleReprintPGH(log)}
+                                className="w-10 h-10 flex items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-all shadow-sm"
+                                title="In lại Phiếu giao hàng (PGH)"
+                              >
+                                📄
+                              </button>
                           {profile?.role === 'admin' && (
                             <button
                               onClick={() => handleUndoSingle(log)}
