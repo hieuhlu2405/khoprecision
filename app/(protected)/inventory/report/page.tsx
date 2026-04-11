@@ -729,16 +729,16 @@ export default function InventoryReportPage() {
                 const isLow = r.current_qty > 0 && r.current_qty < 5;
                 return (
                   <tr key={`${r.product.id}-${r.customer_id}`} className="hover:bg-brand/[0.02] transition-colors group odd:bg-white even:bg-slate-50/30">
-                    <td className="text-slate-600">{customerLabel(r.customer_id)}</td>
-                    <td className="font-mono text-slate-900 font-semibold">{r.product.sku}</td>
-                    <td>{r.product.name}</td>
-                    <td className="text-slate-400 italic text-xs">{r.product.spec}</td>
-                    <td className="text-right text-slate-500">{fmtNum(r.opening_qty)}</td>
-                    <td className="text-right text-green-600 font-medium">+{fmtNum(r.inbound_qty)}</td>
-                    <td className="text-right text-red-500 font-medium">-{fmtNum(r.outbound_qty)}</td>
-                    <td className={`text-right font-bold ${isZero ? "bg-red-50 text-red-600" : isLow ? "text-amber-600 bg-amber-50/50" : "text-slate-900"}`}>{fmtNum(r.current_qty)}</td>
-                    <td className="text-right text-slate-400 text-[10px]">{fmtNum(r.product.unit_price)}</td>
-                    <td className="text-right font-bold text-green-700 bg-green-50/30">{fmtNum(r.inventory_value)}</td>
+                    <td className="text-slate-500 font-medium text-[15px] leading-tight">{customerLabel(r.customer_id)}</td>
+                    <td className="font-mono text-black font-black text-[15px]">{r.product.sku}</td>
+                    <td className="text-slate-500 font-medium text-[15px] leading-tight">{r.product.name}</td>
+                    <td className="text-black font-bold text-[15px] uppercase">{r.product.spec}</td>
+                    <td className="text-right text-black font-medium text-[15px]">{fmtNum(r.opening_qty)}</td>
+                    <td className="text-right text-green-600 font-medium text-[15px]">+{fmtNum(r.inbound_qty)}</td>
+                    <td className="text-right text-red-500 font-medium text-[15px]">-{fmtNum(r.outbound_qty)}</td>
+                    <td className={`text-right font-bold text-[15px] ${isZero ? "bg-red-50 text-red-600" : isLow ? "text-amber-600 bg-amber-50/50" : "text-black"}`}>{fmtNum(r.current_qty)}</td>
+                    <td className="text-right text-slate-500 font-medium text-[15px]">{fmtNum(r.product.unit_price)}</td>
+                    <td className="text-right font-bold text-[15px] text-green-700 bg-green-50/30">{fmtNum(r.inventory_value)}</td>
                   </tr>
                 );
               })}
