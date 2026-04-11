@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -45,6 +45,29 @@ export default function DeliveryLogPage() {
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Advanced Filtering & Sorting
+  const [colFilters, setColFilters] = useState<Record<string, { mode: "contains" | "equals"; value: string }>>({});
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc" | null>(null);
+  const [openPopupId, setOpenPopupId] = useState<string | null>(null);
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("delivery_log_col_widths");
+        return saved ? JSON.parse(saved) : {};
+      } catch { return {}; }
+    }
+    return {};
+  });
+
+  const onResize = (key: string, width: number) => {
+    setColWidths(prev => {
+      const next = { ...prev, [key]: width };
+      if (typeof window !== "undefined") localStorage.setItem("delivery_log_col_widths", JSON.stringify(next));
+      return next;
+    });
+  };
 
   const loadBaseData = useCallback(async () => {
     const [rP, rC, rE, rV, { data: u }] = await Promise.all([
@@ -180,7 +203,7 @@ export default function DeliveryLogPage() {
   const handleReprintPGH = async (log: ShipmentLog) => {
     showToast(`Đang chuẩn bị PGH ${log.shipment_no}...`, "info");
     try {
-      // Fetch items for this shipment
+      // ... same logic ...
       const { data: txs, error } = await supabase
         .from("inventory_transactions")
         .select("*")
@@ -212,7 +235,6 @@ export default function DeliveryLogPage() {
         };
       });
 
-      // Group the same way as initial creation (though a shipment usually belongs to one customer already)
       const totalQty = items.reduce((sum, it) => sum + it.actual, 0);
       const rowOffset = items.length - 1;
       const fileName = `PGH_REPRINT_${log.shipment_no}`;
@@ -249,6 +271,148 @@ export default function DeliveryLogPage() {
     }
   };
 
+  const handleSort = (col: string) => {
+    if (sortCol === col) {
+      setSortDir(prev => (prev === "asc" ? "desc" : prev === "desc" ? null : "asc"));
+      if (sortDir === "desc") setSortCol(null);
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  };
+
+  function ThCell({ label, colKey, w }: { label: string; colKey: string; w?: string; }) {
+      const active = !!colFilters[colKey];
+      const isSortTarget = sortCol === colKey;
+      const width = colWidths[colKey] || (w ? parseInt(w) : undefined);
+      const thRef = useRef<HTMLTableCellElement>(null);
+      const popupId = `log-${colKey}`;
+      const isOpen = openPopupId === popupId;
+
+      const startResizing = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const startX = e.pageX;
+        const startWidth = thRef.current?.offsetWidth || 0;
+        const onMouseMove = (me: MouseEvent) => {
+          const newW = Math.max(50, startWidth + (me.pageX - startX));
+          onResize(colKey, newW);
+        };
+        const onMouseUp = () => {
+          document.removeEventListener("mousemove", onMouseMove);
+          document.removeEventListener("mouseup", onMouseUp);
+        };
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+      };
+
+      return (
+        <th 
+          ref={thRef} 
+          className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-20 border-b border-r border-slate-200 p-0"
+          style={{ width: width ? `${width}px` : w, minWidth: width ? `${width}px` : "50px" }}
+        >
+          <div className="flex items-center justify-between px-4 py-4 h-full relative group">
+            <span className="font-black text-[11px] text-black uppercase tracking-tighter truncate" style={{ color: '#000000' }}>{label}</span>
+            <div className="flex items-center gap-0.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleSort(colKey); }}
+                className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-indigo-600 font-black" : "text-indigo-300"}`}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
+                </svg>
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); setOpenPopupId(isOpen ? null : popupId); }}
+                className={`p-1 rounded-md transition-all ${active ? "bg-indigo-600 text-white" : "text-indigo-300 hover:bg-indigo-100"}`}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              </button>
+            </div>
+            
+            <div onMouseDown={startResizing} className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-500/50 transition-colors z-20" />
+            
+            {isOpen && (
+              <div className="absolute top-[calc(100%+4px)] right-0 z-[100] bg-white border border-slate-200 shadow-2xl rounded-xl p-4 min-w-[220px]" onClick={e => e.stopPropagation()}>
+                <div className="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest">Lọc cột: {label}</div>
+                <select 
+                  className="select select-bordered select-sm w-full mb-3 text-xs" 
+                  value={colFilters[colKey]?.mode || "contains"}
+                  onChange={e => setColFilters(p => ({ ...p, [colKey]: { mode: e.target.value as any, value: p[colKey]?.value || "" } }))}
+                >
+                  <option value="contains">Chứa cụm từ</option>
+                  <option value="equals">Bằng chính xác</option>
+                </select>
+                <input 
+                  type="text" 
+                  className="input input-bordered input-sm w-full mb-4 text-xs" 
+                  placeholder="Nhập nội dung..." 
+                  autoFocus
+                  value={colFilters[colKey]?.value || ""}
+                  onChange={e => setColFilters(p => {
+                    const next = { ...p };
+                    if (e.target.value) next[colKey] = { mode: p[colKey]?.mode || "contains", value: e.target.value };
+                    else delete next[colKey];
+                    return next;
+                  })}
+                />
+                <div className="flex justify-end gap-2">
+                   <button className="btn btn-ghost btn-xs text-[10px] font-bold" onClick={() => { setColFilters(p => { const n = {...p}; delete n[colKey]; return n; }); setOpenPopupId(null); }}>XÓA</button>
+                   <button className="btn btn-primary btn-xs text-[10px] font-bold" onClick={() => setOpenPopupId(null)}>ĐỒNG Ý</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </th>
+      );
+  }
+
+  const finalLogs = useMemo(() => {
+    let list = [...logs];
+    
+    // Column Filtering
+    Object.entries(colFilters).forEach(([key, f]) => {
+      if (!f.value) return;
+      const v = f.value.toLowerCase();
+      list = list.filter(l => {
+        let target = "";
+        if (key === "shipment_no") target = l.shipment_no;
+        else if (key === "shipment_date") target = l.shipment_date.split("-").reverse().join("/");
+        else if (key === "customer") {
+            const txCustIds = (l.inventory_transactions || []).map(t => t.customer_id);
+            const allCustIds = Array.from(new Set([l.customer_id, ...txCustIds])).filter(Boolean);
+            target = allCustIds.map(cid => customers.find(x => x.id === cid)?.code || "").join(" ");
+        }
+        else if (key === "entity") target = entities.find(e => e.id === l.entity_id)?.code || "";
+        else if (key === "driver") {
+            const v = vehicles.find(x => x.id === l.vehicle_id);
+            const snapshots = [v?.license_plate, l.driver_1_name_snapshot, l.driver_2_name_snapshot, l.assistant_1_name_snapshot, l.assistant_2_name_snapshot].filter(Boolean).join(" ");
+            target = snapshots || l.driver_info || "";
+        }
+        
+        if (f.mode === "equals") return target.toLowerCase() === v;
+        return target.toLowerCase().includes(v);
+      });
+    });
+
+    // Sorting
+    if (sortCol && sortDir) {
+      list.sort((a, b) => {
+        let vA: any = a[sortCol as keyof ShipmentLog] || "";
+        let vB: any = b[sortCol as keyof ShipmentLog] || "";
+        
+        if (sortCol === "shipment_no") { vA = a.shipment_no; vB = b.shipment_no; }
+        else if (sortCol === "shipment_date") { vA = a.shipment_date; vB = b.shipment_date; }
+
+        if (vA < vB) return sortDir === "asc" ? -1 : 1;
+        if (vA > vB) return sortDir === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return list;
+  }, [logs, colFilters, sortCol, sortDir, customers, entities, vehicles]);
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -256,7 +420,7 @@ export default function DeliveryLogPage() {
         <div>
           <h1 className="page-title flex items-center gap-3">
             <span className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100" style={{fontSize: '1.2rem'}}>📜</span>
-            NHẬT KÝ GIAO HÀNG (PGH)
+            NHẬT KÝ GIAO HÀNG
           </h1>
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-2 ml-1">
             Quản lý và tra cứu lịch sử các chuyến hàng đã xuất
@@ -265,11 +429,11 @@ export default function DeliveryLogPage() {
 
         <div className="flex items-center gap-3">
           <div className="relative group">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors">🔍</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors z-10 pointer-events-none">🔍</span>
             <input
               type="text"
               placeholder="Tìm Số phiếu, Biển số..."
-              className="input input-bordered input-sm pl-10 w-64 font-bold text-xs rounded-xl focus:ring-2 focus:ring-indigo-500/20 border-slate-200"
+              className="input input-bordered input-sm pl-9 w-64 font-bold text-xs rounded-xl focus:ring-2 focus:ring-indigo-500/20 border-slate-200"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -288,43 +452,43 @@ export default function DeliveryLogPage() {
       {/* Main Table */}
       <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden">
         <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 250px)" }}>
-          <table className="w-full text-sm !border-separate !border-spacing-0">
-            <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-20">
+          <table className="w-full text-sm !border-separate !border-spacing-0" style={{ tableLayout: 'fixed' }}>
+            <thead>
               <tr>
-                <th className="px-4 py-4 text-center border-b border-slate-200 w-12 bg-transparent">
+                <th className="px-4 py-4 text-center border-b border-r border-slate-200 w-12 bg-slate-50/80 backdrop-blur-md sticky top-0 z-20">
                    <input type="checkbox" className="checkbox checkbox-xs rounded border-slate-300" checked={selectedIds.size === logs.length && logs.length > 0} onChange={toggleSelectAll} />
                 </th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200">Số phiếu PGH</th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200">Ngày xuất</th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200">Khách hàng</th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200">Pháp nhân</th>
-                <th className="px-6 py-4 text-left font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200">Xe / Tài xế</th>
-                <th className="px-6 py-4 text-center font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200">Thao tác</th>
+                <ThCell label="Số phiếu" colKey="shipment_no" w="150px" />
+                <ThCell label="Ngày xuất" colKey="shipment_date" w="120px" />
+                <ThCell label="Khách hàng" colKey="customer" w="250px" />
+                <ThCell label="Pháp nhân" colKey="entity" w="120px" />
+                <ThCell label="Xe / Tài xế" colKey="driver" w="250px" />
+                <th className="px-6 py-4 text-center font-black text-[11px] text-black uppercase tracking-tighter border-b border-slate-200 bg-slate-50/80 backdrop-blur-md sticky top-0 z-20 w-[120px]" style={{ color: '#000000' }}>Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading && logs.length === 0 ? (
                 <tr><td colSpan={7} className="py-20 text-center text-slate-400 font-bold">Đang tải dữ liệu...</td></tr>
-              ) : logs.length === 0 ? (
+              ) : finalLogs.length === 0 ? (
                 <tr><td colSpan={7} className="py-20 text-center text-slate-300 font-bold italic">Không tìm thấy chuyến hàng nào.</td></tr>
               ) : (
-                logs.map(log => {
+                finalLogs.map(log => {
                   const cust = customers.find(c => c.id === log.customer_id);
                   const ent = entities.find(e => e.id === log.entity_id);
                   const isSel = selectedIds.has(log.id);
                   return (
                     <tr key={log.id} className={`group hover:bg-slate-50/80 transition-colors ${isSel ? 'bg-indigo-50' : 'odd:bg-white even:bg-slate-50/30'}`}>
-                      <td className="px-4 py-4 text-center border-r border-slate-100/50">
+                      <td className="px-4 py-4 text-center border-r border-slate-200" style={{ width: 48 }}>
                         <input type="checkbox" className="checkbox checkbox-xs rounded border-slate-300" checked={isSel} onChange={() => toggleSelect(log.id)} />
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 border-r border-slate-200" style={{ width: colWidths["shipment_no"] || 150 }}>
                         <span className="font-black text-indigo-600 text-base tracking-tighter">{log.shipment_no}</span>
                         {log.note && <div className="text-[10px] text-black font-black italic mt-0.5" style={{ color: '#000000' }}>{log.note}</div>}
                       </td>
-                      <td className="px-6 py-4 font-medium text-black text-[14px]" style={{ color: '#000000' }}>
+                      <td className="px-6 py-4 font-medium text-black text-[14px] border-r border-slate-200" style={{ color: '#000000', width: colWidths["shipment_date"] || 120 }}>
                         {log.shipment_date.split("-").reverse().join("/")}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 border-r border-slate-200" style={{ width: colWidths["customer"] || 250 }}>
                         <div className="flex flex-col gap-1">
                           {(() => {
                             // Aggregate all unique customers in this shipment
@@ -344,14 +508,14 @@ export default function DeliveryLogPage() {
                           })()}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 border-r border-slate-200" style={{ width: colWidths["entity"] || 120 }}>
                         {ent ? (
                           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-200/60 text-indigo-600 text-[10px] font-black uppercase tracking-wider shadow-sm">
                             🏢 {ent.code}
                           </span>
                         ) : <span className="text-slate-300">-</span>}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 border-r border-slate-200" style={{ width: colWidths["driver"] || 250 }}>
                         {(() => {
                           const v = vehicles.find(x => x.id === log.vehicle_id);
                           const drivers = [
@@ -378,7 +542,7 @@ export default function DeliveryLogPage() {
                                 ))}
                                 {assistants.map((a, idx) => (
                                   <div key={idx} className="text-[10px] font-bold text-slate-500 uppercase leading-tight">
-                                    🤝 {a}
+                                    👤 {a}
                                   </div>
                                 ))}
                                 {!v && !log.driver_1_name_snapshot && (
@@ -389,12 +553,12 @@ export default function DeliveryLogPage() {
                           );
                         })()}
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4 text-center" style={{ width: 120 }}>
                         <div className="flex items-center justify-center gap-2">
                              <button
                                 onClick={() => handleReprintPGH(log)}
                                 className="w-10 h-10 flex items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-all shadow-sm"
-                                title="In lại Phiếu giao hàng (PGH)"
+                                title="In lại Phiếu giao hàng"
                               >
                                 📄
                               </button>
