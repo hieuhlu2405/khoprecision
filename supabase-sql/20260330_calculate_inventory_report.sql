@@ -74,8 +74,10 @@ BEGIN
         ELSE t.tx_type 
       END as eff_type,
       CASE 
-        WHEN t.tx_type = 'adjust_in' THEN COALESCE(t.qty, 0)
-        WHEN t.tx_type = 'adjust_out' THEN -COALESCE(t.qty, 0)
+        WHEN t.tx_type = 'adjust_in' THEN 
+          CASE WHEN o.id IS NOT NULL AND o.deleted_at IS NULL THEN COALESCE(t.qty, 0) ELSE 0 END
+        WHEN t.tx_type = 'adjust_out' THEN 
+          CASE WHEN o.id IS NOT NULL AND o.deleted_at IS NULL THEN -COALESCE(t.qty, 0) ELSE 0 END
         ELSE COALESCE(t.qty, 0)
       END as eff_qty
     FROM inventory_transactions t

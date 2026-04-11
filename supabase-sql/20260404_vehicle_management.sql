@@ -53,7 +53,8 @@ CREATE OR REPLACE FUNCTION public.shipment_outbound_delivery(
   p_assistant_1_name text DEFAULT NULL,
   p_assistant_2_name text DEFAULT NULL,
   p_note text DEFAULT NULL,
-  p_shipment_date date DEFAULT CURRENT_DATE
+  p_shipment_date date DEFAULT CURRENT_DATE,
+  p_existing_shipment_id uuid DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -95,6 +96,8 @@ DECLARE
   v_driver_cost numeric := 0;
   v_assistant_cost numeric := 0;
   v_external_cost numeric := 0;
+
+  v_existing_shipment record;
 BEGIN
   -- Lấy thông tin Xe
   SELECT * INTO v_vehicle FROM public.vehicles WHERE id = p_vehicle_id;
@@ -102,60 +105,77 @@ BEGIN
     RAISE EXCEPTION 'Không tìm thấy xe được chọn!';
   END IF;
 
-  -- Nạp Snapshot dữ liệu nhân sự
-  v_final_dr_1 := COALESCE(p_driver_1_name, v_vehicle.driver_1_name);
-  v_final_dr_2 := COALESCE(p_driver_2_name, v_vehicle.driver_2_name);
-  v_final_ast_1 := COALESCE(p_assistant_1_name, v_vehicle.assistant_1_name);
-  v_final_ast_2 := COALESCE(p_assistant_2_name, v_vehicle.assistant_2_name);
-  
-  -- Đếm số lượng thực tế
-  IF v_final_dr_1 IS NOT NULL AND TRIM(v_final_dr_1) <> '' THEN v_driver_count := v_driver_count + 1; END IF;
-  IF v_final_dr_2 IS NOT NULL AND TRIM(v_final_dr_2) <> '' THEN v_driver_count := v_driver_count + 1; END IF;
-  
-  IF v_final_ast_1 IS NOT NULL AND TRIM(v_final_ast_1) <> '' THEN v_ast_count := v_ast_count + 1; END IF;
-  IF v_final_ast_2 IS NOT NULL AND TRIM(v_final_ast_2) <> '' THEN v_ast_count := v_ast_count + 1; END IF;
-
-  -- RÀNG BUỘC: Tối đa 3 người
-  IF (v_driver_count + v_ast_count) > 3 THEN
-    RAISE EXCEPTION 'Tổng số người (Lái + Phụ) không được vượt quá 3 người!';
-  END IF;
-
-  -- Tính toán số chuyến xe trong ngày của xe này
-  SELECT count(*) INTO v_trip_count
-  FROM public.shipment_logs
-  WHERE vehicle_id = p_vehicle_id AND shipment_date = p_shipment_date AND deleted_at IS NULL;
-  
-  v_trip_count := v_trip_count + 1; -- Tính cả chuyến đang tạo
-  
-  -- Xác định chi phí
-  IF v_vehicle.type = 'nội_bộ' THEN
-    IF v_trip_count <= 3 THEN
-      v_driver_cost := 170000 * v_driver_count;
-      v_assistant_cost := 120000 * v_ast_count;
-    ELSE
-      v_driver_cost := 230000 * v_driver_count;
-      v_assistant_cost := 170000 * v_ast_count;
+  -- TRƯỜNG HỢP 1: GHÉP CHUYẾN (p_existing_shipment_id IS NOT NULL)
+  IF p_existing_shipment_id IS NOT NULL THEN
+    SELECT * INTO v_existing_shipment FROM public.shipment_logs WHERE id = p_existing_shipment_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Không tìm thấy chuyến hàng cũ để ghép!';
     END IF;
-  ELSE
-    v_external_cost := v_vehicle.default_external_cost;
-  END IF;
+    
+    v_shipment_id := p_existing_shipment_id;
+    v_shipment_no := v_existing_shipment.shipment_no;
+    
+    -- Cập nhật ghi chú nếu cần
+    UPDATE public.shipment_logs 
+    SET note = COALESCE(note, '') || ' | Ghép thêm hàng' 
+    WHERE id = v_shipment_id;
 
-  -- BƯỚC 0: Tạo Shipment Log
-  v_shipment_no := generate_shipment_no(p_shipment_date);
-  
-  INSERT INTO public.shipment_logs (
-    shipment_no, shipment_date, customer_id, entity_id, vehicle_id, 
-    driver_1_name_snapshot, driver_2_name_snapshot, 
-    assistant_1_name_snapshot, assistant_2_name_snapshot,
-    driver_cost, assistant_cost, external_cost, note, created_by
-  )
-  VALUES (
-    v_shipment_no, p_shipment_date, p_customer_id, p_entity_id, p_vehicle_id, 
-    v_final_dr_1, v_final_dr_2, 
-    v_final_ast_1, v_final_ast_2,
-    v_driver_cost, v_assistant_cost, v_external_cost, p_note, v_user_id
-  )
-  RETURNING id INTO v_shipment_id;
+  -- TRƯỜNG HỢP 2: TẠO CHUYẾN MỚI
+  ELSE
+    -- Nạp Snapshot dữ liệu nhân sự (chỉ làm khi tạo mới, ghép chuyến thì giữ nguyên nhân sự cũ)
+    v_final_dr_1 := COALESCE(p_driver_1_name, v_vehicle.driver_1_name);
+    v_final_dr_2 := COALESCE(p_driver_2_name, v_vehicle.driver_2_name);
+    v_final_ast_1 := COALESCE(p_assistant_1_name, v_vehicle.assistant_1_name);
+    v_final_ast_2 := COALESCE(p_assistant_2_name, v_vehicle.assistant_2_name);
+    
+    -- Đếm số lượng nhân sự thực tế
+    IF v_final_dr_1 IS NOT NULL AND TRIM(v_final_dr_1) <> '' THEN v_driver_count := v_driver_count + 1; END IF;
+    IF v_final_dr_2 IS NOT NULL AND TRIM(v_final_dr_2) <> '' THEN v_driver_count := v_driver_count + 1; END IF;
+    IF v_final_ast_1 IS NOT NULL AND TRIM(v_final_ast_1) <> '' THEN v_ast_count := v_ast_count + 1; END IF;
+    IF v_final_ast_2 IS NOT NULL AND TRIM(v_final_ast_2) <> '' THEN v_ast_count := v_ast_count + 1; END IF;
+
+    -- RÀNG BUỘC: Tối đa 3 người
+    IF (v_driver_count + v_ast_count) > 3 THEN
+      RAISE EXCEPTION 'Tổng số người (Lái + Phụ) không được vượt quá 3 người!';
+    END IF;
+
+    -- Tính toán số chuyến xe trong ngày của xe này
+    SELECT count(*) INTO v_trip_count
+    FROM public.shipment_logs
+    WHERE vehicle_id = p_vehicle_id AND shipment_date = p_shipment_date AND deleted_at IS NULL;
+    
+    v_trip_count := v_trip_count + 1; -- Tính cả chuyến đang tạo
+    
+    -- Xác định chi phí
+    IF v_vehicle.type = 'nội_bộ' THEN
+      IF v_trip_count <= 3 THEN
+        v_driver_cost := 170000 * v_driver_count;
+        v_assistant_cost := 120000 * v_ast_count;
+      ELSE
+        v_driver_cost := 230000 * v_driver_count;
+        v_assistant_cost := 170000 * v_ast_count;
+      END IF;
+    ELSE
+      v_external_cost := v_vehicle.default_external_cost;
+    END IF;
+
+    -- Tạo Shipment Log mới
+    v_shipment_no := generate_shipment_no(p_shipment_date);
+    
+    INSERT INTO public.shipment_logs (
+      shipment_no, shipment_date, customer_id, entity_id, vehicle_id, 
+      driver_1_name_snapshot, driver_2_name_snapshot, 
+      assistant_1_name_snapshot, assistant_2_name_snapshot,
+      driver_cost, assistant_cost, external_cost, note, created_by
+    )
+    VALUES (
+      v_shipment_no, p_shipment_date, p_customer_id, p_entity_id, p_vehicle_id, 
+      v_final_dr_1, v_final_dr_2, 
+      v_final_ast_1, v_final_ast_2,
+      v_driver_cost, v_assistant_cost, v_external_cost, p_note, v_user_id
+    )
+    RETURNING id INTO v_shipment_id;
+  END IF;
 
   -- Lặp qua từng mã hàng trong payload
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_payload)

@@ -50,6 +50,11 @@ type ShipmentLog = {
   shipment_date: string;
   customer_id: string | null;
   entity_id: string | null;
+  vehicle_id: string | null;
+  driver_1_name_snapshot: string | null;
+  driver_2_name_snapshot: string | null;
+  assistant_1_name_snapshot: string | null;
+  assistant_2_name_snapshot: string | null;
   driver_info: string | null;
   note: string | null;
   created_at: string;
@@ -181,6 +186,8 @@ export default function DeliveryPlanPage() {
   const [tripCountAlert, setTripCountAlert] = useState<number>(0);
   const [shipmentEntityId, setShipmentEntityId] = useState<string>("");
   const [shipmentProcessing, setShipmentProcessing] = useState(false);
+  const [recentShipment, setRecentShipment] = useState<ShipmentLog | null>(null);
+  const [isMerging, setIsMerging] = useState(false);
 
   // Tab state: 'plan' | 'history'
   const [activeTab, setActiveTab] = useState<'plan' | 'history'>('plan');
@@ -278,7 +285,6 @@ export default function DeliveryPlanPage() {
         return;
       }
 
-      // FIX: Use the correct RPC call pattern (matching shortage page)
       const currD = new Date();
       const qStart = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-01`;
       const qEnd = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-${String(currD.getDate()).padStart(2, "0")}`;
@@ -349,7 +355,6 @@ export default function DeliveryPlanPage() {
       if (error) throw error;
       showToast("Tạo phiếu xuất kho thành công!", "success");
 
-      // Auto export Excel after successful outbound
       exportOutboundExcel();
 
       setOutboundDay(null);
@@ -405,7 +410,6 @@ export default function DeliveryPlanPage() {
     }
     setShipmentProcessing(true);
     try {
-      // Get stock data for validation
       const currD = new Date();
       const qStart = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-01`;
       const qEnd = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-${String(currD.getDate()).padStart(2, "0")}`;
@@ -458,7 +462,6 @@ export default function DeliveryPlanPage() {
         setShipmentProcessing(false);
         return;
       }
-      // Auto-detect entity from first item
       const firstCust = customers.find(x => x.id === (plans.find(p => p.id === items[0].plan_id)?.customer_id));
       if (firstCust?.selling_entity_id) setShipmentEntityId(firstCust.selling_entity_id);
 
@@ -469,8 +472,9 @@ export default function DeliveryPlanPage() {
       setOverrideAst1Name("");
       setOverrideAst2Name("");
       setTripCountAlert(0);
+      setRecentShipment(null);
+      setIsMerging(false);
       
-      // Fix flickering: Clear processing state BEFORE opening modal
       setShipmentProcessing(false);
       setShipmentModalOpen(true);
     } catch (err: any) {
@@ -498,7 +502,6 @@ export default function DeliveryPlanPage() {
   };
 
   const submitShipment = async () => {
-    // Validate: all items must have actual > 0
     const invalidItems = shipmentItems.filter(it => !it.actual || Number(it.actual) <= 0);
     if (invalidItems.length > 0) {
       showToast(`Còn ${invalidItems.length} mã hàng chưa nhập số lượng thực tế.`, "warning");
@@ -528,15 +531,15 @@ export default function DeliveryPlanPage() {
         p_driver_2_name: overrideDriver2Name || null,
         p_assistant_1_name: overrideAst1Name || null,
         p_assistant_2_name: overrideAst2Name || null,
-        p_note: `Xuất kho chuyến hàng`,
+        p_note: isMerging ? `Ghép thêm hàng vào chuyến ${recentShipment?.shipment_no}` : `Xuất kho chuyến hàng`,
         p_shipment_date: selectedOutboundDay,
+        p_existing_shipment_id: isMerging ? recentShipment?.id : null,
       });
       if (error) throw error;
 
       const shipmentNo = data?.shipment_no || "";
       showToast(`Tạo chuyến hàng ${shipmentNo} thành công!`, "success");
 
-      // Export PGH Excel
       await exportShipmentExcel(shipmentItems, shipmentNo);
 
       setShipmentModalOpen(false);
@@ -554,11 +557,14 @@ export default function DeliveryPlanPage() {
     const first = items[0];
     const totalQty = items.reduce((sum, it) => sum + Number(it.actual || 0), 0);
     const rowOffset = items.length - 1;
-    const fileName = `${shipmentNo}_${first.customer_code}`;
+    // Suffix PGH number with customer code for multi-drop clarity
+    const finalShipmentNo = `${shipmentNo} / ${first.customer_code}`;
+    const fileName = `${shipmentNo.replace(/\//g, '-')}_${first.customer_code}`;
 
     const cellData: any = {
       'A2': { value: first.entity_name, font: { name: 'Times New Roman', size: 18, bold: true } },
       'A3': { value: first.entity_address, font: { name: 'Times New Roman', size: 18 } },
+      'H7': { value: finalShipmentNo, font: { name: 'Times New Roman', size: 13, bold: true } },
       'H8': { value: dateLabel, font: { name: 'Times New Roman', size: 13, bold: true } },
       'H9': { value: first.customer_code, font: { name: 'Times New Roman', size: 13, bold: true } },
       'H11': { value: first.customer_external_code || "", font: { name: 'Times New Roman', size: 13, bold: true } },
@@ -593,7 +599,10 @@ export default function DeliveryPlanPage() {
     try {
       const { data, error } = await supabase
         .from("shipment_logs")
-        .select("*")
+        .select(`
+          *,
+          inventory_transactions(customer_id, customers(code, name))
+        `)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -632,7 +641,6 @@ export default function DeliveryPlanPage() {
     if (outboundItems.length === 0) return;
     const dateLabel = selectedOutboundDay ? selectedOutboundDay.split("-").reverse().join("/") : "";
     
-    // Group by Customer and Entity for individual formal documents
     const grouped: Record<string, typeof outboundItems> = {};
     outboundItems.forEach(item => {
       const key = `${item.customer_code}_${item.entity_code || "UNKNOWN"}`;
@@ -643,65 +651,41 @@ export default function DeliveryPlanPage() {
     for (const [key, items] of Object.entries(grouped)) {
       const first = items[0];
       const fileName = `PGH_${first.customer_code}_${dateLabel.replace(/\//g, "")}`;
-      // 1. Prepare Header & Signature Mappings (Detailed per User Request - Final NEW Template)
       const totalQty = items.reduce((sum, it) => sum + (it.actual || 0), 0);
       const rowOffset = items.length - 1;
 
       const cellData: any = {
-        // Legal Entity Info (Top Left)
         'A2': { value: first.entity_name, font: { name: 'Times New Roman', size: 18, bold: true } },
         'A3': { value: first.entity_address, font: { name: 'Times New Roman', size: 18 } },
-        
-        // Header Info (Right)
-        'H8': { value: dateLabel, font: { name: 'Times New Roman', size: 13, bold: true } }, // Date DD/MM/YYYY
+        'H8': { value: dateLabel, font: { name: 'Times New Roman', size: 13, bold: true } },
         'H9': { value: first.customer_code, font: { name: 'Times New Roman', size: 13, bold: true } },
         'H11': { value: first.customer_external_code || "", font: { name: 'Times New Roman', size: 13, bold: true } },
-
-        // Customer & Entity Info (Middle Section)
         'B9': { value: first.customer_name, font: { name: 'Times New Roman', size: 13, bold: true } },
         'B10': { value: first.customer_address, font: { name: 'Times New Roman', size: 13 } },
         'B11': { value: first.entity_name, font: { name: 'Times New Roman', size: 13, bold: true } },
         'B12': { value: first.entity_address, font: { name: 'Times New Roman', size: 13 } },
-
-        // Dynamic Total (Original Row 17 shifted)
         [`G${17 + rowOffset}`]: { value: totalQty, font: { name: 'Times New Roman', size: 13, bold: true } },
-        
-        // Dynamic Signatures (Original Row 19/20 shifted)
         [`A${19 + rowOffset}`]: { value: "BÊN GIAO", font: { name: 'Times New Roman', size: 12, bold: true } },
         [`F${19 + rowOffset}`]: { value: "BÊN NHẬN", font: { name: 'Times New Roman', size: 12, bold: true } },
         [`A${20 + rowOffset}`]: { value: first.entity_name, font: { name: 'Times New Roman', size: 12, bold: true } },
         [`F${20 + rowOffset}`]: { value: first.customer_name, font: { name: 'Times New Roman', size: 12, bold: true } },
       };
 
-      // 1.1 Force Style cho Header hàng hóa (A15-H15)
       ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(col => {
         cellData[`${col}15`] = { value: null, font: { name: 'Times New Roman', size: 13, bold: true } };
       });
 
-      // 2. Prepare Table Data (STT, Mã nội bộ, Mã SAP, Mã hàng NCC, Tên hàng, ĐVT, Số lượng)
       const tableData = items.map((item, idx) => [
-        idx + 1,              // A: STT
-        item.sku,             // B: Mã nội bộ
-        item.sap_code || "",  // C: Mã SAP
-        item.external_sku || "", // D: Mã hàng (NCC)
-        `${item.product_name} ${item.spec ? "(" + item.spec + ")" : ""}`, // E: Tên hàng
-        item.uom || "PCS",    // F: ĐVT
-        item.actual           // G: Số lượng
+        idx + 1, item.sku, item.sap_code || "", item.external_sku || "",
+        `${item.product_name} ${item.spec ? "(" + item.spec + ")" : ""}`,
+        item.uom || "PCS", item.actual
       ]);
 
       try {
-        await exportWithTemplate(
-          '/templates/maupgh.xlsx',
-          cellData,
-          tableData,
-          16, // Data starts at Row 16
-          fileName,
-          rowOffset
-        );
+        await exportWithTemplate('/templates/maupgh.xlsx', cellData, tableData, 16, fileName, rowOffset);
       } catch (err) {
         console.error("Lỗi xuất template:", err);
         showToast("Lỗi khi dùng mẫu Excel chuyên nghiệp. Đang dùng mẫu cơ bản...", "warning");
-        // Fallback to basic export if template fails
         exportToExcel(items, fileName, "Sheet1");
       }
     }
@@ -714,7 +698,6 @@ export default function DeliveryPlanPage() {
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const dateLabel = todayStr.split('-').reverse().join('/');
 
-    // Lấy tất cả mã có kế hoạch giao hôm nay (planned_qty > 0, chưa hoàn thành)
     const todayItems = products
       .filter(p => {
         const plan = plans.find(pl => pl.product_id === p.id && pl.plan_date === todayStr);
@@ -730,7 +713,6 @@ export default function DeliveryPlanPage() {
           plannedQty: plan.planned_qty || 0,
         };
       })
-      // Sắp xếp theo Khách hàng → Mã hàng
       .sort((a, b) => a.customerName.localeCompare(b.customerName) || a.sku.localeCompare(b.sku));
 
     if (todayItems.length === 0) {
@@ -762,7 +744,6 @@ export default function DeliveryPlanPage() {
         const [product_id, plan_date] = key.split("_");
         const existing = plans.find(x => x.product_id === product_id && x.plan_date === plan_date);
         
-        // At least one field must be present
         const newQtyRaw = editData.qty !== undefined ? editData.qty : (existing?.planned_qty ?? "0");
         const newNote = editData.note !== undefined ? editData.note : (existing?.note ?? null);
         
@@ -805,11 +786,9 @@ export default function DeliveryPlanPage() {
     }
   };
 
-  // Logic Filtering & Sorting
   const displayProducts = useMemo(() => {
     let list = products.slice();
 
-    // 1. "Only Scheduled" filter
     if (onlyScheduled) {
       list = list.filter(p => {
         const hasP = plans.some(pl => pl.product_id === p.id && (pl.planned_qty || 0) > 0);
@@ -818,7 +797,6 @@ export default function DeliveryPlanPage() {
       });
     }
 
-    // 2. Col filters
     Object.entries(colFilters).forEach(([key, f]) => {
       if (!f.value) return;
       const v = f.value.toLowerCase();
@@ -836,7 +814,6 @@ export default function DeliveryPlanPage() {
       });
     });
 
-    // 3. Sorting
     if (sortCol && sortDir) {
       const dir = sortDir === "asc" ? 1 : -1;
       list.sort((a, b) => {
@@ -957,11 +934,8 @@ export default function DeliveryPlanPage() {
     const d = new Date(dateStr);
     const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
     const pts = dateStr.split("-");
-
-    // Sử dụng múi giờ Local thay vì UTC 
     const now = new Date();
     const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-
     const isToday = todayLocal === dateStr;
 
     return (
@@ -987,7 +961,6 @@ export default function DeliveryPlanPage() {
         </div>
 
         <div className="flex gap-3 items-center flex-wrap">
-          {/* Modern Toggle Switch */}
           <label className="flex items-center gap-3 cursor-pointer group bg-slate-100/50 px-4 py-2 rounded-xl border border-slate-200/40 hover:bg-slate-100 transition-all">
             <input
               type="checkbox"
@@ -1000,7 +973,6 @@ export default function DeliveryPlanPage() {
 
           <div className="h-8 w-px bg-slate-200 mx-1" />
 
-          {/* === Tab Switcher === */}
           <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
             <button
               onClick={() => setActiveTab('plan')}
@@ -1012,7 +984,6 @@ export default function DeliveryPlanPage() {
 
           <div className="h-8 w-px bg-slate-200 mx-1" />
 
-          {/* Day Selector for Shipment */}
           <select
             value={selectedOutboundDay}
             onChange={e => setSelectedOutboundDay(e.target.value)}
@@ -1276,10 +1247,106 @@ export default function DeliveryPlanPage() {
             )}
           </div>
         </div>
-        ) : null}
+         ) : (
+           <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden">
+             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl">📋</div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 leading-tight">LỊCH SỬ CHUYẾN HÀNG</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Danh sách 100 chuyến hàng gần đây nhất</p>
+                  </div>
+                </div>
+                <button onClick={loadShipmentHistory} className="btn btn-ghost btn-sm text-indigo-600 font-black">🔄 LÀM MỚI</button>
+             </div>
+             
+             <div className="overflow-x-auto">
+               <table className="w-full text-sm text-left">
+                 <thead className="bg-slate-50 border-b border-slate-100">
+                   <tr>
+                     <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest">SỐ PHIẾU</th>
+                     <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest text-center">NGÀY ĐI</th>
+                     <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest">KHÁCH HÀNG (ĐA ĐIỂM)</th>
+                     <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest">XE / TÀI XẾ</th>
+                     <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest text-right">THAO TÁC</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-slate-50">
+                   {historyLoading ? (
+                     Array.from({ length: 5 }).map((_, i) => (
+                       <tr key={i} className="animate-pulse">
+                         <td colSpan={5} className="px-6 py-8 bg-slate-50/20" />
+                       </tr>
+                     ))
+                   ) : shipmentHistory.length === 0 ? (
+                     <tr><td colSpan={5} className="px-6 py-32 text-center text-slate-300 font-bold italic">Chưa có chuyến hàng nào được tạo.</td></tr>
+                   ) : shipmentHistory.map(s => {
+                     const txs = (s as any).inventory_transactions || [];
+                     const uniqueCusts: any[] = [];
+                     const seen = new Set();
+                     txs.forEach((t: any) => {
+                       if (t.customers && !seen.has(t.customer_id)) {
+                         seen.add(t.customer_id);
+                         uniqueCusts.push(t.customers);
+                       }
+                     });
+
+                     return (
+                       <tr key={s.id} className="hover:bg-indigo-50/30 transition-colors">
+                         <td className="px-6 py-4">
+                           <div className="font-extrabold text-indigo-600 font-mono text-[14px]">{s.shipment_no}</div>
+                         </td>
+                         <td className="px-6 py-4 text-center">
+                           <div className="font-bold text-slate-600">{new Date(s.shipment_date).toLocaleDateString("vi-VN")}</div>
+                         </td>
+                         <td className="px-6 py-4">
+                           <div className="flex flex-wrap gap-1.5 min-w-[200px]">
+                             {uniqueCusts.length > 0 ? uniqueCusts.map(c => (
+                               <span key={c.id} className="px-2 py-1 rounded-md bg-white border border-slate-200 text-slate-700 text-[10px] font-black uppercase shadow-sm">
+                                 {c.code}
+                               </span>
+                             )) : <span className="text-slate-300 italic">N/A</span>}
+                             {uniqueCusts.length > 1 && (
+                               <span className="px-2 py-1 rounded-md bg-amber-500 text-white text-[9px] font-black uppercase tracking-tighter">
+                                 ⚡ ĐA ĐIỂM
+                               </span>
+                             )}
+                           </div>
+                         </td>
+                         <td className="px-6 py-4">
+                           {(() => {
+                             const v = vehicles.find(x => x.id === s.vehicle_id);
+                             return (
+                               <div className="flex flex-col">
+                                 <span className="font-black text-slate-900 text-sm">{v?.license_plate || "N/A"}</span>
+                                 <span className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">
+                                   {[s.driver_1_name_snapshot, s.driver_2_name_snapshot].filter(Boolean).join(" & ")}
+                                 </span>
+                               </div>
+                             );
+                           })()}
+                         </td>
+                         <td className="px-6 py-4 text-right">
+                           <div className="flex justify-end gap-2">
+                             <button 
+                               onClick={() => handleUndoShipment(s.id, s.shipment_no)}
+                               className="w-8 h-8 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                               title="Admin: Hủy chuyến hàng"
+                             >
+                               <span className="text-lg">🗑️</span>
+                             </button>
+                           </div>
+                         </td>
+                       </tr>
+                     );
+                   })}
+                 </tbody>
+               </table>
+             </div>
+           </div>
+         )}
       </div>
 
-      {/* === FLOATING ACTION BAR === */}
       <AnimatePresence>
         {selectedPlanIds.size > 0 && activeTab === 'plan' && (
           <motion.div
@@ -1316,7 +1383,6 @@ export default function DeliveryPlanPage() {
         )}
       </AnimatePresence>
 
-      {/* === SHIPMENT CONFIRMATION MODAL === */}
       <AnimatePresence>
         {shipmentModalOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
@@ -1333,7 +1399,6 @@ export default function DeliveryPlanPage() {
                 <button onClick={() => setShipmentModalOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 transition-colors">✕</button>
               </div>
 
-              {/* Driver & Entity Info */}
               <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex gap-4 flex-wrap">
                 <div className="flex-1 min-w-[200px]">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">🏢 Pháp nhân bán hàng</label>
@@ -1355,17 +1420,32 @@ export default function DeliveryPlanPage() {
                         onChange={async (e) => {
                           const val = e.target.value;
                           setShipmentVehicleId(val);
+                          setIsMerging(false);
+                          setRecentShipment(null);
+
                           const v = vehicles.find(x => x.id === val);
                           if (v) {
                             setOverrideDriver1Name(v.driver_1_name || "");
                             setOverrideDriver2Name(v.driver_2_name || "");
                             setOverrideAst1Name(v.assistant_1_name || "");
                             setOverrideAst2Name(v.assistant_2_name || "");
-                            if (v.type === "nội_bộ") {
-                              const { count } = await supabase.from("shipment_logs").select("*", {count: "exact", head: true}).eq("vehicle_id", val).eq("shipment_date", selectedOutboundDay).is("deleted_at", null);
-                              setTripCountAlert(count || 0);
-                            } else {
-                              setTripCountAlert(0);
+                            
+                            const { count } = await supabase.from("shipment_logs").select("*", {count: "exact", head: true}).eq("vehicle_id", val).eq("shipment_date", selectedOutboundDay).is("deleted_at", null);
+                            setTripCountAlert(count || 0);
+
+                            const twoHoursAgo = new Date(new Date().getTime() - 120 * 60 * 1000).toISOString();
+                            const { data: recent } = await supabase
+                              .from("shipment_logs")
+                              .select("*")
+                              .eq("vehicle_id", val)
+                              .eq("shipment_date", selectedOutboundDay)
+                              .gt("created_at", twoHoursAgo)
+                              .is("deleted_at", null)
+                              .order("created_at", { ascending: false })
+                              .limit(1);
+                            
+                            if (recent && recent.length > 0) {
+                              setRecentShipment(recent[0]);
                             }
                           } else {
                             setOverrideDriver1Name("");
@@ -1385,9 +1465,51 @@ export default function DeliveryPlanPage() {
                         ))}
                       </select>
                       
-                      {shipmentVehicleId && tripCountAlert > 0 && vehicles.find(v => v.id === shipmentVehicleId)?.type === "nội_bộ" && (
-                        <div className={`mt-2 text-[11px] font-black px-2 py-1 flex items-center gap-1 rounded border inline-flex ${tripCountAlert >= 3 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
-                          {tripCountAlert >= 3 ? `🔥 LƯU Ý: Chuyến thứ ${tripCountAlert + 1} (Rate 230k/170k)` : `🚛 Chuyến thứ ${tripCountAlert + 1} (Rate 170k/120k)`}
+                      {shipmentVehicleId && (
+                        <div className="mt-2 space-y-2">
+                          {recentShipment ? (
+                            <motion.div 
+                              initial={{ opacity: 0, y: -10 }} 
+                              animate={{ opacity: 1, y: 0 }}
+                              className={`p-3 rounded-xl border-2 transition-all flex items-center justify-between ${isMerging ? 'bg-amber-50 border-amber-400 shadow-lg scale-[1.02]' : 'bg-slate-50 border-slate-200'}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg ${isMerging ? 'bg-amber-400 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                                  📎
+                                </div>
+                                <div>
+                                  <div className="text-[11px] font-black text-slate-800 uppercase tracking-tight">
+                                    Phát hiện xe vừa đi chuyến <span className="text-indigo-600">#{recentShipment.shipment_no}</span>
+                                  </div>
+                                  <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                                     Tạo lúc: {new Date(recentShipment.created_at).toLocaleTimeString()} ({Math.round((new Date().getTime() - new Date(recentShipment.created_at).getTime()) / 60000)} phút trước)
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => setIsMerging(true)}
+                                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${isMerging ? 'bg-amber-500 text-white shadow-md' : 'bg-white border border-slate-300 text-slate-600 hover:bg-amber-50 hover:border-amber-400'}`}
+                                >
+                                  GHÉP CHUYẾN
+                                </button>
+                                {isMerging && (
+                                  <button 
+                                    onClick={() => setIsMerging(false)}
+                                    className="px-3 py-1.5 rounded-lg text-[9px] font-black bg-white border border-slate-300 text-slate-400 hover:text-red-500"
+                                  >
+                                    TẠO MỚI
+                                  </button>
+                                )}
+                              </div>
+                            </motion.div>
+                          ) : (
+                            tripCountAlert > 0 && vehicles.find(v => v.id === shipmentVehicleId)?.type === "nội_bộ" && (
+                              <div className={`text-[11px] font-black px-2 py-1 flex items-center gap-1 rounded border inline-flex ${tripCountAlert >= 3 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
+                                {tripCountAlert >= 3 ? `🔥 LƯU Ý: Chuyến thứ ${tripCountAlert + 1} (Rate 230k/170k)` : `🚛 Chuyến thứ ${tripCountAlert + 1} (Rate 170k/120k)`}
+                              </div>
+                            )
+                          )}
                         </div>
                       )}
                     </div>
