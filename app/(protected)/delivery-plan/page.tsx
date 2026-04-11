@@ -414,6 +414,23 @@ export default function DeliveryPlanPage() {
       showToast("Vui lòng tích chọn ít nhất 1 dòng kế hoạch.", "info");
       return;
     }
+
+    // Check for unsaved edits in selected items
+    const unsavedCount = Array.from(selectedPlanIds).filter(pid => {
+      const p = plans.find(x => x.id === pid);
+      if (!p) return false;
+      return !!edits[`${p.product_id}_${p.plan_date}`];
+    }).length;
+
+    if (unsavedCount > 0) {
+      await showConfirm({
+        message: `Có ${unsavedCount} dòng kế hoạch chưa được lưu. Vui lòng nhấn "LƯU KẾ HOẠCH" trước khi tạo chuyến hàng để hệ thống tính toán nợ (backlog) chính xác.`,
+        confirmLabel: "TÔI ĐÃ HIỂU",
+        cancelLabel: ""
+      });
+      return;
+    }
+
     setShipmentProcessing(true);
     try {
       const currD = getVNTimeNow();
