@@ -1032,9 +1032,9 @@ export default function InventoryOutboundPage() {
                        <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => { const n = new Set(selectedIds); if(n.has(r.id)) n.delete(r.id); else n.add(r.id); setSelectedIds(n); }} />
                     </td>
                     <td style={{ ...tdStyle, width: colWidths["date"] || 110 }}>{fmtDate(r.tx_date)}</td>
-                    <td style={{ ...tdStyle, width: colWidths["customer"] || 180, overflow: "hidden", textOverflow: "ellipsis", color: "#4b5563 !important" }} title={customerLabel(r.customer_id)}>{customerLabel(r.customer_id)}</td>
+                    <td style={{ ...tdStyle, width: colWidths["customer"] || 180, overflow: "hidden", textOverflow: "ellipsis", color: "#4b5563" }} title={customerLabel(r.customer_id)}>{customerLabel(r.customer_id)}</td>
                     <td style={{ ...tdStyle, width: colWidths["sku"] || 140, fontWeight: 900, color: "#000000", fontFamily: "var(--font-inter), monospace", fontSize: "15px" }}>{skuFor(r)}</td>
-                    <td style={{ ...tdStyle, width: colWidths["name"] || 250, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", fontSize: "15px", color: "#4b5563 !important" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
+                    <td style={{ ...tdStyle, width: colWidths["name"] || 250, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", fontSize: "15px", color: "#4b5563" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
                     <td style={{ ...tdStyle, width: colWidths["spec"] || 160, color: "#000000", fontSize: "11px", fontWeight: 700, textTransform: "uppercase" }}>{r.product_spec_snapshot}</td>
                     <td style={{ ...tdStyle, width: colWidths["qty"] || 100, textAlign: "right" }}>
                        <div className="flex flex-col items-end">
@@ -1054,7 +1054,7 @@ export default function InventoryOutboundPage() {
                        )}
                     </td>
                     <td className="table-note-black" style={{ ...tdStyle, width: colWidths["note"] || 200, overflow: "hidden", textOverflow: "ellipsis" }} title={r.note || ""}>{r.note || ""}</td>
-                    <td style={{ ...tdStyle, width: colWidths["createdAt"] || 160, fontSize: 11, color: "#4b5563 !important" }}>{fmtDatetime(r.created_at)}</td>
+                    <td style={{ ...tdStyle, width: colWidths["createdAt"] || 160, fontSize: 11, color: "#4b5563" }}>{fmtDatetime(r.created_at)}</td>
                     <td style={{ ...tdStyle, width: 120, textAlign: "center" }}>
                        <div className="flex gap-2 justify-center">
                           <button onClick={() => toggleExpanded(r.id)} className="btn-icon">{isExpanded ? "▲" : "▼"}</button>
