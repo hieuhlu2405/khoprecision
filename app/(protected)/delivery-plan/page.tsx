@@ -962,8 +962,7 @@ export default function DeliveryPlanPage() {
             📅
           </div>
           <div>
-            <h1 className="page-title">KẾ HOẠCH GIAO HÀNG</h1>
-            <p className="page-description !m-0 text-slate-400 text-[10px] font-black uppercase tracking-widest">Ma trận 7 ngày tới • Cập nhật lần cuối: {getVNTimeNow().toLocaleTimeString("vi-VN")}</p>
+            <h1 className="page-title tracking-widest">KẾ HOẠCH GIAO HÀNG</h1>
           </div>
         </div>
 
@@ -980,14 +979,6 @@ export default function DeliveryPlanPage() {
 
           <div className="h-8 w-px bg-slate-200 mx-1" />
 
-          <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
-            <button
-              onClick={() => setActiveTab('plan')}
-              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'plan' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-              📊 KẾ HOẠCH
-            </button>
-          </div>
 
           <div className="h-8 w-px bg-slate-200 mx-1" />
 
@@ -1052,8 +1043,8 @@ export default function DeliveryPlanPage() {
             style={{ marginTop: 24, maxHeight: "calc(100vh - 350px)", position: 'relative' }}
           >
             <table className="text-sm !border-separate !border-spacing-0 table-fixed" style={{ width: TABLE_MIN_WIDTH, minWidth: TABLE_MIN_WIDTH }}>
-              <thead>
-                <tr className="z-[50]" style={{ display: 'flex', width: TABLE_MIN_WIDTH }}>
+              <thead className="sticky top-0 z-[60]">
+                <tr style={{ display: 'flex', width: TABLE_MIN_WIDTH }}>
                   <th style={{ width: '50px', minWidth: '50px', flexBasis: '50px', textAlign: 'center', position: 'sticky', top: 0, left: 0, zIndex: 62, background: 'white', borderBottom: '1px solid #e2e8f0', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="py-4 px-2 border-r border-slate-200/60">
                     <input 
                       type="checkbox" 
