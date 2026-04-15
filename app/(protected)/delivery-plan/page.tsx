@@ -105,6 +105,17 @@ function getNext7Days() {
   return dates;
 }
 
+function get7DaysFrom(startDateStr: string) {
+  const dates = [];
+  const start = new Date(startDateStr);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+  }
+  return dates;
+}
+
 const TABLE_MIN_WIDTH = 1790; // Total width of all columns sum
 
 /* ------------------------------------------------------------------ */
@@ -161,7 +172,9 @@ export default function DeliveryPlanPage() {
   const [entities, setEntities] = useState<SellingEntity[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
 
-  const [days] = useState<string[]>(getNext7Days());
+  const [anchorDate, setAnchorDate] = useState<string>(getVNTimeStr());
+  const days = useMemo(() => get7DaysFrom(anchorDate), [anchorDate]);
+
   const [saving, setSaving] = useState(false);
   const [edits, setEdits] = useState<Record<string, { qty?: string; note?: string; note2?: string }>>({});
 
@@ -264,9 +277,14 @@ export default function DeliveryPlanPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const canEdit = profile?.role === "admin" || profile?.department === "sales";
+  
+  const todayVN = getVNTimeStr();
+  const canEditDate = useCallback((dateStr: string) => {
+    return canEdit && dateStr >= todayVN;
+  }, [canEdit, todayVN]);
 
   const handleQtyChange = (product_id: string, date: string, val: string) => {
-    if (!canEdit) return;
+    if (!canEditDate(date)) return;
     setEdits(prev => {
       const key = `${product_id}_${date}`;
       const curr = prev[key] || {};
@@ -275,7 +293,7 @@ export default function DeliveryPlanPage() {
   };
 
   const handleNoteChange = (product_id: string, date: string, val: string) => {
-    if (!canEdit) return;
+    if (!canEditDate(date)) return;
     setEdits(prev => {
       const key = `${product_id}_${date}`;
       const curr = prev[key] || {};
@@ -284,7 +302,7 @@ export default function DeliveryPlanPage() {
   };
 
   const handleNote2Change = (product_id: string, date: string, val: string) => {
-    if (!canEdit) return;
+    if (!canEditDate(date)) return;
     setEdits(prev => {
       const key = `${product_id}_${date}`;
       const curr = prev[key] || {};
@@ -1035,6 +1053,47 @@ export default function DeliveryPlanPage() {
         </div>
 
         <div className="flex gap-3 items-center flex-wrap">
+          <div className="flex bg-slate-100 p-1 rounded-xl items-center border border-slate-200">
+            <button 
+              onClick={() => {
+                const d = new Date(anchorDate);
+                d.setDate(d.getDate() - 7);
+                setAnchorDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+              }}
+              className="btn btn-ghost btn-xs h-8 px-3 text-slate-500 hover:bg-white rounded-lg shadow-sm"
+              title="7 ngày trước"
+            >
+              ◀
+            </button>
+            <button 
+              onClick={() => setAnchorDate(getVNTimeStr())}
+              className={`btn btn-ghost btn-xs h-8 px-4 font-black uppercase tracking-wider rounded-lg transition-all ${anchorDate === getVNTimeStr() ? "bg-indigo-600 text-white shadow-md" : "text-indigo-600 hover:bg-white"}`}
+            >
+              Hôm nay
+            </button>
+            <button 
+              onClick={() => {
+                const d = new Date(anchorDate);
+                d.setDate(d.getDate() + 7);
+                setAnchorDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+              }}
+              className="btn btn-ghost btn-xs h-8 px-3 text-slate-500 hover:bg-white rounded-lg shadow-sm"
+              title="7 ngày sau"
+            >
+              ▶
+            </button>
+            <input 
+              type="date"
+              className="ml-1 h-8 px-2 text-[10px] font-bold rounded-lg border-none bg-white text-slate-600 focus:ring-2 focus:ring-indigo-400 cursor-pointer w-[110px]"
+              value={anchorDate}
+              onChange={(e) => {
+                if (e.target.value) setAnchorDate(e.target.value);
+              }}
+            />
+          </div>
+
+          <div className="h-8 w-px bg-slate-200 mx-1" />
+
           <label className="flex items-center gap-3 cursor-pointer group bg-slate-100/50 px-4 py-2 rounded-xl border border-slate-200/40 hover:bg-slate-100 transition-all">
             <input
               type="checkbox"
@@ -1219,11 +1278,13 @@ export default function DeliveryPlanPage() {
                            const today = days[0];
                            const plan = plans.find(x => x.product_id === p.id && x.plan_date === today);
                            const noteVal = edits[`${p.id}_${today}`]?.note ?? plan?.note ?? "";
+                           const disabled = !canEditDate(today);
                            return (
                              <input 
                                type="text" 
-                               placeholder="Nhập ghi chú..." 
-                               className="input input-ghost input-xs h-7 w-full text-[12px] font-black text-black focus:bg-white focus:ring-1 focus:ring-indigo-300 placeholder:text-slate-300 italic" 
+                               placeholder={disabled ? "" : "Nhập ghi chú..."}
+                               disabled={disabled}
+                               className={`input input-ghost input-xs h-7 w-full text-[12px] font-black focus:bg-white focus:ring-1 focus:ring-indigo-300 italic ${disabled ? 'bg-slate-50/50 text-slate-500 cursor-not-allowed' : 'text-black placeholder:text-slate-300'}`}
                                value={noteVal}
                                onChange={e => handleNoteChange(p.id, today, e.target.value)} 
                              />
@@ -1235,11 +1296,13 @@ export default function DeliveryPlanPage() {
                            const today = days[0];
                            const plan = plans.find(x => x.product_id === p.id && x.plan_date === today);
                            const note2Val = edits[`${p.id}_${today}`]?.note2 ?? plan?.note_2 ?? "";
+                           const disabled = !canEditDate(today);
                            return (
                              <input 
                                type="text" 
-                               placeholder="Nhập ghi chú..." 
-                               className="input input-ghost input-xs h-7 w-full text-[12px] font-black text-black focus:bg-white focus:ring-1 focus:ring-indigo-300 placeholder:text-slate-300 italic" 
+                               placeholder={disabled ? "" : "Nhập ghi chú..."}
+                               disabled={disabled}
+                               className={`input input-ghost input-xs h-7 w-full text-[12px] font-black focus:bg-white focus:ring-1 focus:ring-indigo-300 italic ${disabled ? 'bg-slate-50/50 text-slate-500 cursor-not-allowed' : 'text-black placeholder:text-slate-300'}`} 
                                value={note2Val}
                                onChange={e => handleNote2Change(p.id, today, e.target.value)} 
                              />
@@ -1249,7 +1312,7 @@ export default function DeliveryPlanPage() {
                       {days.map(d => {
                         const plan = plans.find(x => x.product_id === p.id && x.plan_date === d);
                         const editData = edits[`${p.id}_${d}`];
-                        const val = editData?.qty ?? (plan?.planned_qty && plan.planned_qty > 0 ? String(plan.planned_qty) : "");
+                        const val = editData?.qty !== undefined ? editData.qty : (plan?.planned_qty?.toString() || "");
                         const isChanged = editData?.qty !== undefined || editData?.note !== undefined;
                         const itdr = getVNTimeStr() === d;
                         const isDone = plan?.is_completed;
@@ -1259,14 +1322,16 @@ export default function DeliveryPlanPage() {
                         const progressPct = plannedQty > 0 ? Math.min(100, Math.round((actualQty / plannedQty) * 100)) : 0;
                         const hasPartialShipment = actualQty > 0 && !isDone;
                         const colW = colWidths[d] || 100;
+                        const disabled = !canEditDate(d) || isDone;
 
                         return (
-                          <td key={d} className={`p-1 border-r border-slate-50 hover:bg-white transition-all shrink-0 grow-0 ${isChanged ? 'bg-amber-50/60' : ''} ${itdr ? 'bg-red-50/20' : ''}`} style={{ width: colW, flexBasis: colW }}>
+                          <td key={d} className={`p-1 border-r border-slate-50 transition-all shrink-0 grow-0 ${!disabled ? 'hover:bg-white' : 'bg-slate-50/50 cursor-not-allowed'} ${isChanged ? 'bg-amber-50/60' : ''} ${itdr ? 'bg-red-50/20' : ''}`} style={{ width: colW, flexBasis: colW }}>
                             <div className="relative group/cell w-full h-full">
                               <input
                                 type="text"
                                 className={`w-full text-center py-1.5 px-1 rounded-lg border-2 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-black text-sm
-                                    ${isChanged
+                                    ${disabled ? 'opacity-70 bg-transparent border-transparent' : 
+                                      isChanged
                                     ? 'border-amber-400 bg-white text-amber-700 shadow-md shadow-amber-200/40 z-10 relative scale-105'
                                     : isDone ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600 shadow-inner' 
                                     : hasPartialShipment ? 'border-yellow-300 bg-yellow-50/50 text-yellow-700'
@@ -1274,11 +1339,15 @@ export default function DeliveryPlanPage() {
                                   }
                                     ${itdr && !isChanged && !isDone ? 'text-red-600' : ''}
                                   `}
-                                disabled={!canEdit || isDone}
-                                value={val}
+                                disabled={disabled}
+                                value={val === "0" ? "" : val}
                                 placeholder="-"
                                 title={isDone ? `Đã xuất đủ: ${actualQty}/${plannedQty}` : hasPartialShipment ? `Đang xuất dở: ${actualQty}/${plannedQty}` : (editData?.note ?? plan?.note ?? "")}
-                                onChange={e => handleQtyChange(p.id, d, e.target.value)}
+                                onChange={e => {
+                                  const v = e.target.value.replace(/\D/g, "");
+                                  handleQtyChange(p.id, d, v);
+                                }}
+                                onFocus={e => e.target.select()}
                               />
                               {(isDone || hasPartialShipment) && (
                                 <div className="absolute bottom-0 left-1 right-1 h-1 rounded-full bg-slate-200 overflow-hidden">
@@ -1292,9 +1361,9 @@ export default function DeliveryPlanPage() {
                               )}
                               {plan?.is_backlog && !isDone && (
                                 <div 
-                                  className="absolute -top-2 right-1 text-[8px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded shadow-sm z-30 animate-pulse tracking-widest pointer-events-auto cursor-pointer hover:bg-red-600 hover:scale-110 transition-all"
+                                  className={`absolute -top-2 right-1 text-[8px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded shadow-sm z-30 animate-pulse tracking-widest pointer-events-auto transition-all ${disabled ? 'opacity-80' : 'cursor-pointer hover:bg-red-600 hover:scale-110'}`}
                                   title={`BẤM ĐỂ HỦY NỢ\nTỔNG CẦN GIAO: ${(plan?.planned_qty || 0) + (plan?.backlog_qty || 0)}\n(Kế hoạch gốc: ${plan?.planned_qty || 0} + Nợ: ${plan?.backlog_qty || 0})\n${plan?.note || ""}`}
-                                  onClick={(e) => { e.stopPropagation(); handleCancelBacklog(plan!.id); }}
+                                  onClick={(e) => { e.stopPropagation(); if (!disabled) handleCancelBacklog(plan!.id); }}
                                 >
                                   NỢ
                                 </div>
