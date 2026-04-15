@@ -8,7 +8,7 @@ import { useUI } from "@/app/context/UIContext";
 import { LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
 import { useDebounce } from "@/app/hooks/useDebounce";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -496,6 +496,67 @@ export default function InventoryReportPage() {
 
   const [closing, setClosing] = useState(false);
 
+  /* ---- Rollover (Kết chuyển) Logic ---- */
+  const [rolloverOpen, setRolloverOpen] = useState(false);
+  const [rolloverDate, setRolloverDate] = useState("");
+  const [lockPeriod, setLockPeriod] = useState(true);
+  const [isRollingOver, setIsRollingOver] = useState(false);
+
+  async function handleRollover() {
+    if (!rolloverDate) {
+      showToast("Vui lòng chọn ngày thiết lập Tồn Đầu Kỳ mới.", "error");
+      return;
+    }
+
+    const totalLines = reportData.filter(r => r.current_qty !== 0).length;
+    const ok = await showConfirm({ 
+      message: `Hệ thống sẽ thiết lập "Mốc Đầu Kỳ" từ kết quả tính toán tại thời điểm này cho ngày: ${formatToVietnameseDate(rolloverDate)}.\nTổng số mã hàng sẽ kết chuyển: ${totalLines}.\n\n${lockPeriod ? `Đồng thời, NGÀY KHÓA SỔ HỆ THỐNG sẽ được thiết lập là ${formatToVietnameseDate(qEnd)} nhằm ngăn chặn việc sửa đổi làm sai số liệu cũ.` : "Hệ thống sẽ KHÔNG khóa giao dịch cũ (Không khuyến khích)."}\n\nBạn đã chắc chắn sổ sách đã cân?`, 
+      confirmLabel: "Thực hiện Kết Chuyển" 
+    });
+
+    if (!ok) return;
+
+    setIsRollingOver(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Chưa đăng nhập");
+
+      // Dùng reportData (tất cả data không bị ảnh hưởng bởi search/filter)
+      const payloads = reportData.filter(r => r.current_qty !== 0).map(r => ({
+        period_month: rolloverDate,
+        product_id: r.product.id,
+        customer_id: r.customer_id || null,
+        opening_qty: r.current_qty,
+        opening_unit_cost: r.product.unit_price,
+        created_by: u.user.id,
+        updated_by: u.user.id
+      }));
+
+      // Bước 1: Xóa trắng toàn bộ số dư đã thiết lập của cái ngày rollover đó (nếu có)
+      await supabase.from("inventory_opening_balances").delete().eq("period_month", rolloverDate);
+
+      // Bước 2: Insert toàn bộ vào
+      if (payloads.length > 0) {
+        const { error: insErr } = await supabase.from("inventory_opening_balances").insert(payloads);
+        if (insErr) throw insErr;
+      }
+
+      // Bước 3: Khóa Sổ hệ thống (Update Settings)
+      if (lockPeriod) {
+        const { error: lockErr } = await supabase.from("system_settings").update({ inventory_closed_until: qEnd }).eq("id", "default");
+        if (lockErr) throw lockErr;
+      }
+
+      showToast("🎉 Kết chuyển Kế Toán Thành Công! Hệ thống đã được lập mốc mới.", "success");
+      setRolloverOpen(false);
+      load(); // Reload data
+    } catch (err: any) {
+      showToast("Lỗi kết chuyển: " + err.message, "error");
+    } finally {
+      setIsRollingOver(false);
+    }
+  }
+
   /* ---- DB V2 Testing ---- */
   const [testingDb, setTestingDb] = useState(false);
   const testDbSpeed = async () => {
@@ -587,8 +648,11 @@ export default function InventoryReportPage() {
             {testingDb ? "Đang xử lý..." : "⚡ Test DB Speed"}
           </button>
           <div className="w-px h-6 bg-slate-200 mx-1" />
-          <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading || displayData.length === 0}>
-            {closing ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}
+          <button className="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold" onClick={closeReport} disabled={closing || loading || displayData.length === 0}>
+            {closing ? "Đang lưu..." : "📸 Lưu Snapshot"}
+          </button>
+          <button className="btn bg-indigo-600 text-white hover:bg-indigo-700 font-black tracking-widest uppercase text-[11px] shadow-lg shadow-indigo-200" onClick={() => setRolloverOpen(true)} disabled={loading || reportData.length === 0}>
+            🚀 Kết Chuyển Tháng
           </button>
         </div>
       </div>
@@ -763,6 +827,73 @@ export default function InventoryReportPage() {
           </table>
         )}
       </div>
+
+      {/* Rollover Modal */}
+      <AnimatePresence>
+        {rolloverOpen && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-[500px] w-full"
+            >
+              <div className="p-6 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-black text-xl">🚀</div>
+                  <div>
+                    <h2 className="font-black text-lg text-slate-900">KẾT CHUYỂN KẾ TOÁN</h2>
+                    <p className="text-xs text-indigo-600 font-bold tracking-widest uppercase">Thiết lập mốc tồn đầu kỳ mới</p>
+                  </div>
+                </div>
+                <button onClick={() => setRolloverOpen(false)} className="text-slate-400 hover:text-slate-600 font-black p-2 bg-white rounded-lg transition-colors">✕</button>
+              </div>
+
+              <div className="p-6">
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                  <p className="text-sm font-bold text-amber-800 mb-2">Thông tin quan trọng:</p>
+                  <p className="text-xs text-amber-700 leading-relaxed">Tính năng này sẽ sử dụng TOÀN BỘ dữ liệu Tồn hiện tại trên máy để thiết lập thành "Tồn Đầu Kỳ" cho một ngày mà bạn chỉ định.</p>
+                </div>
+
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Ngày Mốc Đầu Kỳ Mới</label>
+                    <input 
+                      type="date" 
+                      value={rolloverDate} 
+                      onChange={e => setRolloverDate(e.target.value)} 
+                      className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 font-black text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1 italic">Khuyên dùng: Ngày 01 của tháng tiếp theo (Ví dụ chốt dữ liệu 31/03, hãy lấy mốc 01/04).</p>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                     <div className="pt-1">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                           <input type="checkbox" className="sr-only peer" checked={lockPeriod} onChange={e => setLockPeriod(e.target.checked)} />
+                           <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-500"></div>
+                        </label>
+                     </div>
+                     <div>
+                        <div className="text-sm font-black text-slate-800 block">Khóa Sổ Hệ Thống (Bảo Vệ Dữ Liệu)</div>
+                        <div className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                           Nếu bật, hệ thống sẽ KHÓA toàn bộ giao dịch vào và trước ngày <strong className="text-slate-800">{formatToVietnameseDate(qEnd)}</strong>. Không ai được phép sửa lùi ngày, đảm bảo bộ phận kho không làm sai lệch mốc kế toán.
+                        </div>
+                     </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 rounded-b-3xl">
+                <button onClick={() => setRolloverOpen(false)} className="px-6 py-2.5 rounded-xl text-slate-600 font-bold hover:bg-slate-200 transition-colors bg-slate-100/50 border border-slate-200">Hủy bỏ</button>
+                <button onClick={handleRollover} disabled={isRollingOver} className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black tracking-widest text-[11px] uppercase shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-50">
+                  {isRollingOver ? "Đang xử lý..." : "Xác Nhận Kết Chuyển"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

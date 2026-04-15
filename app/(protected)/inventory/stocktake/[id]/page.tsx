@@ -552,6 +552,26 @@ export default function StocktakeDetailPage() {
           const { error: insErr } = await supabase.from("inventory_transactions").insert(adjustmentPayloads);
           if (insErr) throw insErr;
         }
+
+        // 3. Create Hard Baseline for Stocktake in Opening Balances
+        const baselinePayloads = lines.map(l => ({
+          period_month: confirmedDateOnly, // Mốc thời gian là ngày kiểm kê
+          product_id: l.product_id,
+          customer_id: l.customer_id,
+          opening_qty: l.actual_qty_after, // Số lượng tồn mốc là số đã kiểm kê tay thực tế
+          opening_unit_cost: l.unit_price_snapshot,
+          source_stocktake_id: header.id,
+          created_by: me?.id,
+          updated_at: now,
+          updated_by: me?.id
+        }));
+
+        await supabase.from("inventory_opening_balances").delete().eq("source_stocktake_id", header.id);
+
+        if (baselinePayloads.length > 0) {
+          const { error: obErr } = await supabase.from("inventory_opening_balances").insert(baselinePayloads);
+          if (obErr) throw obErr;
+        }
       }
 
       showToast(currentIsConfirmed ? "Đã chốt phiếu thành công!" : "Đã lưu bản nháp!", "success");
@@ -567,7 +587,10 @@ export default function StocktakeDetailPage() {
 
   async function handleConfirm() {
     if (!header || !validateSave()) return;
-    const ok = await showConfirm({ message: "Xác nhận chốt phiếu? Hệ thống sẽ sinh giao dịch cân bằng kho.", confirmLabel: "Xác nhận" });
+    const ok = await showConfirm({ 
+      message: `Xác nhận chốt phiếu?\n\nHệ thống sẽ:\n1. Sinh giao dịch điều chỉnh (bù trừ)\n2. Lập "Mốc Tồn Đầu" cứng tại ngày ${header.stocktake_date}.\n\nLưu ý: Mọi giao dịch hệ thống của mốc thời gian cũ sẽ được thiết lập lại từ con số của phiếu kiểm kê này.`, 
+      confirmLabel: "Chốt cứng dữ liệu" 
+    });
     if (ok) await handleSaveLinesAndApply(true);
   }
 
