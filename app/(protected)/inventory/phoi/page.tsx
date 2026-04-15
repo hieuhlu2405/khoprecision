@@ -859,9 +859,10 @@ export default function PhoiPage() {
   const allSelectableIds = finalFiltered.map(r => r.id);
   const allChecked = allSelectableIds.length > 0 && allSelectableIds.every(id => selectedIds.has(id));
 
-  const eSuggestions = eProductSearch.trim()
-    ? products.filter(p => `${p.sku} ${p.name}`.toLowerCase().includes(eProductSearch.toLowerCase())).slice(0, 8)
-    : [];
+  const eSuggestions = (() => {
+    const s = eProductSearch.toLowerCase();
+    return products.filter(p => p.sku.toLowerCase().includes(s) || p.name.toLowerCase().includes(s)).slice(0, 8);
+  })();
 
   if (loading || !mounted) return <LoadingPage text="Đang tải dữ liệu nhập phôi..." />;
 
@@ -938,17 +939,23 @@ export default function PhoiPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {lines.map((l, idx) => {
-                    const lSugs = l.productSearch?.trim() 
-                      ? products.filter(p => `${p.sku} ${p.name}`.toLowerCase().includes(l.productSearch!.toLowerCase())).slice(0, 8)
-                      : [];
+                    const lSugs = (() => {
+                      const s = (l.productSearch || "").toLowerCase();
+                      return products.filter(p => p.sku.toLowerCase().includes(s) || p.name.toLowerCase().includes(s)).slice(0, 8);
+                    })();
                     return (
                       <tr key={l.key} className="group hover:bg-white transition-colors">
                         <td className="px-4 py-3 text-center text-xs font-bold text-slate-400">{idx + 1}</td>
                         <td className="px-4 py-3 relative">
                           <input 
                             value={l.productSearch ?? (products.find(p => p.id === l.productId) ? `${products.find(p => p.id === l.productId)!.sku} - ${products.find(p => p.id === l.productId)!.name}` : "")}
-                            onChange={e => updateLine(l.key, "productSearch", e.target.value)}
+                            onChange={e => {
+                                updateLine(l.key, "productSearch", e.target.value);
+                                updateLine(l.key, "showSuggestions", true);
+                                updateLine(l.key, "productId", "");
+                            }}
                             onFocus={() => updateLine(l.key, "showSuggestions", true)}
+                            onBlur={() => setTimeout(() => updateLine(l.key, "showSuggestions", false), 200)}
                             placeholder="Gõ mã hoặc tên để tìm..."
                             className="w-full h-10 bg-transparent border-none font-bold text-slate-700 focus:outline-none"
                           />
@@ -957,7 +964,8 @@ export default function PhoiPage() {
                               {lSugs.map(ps => (
                                 <button
                                   key={ps.id}
-                                  onClick={() => {
+                                  onMouseDown={e => {
+                                    e.preventDefault();
                                     updateLine(l.key, "productId", ps.id);
                                     updateLine(l.key, "productSearch", `${ps.sku} - ${ps.name}`);
                                     updateLine(l.key, "showSuggestions", false);
@@ -1181,8 +1189,9 @@ export default function PhoiPage() {
                   <div className="relative">
                     <input 
                       value={eProductSearch} 
-                      onChange={e => { setEProductSearch(e.target.value); setEShowSuggestions(true); }}
+                      onChange={e => { setEProductSearch(e.target.value); setEShowSuggestions(true); setEProductId(""); }}
                       onFocus={() => setEShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => setEShowSuggestions(false), 200)}
                       className="input w-full"
                     />
                     {eShowSuggestions && eSuggestions.length > 0 && (
@@ -1190,7 +1199,12 @@ export default function PhoiPage() {
                         {eSuggestions.map(ps => (
                           <button
                             key={ps.id}
-                            onClick={() => { setEProductId(ps.id); setEProductSearch(`${ps.sku} - ${ps.name}`); setEShowSuggestions(false); }}
+                            onMouseDown={e => { 
+                                e.preventDefault();
+                                setEProductId(ps.id); 
+                                setEProductSearch(`${ps.sku} - ${ps.name}`); 
+                                setEShowSuggestions(false); 
+                            }}
                             className="w-full text-left px-4 py-2 hover:bg-slate-50 flex flex-col transition-colors border-b last:border-0"
                           >
                             <span className="text-xs font-bold">{ps.sku}</span>
