@@ -550,21 +550,29 @@ export default function InventoryInboundPage() {
       position: "sticky",
       top: 0,
       zIndex: 40,
-      background: "rgba(255,255,255,0.95)",
-      backdropFilter: "blur(8px)",
-      borderBottom: "1px solid #e2e8f0",
+      background: "rgba(255,255,255,1)",
+      borderBottom: "2px solid #000000",
+      borderRight: "1px solid #e2e8f0",
       whiteSpace: "nowrap",
       width: width ? `${width}px` : w,
       minWidth: width ? `${width}px` : "50px",
       padding: "12px",
+      color: "#000000",
+      fontWeight: 900,
       ...extra
     };
     const popupOpen = openPopupId === colKey;
 
     return (
       <th style={baseStyle} ref={thRef} className="group">
-        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">{label}</span>
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: "4px", 
+          width: "100%",
+          justifyContent: align === "right" ? "flex-end" : align === "center" ? "center" : "flex-start"
+        }}>
+          <span className="text-black font-black text-xs uppercase tracking-wider !text-black truncate" style={{ color: "#000000" }}>{label}</span>
           <div className="flex items-center gap-0.5">
             {sortable && (
               <button
@@ -577,7 +585,7 @@ export default function InventoryInboundPage() {
                 }}
                 className={`p-1 hover:bg-slate-100 rounded transition-colors ${isSortTarget ? "text-indigo-600" : "text-slate-400"}`}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
                   {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6" /> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6" /> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3" />}
                 </svg>
               </button>
@@ -587,7 +595,7 @@ export default function InventoryInboundPage() {
                 onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
                 className={`p-1 rounded transition-all ${active ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-100"}`}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
               </button>
             )}
           </div>
@@ -1004,7 +1012,7 @@ export default function InventoryInboundPage() {
         <table className="data-table !border-separate !border-spacing-0 table-fixed" style={{ width: "100%", minWidth: "100%" }}>
           <thead className="sticky top-0 z-50 bg-white">
             <tr>
-              <th style={{ ...thStyle, width: 40, textAlign: "center", left: 0, zIndex: 101, background: "white", borderBottom: "1px solid #e2e8f0" }}>
+              <th style={{ ...thStyle, width: 40, textAlign: "center", left: 0, zIndex: 101, background: "white", borderBottom: "2px solid #000000", color: "#000000", fontWeight: 900 }}>
                 <input type="checkbox" checked={finalFiltered.length > 0 && selectedIds.size === finalFiltered.length} onChange={e => setSelectedIds(e.target.checked ? new Set(finalFiltered.map(r => r.id)) : new Set())} />
               </th>
               <ThCell label="Ngày" colKey="date" sortable colType="date" w="110px" />
@@ -1040,15 +1048,15 @@ export default function InventoryInboundPage() {
                        <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => { const n = new Set(selectedIds); if(n.has(r.id)) n.delete(r.id); else n.add(r.id); setSelectedIds(n); }} />
                     </td>
                     <td style={{ ...tdStyle, width: colWidths["date"] || 110, flexShrink: 0 }}>{fmtDate(r.tx_date)}</td>
-                    <td style={{ ...tdStyle, width: colWidths["customer"] || 180, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }} title={customerLabel(r.customer_id)}>{customerLabel(r.customer_id)}</td>
-                    <td style={{ ...tdStyle, width: colWidths["sku"] || 140, flexShrink: 0, fontWeight: 700, color: "#1e293b" }}>{skuFor(r)}</td>
-                    <td style={{ ...tdStyle, width: colWidths["name"] || 250, flexShrink: 0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
-                    <td style={{ ...tdStyle, width: colWidths["spec"] || 160, flexShrink: 0, color: "#64748b" }}>{r.product_spec_snapshot}</td>
+                    <td style={{ ...tdStyle, width: colWidths["customer"] || 180, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", color: "#6b7280" }} title={customerLabel(r.customer_id)}>{customerLabel(r.customer_id)}</td>
+                    <td style={{ ...tdStyle, width: colWidths["sku"] || 140, flexShrink: 0, fontWeight: 900, color: "#000000", fontSize: "15px" }}>{skuFor(r)}</td>
+                    <td style={{ ...tdStyle, width: colWidths["name"] || 250, flexShrink: 0, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", fontSize: "15px", color: "#6b7280" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
+                    <td style={{ ...tdStyle, width: colWidths["spec"] || 160, flexShrink: 0, color: "#000000", fontSize: "15px", fontWeight: 700, textTransform: "uppercase" }}>{r.product_spec_snapshot}</td>
                     <td style={{ ...tdStyle, width: colWidths["qty"] || 100, textAlign: "right", flexShrink: 0 }} className="group relative">
-                       <div className="flex flex-col items-end cursor-help">
-                         <span style={{ fontWeight: 800, fontSize: 15, color: "#000000" }}>{fmtNum(finalQty)}</span>
-                         {hasAdjs && <span style={{ fontSize: 9, color: adjTotal >= 0 ? "green" : "red", fontWeight: 900 }}>(Gốc: {fmtNum(originalQty)})</span>}
-                       </div>
+                      <div className="flex flex-col items-end cursor-help">
+                        <span style={{ fontWeight: 800, fontSize: 16, color: "#000000" }}>{fmtNum(finalQty)}</span>
+                        {hasAdjs && <span style={{ fontSize: 10, color: adjTotal >= 0 ? "green" : "red", fontWeight: 900 }}>(Gốc: {fmtNum(originalQty)})</span>}
+                      </div>
                        {/* Floating Tooltip Detail */}
                        {hasAdjs && (
                          <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-[100] w-[320px]">
@@ -1071,8 +1079,8 @@ export default function InventoryInboundPage() {
                          </div>
                        )}
                     </td>
-                    <td style={{ ...tdStyle, width: colWidths["price"] || 110, textAlign: "right", flexShrink: 0, color: "#64748b" }}>{r.unit_cost != null ? fmtNum(r.unit_cost) : "---"}</td>
-                    <td style={{ ...tdStyle, width: colWidths["note"] || 200, flexShrink: 0, fontStyle: "italic", color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis" }} title={r.note || ""}>{r.note || ""}</td>
+                    <td style={{ ...tdStyle, width: colWidths["price"] || 110, textAlign: "right", flexShrink: 0, color: "#000000" }}>{r.unit_cost != null ? fmtNum(r.unit_cost) : "---"}</td>
+                    <td className="table-note-black" style={{ ...tdStyle, width: colWidths["note"] || 200, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }} title={r.note || ""}>{r.note || ""}</td>
                     <td style={{ ...tdStyle, width: colWidths["createdAt"] || 160, flexShrink: 0, fontSize: 11, color: "#cbd5e1" }}>{fmtDatetime(r.created_at)}</td>
                     <td style={{ ...tdStyle, width: 120, textAlign: "center", flexShrink: 0 }}>
                        <div className="flex gap-2 justify-center">
