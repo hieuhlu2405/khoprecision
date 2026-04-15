@@ -43,6 +43,7 @@ type Plan = {
   actual_qty: number;
   is_completed: boolean;
   note: string | null;
+  note_2: string | null;
   is_backlog?: boolean;
   backlog_qty?: number;
 };
@@ -104,7 +105,7 @@ function getNext7Days() {
   return dates;
 }
 
-const TABLE_MIN_WIDTH = 1640; // Total width of all columns sum
+const TABLE_MIN_WIDTH = 1790; // Total width of all columns sum
 
 /* ------------------------------------------------------------------ */
 /* UI Components                                                       */
@@ -162,7 +163,7 @@ export default function DeliveryPlanPage() {
 
   const [days] = useState<string[]>(getNext7Days());
   const [saving, setSaving] = useState(false);
-  const [edits, setEdits] = useState<Record<string, { qty?: string; note?: string }>>({});
+  const [edits, setEdits] = useState<Record<string, { qty?: string; note?: string; note2?: string }>>({});
 
   // Filtering
   const [onlyScheduled, setOnlyScheduled] = useState(false);
@@ -279,6 +280,15 @@ export default function DeliveryPlanPage() {
       const key = `${product_id}_${date}`;
       const curr = prev[key] || {};
       return { ...prev, [key]: { ...curr, note: val } };
+    });
+  };
+
+  const handleNote2Change = (product_id: string, date: string, val: string) => {
+    if (!canEdit) return;
+    setEdits(prev => {
+      const key = `${product_id}_${date}`;
+      const curr = prev[key] || {};
+      return { ...prev, [key]: { ...curr, note2: val } };
     });
   };
 
@@ -776,6 +786,7 @@ export default function DeliveryPlanPage() {
         
         const newQtyRaw = editData.qty !== undefined ? editData.qty : (existing?.planned_qty ?? "0");
         const newNote = editData.note !== undefined ? editData.note : (existing?.note ?? null);
+        const newNote2 = editData.note2 !== undefined ? editData.note2 : (existing?.note_2 ?? null);
         
         const qty = Number(newQtyRaw);
         if (isNaN(qty) || qty < 0) return;
@@ -790,6 +801,7 @@ export default function DeliveryPlanPage() {
           customer_id: p.customer_id,
           planned_qty: qty,
           note: newNote,
+          note_2: newNote2,
           created_at: (existing as any)?.created_at ?? new Date().toISOString(),
           created_by: (existing as any)?.created_by ?? u.user?.id,
           updated_at: new Date().toISOString(),
@@ -1126,7 +1138,8 @@ export default function DeliveryPlanPage() {
                   <ThCell label="Mã hàng" colKey="sku" sortable sticky w="180px" />
                   <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="320px" />
                   <ThCell label="Khách hàng" colKey="customer" sortable w="140px" align="center" />
-                  <ThCell label="LƯU Ý" colKey="note_today" sortable={false} w="250px" />
+                  <ThCell label="LƯU Ý 1" colKey="note_today" sortable={false} w="150px" />
+                  <ThCell label="LƯU Ý 2" colKey="note_today_2" sortable={false} w="150px" />
                   {days.map(d => (
                     <ThCell
                       key={d}
@@ -1201,7 +1214,7 @@ export default function DeliveryPlanPage() {
                         <div className="text-slate-500 font-medium text-[13px] uppercase truncate">{c?.code || "-"}</div>
                         <div className="text-[9px] text-slate-400 font-medium uppercase tracking-wider truncate" title={c?.name}>{c?.name}</div>
                       </td>
-                      <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today'] || 250, flexBasis: colWidths['note_today'] || 250 }}>
+                      <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today'] || 150, flexBasis: colWidths['note_today'] || 150 }}>
                         {(() => {
                            const today = days[0];
                            const plan = plans.find(x => x.product_id === p.id && x.plan_date === today);
@@ -1209,10 +1222,26 @@ export default function DeliveryPlanPage() {
                            return (
                              <input 
                                type="text" 
-                               placeholder="Nhập ghi chú..." 
+                               placeholder="Lưu ý 1..." 
                                className="input input-ghost input-xs h-7 w-full text-[12px] font-black text-black focus:bg-white focus:ring-1 focus:ring-indigo-300 placeholder:text-slate-300 italic" 
                                value={noteVal}
                                onChange={e => handleNoteChange(p.id, today, e.target.value)} 
+                             />
+                           );
+                        })()}
+                      </td>
+                      <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today_2'] || 150, flexBasis: colWidths['note_today_2'] || 150 }}>
+                        {(() => {
+                           const today = days[0];
+                           const plan = plans.find(x => x.product_id === p.id && x.plan_date === today);
+                           const note2Val = edits[`${p.id}_${today}`]?.note2 ?? plan?.note_2 ?? "";
+                           return (
+                             <input 
+                               type="text" 
+                               placeholder="Lưu ý 2..." 
+                               className="input input-ghost input-xs h-7 w-full text-[12px] font-black text-black focus:bg-white focus:ring-1 focus:ring-indigo-300 placeholder:text-slate-300 italic" 
+                               value={note2Val}
+                               onChange={e => handleNote2Change(p.id, today, e.target.value)} 
                              />
                            );
                         })()}
