@@ -191,9 +191,7 @@ export default function DeliveryPlanPage() {
   const [loadingOutbound, setLoadingOutbound] = useState(false);
   const [outboundDay, setOutboundDay] = useState<string | null>(null);
   const [outboundItems, setOutboundItems] = useState<any[]>([]);
-  const [selectedOutboundDay, setSelectedOutboundDay] = useState<string>(() => {
-    return getVNTimeStr();
-  });
+  const selectedOutboundDay = days[0];
 
   // === SHIPMENT-BASED OUTBOUND STATE ===
   const [selectedPlanIds, setSelectedPlanIds] = useState<Set<string>>(new Set());
@@ -1053,23 +1051,31 @@ export default function DeliveryPlanPage() {
         </div>
 
         <div className="flex gap-3 items-center flex-wrap">
-          <div className="flex bg-slate-100 p-1 rounded-xl items-center border border-slate-200">
+          <div className="flex bg-white p-1 rounded-xl items-center border border-slate-200/60 shadow-sm gap-1">
             <button 
               onClick={() => {
                 const d = new Date(anchorDate);
                 d.setDate(d.getDate() - 7);
                 setAnchorDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
               }}
-              className="btn btn-ghost btn-xs h-8 px-3 text-slate-500 hover:bg-white rounded-lg shadow-sm"
+              className="btn btn-ghost btn-xs h-8 px-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
               title="7 ngày trước"
             >
-              ◀
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4"><polyline points="15 18 9 12 15 6"></polyline></svg>
             </button>
+            <input 
+              type="date"
+              className="h-8 px-2 text-[11px] font-black rounded-lg border-none bg-slate-50 hover:bg-slate-100 text-slate-700 focus:ring-2 focus:ring-indigo-400 focus:bg-white cursor-pointer w-[120px] transition-all"
+              value={anchorDate}
+              onChange={(e) => {
+                if (e.target.value) setAnchorDate(e.target.value);
+              }}
+            />
             <button 
               onClick={() => setAnchorDate(getVNTimeStr())}
-              className={`btn btn-ghost btn-xs h-8 px-4 font-black uppercase tracking-wider rounded-lg transition-all ${anchorDate === getVNTimeStr() ? "bg-indigo-600 text-white shadow-md" : "text-indigo-600 hover:bg-white"}`}
+              className={`btn btn-ghost btn-xs h-8 px-4 font-black uppercase tracking-widest rounded-lg transition-all ${anchorDate === getVNTimeStr() ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"}`}
             >
-              Hôm nay
+              {anchorDate === getVNTimeStr() ? "Hôm nay" : "Về hôm nay"}
             </button>
             <button 
               onClick={() => {
@@ -1077,19 +1083,11 @@ export default function DeliveryPlanPage() {
                 d.setDate(d.getDate() + 7);
                 setAnchorDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
               }}
-              className="btn btn-ghost btn-xs h-8 px-3 text-slate-500 hover:bg-white rounded-lg shadow-sm"
+              className="btn btn-ghost btn-xs h-8 px-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
               title="7 ngày sau"
             >
-              ▶
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </button>
-            <input 
-              type="date"
-              className="ml-1 h-8 px-2 text-[10px] font-bold rounded-lg border-none bg-white text-slate-600 focus:ring-2 focus:ring-indigo-400 cursor-pointer w-[110px]"
-              value={anchorDate}
-              onChange={(e) => {
-                if (e.target.value) setAnchorDate(e.target.value);
-              }}
-            />
           </div>
 
           <div className="h-8 w-px bg-slate-200 mx-1" />
@@ -1108,24 +1106,6 @@ export default function DeliveryPlanPage() {
 
 
           <div className="h-8 w-px bg-slate-200 mx-1" />
-
-          <select
-            value={selectedOutboundDay}
-            onChange={e => setSelectedOutboundDay(e.target.value)}
-            className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition-all"
-          >
-            {days.map(d => {
-              const pts = d.split("-");
-              const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-              const dayOfWeek = dayNames[new Date(d).getDay()];
-              const todayStr = getVNTimeStr();
-              return (
-                <option key={d} value={d}>
-                  {dayOfWeek} {pts[2]}/{pts[1]}{d === todayStr ? " (Hôm nay)" : ""}
-                </option>
-              );
-            })}
-          </select>
 
           <AnimatePresence>
             {Object.keys(edits).length > 0 && (
@@ -1154,7 +1134,7 @@ export default function DeliveryPlanPage() {
           <button
             onClick={handleExportDraft}
             title="Xuất nháp kế hoạch giao hàng hôm nay để kiểm tra khi xuất hàng"
-            className="btn h-10 px-5 rounded-xl font-black text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-200 transition-all"
+            className="btn h-10 px-5 rounded-xl font-black text-xs tracking-widest bg-amber-400 hover:bg-amber-500 text-amber-950 shadow-xl shadow-amber-200 border-none transition-all"
           >
             🖨️ XUẤT NHÁP
           </button>
