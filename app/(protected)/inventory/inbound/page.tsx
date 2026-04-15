@@ -1051,7 +1051,7 @@ export default function InventoryInboundPage() {
                     <td style={{ ...tdStyle, width: colWidths["customer"] || 180, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", color: "#6b7280" }} title={customerLabel(r.customer_id)}>{customerLabel(r.customer_id)}</td>
                     <td style={{ ...tdStyle, width: colWidths["sku"] || 140, flexShrink: 0, fontWeight: 800, color: "#000000", fontSize: "16px" }}>{skuFor(r)}</td>
                     <td style={{ ...tdStyle, width: colWidths["name"] || 250, flexShrink: 0, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", fontSize: "15px", color: "#6b7280" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
-                    <td style={{ ...tdStyle, width: colWidths["spec"] || 160, flexShrink: 0, color: "#000000", fontSize: "15px", fontWeight: 700, textTransform: "uppercase" }}>{r.product_spec_snapshot}</td>
+                    <td style={{ ...tdStyle, width: colWidths["spec"] || 160, flexShrink: 0, color: "#000000", fontSize: "15px", fontWeight: 400, textTransform: "uppercase" }}>{r.product_spec_snapshot}</td>
                     <td style={{ ...tdStyle, width: colWidths["qty"] || 100, textAlign: "right", flexShrink: 0 }} className="group relative">
                       <div className="flex flex-col items-end cursor-help">
                         <span style={{ fontWeight: 800, fontSize: 16, color: "#000000" }}>{fmtNum(finalQty)}</span>
