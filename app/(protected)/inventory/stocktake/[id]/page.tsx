@@ -532,7 +532,7 @@ export default function StocktakeDetailPage() {
 
       // 2. Sync to Transactions (Immutable Standard)
       if (currentIsConfirmed) {
-        const confirmedDateOnly = header.stocktake_date;
+        const confirmedDateOnly = header.stocktake_date.slice(0, 10);
 
         const adjustmentPayloads = lines.filter(l => l.qty_diff !== 0).map(l => ({
           tx_date: confirmedDateOnly,
