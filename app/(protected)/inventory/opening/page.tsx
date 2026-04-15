@@ -473,7 +473,41 @@ export default function InventoryOpeningBalancesPage() {
       showToast("Đã xóa!", "success");
       load();
     } catch (err: any) {
-      setError(err?.message || "Lỗi xóa");
+      showToast("Lỗi xóa: " + err.message, "error");
+    }
+  }
+
+  async function handleDeletePeriod() {
+    if (!qPeriod) return;
+    const count = records.filter(r => r.period_month.slice(0, 10) === qPeriod).length;
+    if (count === 0) {
+      showToast("Không có dữ liệu trong kỳ này để xóa.", "info");
+      return;
+    }
+
+    const [y, m, d] = qPeriod.split("-");
+    const ok = await showConfirm({
+      message: `CẢNH BÁO: Bạn có chắc chắn muốn xóa TOÀN BỘ ${count} dòng tồn đầu kỳ của mốc ${d}/${m}/${y}?\n\nHành động này không thể hoàn tác.`,
+      confirmLabel: "Xóa toàn bộ kỳ",
+      danger: true
+    });
+    if (!ok) return;
+
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from("inventory_opening_balances")
+        .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
+        .eq("period_month", qPeriod)
+        .is("deleted_at", null);
+
+      if (error) throw error;
+      showToast(`Đã xóa thành công ${count} dòng dữ liệu của kỳ ${d}/${m}/${y}!`, "success");
+      setQPeriod(""); // Reset filter
+      load();
+    } catch (err: any) {
+      showToast("Lỗi xóa kỳ: " + err.message, "error");
+      setLoading(false);
     }
   }
 
@@ -645,6 +679,12 @@ export default function InventoryOpeningBalancesPage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span className="hidden sm:inline">Xuất Excel</span>
           </button>
+          {canDelete && qPeriod && (
+            <button className="btn bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100 shadow-sm" onClick={handleDeletePeriod}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+              <span>Hủy kỳ này</span>
+            </button>
+          )}
           {canCreate && (
             <button
               onClick={() => { resetCreateForm(); setShowCreate(!showCreate); }}
