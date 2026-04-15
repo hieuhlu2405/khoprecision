@@ -965,7 +965,7 @@ export default function PhoiPage() {
                             className="w-full h-10 bg-white border-slate-300 border rounded-lg px-3 font-bold text-slate-700 focus:outline-none"
                           />
                           {l.showSuggestions && lSugs.length > 0 && (
-                            <div className="absolute left-0 top-full z-[200] w-full min-w-[300px] mt-1 bg-white border border-slate-200 shadow-2xl rounded-xl overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-100">
+                            <div className="absolute left-0 top-full z-[200] w-full min-w-[300px] mt-1 bg-white border border-slate-200 shadow-2xl rounded-xl overflow-y-auto max-h-[200px] py-1 animate-in fade-in zoom-in-95 duration-100">
                               {lSugs.map(ps => (
                                   <button
                                   key={ps.id}
@@ -1204,7 +1204,7 @@ export default function PhoiPage() {
                       className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-bold text-slate-700 outline-none"
                     />
                     {eShowSuggestions && eSuggestions.length > 0 && (
-                      <div className="absolute left-0 top-full z-[200] w-full mt-1 bg-white border border-slate-200 shadow-xl rounded-xl overflow-hidden py-1">
+                      <div className="absolute left-0 top-full z-[200] w-full mt-1 bg-white border border-slate-200 shadow-xl rounded-xl overflow-y-auto max-h-[200px] py-1">
                         {eSuggestions.map(ps => (
                           <button
                             key={ps.id}
