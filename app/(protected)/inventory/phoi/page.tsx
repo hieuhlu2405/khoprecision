@@ -919,15 +919,15 @@ export default function PhoiPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Ngày lập phiếu</label>
-                <input type="date" value={hDate} onChange={e => setHDate(e.target.value)} className="w-full h-12 bg-white border-slate-950 border-2 rounded-xl px-4 font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none" />
+                <input type="date" value={hDate} onChange={e => setHDate(e.target.value)} className="w-full h-12 bg-white border-slate-300 border rounded-xl px-4 font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none" />
               </div>
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Ghi chú chung</label>
-                <input value={hNote} onChange={e => setHNote(e.target.value)} placeholder="Nhập ghi chú cho toàn phiếu..." className="w-full h-12 bg-white border-slate-950 border-2 rounded-xl px-4 font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none" />
+                <input value={hNote} onChange={e => setHNote(e.target.value)} placeholder="Nhập ghi chú cho toàn phiếu..." className="w-full h-12 bg-white border-slate-300 border rounded-xl px-4 font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none" />
               </div>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/30">
+            <div className="rounded-xl border border-slate-100 bg-slate-50/30 overflow-visible">
               <table className="w-full text-left border-collapse" style={{ minWidth: 800 }}>
                 <thead>
                   <tr className="text-[11px] font-black uppercase text-slate-400 tracking-widest">
@@ -962,7 +962,7 @@ export default function PhoiPage() {
                             onFocus={() => updateLine(l.key, "showSuggestions", true)}
                             onBlur={() => setTimeout(() => updateLine(l.key, "showSuggestions", false), 200)}
                             placeholder="Mã hàng, tên hàng, khách hàng..."
-                            className="w-full h-10 bg-white border-slate-950 border-2 rounded-lg px-3 font-bold text-slate-700 focus:outline-none"
+                            className="w-full h-10 bg-white border-slate-300 border rounded-lg px-3 font-bold text-slate-700 focus:outline-none"
                           />
                           {l.showSuggestions && lSugs.length > 0 && (
                             <div className="absolute left-0 top-full z-[200] w-full min-w-[300px] mt-1 bg-white border border-slate-200 shadow-2xl rounded-xl overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-100">
@@ -998,7 +998,7 @@ export default function PhoiPage() {
                             type="number" value={l.qty} 
                             onChange={e => updateLine(l.key, "qty", e.target.value)}
                             placeholder="0"
-                            className="w-full h-10 bg-white border-slate-950 border-2 rounded-lg px-3 font-black text-slate-900 focus:outline-none text-right placeholder:text-slate-300"
+                            className="w-full h-10 bg-white border-slate-300 border rounded-lg px-3 font-black text-slate-900 focus:outline-none text-right placeholder:text-slate-300"
                           />
                         </td>
                         {/* Unit Cost Hidden */}
@@ -1006,7 +1006,7 @@ export default function PhoiPage() {
                           <input 
                             value={l.note} onChange={e => updateLine(l.key, "note", e.target.value)}
                             placeholder="..."
-                            className="w-full h-10 bg-white border-slate-950 border-2 rounded-lg px-3 text-slate-700 focus:outline-none italic text-sm"
+                            className="w-full h-10 bg-white border-slate-300 border rounded-lg px-3 text-slate-700 focus:outline-none italic text-sm"
                           />
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -1045,10 +1045,10 @@ export default function PhoiPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-wrap items-center gap-4">
             <div className="flex-1 min-w-[200px] relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
-              <input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã hàng, tên hàng..." className="w-full h-11 bg-white border-slate-950 border-2 rounded-xl pl-10 pr-4 font-bold text-slate-700 focus:bg-white transition-all outline-none" />
+              <input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã hàng, tên hàng..." className="w-full h-11 bg-white border-slate-300 border rounded-xl pl-10 pr-4 font-bold text-slate-700 focus:bg-white transition-all outline-none" />
             </div>
-            <input type="date" value={qDate} onChange={e => setQDate(e.target.value)} className="h-11 bg-white border-slate-950 border-2 rounded-xl px-4 font-bold text-slate-700 transition-all outline-none" />
-            <select value={qCustomer} onChange={e => setQCustomer(e.target.value)} className="h-11 bg-white border-slate-950 border-2 rounded-xl px-4 font-bold text-slate-700 transition-all outline-none">
+            <input type="date" value={qDate} onChange={e => setQDate(e.target.value)} className="h-11 bg-white border-slate-300 border rounded-xl px-4 font-bold text-slate-700 transition-all outline-none" />
+            <select value={qCustomer} onChange={e => setQCustomer(e.target.value)} className="h-11 bg-white border-slate-300 border rounded-xl px-4 font-bold text-slate-700 transition-all outline-none">
               <option value="">Tất cả khách hàng</option>
               {customers.map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
             </select>
@@ -1184,7 +1184,7 @@ export default function PhoiPage() {
               <div className="grid grid-cols-2 gap-4">
                 <label className="flex flex-col gap-1">
                   <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Ngày nhập</span>
-                  <input type="date" value={eDate} onChange={e => setEDate(e.target.value)} className="w-full h-11 bg-white border-slate-950 border-2 rounded-lg px-4 font-bold text-slate-700 outline-none" />
+                  <input type="date" value={eDate} onChange={e => setEDate(e.target.value)} className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-bold text-slate-700 outline-none" />
                 </label>
                 <div className="flex flex-col gap-1">
                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Mã hàng (Snapshot)</span>
@@ -1201,7 +1201,7 @@ export default function PhoiPage() {
                       onChange={e => { setEProductSearch(e.target.value); setEShowSuggestions(true); setEProductId(""); }}
                       onFocus={() => setEShowSuggestions(true)}
                       onBlur={() => setTimeout(() => setEShowSuggestions(false), 200)}
-                      className="w-full h-11 bg-white border-slate-950 border-2 rounded-lg px-4 font-bold text-slate-700 outline-none"
+                      className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-bold text-slate-700 outline-none"
                     />
                     {eShowSuggestions && eSuggestions.length > 0 && (
                       <div className="absolute left-0 top-full z-[200] w-full mt-1 bg-white border border-slate-200 shadow-xl rounded-xl overflow-hidden py-1">
@@ -1232,14 +1232,14 @@ export default function PhoiPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <label className="flex flex-col gap-1">
                     <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Số lượng</span>
-                    <input type="number" value={eQty} onChange={e => setEQty(e.target.value)} className="w-full h-11 bg-white border-slate-950 border-2 rounded-lg px-4 font-black text-slate-900 outline-none" />
+                    <input type="number" value={eQty} onChange={e => setEQty(e.target.value)} className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-black text-slate-900 outline-none" />
                   </label>
                   {/* Unit Cost Hidden in Edit Modal */}
                 </div>
 
                 <label className="flex flex-col gap-1">
                   <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Ghi chú</span>
-                  <input value={eNote} onChange={e => setENote(e.target.value)} className="w-full h-11 bg-white border-slate-950 border-2 rounded-lg px-4 font-bold text-slate-700 outline-none" />
+                  <input value={eNote} onChange={e => setENote(e.target.value)} className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-bold text-slate-700 outline-none" />
                 </label>
               </div>
             </div>
@@ -1267,7 +1267,7 @@ export default function PhoiPage() {
               <div className="grid grid-cols-2 gap-4">
                 <label className="flex flex-col gap-1">
                   <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Ngày thực hiện</span>
-                  <input type="date" value={aDate} onChange={e => setADate(e.target.value)} className="w-full h-11 bg-white border-slate-950 border-2 rounded-lg px-4 font-bold text-slate-900 outline-none" />
+                  <input type="date" value={aDate} onChange={e => setADate(e.target.value)} className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-bold text-slate-900 outline-none" />
                 </label>
                 <div className="flex flex-col gap-1">
                   <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tồn hiện tại</span>
@@ -1301,7 +1301,7 @@ export default function PhoiPage() {
 
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Lý do điều chỉnh *</span>
-                <input value={aNote} onChange={e => setANote(e.target.value)} placeholder="Nhập lý do (VD: Kiểm kê lại, sai sót...)" className="w-full h-11 bg-white border-slate-950 border-2 rounded-lg px-4 font-bold text-slate-900 outline-none" />
+                <input value={aNote} onChange={e => setANote(e.target.value)} placeholder="Nhập lý do (VD: Kiểm kê lại, sai sót...)" className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-bold text-slate-900 outline-none" />
               </label>
 
               {/* Unit Cost Hidden in Adj Modal */}
