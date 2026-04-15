@@ -36,6 +36,7 @@ type OpeningBalance = {
   opening_unit_cost: number | null;
   is_long_aging: boolean;
   long_aging_note: string | null;
+  source_stocktake_id?: string | null;
   created_at: string;
   updated_at: string;
   products: Product;
