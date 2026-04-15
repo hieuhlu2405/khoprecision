@@ -322,6 +322,20 @@ export default function InventoryOpeningBalancesPage() {
   }
 
   /* ---- Calculations & Logic ---- */
+  const availablePeriods = useMemo(() => {
+    const map = new Map<string, { hasRollover: boolean; hasStocktake: boolean }>();
+    for (const r of records) {
+      if (!r.period_month) continue;
+      const dateStr = r.period_month.slice(0, 10);
+      const existing = map.get(dateStr) || { hasRollover: false, hasStocktake: false };
+      if (r.source_stocktake_id) existing.hasStocktake = true;
+      else existing.hasRollover = true;
+      map.set(dateStr, existing);
+    }
+    return Array.from(map.entries())
+      .map(([dateStr, flags]) => ({ dateStr, ...flags }))
+      .sort((a, b) => b.dateStr.localeCompare(a.dateStr));
+  }, [records]);
   const baseFiltered = useMemo(() => {
     return records.filter(r => {
       if (qPeriod && r.period_month.slice(0, 10) !== qPeriod) return false;
@@ -675,12 +689,26 @@ export default function InventoryOpeningBalancesPage() {
           </div>
           <div className="w-full sm:w-40">
             <label className="block mb-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kỳ (Tháng)</label>
-            <input
-              type="date"
+            <select
               value={qPeriod}
               onChange={(e) => setQPeriod(e.target.value)}
-              className="input w-full"
-            />
+              className="input w-full px-3 py-2 cursor-pointer font-medium text-slate-700 bg-slate-50 border-slate-200"
+            >
+              <option value="">-- Tất cả các kỳ --</option>
+              {availablePeriods.map(p => {
+                let tag = "";
+                if (p.hasStocktake && p.hasRollover) tag = " (Hỗn hợp: Kiểm kê & Kết chuyển)";
+                else if (p.hasStocktake) tag = " (Chốt kiểm kê)";
+                else if (p.hasRollover) tag = " (Kết chuyển tháng)";
+                
+                const [y, m, d] = p.dateStr.split("-");
+                return (
+                  <option key={p.dateStr} value={p.dateStr}>
+                    {`${d}/${m}/${y}${tag}`}
+                  </option>
+                );
+              })}
+            </select>
           </div>
           <div className="w-full sm:w-56">
             <label className="block mb-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Khách hàng</label>
