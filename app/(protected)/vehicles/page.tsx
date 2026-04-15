@@ -267,6 +267,7 @@ export default function VehiclesPage() {
   const [rows, setRows] = useState<Vehicle[]>([]);
   const [q, setQ] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<{ role: string; department: string } | null>(null);
 
   // Form controlling state

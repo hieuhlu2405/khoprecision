@@ -32,6 +32,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
+  const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
   const canEdit = profile?.role === "admin";
   const canDelete = profile?.role === "admin";
 
