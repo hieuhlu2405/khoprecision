@@ -646,12 +646,12 @@ table {
 
 table th {
   color: #000000;
-  font-weight: 900 !important;
+  font-weight: 900;
 }
 
 table td {
   color: #000000;
-  font-weight: 500 !important;
+  font-weight: 500;
 }
 
 /* Implicit focus ring for inputs with inline styles */
