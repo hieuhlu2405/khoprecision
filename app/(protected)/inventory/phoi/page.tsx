@@ -19,6 +19,8 @@ type PhoiTx = {
   customer_id: string | null; product_name_snapshot: string;
   product_spec_snapshot: string | null; qty: number;
   unit_cost: number | null; note: string | null;
+  tx_type: "in" | "adjust_in" | "adjust_out";
+  adjusted_from_transaction_id: string | null;
   created_at: string; updated_at: string; created_by: string | null;
 };
 type FormLine = { key: string; productId: string; qty: string; unitCost: string; productSearch?: string; showSuggestions?: boolean; };
@@ -83,6 +85,16 @@ export default function PhoiPage() {
   const [eCost, setECost] = useState("");
   const [eNote, setENote] = useState("");
 
+  /* ---- adjustment form state ---- */
+  const [adjRows, setAdjRows] = useState<PhoiTx[]>([]);
+  const [adjOpen, setAdjOpen] = useState(false);
+  const [adjBaseTx, setAdjBaseTx] = useState<PhoiTx | null>(null);
+  const [aDate, setADate] = useState("");
+  const [aCurrentBaseQty, setACurrentBaseQty] = useState(0);
+  const [aTargetQty, setATargetQty] = useState("");
+  const [aCost, setACost] = useState("");
+  const [aNote, setANote] = useState("");
+
   /* ---- selection ---- */
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -118,6 +130,41 @@ export default function PhoiPage() {
   /* ------------------------------------------------------------------ */
   /* Data loading                                                        */
   /* ------------------------------------------------------------------ */
+  /* ---- display helpers ---- */
+  function getAdjustments(rowId: string) {
+    return adjRows.filter((a) => a.adjusted_from_transaction_id === rowId);
+  }
+
+  function calcAdjDisplay(r: PhoiTx, adjs: PhoiTx[]) {
+    let adjTotal = 0;
+    for (const a of adjs) {
+      if (a.tx_type === "adjust_in") adjTotal += a.qty;
+      else if (a.tx_type === "adjust_out") adjTotal -= a.qty;
+    }
+    return {
+      originalQty: r.qty,
+      adjTotal,
+      finalQty: r.qty + adjTotal,
+    };
+  }
+
+  /* ---- pre-computed derived fields (adjQty, hasAdjs) per row --- */
+  const enrichedRows = useMemo(() => {
+    return rows.map((r) => {
+      const adjs = getAdjustments(r.id);
+      const { finalQty, adjTotal, originalQty } = calcAdjDisplay(r, adjs);
+      return {
+        ...r,
+        adjs,
+        originalQty,
+        adjTotal,
+        finalQty,
+        hasAdjs: adjs.length > 0,
+      };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, adjRows]);
+
   async function load() {
     setError(""); setLoading(true);
     try {
@@ -128,14 +175,16 @@ export default function PhoiPage() {
       if (!p) throw new Error("Profile not found");
       setProfile(p as Profile);
 
-      const [{ data: prods }, { data: custs }, { data: txs }] = await Promise.all([
+      const [rP, rC, rT, rA] = await Promise.all([
         supabase.from("products").select("id,sku,name,spec,customer_id,unit_price").is("deleted_at", null).order("sku"),
         supabase.from("customers").select("id,code,name").is("deleted_at", null).order("code"),
-        supabase.from("phoi_transactions").select("*").is("deleted_at", null).order("tx_date", { ascending: false }),
+        supabase.from("phoi_transactions").select("*").eq("tx_type", "in").is("deleted_at", null).order("tx_date", { ascending: false }),
+        supabase.from("phoi_transactions").select("*").in("tx_type", ["adjust_in", "adjust_out"]).is("deleted_at", null)
       ]);
-      setProducts((prods ?? []) as Product[]);
-      setCustomers((custs ?? []) as Customer[]);
-      setRows((txs ?? []) as PhoiTx[]);
+      setProducts((rP.data ?? []) as Product[]);
+      setCustomers((rC.data ?? []) as Customer[]);
+      setRows((rT.data ?? []) as PhoiTx[]);
+      setAdjRows((rA.data ?? []) as PhoiTx[]);
     } catch (err: any) {
       setError(err?.message ?? "Có lỗi xảy ra khi tải dữ liệu");
     } finally {
@@ -247,6 +296,52 @@ export default function PhoiPage() {
       showToast("Đã lưu chỉnh sửa.", "success");
       await load();
     } catch (err: any) { setError(err?.message ?? "Lỗi khi lưu"); }
+  }
+
+  /* ---- adjustment helpers ---- */
+  function openAdjustment(r: any) {
+    setAdjBaseTx(r);
+    setACurrentBaseQty(r.finalQty);
+    setATargetQty(String(r.finalQty));
+    setADate(today());
+    setACost("");
+    setANote("");
+    setAdjOpen(true);
+  }
+
+  async function saveAdjustment() {
+    if (!adjBaseTx) return;
+    if (!aTargetQty || !aNote) return showToast("Vui lòng nhập đủ số lượng mục tiêu và lý do.", "error");
+
+    const target = Number(aTargetQty);
+    const diff = target - aCurrentBaseQty;
+    if (diff === 0) return showToast("Số lượng sau điều chỉnh phải khác số lượng hiện tại.", "info");
+
+    const finalType = diff > 0 ? "adjust_in" : "adjust_out";
+    const finalQty = Math.abs(diff);
+
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const { error } = await supabase.from("phoi_transactions").insert([{
+        tx_date: aDate,
+        customer_id: adjBaseTx.customer_id,
+        product_id: adjBaseTx.product_id,
+        product_name_snapshot: adjBaseTx.product_name_snapshot,
+        product_spec_snapshot: adjBaseTx.product_spec_snapshot,
+        tx_type: finalType,
+        qty: finalQty,
+        unit_cost: aCost ? Number(aCost) : (adjBaseTx.unit_cost || null),
+        note: aNote,
+        adjusted_from_transaction_id: adjBaseTx.id,
+        created_by: u.user?.id
+      }]);
+      if (error) throw error;
+      showToast("Đã lưu điều chỉnh phôi!", "success");
+      setAdjOpen(false);
+      load();
+    } catch (err: any) {
+      showToast(err.message, "error");
+    }
   }
 
   /* ------------------------------------------------------------------ */
@@ -422,7 +517,7 @@ export default function PhoiPage() {
   /* Filtered rows                                                       */
   /* ------------------------------------------------------------------ */
   const filtered = useMemo(() => {
-    let list = [...rows];
+    let list = [...enrichedRows];
 
     // Global filters
     const sGlobal = debouncedQ.trim().toLowerCase();
@@ -440,7 +535,7 @@ export default function PhoiPage() {
         if (key === "name") return passesTextFilter(r.product_name_snapshot, f as TextFilter);
         if (key === "spec") return passesTextFilter(r.product_spec_snapshot || "", f as TextFilter);
         if (key === "customer") return passesTextFilter(customerLabel(r.customer_id), f as TextFilter);
-        if (key === "qty") return passesNumFilter(r.qty, f as NumFilter);
+        if (key === "qty") return passesNumFilter(r.finalQty, f as NumFilter);
         if (key === "cost") return passesNumFilter(r.unit_cost ?? 0, f as NumFilter);
         if (key === "note") return passesTextFilter(r.note || "", f as TextFilter);
         if (key === "createdAt") return passesDateFilter(r.created_at, f as DateFilter);
@@ -456,7 +551,7 @@ export default function PhoiPage() {
         if (sortCol === "tx_date") { va = a.tx_date; vb = b.tx_date; }
         else if (sortCol === "sku") { va = skuFor(a); vb = skuFor(b); }
         else if (sortCol === "name") { va = a.product_name_snapshot; vb = b.product_name_snapshot; }
-        else if (sortCol === "qty") { va = a.qty; vb = b.qty; }
+        else if (sortCol === "qty") { va = a.finalQty; vb = b.finalQty; }
         else if (sortCol === "cost") { va = a.unit_cost ?? 0; vb = b.unit_cost ?? 0; }
         else if (sortCol === "createdAt") { va = a.created_at; vb = b.created_at; }
         else { va = (a as any)[sortCol] || ""; vb = (b as any)[sortCol] || ""; }
@@ -468,7 +563,7 @@ export default function PhoiPage() {
     }
 
     return list;
-  }, [rows, debouncedQ, qDate, qCustomer, products, colFilters, sortCol, sortDir]);
+  }, [enrichedRows, debouncedQ, qDate, qCustomer, products, colFilters, sortCol, sortDir]);
 
   /* ---- reset page on filter change ---- */
   useEffect(() => {
@@ -826,7 +921,7 @@ export default function PhoiPage() {
             </tr>
           </thead>
           <tbody>
-            {paginatedFiltered.map((r, i) => (
+            {paginatedFiltered.map((r: any, i) => (
               <tr key={r.id} className="group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-brand/5">
                 <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{(currentPage - 1) * itemsPerPage + i + 1}</td>
                 {canDelete && (
@@ -849,14 +944,45 @@ export default function PhoiPage() {
                 <td className="py-4 px-4 border-r border-slate-50">
                   <div className="text-slate-900 font-bold text-[15px] uppercase">{customerLabel(r.customer_id)}</div>
                 </td>
-                <td className="py-4 px-4 border-r border-slate-50 text-right font-black text-slate-800 text-[15px]">{fmtNum(r.qty)}</td>
+                <td className="py-4 px-4 border-r border-slate-50 text-right group relative">
+                  <div className="flex flex-col items-end cursor-help">
+                    <div className="font-black text-slate-800 text-[15px]">{fmtNum(r.finalQty)}</div>
+                    {r.hasAdjs && (
+                      <div className="text-[10px] font-black text-green-600" style={{ color: r.adjTotal >= 0 ? "rgb(22, 163, 74)" : "rgb(220, 38, 38)" }}>
+                        (Gốc: {fmtNum(r.originalQty)})
+                      </div>
+                    )}
+                  </div>
+                  {/* Floating Tooltip Detail */}
+                  {r.hasAdjs && (
+                     <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-[100] w-[320px]">
+                       <div className="bg-white/90 backdrop-blur-md border border-slate-200 shadow-2xl rounded-xl p-3 text-left">
+                         <div className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest border-b border-slate-100 pb-1">Lịch sử điều chỉnh</div>
+                         <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                           {r.adjs.map((a: any) => (
+                             <div key={a.id} className="flex justify-between items-start gap-3">
+                               <div className="flex flex-col">
+                                 <span className="text-[10px] text-slate-500 font-bold">{fmtDate(a.tx_date)}</span>
+                                 <span className="text-[11px] text-black font-black leading-tight uppercase">{a.note}</span>
+                               </div>
+                               <div className={`text-[11px] font-black ${a.tx_type === 'adjust_in' ? 'text-green-600' : 'text-red-600'}`}>
+                                 {a.tx_type === 'adjust_in' ? '+' : '-'}{fmtNum(a.qty)}
+                               </div>
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+                     </div>
+                   )}
+                </td>
                 <td className="py-4 px-4 border-r border-slate-50 text-slate-500 italic text-[13px] break-all">{r.note ?? "—"}</td>
                 <td className="py-4 px-4 border-r border-slate-50 text-[12px] text-slate-400 font-medium">{mounted ? fmtDatetime(r.created_at) : "..."}</td>
                 {(canEdit || canDelete) && (
                   <td className="py-4 px-4 text-center">
                     <div className="flex justify-center gap-2 mt-1">
-                      {canEdit && <button onClick={() => openEdit(r)} className="px-3 py-1 bg-white border border-slate-200 hover:border-brand hover:bg-brand/10 text-[11px] text-brand font-black uppercase tracking-widest shadow-sm rounded-lg transition-all">Sửa</button>}
-                      {canDelete && <button onClick={() => del(r)} className="px-3 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all">Xóa</button>}
+                      {canEdit && <button onClick={() => openEdit(r)} className="p-1.5 bg-white border border-slate-200 hover:border-brand hover:bg-brand/10 rounded-lg shadow-sm transition-all" title="Sửa">✏️</button>}
+                      <button onClick={() => openAdjustment(r)} className="p-1.5 bg-white border border-slate-200 hover:border-brand hover:bg-brand/10 rounded-lg shadow-sm transition-all" title="Điều chỉnh">🛠️</button>
+                      {canDelete && <button onClick={() => del(r)} className="p-1.5 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 rounded-lg shadow-sm transition-all" title="Xóa">🗑️</button>}
                     </div>
                   </td>
                 )}
@@ -934,6 +1060,71 @@ export default function PhoiPage() {
               <div className="pt-4 flex gap-3">
                 <button onClick={() => setEditOpen(false)} className="btn btn-ghost flex-1">Hủy</button>
                 <button onClick={saveEdit} className="btn btn-primary flex-[2] h-12 shadow-lg shadow-brand/20">💾 Lưu thay đổi</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Adjustment Modal ── */}
+      {adjOpen && adjBaseTx && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setAdjOpen(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-brand p-6 text-white flex justify-between items-center">
+              <h3 className="text-xl font-bold m-0 uppercase tracking-tighter italic">🛠️ Điều chỉnh phôi</h3>
+              <button onClick={() => setAdjOpen(false)} className="text-white/60 hover:text-white">✕</button>
+            </div>
+            <div className="p-8 space-y-6">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex justify-between items-start mb-1">
+                  <div className="font-black text-brand text-lg">{skuFor(adjBaseTx)}</div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">{fmtDate(adjBaseTx.tx_date)}</div>
+                </div>
+                <div className="text-slate-700 font-bold text-sm tracking-tight leading-tight">{adjBaseTx.product_name_snapshot}</div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-1.5">
+                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Số lượng hiện tại</span>
+                  <div className="h-11 px-4 bg-slate-100 rounded-xl font-bold text-slate-500 flex items-center">{fmtNum(aCurrentBaseQty)}</div>
+                </div>
+                <label className="grid gap-1.5">
+                  <span className="text-[10px] font-black uppercase text-brand tracking-widest ml-1">Số lượng mục tiêu *</span>
+                  <input type="number" className="input h-11 font-black text-black bg-brand/5 border-brand/20 focus:border-brand" value={aTargetQty} onChange={e => setATargetQty(e.target.value)} autoFocus />
+                </label>
+              </div>
+
+              {aTargetQty && (
+                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Chênh lệch:</span>
+                   <span className={`text-lg font-black ${Number(aTargetQty) - aCurrentBaseQty >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {Number(aTargetQty) - aCurrentBaseQty > 0 ? '+' : ''}{fmtNum(Number(aTargetQty) - aCurrentBaseQty)}
+                   </span>
+                   <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded shadow-sm border border-slate-100 uppercase">
+                      ({Number(aTargetQty) - aCurrentBaseQty >= 0 ? 'Nhập thêm' : 'Giảm phôi'})
+                   </span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <label className="grid gap-1.5">
+                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Ngày điều chỉnh</span>
+                  <input type="date" className="input h-11 font-bold" value={aDate} onChange={e => setADate(e.target.value)} />
+                </label>
+                <label className="grid gap-1.5">
+                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Đơn giá (Nếu có)</span>
+                  <input type="number" className="input h-11" value={aCost} onChange={e => setACost(e.target.value)} placeholder="Mặc định" />
+                </label>
+              </div>
+
+              <label className="grid gap-1.5">
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Lý do điều chỉnh *</span>
+                <textarea className="input min-h-[100px] font-black text-black" value={aNote} onChange={e => setANote(e.target.value)} placeholder="Bắt buộc nhập lý do chi tiết..." />
+              </label>
+
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setAdjOpen(false)} className="btn btn-ghost flex-1">Hủy</button>
+                <button onClick={saveAdjustment} className="btn btn-primary flex-[2] h-12 shadow-lg shadow-brand/20">XÁC NHẬN ĐIỀU CHỈNH</button>
               </div>
             </div>
           </div>

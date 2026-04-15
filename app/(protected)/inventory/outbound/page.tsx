@@ -323,7 +323,8 @@ export default function InventoryOutboundPage() {
   const [adjBaseTx, setAdjBaseTx] = useState<OutboundTx | null>(null);
   const [aType, setAType] = useState<"adjust_in" | "adjust_out">("adjust_out");
   const [aDate, setADate] = useState("");
-  const [aQty, setAQty] = useState("");
+  const [aCurrentBaseQty, setACurrentBaseQty] = useState(0);
+  const [aTargetQty, setATargetQty] = useState("");
   const [aCost, setACost] = useState("");
   const [aNote, setANote] = useState("");
 
@@ -663,11 +664,12 @@ export default function InventoryOutboundPage() {
   }
 
   /* ---- adjustment helpers ---- */
-  function openAdjustment(r: OutboundTx) {
+  function openAdjustment(r: any) {
     setAdjBaseTx(r);
+    setACurrentBaseQty(r.finalQty);
+    setATargetQty(String(r.finalQty));
     setAType("adjust_out");
     setADate(getTodayVNStr());
-    setAQty("");
     setACost("");
     setANote("");
     setAdjOpen(true);
@@ -778,7 +780,15 @@ export default function InventoryOutboundPage() {
 
   async function saveAdjustment() {
     if (!adjBaseTx) return;
-    if (!aQty || Number(aQty) <= 0 || !aNote) return showToast("Vui lòng nhập đủ số lượng và lý do.", "error");
+    if (!aTargetQty || !aNote) return showToast("Vui lòng nhập đủ số lượng mục tiêu và lý do.", "error");
+
+    const target = Number(aTargetQty);
+    const diff = target - aCurrentBaseQty;
+    if (diff === 0) return showToast("Số lượng sau điều chỉnh phải khác số lượng hiện tại.", "info");
+
+    const finalType = diff > 0 ? "adjust_in" : "adjust_out";
+    const finalQty = Math.abs(diff);
+
     try {
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("inventory_transactions").insert([{
@@ -787,8 +797,8 @@ export default function InventoryOutboundPage() {
         product_id: adjBaseTx.product_id,
         product_name_snapshot: adjBaseTx.product_name_snapshot,
         product_spec_snapshot: adjBaseTx.product_spec_snapshot,
-        tx_type: aType,
-        qty: Number(aQty),
+        tx_type: finalType,
+        qty: finalQty,
         unit_cost: aCost ? Number(aCost) : (adjBaseTx.unit_cost || null),
         note: aNote,
         adjusted_from_transaction_id: adjBaseTx.id,
@@ -1036,11 +1046,32 @@ export default function InventoryOutboundPage() {
                     <td style={{ ...tdStyle, width: colWidths["sku"] || 140, fontWeight: 900, color: "#000000", fontFamily: "var(--font-inter), monospace", fontSize: "15px" }}>{skuFor(r)}</td>
                     <td style={{ ...tdStyle, width: colWidths["name"] || 250, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", fontSize: "15px", color: "#4b5563" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
                     <td style={{ ...tdStyle, width: colWidths["spec"] || 160, color: "#000000", fontSize: "15px", fontWeight: 700, textTransform: "uppercase" }}>{r.product_spec_snapshot}</td>
-                    <td style={{ ...tdStyle, width: colWidths["qty"] || 100, textAlign: "right" }}>
-                       <div className="flex flex-col items-end">
+                    <td style={{ ...tdStyle, width: colWidths["qty"] || 100, textAlign: "right" }} className="group relative">
+                       <div className="flex flex-col items-end cursor-help">
                          <span style={{ fontWeight: 800, fontSize: 16, color: "#000000" }}>{fmtNum(finalQty)}</span>
                          {hasAdjs && <span style={{ fontSize: 10, color: adjTotal >= 0 ? "green" : "red", fontWeight: 900 }}>(Gốc: {fmtNum(originalQty)})</span>}
                        </div>
+                       {/* Floating Tooltip Detail */}
+                       {hasAdjs && (
+                         <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-[100] w-[320px]">
+                           <div className="bg-white/90 backdrop-blur-md border border-slate-200 shadow-2xl rounded-xl p-3 text-left">
+                             <div className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest border-b border-slate-100 pb-1">Lịch sử điều chỉnh</div>
+                             <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                               {adjs.map((a: any) => (
+                                 <div key={a.id} className="flex justify-between items-start gap-3">
+                                   <div className="flex flex-col">
+                                     <span className="text-[10px] text-slate-500 font-bold">{fmtDate(a.tx_date)}</span>
+                                     <span className="text-[11px] text-black font-black leading-tight">{a.note}</span>
+                                   </div>
+                                   <div className={`text-[11px] font-black ${a.tx_type === 'adjust_in' ? 'text-green-600' : 'text-red-600'}`}>
+                                     {a.tx_type === 'adjust_in' ? '+' : '-'}{fmtNum(a.qty)}
+                                   </div>
+                                 </div>
+                               ))}
+                             </div>
+                           </div>
+                         </div>
+                       )}
                     </td>
                     <td style={{ ...tdStyle, width: colWidths["price"] || 110, textAlign: "right" }}>
                        {r.unit_cost != null ? (
@@ -1108,26 +1139,60 @@ export default function InventoryOutboundPage() {
       {/* ADJUSTMENT MODAL */}
       {adjOpen && adjBaseTx && (
         <div className="modal-overlay" onClick={() => setAdjOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div className="modal-box bg-white p-8 rounded-2xl shadow-2xl w-[600px]" onClick={e => e.stopPropagation()}>
-            <h2 className="text-2xl font-black mb-6 flex items-center gap-2">🛠️ ĐIỀU CHỈNH KHO</h2>
-            <div className="p-4 bg-slate-50 rounded-xl mb-6">
-                <div className="font-bold text-slate-900">{skuFor(adjBaseTx)} - {adjBaseTx.product_name_snapshot}</div>
-                <div className="text-xs text-slate-500 uppercase tracking-widest mt-1">Giao dịch gốc: {fmtDate(adjBaseTx.tx_date)} | Số lượng: {fmtNum(adjBaseTx.qty)}</div>
+          <div className="modal-box bg-white p-8 rounded-2xl shadow-2xl w-[600px] animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <h2 className="text-2xl font-black mb-6 flex items-center gap-2 uppercase tracking-tighter">🛠️ ĐIỀU CHỈNH KHO (XUẤT)</h2>
+            <div className="p-5 bg-slate-50 rounded-2xl mb-6 border border-slate-100">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="font-black text-black text-lg tracking-tight leading-none">{skuFor(adjBaseTx)}</div>
+                  <div className="bg-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">{fmtDate(adjBaseTx.tx_date)}</div>
+                </div>
+                <div className="text-black font-medium">{adjBaseTx.product_name_snapshot}</div>
             </div>
+
              <div className="grid gap-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <label className="grid gap-1 text-[10px] font-black uppercase text-slate-400">Loại điều chỉnh *<select className="input" value={aType} onChange={e => setAType(e.target.value as any)}><option value="adjust_in">Tăng tồn (+)</option><option value="adjust_out">Giảm tồn (-)</option></select></label>
-                  <label className="grid gap-1 text-[10px] font-black uppercase text-slate-400">Ngày điều chỉnh *<input type="date" className="input" value={aDate} onChange={e => setADate(e.target.value)} /></label>
+                  <div className="grid gap-1">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Số lượng hiện tại</span>
+                    <div className="input bg-slate-100 font-bold text-slate-500 cursor-not-allowed flex items-center">{fmtNum(aCurrentBaseQty)}</div>
+                  </div>
+                  <label className="grid gap-1">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Số lượng sau điều chỉnh *</span>
+                    <input type="number" className="input font-black text-black bg-indigo-50/50 border-indigo-100 focus:border-indigo-500" value={aTargetQty} onChange={e => setATargetQty(e.target.value)} autoFocus />
+                  </label>
                 </div>
+
+                {aTargetQty && (
+                  <div className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Chênh lệch:</span>
+                    <span className={`text-lg font-black ${Number(aTargetQty) - aCurrentBaseQty >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {Number(aTargetQty) - aCurrentBaseQty > 0 ? '+' : ''}{fmtNum(Number(aTargetQty) - aCurrentBaseQty)}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">
+                      ({Number(aTargetQty) - aCurrentBaseQty >= 0 ? 'Tăng kho' : 'Giảm kho'})
+                    </span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
-                  <label className="grid gap-1 text-[10px] font-black uppercase text-slate-400">Số lượng điều chỉnh *<input type="number" className="input" value={aQty} onChange={e => setAQty(e.target.value)} /></label>
-                  <label className="grid gap-1 text-[10px] font-black uppercase text-slate-400">Đơn giá mới<input type="number" className="input" value={aCost} onChange={e => setACost(e.target.value)} /></label>
+                  <label className="grid gap-1">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Ngày điều chỉnh</span>
+                    <input type="date" className="input font-bold" value={aDate} onChange={e => setADate(e.target.value)} />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Đơn giá (Tùy chọn)</span>
+                    <input type="number" className="input" value={aCost} onChange={e => setACost(e.target.value)} placeholder="Mặc định giá gốc" />
+                  </label>
                 </div>
-                <label className="grid gap-1 text-[10px] font-black uppercase text-slate-400">Lý do điều chỉnh *<textarea className="input min-h-[100px]" value={aNote} onChange={e => setANote(e.target.value)} placeholder="Bắt buộc nhập lý do chi tiết..." /></label>
+
+                <label className="grid gap-1">
+                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Lý do điều chỉnh *</span>
+                  <textarea className="input min-h-[100px] font-black text-black" value={aNote} onChange={e => setANote(e.target.value)} placeholder="Ví dụ: Kiểm kê thấy lệch, hàng lỗi trả về..." />
+                </label>
              </div>
+
              <div className="flex justify-end gap-3 mt-8">
                 <button onClick={() => setAdjOpen(false)} className="btn btn-ghost">HỦY</button>
-                <button onClick={saveAdjustment} className="btn btn-primary px-8">XÁC NHẬN ĐIỀU CHỈNH</button>
+                <button onClick={saveAdjustment} className="btn btn-primary px-10 shadow-xl shadow-indigo-200">XÁC NHẬN ĐIỀU CHỈNH</button>
              </div>
           </div>
         </div>
