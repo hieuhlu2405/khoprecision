@@ -12,7 +12,7 @@ import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-u
 
 type Product = { id: string; sku: string; name: string; spec: string | null; customer_id: string | null };
 type Customer = { id: string; code: string; name: string };
-type Plan = { id: string; product_id: string; plan_date: string; planned_qty: number; backlog_qty?: number };
+type Plan = { id: string; product_id: string; plan_date: string; planned_qty: number; actual_qty: number; backlog_qty?: number };
 
 type TextFilter = { mode: "contains" | "equals"; value: string };
 type SortDir = "asc" | "desc" | null;
@@ -158,10 +158,12 @@ export default function ShortageReportPage() {
        
        for (const d of days) {
           const plan = plans.find(x => x.product_id === p.id && x.plan_date === d);
-          // Tổng nhu cầu ngày d = kế hoạch gốc + nợ từ ngày trước
-          const qty = (plan?.planned_qty || 0) + (plan?.backlog_qty || 0);
           
-          // Logic mới: Chỉ tính thiếu hụt nếu có nhu cầu phát sinh trong ngày và tồn dự kiến không đủ
+          // Nhu cầu thực tế = (Kế hoạch + Nợ) - Đã giao
+          // Chỉ lấy chênh lệch còn thiếu so với khối lượng hàng đang có trên kệ (StockMap)
+          const qty = Math.max(0, (plan?.planned_qty || 0) + (plan?.backlog_qty || 0) - (plan?.actual_qty || 0));
+          
+          // Logic mới: Chỉ tính thiếu hụt nếu có nhu cầu phát sinh thêm và tồn dự kiến không đủ
           const shortageToday = (qty > 0 && runningStock < qty) ? (qty - Math.max(0, runningStock)) : 0;
           
           runningStock = runningStock - qty;
