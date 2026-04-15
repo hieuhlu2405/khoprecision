@@ -46,6 +46,7 @@ type Plan = {
   note_2: string | null;
   is_backlog?: boolean;
   backlog_qty?: number;
+  qty_updated_at?: string | null;
 };
 type ShipmentLog = {
   id: string;
@@ -1304,9 +1305,29 @@ export default function DeliveryPlanPage() {
                         const colW = colWidths[d] || 100;
                         const disabled = !canEditDate(d) || isDone;
 
+                        // Check if modified in the last 4 hours
+                        const isRecentUpdate = (() => {
+                          if (!plan?.qty_updated_at) return false;
+                          const updateTime = new Date(plan.qty_updated_at).getTime();
+                          const now = new Date().getTime();
+                          return (now - updateTime) < (4 * 60 * 60 * 1000); // 4h
+                        })();
+
                         return (
-                          <td key={d} className={`p-1 border-r border-slate-50 transition-all shrink-0 grow-0 ${!disabled ? 'hover:bg-white' : 'bg-slate-50/50 cursor-not-allowed'} ${isChanged ? 'bg-amber-50/60' : ''} ${itdr ? 'bg-red-50/20' : ''}`} style={{ width: colW, flexBasis: colW }}>
+                          <td key={d} className={`p-1 border-r border-slate-50 transition-all shrink-0 grow-0 
+                            ${!disabled ? 'hover:bg-white' : 'bg-slate-50/50 cursor-not-allowed'} 
+                            ${isChanged ? 'bg-amber-50/60' : ''} 
+                            ${itdr ? 'bg-red-50/20' : ''}
+                            ${isRecentUpdate ? 'ring-2 ring-inset ring-amber-400/50 bg-amber-50/30 shadow-[0_0_15px_rgba(251,191,36,0.2)] animate-pulse-subtle' : ''}
+                          `} 
+                          style={{ width: colW, flexBasis: colW }}>
                             <div className="relative group/cell w-full h-full">
+                              {isRecentUpdate && (
+                                <div className="absolute -top-3 -left-1 flex items-center gap-0.5 z-40">
+                                  <span className="text-[14px] drop-shadow-sm text-amber-500 animate-bounce-slow">⚡</span>
+                                  <span className="bg-amber-500 text-white text-[7px] font-black px-1 rounded-sm shadow-sm scale-90 whitespace-nowrap uppercase tracking-tighter shadow-amber-200 border border-amber-400">SỬA ĐỔI</span>
+                                </div>
+                              )}
                               <input
                                 type="text"
                                 className={`w-full text-center py-1.5 px-1 rounded-lg border-2 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-black text-sm
@@ -1787,6 +1808,20 @@ export default function DeliveryPlanPage() {
       </AnimatePresence>
 
       <style jsx global>{`
+        @keyframes pulse-subtle {
+          0%, 100% { opacity: 1; filter: brightness(1); }
+          50% { opacity: 0.95; filter: brightness(1.2) saturate(1.2); }
+        }
+        @keyframes bounce-slow {
+          0%, 100% { transform: translateY(0) scale(1.1); }
+          50% { transform: translateY(-3px) scale(1.1); }
+        }
+        .animate-pulse-subtle {
+          animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .animate-bounce-slow {
+          animation: bounce-slow 2s ease-in-out infinite;
+        }
         .glass-header {
           background: rgba(255, 255, 255, 0.9) !important;
           backdrop-filter: blur(8px);
