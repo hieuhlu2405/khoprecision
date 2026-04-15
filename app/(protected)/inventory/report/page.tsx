@@ -532,7 +532,28 @@ export default function InventoryReportPage() {
         updated_by: u.user.id
       }));
 
-      // Bước 1: Xóa trắng toàn bộ số dư đã thiết lập của cái ngày rollover đó (nếu có)
+      // Bước 1.5: Kiểm tra xem ngày này đã có dữ liệu chưa
+      const { count: existCount } = await supabase.from("inventory_opening_balances")
+        .select("id", { count: "exact", head: true })
+        .eq("period_month", rolloverDate)
+        .is("deleted_at", null);
+
+      if (existCount && existCount > 0) {
+        // Cố gắng xóa (chỉ Admin mới xóa được theo chính sách RLS)
+        const { data: delData, error: delErr } = await supabase.from("inventory_opening_balances")
+          .delete()
+          .eq("period_month", rolloverDate)
+          .select("id");
+          
+        if (delErr) throw delErr;
+        
+        // Nếu không xóa được dòng nào (do RLS chặn)
+        if (!delData || delData.length === 0) {
+          throw new Error("Ngày mục tiêu đã có số liệu tồn kho. Chỉ tài khoản Quản trị cấp cao (Admin) mới có quyền Ghi Đè kết quả chốt tháng.");
+        }
+      }
+
+      // Lệnh delete dự phòng cho chắc chắn (dù đã xóa ở trên)
       await supabase.from("inventory_opening_balances").delete().eq("period_month", rolloverDate);
 
       // Bước 2: Insert toàn bộ vào
