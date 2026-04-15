@@ -7,6 +7,7 @@ import { formatToVietnameseDate, computeSnapshotBounds, applySamePeriodLastYearD
 import { useUI } from "@/app/context/UIContext";
 import { motion } from "framer-motion";
 import { LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
+import { getTodayVNStr } from "@/lib/date-utils";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -237,13 +238,13 @@ export default function InventoryComparisonPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const nd = new Date();
-  const today = `${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,'0')}-${String(nd.getDate()).padStart(2,'0')}`;
-  const now = new Date();
-  const firstOfThisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-  const prevM = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const today = getTodayVNStr();
+  const tDate = new Date(today);
+  const firstOfThisMonth = today.slice(0, 8) + "01";
+  
+  const prevM = new Date(tDate.getFullYear(), tDate.getMonth() - 1, 1);
   const prevMonthStart = `${prevM.getFullYear()}-${String(prevM.getMonth() + 1).padStart(2, "0")}-01`;
-  const lastOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+  const lastOfPrevMonth = new Date(tDate.getFullYear(), tDate.getMonth(), 0);
   const prevMonthEnd = `${lastOfPrevMonth.getFullYear()}-${String(lastOfPrevMonth.getMonth() + 1).padStart(2, "0")}-${String(lastOfPrevMonth.getDate()).padStart(2, "0")}`;
 
   const [p1Start, setP1Start] = useState(prevMonthStart);

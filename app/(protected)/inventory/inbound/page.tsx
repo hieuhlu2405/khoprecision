@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
+import { getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 
 /* ------------------------------------------------------------------ */
@@ -306,7 +307,7 @@ export default function InventoryInboundPage() {
 
   /* ---- multi-line create form state ---- */
   const [showCreate, setShowCreate] = useState(false);
-  const [hDate, setHDate] = useState("");
+  const [hDate, setHDate] = useState(getTodayVNStr());
   const [hNote, setHNote] = useState("");
   const [lines, setLines] = useState<FormLine[]>(() => [
     { key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }
@@ -328,7 +329,7 @@ export default function InventoryInboundPage() {
   const [adjOpen, setAdjOpen] = useState(false);
   const [adjBaseTx, setAdjBaseTx] = useState<InboundTx | null>(null);
   const [aType, setAType] = useState<"adjust_in" | "adjust_out">("adjust_in");
-  const [aDate, setADate] = useState("");
+  const [aDate, setADate] = useState(getTodayVNStr());
   const [aCurrentBaseQty, setACurrentBaseQty] = useState(0);
   const [aTargetQty, setATargetQty] = useState("");
   const [aCost, setACost] = useState("");
@@ -617,7 +618,7 @@ export default function InventoryInboundPage() {
 
   /* ---- multi-line form helpers ---- */
   function resetCreateForm() {
-    setHDate("");
+    setHDate(getTodayVNStr());
     setHNote("");
     setLines([{ key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }]);
   }
@@ -666,8 +667,7 @@ export default function InventoryInboundPage() {
     setACurrentBaseQty(r.finalQty);
     setATargetQty(String(r.finalQty));
     setAType("adjust_in");
-    const now = new Date();
-    setADate(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`);
+    setADate(getTodayVNStr());
     setACost("");
     setANote("");
     setAdjOpen(true);

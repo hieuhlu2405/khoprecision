@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
+import { getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { Pagination } from "@/app/components/ui/Pagination";
 
@@ -503,6 +504,29 @@ export default function InventoryOpeningBalancesPage() {
 
       if (error) throw error;
       showToast(`Đã xóa thành công ${count} dòng dữ liệu của kỳ ${d}/${m}/${y}!`, "success");
+
+      // Nếu là Admin, hỏi có muốn mở khóa hệ thống luôn không
+      if (canDelete) {
+        const unlock = await showConfirm({
+          message: `Hệ thống có thể đang bị KHÓA SỔ đến ngày ${d}/${m}/${y}.\nBạn có muốn MỞ KHÓA hệ thống để có thể nhập liệu lại các ngày trước mốc này không?`,
+          confirmLabel: "Reset & Mở Khóa Ngay",
+          danger: false
+        });
+        if (unlock) {
+          const { error: lockErr } = await supabase.from("system_settings").update({ 
+            inventory_closed_until: null,
+            updated_at: new Date().toISOString(),
+            updated_by: userId
+          }).eq("id", "default");
+          
+          if (lockErr) {
+            showToast("Lỗi mở khóa: " + lockErr.message, "error");
+          } else {
+            showToast("Đã mở khóa sổ hệ thống thành công!", "success");
+          }
+        }
+      }
+
       setQPeriod(""); // Reset filter
       load();
     } catch (err: any) {
@@ -528,12 +552,12 @@ export default function InventoryOpeningBalancesPage() {
 
   /* ---- Create Multi-line Logic ---- */
   const [showCreate, setShowCreate] = useState(false);
-  const [hPeriod, setHPeriod] = useState(new Date().toLocaleDateString('sv-SE'));
+  const [hPeriod, setHPeriod] = useState(getTodayVNStr());
   const [lines, setLines] = useState<FormLine[]>([]);
   const [saving, setSaving] = useState(false);
 
   function resetCreateForm() {
-    setHPeriod(new Date().toLocaleDateString('sv-SE'));
+    setHPeriod(getTodayVNStr());
     setLines([{ key: Math.random().toString(36).slice(2), productId: "", productSearch: "", qty: "", isLongAging: false, longAgingNote: "", showSuggestions: false }]);
   }
 

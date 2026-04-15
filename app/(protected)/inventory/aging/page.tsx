@@ -8,6 +8,7 @@ import { buildStockRows, SnapshotRow, TransactionRow } from "../shared/calc";
 import { formatToVietnameseDate, computeSnapshotBounds, applySamePeriodLastYearDates } from "../shared/date-utils";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { exportToExcel } from "@/lib/excel-utils";
+import { getTodayVNStr } from "@/lib/date-utils";
 import { motion, AnimatePresence } from "framer-motion";
 
 
@@ -692,13 +693,14 @@ export default function InventoryAgingReportPage() {
   const [error, setError] = useState("");
 
   /* ---- Filters & Mode ---- */
-  const currD = new Date();
-  const defStart = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-01`;
-  const defEnd = currD.toLocaleDateString('sv-SE');
+  const today = getTodayVNStr();
+  const defStart = today.slice(0, 8) + "01";
+  const defEnd = today;
 
-  const prevM = new Date(currD.getFullYear(), currD.getMonth() - 1, 1);
+  const tDate = new Date(today);
+  const prevM = new Date(tDate.getFullYear(), tDate.getMonth() - 1, 1);
   const prevMonthStart = `${prevM.getFullYear()}-${String(prevM.getMonth() + 1).padStart(2, "0")}-01`;
-  const lastOfPrevMonth = new Date(currD.getFullYear(), currD.getMonth(), 0);
+  const lastOfPrevMonth = new Date(tDate.getFullYear(), tDate.getMonth(), 0);
   const prevMonthEnd = `${lastOfPrevMonth.getFullYear()}-${String(lastOfPrevMonth.getMonth() + 1).padStart(2, "0")}-${String(lastOfPrevMonth.getDate()).padStart(2, "0")}`;
 
   const [reportMode, setReportMode] = useState<"current" | "compare">("current");

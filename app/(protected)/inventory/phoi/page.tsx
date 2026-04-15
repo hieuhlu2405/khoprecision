@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
+import { getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { Pagination } from "@/app/components/ui/Pagination";
 
@@ -48,7 +49,7 @@ function fmtNum(n: number | null | undefined): string {
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   return parts.join(".");
 }
-function today(): string { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+
 
 /* ------------------------------------------------------------------ */
 /* Component                                                           */
@@ -65,7 +66,7 @@ export default function PhoiPage() {
 
   /* ---- create form ---- */
   const [showCreate, setShowCreate] = useState(false);
-  const [hDate, setHDate] = useState(today());
+  const [hDate, setHDate] = useState(getTodayVNStr());
   const [hNote, setHNote] = useState("");
   const [hCustomerId, setHCustomerId] = useState("");
   const [lines, setLines] = useState<FormLine[]>(() => [
@@ -210,7 +211,7 @@ export default function PhoiPage() {
   /* Form helpers                                                        */
   /* ------------------------------------------------------------------ */
   function resetCreateForm() {
-    setHDate(today()); setHNote(""); setHCustomerId("");
+    setHDate(getTodayVNStr()); setHNote(""); setHCustomerId("");
     setLines([{ key: nextKey(), productId: "", qty: "", unitCost: "" }]);
   }
   function addLine() { setLines(p => [...p, { key: nextKey(), productId: "", qty: "", unitCost: "" }]); }
@@ -303,7 +304,7 @@ export default function PhoiPage() {
     setAdjBaseTx(r);
     setACurrentBaseQty(r.finalQty);
     setATargetQty(String(r.finalQty));
-    setADate(today());
+    setADate(getTodayVNStr());
     setACost("");
     setANote("");
     setAdjOpen(true);

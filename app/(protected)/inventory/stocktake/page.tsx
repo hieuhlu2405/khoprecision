@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
+import { getTodayVNStr } from "@/lib/date-utils";
 
 type Stocktake = {
   id: string;
@@ -233,13 +234,12 @@ export default function StocktakeListPage() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return;
       const uid = u.user.id;
-      const nd = new Date();
-      const today = `${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,'0')}-${String(nd.getDate()).padStart(2,'0')}`;
+      const todayString = getTodayVNStr();
 
       const { data, error } = await supabase
         .from("inventory_stocktakes")
         .insert({
-          stocktake_date: today,
+          stocktake_date: todayString,
           status: "draft",
           created_by: uid,
           updated_by: uid,

@@ -300,7 +300,7 @@ export default function InventoryOutboundPage() {
 
   /* ---- multi-line create form state ---- */
   const [showCreate, setShowCreate] = useState(false);
-  const [hDate, setHDate] = useState("");
+  const [hDate, setHDate] = useState(getTodayVNStr());
   const [hNote, setHNote] = useState("");
   const [lines, setLines] = useState<FormLine[]>(() => [
     { key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }
@@ -321,8 +321,8 @@ export default function InventoryOutboundPage() {
   /* ---- adjustment form state ---- */
   const [adjOpen, setAdjOpen] = useState(false);
   const [adjBaseTx, setAdjBaseTx] = useState<OutboundTx | null>(null);
-  const [aType, setAType] = useState<"adjust_in" | "adjust_out">("adjust_out");
-  const [aDate, setADate] = useState("");
+  const [aType, setAType] = useState<"adjust_out" | "adjust_out">("adjust_out");
+  const [aDate, setADate] = useState(getTodayVNStr());
   const [aCurrentBaseQty, setACurrentBaseQty] = useState(0);
   const [aTargetQty, setATargetQty] = useState("");
   const [aCost, setACost] = useState("");
@@ -620,7 +620,7 @@ export default function InventoryOutboundPage() {
 
   /* ---- multi-line form helpers ---- */
   function resetCreateForm() {
-    setHDate("");
+    setHDate(getTodayVNStr());
     setHNote("");
     setLines([{ key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }]);
   }

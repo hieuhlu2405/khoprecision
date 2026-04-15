@@ -8,6 +8,7 @@ import { useUI } from "@/app/context/UIContext";
 import { LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
 import { useDebounce } from "@/app/hooks/useDebounce";
+import { getTodayVNStr } from "@/lib/date-utils";
 import { motion, AnimatePresence } from "framer-motion";
 
 /* ------------------------------------------------------------------ */
@@ -226,9 +227,9 @@ export default function InventoryReportPage() {
   const [error, setError] = useState("");
 
   /* ---- Filters ---- */
-  const currD = new Date();
-  const defStart = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-01`;
-  const defEnd = `${currD.getFullYear()}-${String(currD.getMonth()+1).padStart(2,'0')}-${String(currD.getDate()).padStart(2,'0')}`;
+  const today = getTodayVNStr();
+  const defStart = today.slice(0, 8) + "01";
+  const defEnd = today;
   
   const [qStart, setQStart] = useState(defStart);
   const [qEnd, setQEnd] = useState(defEnd);
