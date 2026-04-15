@@ -47,6 +47,7 @@ type Plan = {
   is_backlog?: boolean;
   backlog_qty?: number;
   qty_updated_at?: string | null;
+  prev_planned_qty?: number | null;
 };
 type ShipmentLog = {
   id: string;
@@ -1318,14 +1319,19 @@ export default function DeliveryPlanPage() {
                             ${!disabled ? 'hover:bg-white' : 'bg-slate-50/50 cursor-not-allowed'} 
                             ${isChanged ? 'bg-amber-50/60' : ''} 
                             ${itdr ? 'bg-red-50/20' : ''}
-                            ${isRecentUpdate ? 'ring-2 ring-inset ring-amber-400/50 bg-amber-50/30 shadow-[0_0_15px_rgba(251,191,36,0.2)] animate-pulse-subtle' : ''}
+                            ${isRecentUpdate ? 'ring-2 ring-inset ring-amber-400/50 bg-amber-50/30 shadow-[0_0_20px_rgba(251,191,36,0.3)] animate-pulse-subtle' : ''}
                           `} 
                           style={{ width: colW, flexBasis: colW }}>
                             <div className="relative group/cell w-full h-full">
                               {isRecentUpdate && (
-                                <div className="absolute -top-3 -left-1 flex items-center gap-0.5 z-40">
-                                  <span className="text-[14px] drop-shadow-sm text-amber-500 animate-bounce-slow">⚡</span>
-                                  <span className="bg-amber-500 text-white text-[7px] font-black px-1 rounded-sm shadow-sm scale-90 whitespace-nowrap uppercase tracking-tighter shadow-amber-200 border border-amber-400">SỬA ĐỔI</span>
+                                <div 
+                                  className="absolute -top-4 -right-2 flex flex-col items-end z-40 group/tooltip pointer-events-auto cursor-help"
+                                  title={`KẾ HOẠCH CŨ: ${plan?.prev_planned_qty || 0}\nKẾ HOẠCH MỚI: ${plan?.planned_qty || 0}\nCẬP NHẬT: ${new Date(plan!.qty_updated_at!).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`}
+                                >
+                                  <div className="flex items-center bg-amber-500 text-white rounded-md shadow-lg shadow-amber-200 border border-amber-400 overflow-hidden transform group-hover/tooltip:scale-110 transition-transform">
+                                    <span className="bg-white text-amber-500 px-1 font-black text-[14px] animate-pulse">⚡</span>
+                                    <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-tighter whitespace-nowrap">SỬA ĐỔI</span>
+                                  </div>
                                 </div>
                               )}
                               <input

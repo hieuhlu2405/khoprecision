@@ -2,17 +2,19 @@
 -- SPRINT 6: DYNAMIC BACKLOG & CHANGE AWARENESS (GLOW + ALERTS)
 -- =========================================================================
 
--- 1. Thêm cột theo dõi thời gian cập nhật số lượng
+-- 1. Thêm cột theo dõi thời gian và số lượng cũ
 ALTER TABLE public.delivery_plans ADD COLUMN IF NOT EXISTS qty_updated_at timestamptz;
+ALTER TABLE public.delivery_plans ADD COLUMN IF NOT EXISTS prev_planned_qty numeric;
 
 -- 2. Hàm Trigger xử lý đồng bộ và đánh dấu thời gian
 CREATE OR REPLACE FUNCTION public.trig_fn_delivery_plan_awareness()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- A. ĐÁNH DẤU THỜI GIAN KHI THAY ĐỔI SỐ LƯỢNG KẾ HOẠCH
+    -- A. ĐÁNH DẤU THỜI GIAN VÀ LƯU SỐ LƯỢNG CŨ KHI THAY ĐỔI
     -- Giúp bộ phận Kho nhận biết các thay đổi phát sinh trong ngày
     IF (OLD.planned_qty IS DISTINCT FROM NEW.planned_qty) THEN
         NEW.qty_updated_at := now();
+        NEW.prev_planned_qty := OLD.planned_qty;
     END IF;
 
     RETURN NEW;
