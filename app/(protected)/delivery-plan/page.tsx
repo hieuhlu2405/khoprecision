@@ -1222,7 +1222,7 @@ export default function DeliveryPlanPage() {
                            return (
                              <input 
                                type="text" 
-                               placeholder="Lưu ý 1..." 
+                               placeholder="Nhập ghi chú..." 
                                className="input input-ghost input-xs h-7 w-full text-[12px] font-black text-black focus:bg-white focus:ring-1 focus:ring-indigo-300 placeholder:text-slate-300 italic" 
                                value={noteVal}
                                onChange={e => handleNoteChange(p.id, today, e.target.value)} 
@@ -1238,7 +1238,7 @@ export default function DeliveryPlanPage() {
                            return (
                              <input 
                                type="text" 
-                               placeholder="Lưu ý 2..." 
+                               placeholder="Nhập ghi chú..." 
                                className="input input-ghost input-xs h-7 w-full text-[12px] font-black text-black focus:bg-white focus:ring-1 focus:ring-indigo-300 placeholder:text-slate-300 italic" 
                                value={note2Val}
                                onChange={e => handleNote2Change(p.id, today, e.target.value)} 
