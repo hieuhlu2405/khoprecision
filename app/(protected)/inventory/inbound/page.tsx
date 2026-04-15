@@ -1049,7 +1049,7 @@ export default function InventoryInboundPage() {
                     </td>
                     <td style={{ ...tdStyle, width: colWidths["date"] || 110, flexShrink: 0 }}>{fmtDate(r.tx_date)}</td>
                     <td style={{ ...tdStyle, width: colWidths["customer"] || 180, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", color: "#6b7280" }} title={customerLabel(r.customer_id)}>{customerLabel(r.customer_id)}</td>
-                    <td style={{ ...tdStyle, width: colWidths["sku"] || 140, flexShrink: 0, fontWeight: 900, color: "#000000", fontSize: "15px" }}>{skuFor(r)}</td>
+                    <td style={{ ...tdStyle, width: colWidths["sku"] || 140, flexShrink: 0, fontWeight: 900, color: "#000000", fontSize: "16px" }}>{skuFor(r)}</td>
                     <td style={{ ...tdStyle, width: colWidths["name"] || 250, flexShrink: 0, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", fontSize: "15px", color: "#6b7280" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
                     <td style={{ ...tdStyle, width: colWidths["spec"] || 160, flexShrink: 0, color: "#000000", fontSize: "15px", fontWeight: 700, textTransform: "uppercase" }}>{r.product_spec_snapshot}</td>
                     <td style={{ ...tdStyle, width: colWidths["qty"] || 100, textAlign: "right", flexShrink: 0 }} className="group relative">
@@ -1079,7 +1079,7 @@ export default function InventoryInboundPage() {
                          </div>
                        )}
                     </td>
-                    <td style={{ ...tdStyle, width: colWidths["price"] || 110, textAlign: "right", flexShrink: 0, color: "#000000" }}>{r.unit_cost != null ? fmtNum(r.unit_cost) : "---"}</td>
+                    <td style={{ ...tdStyle, width: colWidths["price"] || 110, textAlign: "right", flexShrink: 0, color: "#6b7280" }}>{r.unit_cost != null ? fmtNum(r.unit_cost) : "---"}</td>
                     <td className="table-note-black" style={{ ...tdStyle, width: colWidths["note"] || 200, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }} title={r.note || ""}>{r.note || ""}</td>
                     <td style={{ ...tdStyle, width: colWidths["createdAt"] || 160, flexShrink: 0, fontSize: 11, color: "#cbd5e1" }}>{fmtDatetime(r.created_at)}</td>
                     <td style={{ ...tdStyle, width: 120, textAlign: "center", flexShrink: 0 }}>
