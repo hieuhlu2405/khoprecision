@@ -549,7 +549,9 @@ export default function InventoryReportPage() {
 
       showToast("🎉 Kết chuyển Kế Toán Thành Công! Hệ thống đã được lập mốc mới.", "success");
       setRolloverOpen(false);
-      load(); // Reload data
+      
+      // Auto-update Start Date to reflect the new baseline
+      setQStart(rolloverDate);
     } catch (err: any) {
       showToast("Lỗi kết chuyển: " + err.message, "error");
     } finally {
