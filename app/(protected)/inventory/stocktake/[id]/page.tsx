@@ -504,7 +504,11 @@ export default function StocktakeDetailPage() {
       if (hdrErr) throw hdrErr;
 
       // 1. Save Stocktake Lines
-      await supabase.from("inventory_stocktake_lines").delete().eq("stocktake_id", header.id);
+      // Sử dụng soft-delete thay vì delete() vì nhân viên không có quyền DELETE vật lý (chỉ Admin có)
+      await supabase.from("inventory_stocktake_lines")
+        .update({ deleted_at: new Date().toISOString(), updated_by: me?.id })
+        .eq("stocktake_id", header.id)
+        .is("deleted_at", null);
       
       const inserts = lines.map(l => ({
         stocktake_id: header.id,
@@ -546,7 +550,10 @@ export default function StocktakeDetailPage() {
           updated_by: me?.id
         }));
 
-        await supabase.from("inventory_transactions").delete().eq("stocktake_id", header.id);
+        await supabase.from("inventory_transactions")
+          .update({ deleted_at: now, updated_at: now, updated_by: me?.id })
+          .eq("stocktake_id", header.id)
+          .is("deleted_at", null);
 
         if (adjustmentPayloads.length > 0) {
           const { error: insErr } = await supabase.from("inventory_transactions").insert(adjustmentPayloads);
@@ -566,7 +573,10 @@ export default function StocktakeDetailPage() {
           updated_by: me?.id
         }));
 
-        await supabase.from("inventory_opening_balances").delete().eq("source_stocktake_id", header.id);
+        await supabase.from("inventory_opening_balances")
+          .update({ deleted_at: now, updated_at: now, updated_by: me?.id })
+          .eq("source_stocktake_id", header.id)
+          .is("deleted_at", null);
 
         if (baselinePayloads.length > 0) {
           const { error: obErr } = await supabase.from("inventory_opening_balances").insert(baselinePayloads);
