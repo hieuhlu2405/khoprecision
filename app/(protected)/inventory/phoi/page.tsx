@@ -897,7 +897,7 @@ export default function PhoiPage() {
 
       {/* ── Table ── */}
       <div className="data-table-wrap overflow-visible shadow-xl rounded-2xl border-slate-200/60">
-        <table className="data-table" style={{ minWidth: 1000 }}>
+        <table className="data-table table-fixed" style={{ width: "100%", minWidth: 1000 }}>
           <thead>
             <tr>
               <ThCell label="#" colKey="stt" sortable={false} filterable={false} colType="text" w="50px" align="center" />

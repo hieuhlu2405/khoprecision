@@ -1001,7 +1001,7 @@ export default function InventoryInboundPage() {
         className="data-table-wrap !rounded-xl overflow-auto border border-slate-200" 
         style={{ maxHeight: "calc(100vh - 380px)", position: "relative" }}
       >
-        <table className="w-full text-sm !border-separate !border-spacing-0 table-fixed">
+        <table className="data-table !border-separate !border-spacing-0 table-fixed" style={{ width: "100%", minWidth: "100%" }}>
           <thead className="sticky top-0 z-50 bg-white">
             <tr>
               <th style={{ ...thStyle, width: 40, textAlign: "center", left: 0, zIndex: 101, background: "white", borderBottom: "1px solid #e2e8f0" }}>
@@ -1032,7 +1032,7 @@ export default function InventoryInboundPage() {
                     data-index={virtualRow.index}
                     style={{ 
                       position: "absolute", top: 0, transform: `translateY(${virtualRow.start}px)`, 
-                      width: "100%", display: "flex", background: selectedIds.has(r.id) ? "#f1f5f9" : virtualRow.index % 2 === 0 ? "white" : "#f8fafc" 
+                      width: "100%", display: "table", tableLayout: "fixed", background: selectedIds.has(r.id) ? "#f1f5f9" : virtualRow.index % 2 === 0 ? "white" : "#f8fafc" 
                     }}
                     className="hover:bg-indigo-50/50 transition-colors"
                   >
