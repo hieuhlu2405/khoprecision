@@ -573,10 +573,15 @@ export default function StocktakeDetailPage() {
           updated_by: me?.id
         }));
 
-        await supabase.from("inventory_opening_balances")
-          .update({ deleted_at: now, updated_at: now, updated_by: me?.id })
-          .eq("source_stocktake_id", header.id)
-          .is("deleted_at", null);
+        if (lines.length > 0) {
+          const pIds = lines.map(l => l.product_id);
+          // Vô hiệu hóa TẤT CẢ các mốc đầu kỳ trùng ngày và trùng mã hàng (Tránh đụng độ với Kết chuyển trùng ngày)
+          await supabase.from("inventory_opening_balances")
+            .update({ deleted_at: now, updated_at: now, updated_by: me?.id })
+            .eq("period_month", confirmedDateOnly)
+            .in("product_id", pIds)
+            .is("deleted_at", null);
+        }
 
         if (baselinePayloads.length > 0) {
           const { error: obErr } = await supabase.from("inventory_opening_balances").insert(baselinePayloads);
