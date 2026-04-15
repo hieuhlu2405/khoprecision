@@ -286,7 +286,7 @@ export default function InventoryOpeningBalancesPage() {
       const isManager = profile.role === "admin" || (profile.role === "manager" && profile.department === "warehouse");
       setCanCreate(isManager);
       setCanEdit(profile.role === "admin");
-      setCanDelete(profile.role === "admin");
+      setCanDelete(isManager); // Cho phép Quản lý kho cũng được xóa kỳ
     }
   }
 
