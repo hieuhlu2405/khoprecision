@@ -1023,13 +1023,9 @@ export default function PhoiPage() {
           </div>
         )}
 
-        {/* STATS & QUICK FILTERS */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Tổng giao dịch</div>
-            <div className="text-2xl font-black text-slate-900">{rows.length}</div>
-          </div>
-          <div className="md:col-span-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-wrap items-center gap-4">
+        {/* QUICK FILTERS */}
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-wrap items-center gap-4">
             <div className="flex-1 min-w-[200px] relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
               <input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã hàng, tên hàng..." className="w-full h-11 bg-slate-50 border-slate-100 rounded-xl pl-10 pr-4 font-bold text-slate-700 focus:bg-white transition-all outline-none border" />
