@@ -347,8 +347,8 @@ export default function CustomersPage() {
   }
 
   function openEdit(c: Customer) {
-    if (!isManager) {
-      showToast("Bạn không có quyền sửa khách hàng", "error");
+    if (profile?.role !== 'admin') {
+      showToast("Chỉ Admin tối cao mới có quyền sửa khách hàng", "error");
       return;
     }
     setEditing(c);
@@ -672,9 +672,11 @@ export default function CustomersPage() {
                 {isManager && (
                   <td className="py-4 px-4">
                     <div className="flex flex-col sm:flex-row justify-center items-center gap-2 mt-1">
-                      <button onClick={() => openEdit(c)} className="px-3 py-1 bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-[11px] text-indigo-700 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all w-full sm:w-auto">
-                        Sửa
-                      </button>
+                      {profile?.role === 'admin' && (
+                        <button onClick={() => openEdit(c)} className="px-3 py-1 bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-[11px] text-indigo-700 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all w-full sm:w-auto">
+                          Sửa
+                        </button>
+                      )}
                       <button onClick={() => del(c)} className="px-3 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all w-full sm:w-auto">
                         Xóa
                       </button>

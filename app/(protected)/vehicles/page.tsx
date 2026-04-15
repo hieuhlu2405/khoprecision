@@ -267,7 +267,7 @@ export default function VehiclesPage() {
   const [rows, setRows] = useState<Vehicle[]>([]);
   const [q, setQ] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<{ role: string; department: string } | null>(null);
 
   // Form controlling state
   const [modalOpen, setModalOpen] = useState(false);
@@ -279,6 +279,9 @@ export default function VehiclesPage() {
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return window.location.href = "/login";
+      
+      const { data: pData } = await supabase.from("profiles").select("role, department").eq("id", u.user.id).single();
+      if (pData) setProfile(pData);
       
       const { data, error: e2 } = await supabase
         .from("vehicles")
@@ -312,9 +315,13 @@ export default function VehiclesPage() {
   }, []);
 
   const handleOpenEdit = useCallback((v: Vehicle) => {
+    if (profile?.role !== "admin") {
+      showToast("Chỉ Admin tối cao mới có quyền sửa thông tin xe", "error");
+      return;
+    }
     setEditingVehicle(v);
     setModalOpen(true);
-  }, []);
+  }, [profile, showToast]);
 
   const handleCloseModal = useCallback(() => {
     setModalOpen(false);
@@ -446,9 +453,11 @@ export default function VehiclesPage() {
                 </td>
                 <td className="py-7 px-8">
                   <div className="flex justify-center items-center gap-3">
-                    <button onClick={() => handleOpenEdit(r)} className="px-6 py-3 bg-violet-50 hover:bg-violet-600 text-[10px] text-violet-600 hover:text-white font-black border border-violet-100 rounded-2xl transition-all uppercase tracking-widest active:scale-90 shadow-sm">
-                       Sửa
-                    </button>
+                    {profile?.role === 'admin' && (
+                      <button onClick={() => handleOpenEdit(r)} className="px-6 py-3 bg-violet-50 hover:bg-violet-600 text-[10px] text-violet-600 hover:text-white font-black border border-violet-100 rounded-2xl transition-all uppercase tracking-widest active:scale-90 shadow-sm">
+                         Sửa
+                      </button>
+                    )}
                     <button onClick={() => handleDelete(r)} className="px-6 py-3 bg-red-50 hover:bg-red-600 text-[10px] text-red-600 hover:text-white font-black border border-red-200 rounded-2xl transition-all uppercase tracking-widest active:scale-90 shadow-sm">
                        Xóa
                     </button>

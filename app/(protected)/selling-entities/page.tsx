@@ -76,8 +76,8 @@ export default function SellingEntitiesPage() {
   }
 
   function openEdit(e: SellingEntity) {
-    if (!isManager) {
-      showToast("Bạn không có quyền sửa pháp nhân", "error");
+    if (profile?.role !== "admin") {
+      showToast("Chỉ Admin tối cao mới có quyền sửa pháp nhân", "error");
       return;
     }
     setEditing(e);
@@ -326,9 +326,11 @@ export default function SellingEntitiesPage() {
               </div>
               {isManager && (
                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => openEdit(e)} className="px-3 py-1.5 bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-[11px] text-indigo-700 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all">
-                    Sửa
-                  </button>
+                  {profile?.role === "admin" && (
+                    <button onClick={() => openEdit(e)} className="px-3 py-1.5 bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-[11px] text-indigo-700 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all">
+                      Sửa
+                    </button>
+                  )}
                   <button onClick={() => del(e)} className="px-3 py-1.5 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all">
                     Xóa
                   </button>

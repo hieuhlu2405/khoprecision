@@ -32,7 +32,8 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
-  const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
+  const canEdit = profile?.role === "admin";
+  const canDelete = profile?.role === "admin";
 
   // form state (single add/edit)
   const [open, setOpen] = useState(false);
@@ -467,8 +468,8 @@ export default function ProductsPage() {
 
   function openEdit(p: Product) {
     if (!profile) return;
-    if (!isManager) {
-      showToast("Bạn không có quyền sửa mã hàng", "error");
+    if (profile?.role !== 'admin') {
+      showToast("Chỉ Admin tối cao mới có quyền sửa mã hàng", "error");
       return;
     }
     setEditing(p);
@@ -1140,7 +1141,9 @@ export default function ProductsPage() {
                     {isManager && (
                       <td className="py-4 px-4">
                         <div className="flex flex-col sm:flex-row justify-center items-center gap-2 mt-1">
-                          <button onClick={() => openEdit(p)} className="px-3 py-1 bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-[11px] text-indigo-700 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all w-full sm:w-auto">Sửa</button>
+                          {profile?.role === 'admin' && (
+                            <button onClick={() => openEdit(p)} className="px-3 py-1 bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-[11px] text-indigo-700 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all w-full sm:w-auto">Sửa</button>
+                          )}
                           <button onClick={() => del(p)} className="px-3 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all w-full sm:w-auto">Xóa</button>
                         </div>
                       </td>
