@@ -304,7 +304,16 @@ export default function InventoryOpeningBalancesPage() {
 
       setProducts(rP.data || []);
       setCustomers(rC.data || []);
-      setRecords(rR.data || []);
+      const fetchedRecords = rR.data || [];
+      setRecords(fetchedRecords);
+      
+      // Auto-set filter to the latest period to prevent cross-period summing errors
+      setQPeriod(prev => {
+        if (!prev && fetchedRecords.length > 0) {
+          return fetchedRecords[0].period_month.slice(0, 10);
+        }
+        return prev;
+      });
     } catch (err: any) {
       setError(err?.message || "Lỗi tải dữ liệu");
     } finally {
