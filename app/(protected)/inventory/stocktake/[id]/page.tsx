@@ -500,93 +500,49 @@ export default function StocktakeDetailPage() {
         }
       }
 
-      const { error: hdrErr } = await supabase.from("inventory_stocktakes").update(headerUpdateData).eq("id", header.id);
-      if (hdrErr) throw hdrErr;
-
-      // 1. Save Stocktake Lines
-      // Sử dụng soft-delete thay vì delete() vì nhân viên không có quyền DELETE vật lý (chỉ Admin có)
-      await supabase.from("inventory_stocktake_lines")
-        .update({ deleted_at: new Date().toISOString(), updated_by: me?.id })
-        .eq("stocktake_id", header.id)
-        .is("deleted_at", null);
-      
-      const inserts = lines.map(l => ({
-        stocktake_id: header.id,
-        customer_id: l.customer_id,
-        product_id: l.product_id,
-        product_name_snapshot: l.product_name_snapshot,
-        product_spec_snapshot: l.product_spec_snapshot,
-        unit_price_snapshot: l.unit_price_snapshot,
-        system_qty_before: l.system_qty_before,
-        actual_qty_after: l.actual_qty_after,
-        qty_diff: l.qty_diff,
-        diff_percent: l.diff_percent,
-        is_large_diff: l.is_large_diff,
-        diff_reason: l.diff_reason,
-        created_by: me?.id,
-        updated_by: me?.id
-      }));
-
-      const { error: eInst } = await supabase.from("inventory_stocktake_lines").insert(inserts);
-      if (eInst) throw eInst;
-
-      // 2. Sync to Transactions (Immutable Standard)
       if (currentIsConfirmed) {
-        const confirmedDateOnly = header.stocktake_date.slice(0, 10);
+        // --- SỬ DỤNG ATOMIC RPC (PHƯƠNG PHÁP MỚI) ---
+        // Gọi hàm xử lý tập trung dưới Database để đảm bảo an toàn tuyệt đối, 
+        // không bị rác dữ liệu nếu một bước nào đó thất bại (Atomic Transaction).
+        const { error: rpcErr } = await supabase.rpc("confirm_inventory_stocktake", {
+          p_header_id: header.id,
+          p_user_id: me?.id,
+          p_stocktake_date: header.stocktake_date.slice(0, 10),
+          p_lines: lines, // Đẩy nguyên mảng lines vào, Database sẽ tự xử
+          p_edit_reason: editReason // Nếu có lý do sửa sau khi chốt
+        });
 
-        const adjustmentPayloads = lines.filter(l => l.qty_diff !== 0).map(l => ({
-          tx_date: confirmedDateOnly,
-          tx_type: l.qty_diff > 0 ? "adjust_in" : "adjust_out",
-          product_id: l.product_id,
-          customer_id: l.customer_id,
-          qty: Math.abs(l.qty_diff),
-          note: `Điều chỉnh kiểm kê phiếu #${header.id.slice(0,8)}` + (editReason ? ` (Sửa: ${editReason})` : ""),
-          product_name_snapshot: l.product_name_snapshot,
-          product_spec_snapshot: l.product_spec_snapshot,
-          unit_cost: l.unit_price_snapshot,
-          stocktake_id: header.id,
-          created_by: me?.id,
-          updated_at: now,
-          updated_by: me?.id
-        }));
+        if (rpcErr) throw rpcErr;
+      } else {
+        // --- LƯU NHÁP (DRAFT) ---
+        // Đối với bản nháp, ta chỉ Save/Update Header và Lines đơn thuần
+        const { error: hdrErr } = await supabase.from("inventory_stocktakes").update(headerUpdateData).eq("id", header.id);
+        if (hdrErr) throw hdrErr;
 
-        await supabase.from("inventory_transactions")
-          .update({ deleted_at: now, updated_at: now, updated_by: me?.id })
+        await supabase.from("inventory_stocktake_lines")
+          .update({ deleted_at: now, updated_by: me?.id })
           .eq("stocktake_id", header.id)
           .is("deleted_at", null);
-
-        if (adjustmentPayloads.length > 0) {
-          const { error: insErr } = await supabase.from("inventory_transactions").insert(adjustmentPayloads);
-          if (insErr) throw insErr;
-        }
-
-        // 3. Create Hard Baseline for Stocktake in Opening Balances
-        const baselinePayloads = lines.map(l => ({
-          period_month: confirmedDateOnly, // Mốc thời gian là ngày kiểm kê
-          product_id: l.product_id,
+        
+        const inserts = lines.map(l => ({
+          stocktake_id: header.id,
           customer_id: l.customer_id,
-          opening_qty: l.actual_qty_after, // Số lượng tồn mốc là số đã kiểm kê tay thực tế
-          opening_unit_cost: l.unit_price_snapshot,
-          source_stocktake_id: header.id,
+          product_id: l.product_id,
+          product_name_snapshot: l.product_name_snapshot,
+          product_spec_snapshot: l.product_spec_snapshot,
+          unit_price_snapshot: l.unit_price_snapshot,
+          system_qty_before: l.system_qty_before,
+          actual_qty_after: l.actual_qty_after,
+          qty_diff: l.qty_diff,
+          diff_percent: l.diff_percent,
+          is_large_diff: l.is_large_diff,
+          diff_reason: l.diff_reason,
           created_by: me?.id,
-          updated_at: now,
           updated_by: me?.id
         }));
 
-        if (lines.length > 0) {
-          const pIds = lines.map(l => l.product_id);
-          // Vô hiệu hóa TẤT CẢ các mốc đầu kỳ trùng ngày và trùng mã hàng (Tránh đụng độ với Kết chuyển trùng ngày)
-          await supabase.from("inventory_opening_balances")
-            .update({ deleted_at: now, updated_at: now, updated_by: me?.id })
-            .eq("period_month", confirmedDateOnly)
-            .in("product_id", pIds)
-            .is("deleted_at", null);
-        }
-
-        if (baselinePayloads.length > 0) {
-          const { error: obErr } = await supabase.from("inventory_opening_balances").insert(baselinePayloads);
-          if (obErr) throw obErr;
-        }
+        const { error: eInst } = await supabase.from("inventory_stocktake_lines").insert(inserts);
+        if (eInst) throw eInst;
       }
 
       showToast(currentIsConfirmed ? "Đã chốt phiếu thành công!" : "Đã lưu bản nháp!", "success");
