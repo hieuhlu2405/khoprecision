@@ -30,7 +30,7 @@ type Customer = {
   name: string;
 };
 
-type OpeningBalance = SnapshotRow;
+type OpeningBalance = SnapshotRow & { inventory_value: number };
 type InventoryTx = TransactionRow;
 
 type ProdRow = {
@@ -349,6 +349,62 @@ const customStyles = `
   }
 `;
 
+function HistoricalTrendChart({ data }: { data: { label: string; value: number }[] }) {
+  if (!data.length) return null;
+  const maxVal = Math.max(...data.map(d => d.value), 1);
+  const height = 140;
+  const marginTop = 20;
+  const marginBottom = 30;
+  const marginLeft = 60;
+  const marginRight = 20;
+  
+  const getX = (i: number) => marginLeft + (i * (100 / (data.length - 1 || 1)) * (100 - (marginLeft + marginRight)) / 100);
+  const getY = (v: number) => height - marginBottom - ((v / maxVal) * (height - marginTop - marginBottom));
+
+  const points = data.map((d, i) => `${getX(i)},${getY(d.value)}`).join(" ");
+  const areaPoints = `${marginLeft},${height - marginBottom} ${points} ${getX(data.length - 1)},${height - marginBottom}`;
+
+  return (
+    <div className="glass-panel" style={{ padding: "20px 24px", borderRadius: 16, marginBottom: 24, background: "rgba(255,255,255,0.7)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.4)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
+         <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Xu hướng giá trị tồn kho (12 tháng)</h4>
+         <div style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)" }}>Đơn vị: VNĐ</div>
+      </div>
+      <svg width="100%" height={height} style={{ overflow: "visible" }}>
+        <defs>
+          <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="var(--brand)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        
+        {/* Grid lines */}
+        {[0, 0.5, 1].map(p => (
+          <line key={p} x1={marginLeft} y1={getY(maxVal * p)} x2="100%" y2={getY(maxVal * p)} stroke="#f1f5f9" strokeWidth={1} />
+        ))}
+
+        {/* Area fill */}
+        <polyline points={areaPoints} fill="url(#trendGradient)" stroke="none" />
+        
+        {/* Main Line */}
+        <polyline points={points} fill="none" stroke="var(--brand)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        
+        {/* Points & Labels */}
+        {data.map((d, i) => (
+          <g key={i}>
+            <circle cx={getX(i)} cy={getY(d.value)} r={3} fill="white" stroke="var(--brand)" strokeWidth={2} />
+            { (i === 0 || i === data.length - 1 || i % 3 === 0) && (
+              <text x={getX(i)} y={height - 5} textAnchor="middle" fontSize={10} fill="var(--slate-400)" fontWeight={600}>
+                {d.label}
+              </text>
+            )}
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 function SummaryCard({ title, v1, v2, diff, bg, accent, icon, unit = "đ" }: { title: string; v1: number; v2: number; diff: number; bg: string; accent: string; icon?: React.ReactNode; unit?: string }) {
   const pct = calcPct(diff, v1);
   const isPositive = diff > 0;
@@ -372,11 +428,11 @@ function SummaryCard({ title, v1, v2, diff, bg, accent, icon, unit = "đ" }: { t
           <div style={{ fontSize: 18, fontWeight: 700, color: "var(--brand)" }}>{fmtNum(countV2)} <small style={{ fontSize: 10 }}>{unit}</small></div>
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 6, paddingTop: 12, borderTop: "1px solid var(--slate-50)" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, paddingTop: 12, borderTop: "1px solid var(--slate-50)" }}>
         <span style={{ fontSize: 16, fontWeight: 900, display: "flex", alignItems: "center", gap: 4, color: isPositive ? "var(--color-danger)" : "var(--color-success)" }}>
           {isPositive ? "↑" : "↓"} {isPositive ? "+" : ""}{fmtNum(countDiff)} <small style={{ fontSize: 11, fontWeight: 600 }}>đ</small>
         </span>
-        <span className={`badge ${isPositive ? "badge-danger" : "badge-success"}`} style={{ fontSize: 10, padding: "2px 8px", background: isPositive ? "rgba(220, 20, 60, 0.1)" : "rgba(16, 185, 129, 0.1)", color: isPositive ? "var(--color-danger)" : "var(--color-success)", border: "none" }}>
+        <span className={`badge ${isPositive ? "badge-danger" : "badge-success"}`} style={{ fontSize: 14, fontWeight: 800, padding: "2px 10px", background: isPositive ? "rgba(220, 20, 60, 0.1)" : "rgba(16, 185, 129, 0.1)", color: isPositive ? "var(--color-danger)" : "var(--color-success)", border: "none" }}>
           {Math.abs(pct).toFixed(1)}%
         </span>
       </div>
@@ -889,6 +945,7 @@ export default function InventoryValueReportPage() {
     return () => document.removeEventListener("mousedown", handle);
   }, [openPopupId]);
 
+
   /* ---- Load Data ---- */
   async function load() {
     if (abortControllerRef.current) abortControllerRef.current.abort();
@@ -963,6 +1020,24 @@ export default function InventoryValueReportPage() {
   useEffect(() => { load(); return () => abortControllerRef.current?.abort(); }, [qEnd, p1End, p2End, reportMode]);
 
   /* ---- Raw Calculations ---- */
+  const historyData = useMemo(() => {
+    // Group openings by month and get total value
+    const grouped = new Map<string, number>();
+    (openings || []).forEach(o => {
+      const m = (o.period_month || "").slice(0, 7); // YYYY-MM
+      if (!m) return;
+      grouped.set(m, (grouped.get(m) || 0) + (o.inventory_value || 0));
+    });
+    return Array.from(grouped.entries())
+      .map(([m, val]) => ({ 
+        label: m.split("-").reverse().join("/"), 
+        value: val,
+        raw: m 
+      }))
+      .sort((a,b) => a.raw.localeCompare(b.raw))
+      .slice(-12);
+  }, [openings]);
+
   const productData = useMemo(() => {
     const rows = stockRowsFromRpc;
     
@@ -1111,6 +1186,26 @@ export default function InventoryValueReportPage() {
   }, [reportMode, rpcRowsP1, rpcRowsP2, productMap, qCustomer, debouncedQProd, onlyInStock, onlyChanged]);
 
   const compareTotals = useMemo(() => compareData.totals || { val1: 0, val2: 0, diff: 0, pct: 0, cust1: 0, cust2: 0 }, [compareData]);
+
+  const deadStockStats = useMemo(() => {
+    const calcDead = (rows: any[], totalVal: number) => {
+      const deadRows = (rows || []).filter(r => 
+        Number(r.inbound_qty) === 0 && 
+        Number(r.outbound_qty) === 0 && 
+        Number(r.current_qty) > 0
+      );
+      const deadValue = deadRows.reduce((acc, r) => acc + (r.inventory_value || 0), 0);
+      return { value: deadValue, pct: calcPct(deadValue, totalVal) };
+    };
+
+    const s1 = calcDead(rpcRowsP1, compareTotals.val1);
+    const s2 = calcDead(rpcRowsP2, compareTotals.val2);
+    return {
+      v1: s1.pct,
+      v2: s2.pct,
+      diff: s2.pct - s1.pct
+    };
+  }, [rpcRowsP1, rpcRowsP2, compareTotals.val1, compareTotals.val2]);
 
   const compareProductDataFiltered = useMemo(() => {
     if (!compareData.all) return [];
@@ -1388,22 +1483,21 @@ export default function InventoryValueReportPage() {
             <StatCardV2 label="Tổng giá trị tồn kho" value={overallTotals.totalValue} unit="VNĐ" color="crimson" icon="💰" />
             <StatCardV2 label="Tổng số lượng tồn" value={overallTotals.totalQty} color="var(--slate-400)" icon="📦" />
             <StatCardV2 label="Số mã còn tồn" value={overallTotals.productCount} color="var(--brand)" icon="🏷️" />
-            <StatCardV2 label="Số khách hàng" value={overallTotals.customerCount} color="var(--slate-500)" icon="👤" />
+            <StatCardV2 label="Số mã hàng đọng" value={(stockRowsFromRpc || []).filter(r => Number(r.inbound_qty) === 0 && Number(r.outbound_qty) === 0 && Number(r.current_qty) > 0).length} color="var(--slate-500)" icon="🧊" />
           </>
         ) : (
           <>
             <SummaryCard title="Giá trị kho" v1={compareTotals.val1} v2={compareTotals.val2} diff={compareTotals.diff} bg="var(--brand-light)" accent="var(--brand)" icon="📊" />
-            <div className="stat-card secondary !border-none !shadow-md hover:shadow-lg transition-all" style={{ borderLeft: "4px solid var(--slate-400)" }}>
-              <div className="stat-label">Số khách (Kỳ 1)</div>
-              <div className="stat-value">{fmtNum(compareTotals.cust1)}</div>
-            </div>
+            <SummaryCard title="% Hàng chậm luân chuyển" v1={deadStockStats.v1} v2={deadStockStats.v2} diff={deadStockStats.diff} bg="var(--brand-light)" accent="#f59e0b" icon="🧊" unit="%" />
             <div className="stat-card brand !border-none !shadow-md hover:shadow-lg transition-all" style={{ borderLeft: "4px solid var(--brand-light)" }}>
-              <div className="stat-label">Số khách (Kỳ 2)</div>
+              <div className="stat-label">Số khách hàng (Kỳ 2)</div>
               <div className="stat-value">{fmtNum(compareTotals.cust2)}</div>
             </div>
           </>
         )}
       </div>
+      
+      {reportMode === "current" && <HistoricalTrendChart data={historyData} />}
 
       <div className="glass-panel" style={{ 
         marginBottom: 24, padding: "20px 24px", borderRadius: 16, 
