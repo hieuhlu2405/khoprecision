@@ -790,22 +790,21 @@ export default function InventoryValueReportPage() {
   const [reportMode, setReportMode] = useState<"current" | "compare">("current");
   const [qStart, setQStart] = useState(defStart);
   const [qEnd, setQEnd] = useState(defEnd);
-  const [p1Start, setP1Start] = useState(prevMonthStart);
   const [p1End, setP1End] = useState(prevMonthEnd);
-  const [p2Start, setP2Start] = useState(defStart);
   const [p2End, setP2End] = useState(defEnd);
+  const [onlyChanged, setOnlyChanged] = useState(false);
   const [qCustomer, setQCustomer] = useState("");
   const [qCustomerSearch, setQCustomerSearch] = useState("");
   const debouncedQCust = useDebounce(qCustomerSearch, 300);
   const [qProduct, setQProduct] = useState("");
   const debouncedQProd = useDebounce(qProduct, 300);
   const [onlyInStock, setOnlyInStock] = useState(false);
-  const [onlyChanged, setOnlyChanged] = useState(false);
   const [topN, setTopN] = useState<number>(20);
-  const [txs1, setTxs1] = useState<InventoryTx[]>([]);
-  const [txs2, setTxs2] = useState<InventoryTx[]>([]);
-  // RPC-based stock rows for "current" mode — ensures same calculation engine as "Tồn kho hiện tại" page
+  // RPC-based stock rows
   const [stockRowsFromRpc, setStockRowsFromRpc] = useState<any[]>([]);
+  const [rpcRowsP1, setRpcRowsP1] = useState<any[]>([]);
+  const [rpcRowsP2, setRpcRowsP2] = useState<any[]>([]);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // O(1) Lookup Maps
   const productMap = useMemo(() => {
@@ -820,21 +819,20 @@ export default function InventoryValueReportPage() {
     return m;
   }, [customers]);
 
-  const bounds = useMemo(() => computeSnapshotBounds(qStart, qEnd, openings), [qStart, qEnd, openings]);
-  const bounds1 = useMemo(() => computeSnapshotBounds(p1Start, p1End, openings), [p1Start, p1End, openings]);
-  const bounds2 = useMemo(() => computeSnapshotBounds(p2Start, p2End, openings), [p2Start, p2End, openings]);
+  const bounds = useMemo(() => computeSnapshotBounds(getDaysAgo(qEnd, 30), qEnd, openings), [qEnd, openings]);
+  const bounds1 = useMemo(() => computeSnapshotBounds(getDaysAgo(p1End, 30), p1End, openings), [p1End, openings]);
+  const bounds2 = useMemo(() => computeSnapshotBounds(getDaysAgo(p2End, 30), p2End, openings), [p2End, openings]);
 
   function applyPresetPreviousMonth() {
-    const b = computeSnapshotBounds(p2Start, p2End, openings);
-    setP1Start(b.prevSnapshotQStart);
-    setP1End(b.prevSnapshotQEnd);
+    const d = new Date(p2End);
+    const prevMonthEnd = new Date(d.getFullYear(), d.getMonth(), 0);
+    setP1End(prevMonthEnd.toLocaleDateString('sv-SE'));
   }
 
   function applyPresetSameMonthLastYear() {
-    const b = computeSnapshotBounds(p2Start, p2End, openings);
-    const p = applySamePeriodLastYearDates(b.effectiveStart, b.effectiveEnd);
-    setP1Start(p.newStart);
-    setP1End(p.newEnd);
+    const d = new Date(p2End);
+    const lastYearDate = new Date(d.getFullYear() - 1, d.getMonth(), d.getDate());
+    setP1End(lastYearDate.toLocaleDateString('sv-SE'));
   }
 
   const [colFiltersCust, setColFiltersCust] = useState<Record<string, ColFilter>>({});
@@ -895,6 +893,10 @@ export default function InventoryValueReportPage() {
 
   /* ---- Load Data ---- */
   async function load() {
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
     setError("");
     setLoading(true);
     try {
@@ -904,6 +906,7 @@ export default function InventoryValueReportPage() {
         supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null),
         supabase.from("customers").select("id, code, name").is("deleted_at", null),
       ]);
+      if (signal.aborted) return;
       if (rP.error) throw rP.error;
       if (rC.error) throw rC.error;
       setProducts((rP.data ?? []) as Product[]);
@@ -912,42 +915,56 @@ export default function InventoryValueReportPage() {
       const maxD = Math.max(new Date(qEnd).getTime(), new Date(p1End).getTime(), new Date(p2End).getTime());
       const maxEnd = new Date(maxD).toLocaleDateString('sv-SE');
       const { data: openData, error: eO } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", maxEnd + "T23:59:59.999Z").is("deleted_at", null);
+      if (signal.aborted) return;
       if (eO) throw eO;
       const ops = (openData ?? []) as OpeningBalance[];
       setOpenings(ops);
 
-      function dayAfter(d: string) { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toLocaleDateString('sv-SE'); }
+      const dayAfterStr = (d: string) => { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toLocaleDateString('sv-SE'); };
 
       if (reportMode === "current") {
-        // Tối ưu cho Smart Insights: Lấy cửa sổ 30 ngày để phát hiện "Hàng đọng" (Dead Stock)
-        // ngay trong 1 lần gọi RPC.
         const lookback30 = getDaysAgo(qEnd, 30);
-        const computedBounds = computeSnapshotBounds(lookback30, qEnd, ops);
-        const baselineDate = computedBounds.S || lookback30;
+        const b = computeSnapshotBounds(lookback30, qEnd, ops);
         const { data: rpcData, error: eRpc } = await supabase.rpc("inventory_calculate_report_v2", {
-          p_baseline_date: baselineDate,
-          p_movements_start_date: computedBounds.effectiveStart,
-          p_movements_end_date: dayAfter(qEnd),
+          p_baseline_date: b.S || lookback30,
+          p_movements_start_date: b.effectiveStart,
+          p_movements_end_date: dayAfterStr(qEnd),
         });
+        if (signal.aborted) return;
         if (eRpc) throw eRpc;
         setStockRowsFromRpc(rpcData ?? []);
       } else {
-        let m1 = p1Start, m2 = p2Start;
-        for (const o of ops) { const d = o.period_month.slice(0, 10); if (d < m1) m1 = d; if (d < m2) m2 = d; }
-        const [t1, t2] = await Promise.all([
-          supabase.from("inventory_transactions").select("*").gte("tx_date", m1).lt("tx_date", dayAfter(p1End)).is("deleted_at", null),
-          supabase.from("inventory_transactions").select("*").gte("tx_date", m2).lt("tx_date", dayAfter(p2End)).is("deleted_at", null),
+        // Comparison mode: Call RPC twice
+        const b1 = computeSnapshotBounds(getDaysAgo(p1End, 30), p1End, ops);
+        const b2 = computeSnapshotBounds(getDaysAgo(p2End, 30), p2End, ops);
+        
+        const [res1, res2] = await Promise.all([
+          supabase.rpc("inventory_calculate_report_v2", {
+            p_baseline_date: b1.S || getDaysAgo(p1End, 30),
+            p_movements_start_date: b1.effectiveStart,
+            p_movements_end_date: dayAfterStr(p1End),
+          }),
+          supabase.rpc("inventory_calculate_report_v2", {
+            p_baseline_date: b2.S || getDaysAgo(p2End, 30),
+            p_movements_start_date: b2.effectiveStart,
+            p_movements_end_date: dayAfterStr(p2End),
+          })
         ]);
-        if (t1.error) throw t1.error;
-        if (t2.error) throw t2.error;
-        setTxs1((t1.data ?? []) as InventoryTx[]);
-        setTxs2((t2.data ?? []) as InventoryTx[]);
+        if (signal.aborted) return;
+        if (res1.error) throw res1.error;
+        if (res2.error) throw res2.error;
+        setRpcRowsP1(res1.data ?? []);
+        setRpcRowsP2(res2.data ?? []);
       }
-    } catch (err: any) { setError(err?.message ?? "Có lỗi xảy ra");
-    } finally { setLoading(false); }
+    } catch (err: any) { 
+      if (err.name === 'AbortError') return;
+      setError(err?.message ?? "Có lỗi xảy ra");
+    } finally { 
+      if (!signal.aborted) setLoading(false); 
+    }
   }
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [qStart, qEnd, p1Start, p1End, p2Start, p2End, reportMode]);
+  useEffect(() => { load(); return () => abortControllerRef.current?.abort(); }, [qEnd, p1End, p2End, reportMode]);
 
   /* ---- Raw Calculations ---- */
   const productData = useMemo(() => {
@@ -1006,7 +1023,7 @@ export default function InventoryValueReportPage() {
     }
 
     return final;
-  }, [reportMode, stockRowsFromRpc, productMap, openings, txs, qCustomer, debouncedQProd, onlyInStock, qStart, qEnd, bounds, activeInsightFilter]);
+  }, [reportMode, stockRowsFromRpc, productMap, openings, qCustomer, debouncedQProd, onlyInStock, qEnd, bounds, activeInsightFilter]);
 
   const overallTotals = useMemo(() => {
     let tVal = 0, tQty = 0, productsWithStock = 0;
@@ -1035,42 +1052,75 @@ export default function InventoryValueReportPage() {
     return [...productData].sort((a, b) => b.inventory_value - a.inventory_value).slice(0, topN).map((row, i) => ({ ...row, rank: i + 1 }));
   }, [productData, topN]);
 
-  /* ---- Compare Memos ---- */
-  function dayAfterFn(d: string) { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toLocaleDateString('sv-SE'); }
+  /* ---- Comparison Logic (RPC Based) ---- */
+  const compareData = useMemo(() => {
+    const emptyTotals = { val1: 0, val2: 0, diff: 0, pct: 0, cust1: 0, cust2: 0 };
+    if (reportMode !== "compare") return { all: [], totals: emptyTotals };
+    
+    // Convert P1 rows to a lookup map
+    const m1 = new Map<string, number>();
+    for (const r of rpcRowsP1) {
+      m1.set(`${r.product_id}_${r.customer_id || ""}`, Number(r.current_qty));
+    }
 
-  const compareProductData = useMemo(() => {
-    if (reportMode !== "compare") return [];
-    const stock1 = buildStockRows(bounds1.S || p1Start, bounds1.effectiveStart, dayAfterFn(p1End), openings, txs1);
-    const stock2 = buildStockRows(bounds2.S || p2Start, bounds2.effectiveStart, dayAfterFn(p2End), openings, txs2);
-    const m1 = new Map<string, number>(); for (const r of stock1) m1.set(r.product_id, r.current_qty);
-    const m2 = new Map<string, number>(); for (const r of stock2) m2.set(r.product_id, r.current_qty);
-    const allPids = new Set<string>(); stock1.forEach(r => allPids.add(r.product_id)); stock2.forEach(r => allPids.add(r.product_id));
+    // Identify all unique Product+Customer pairs across both periods
+    const allKeys = new Set<string>();
+    rpcRowsP1.forEach(r => allKeys.add(`${r.product_id}_${r.customer_id || ""}`));
+    rpcRowsP2.forEach(r => allKeys.add(`${r.product_id}_${r.customer_id || ""}`));
+
     const results: CompareProdRow[] = [];
-    for (const pid of allPids) {
+    for (const key of allKeys) {
+      const [pid, cid] = key.split("_");
       const p = productMap.get(pid);
       if (!p) continue;
+      
+      // Basic Filters
       if (qCustomer && p.customer_id !== qCustomer) continue;
       if (debouncedQProd) {
         const s = debouncedQProd.toLowerCase();
         if (!p.sku.toLowerCase().includes(s) && !p.name.toLowerCase().includes(s)) continue;
       }
-      const qty1 = m1.get(pid) || 0, qty2 = m2.get(pid) || 0;
-      if (onlyInStock && qty1 <= 0 && qty2 <= 0) continue;
-      const up = p.unit_price ?? 0, val1 = qty1 * up, val2 = qty2 * up, valDiff = val2 - val1, pctDiff = val1 !== 0 ? (valDiff / val1) * 100 : 0;
-      if (onlyChanged && qty1 === qty2) continue;
-      if (qty1 > 0 || qty2 > 0) results.push({ product: p, customer_id: p.customer_id, qty1, qty2, val1, val2, valDiff, pctDiff });
-    }
-    return results;
-  }, [reportMode, productMap, openings, txs1, txs2, p1Start, p1End, p2Start, p2End, qCustomer, debouncedQProd, onlyInStock, onlyChanged, bounds1, bounds2]);
 
-  const compareTotals = useMemo(() => {
-    let v1 = 0, v2 = 0; const c1 = new Set<string>(), c2 = new Set<string>();
-    for (const r of compareProductData) { v1 += r.val1; v2 += r.val2; if (r.val1 > 0 && r.customer_id) c1.add(r.customer_id); if (r.val2 > 0 && r.customer_id) c2.add(r.customer_id); }
-    return { val1: v1, val2: v2, diff: v2 - v1, pct: v1 > 0 ? ((v2 - v1) / v1) * 100 : 0, cust1: c1.size, cust2: c2.size };
-  }, [compareProductData]);
+      const qty1 = m1.get(key) || 0;
+      const r2 = rpcRowsP2.find(r => `${r.product_id}_${r.customer_id || ""}` === key);
+      const qty2 = r2 ? Number(r2.current_qty) : 0;
+
+      if (onlyInStock && qty1 <= 0 && qty2 <= 0) continue;
+      
+      const up = p.unit_price ?? 0;
+      const val1 = qty1 * up;
+      const val2 = qty2 * up;
+      const valDiff = val2 - val1;
+      const pctDiff = val1 !== 0 ? (valDiff / val1) * 100 : (val2 > 0 ? 100 : 0);
+
+      // Change Filter
+      if (onlyChanged && Math.abs(valDiff) < 1000) continue; // Skip noise
+
+      results.push({
+        product: p,
+        customer_id: cid || null,
+        qty1, qty2, val1, val2, valDiff, pctDiff
+      });
+    }
+    const totals = { val1: 0, val2: 0, diff: 0, pct: 0, cust1: 0, cust2: 0 };
+    const c1Set = new Set(), c2Set = new Set();
+    for (const r of results) {
+       totals.val1 += r.val1; totals.val2 += r.val2;
+       if (r.val1 > 0) c1Set.add(r.customer_id);
+       if (r.val2 > 0) c2Set.add(r.customer_id);
+    }
+    totals.diff = totals.val2 - totals.val1;
+    totals.pct = totals.val1 > 0 ? (totals.diff / totals.val1) * 100 : 0;
+    totals.cust1 = c1Set.size; totals.cust2 = c2Set.size;
+
+    return { all: results, totals };
+  }, [reportMode, rpcRowsP1, rpcRowsP2, productMap, qCustomer, debouncedQProd, onlyInStock, onlyChanged]);
+
+  const compareTotals = useMemo(() => compareData.totals || { val1: 0, val2: 0, diff: 0, pct: 0, cust1: 0, cust2: 0 }, [compareData]);
 
   const compareProductDataFiltered = useMemo(() => {
-    let rows = compareProductData;
+    if (!compareData.all) return [];
+    let rows = compareData.all;
     if (activeInsightFilter === "growth") {
       rows = rows.filter(r => r.valDiff > 0 && r.val1 > 0 && (r.valDiff / r.val1) > 0.2);
     } else if (activeInsightFilter === "reduction") {
@@ -1081,7 +1131,7 @@ export default function InventoryValueReportPage() {
       rows = rows.filter(r => r.val1 > 0 && r.val2 <= 0);
     }
     return rows;
-  }, [compareProductData, activeInsightFilter]);
+  }, [compareData, activeInsightFilter]);
 
   const compareCustomerSummary = useMemo(() => {
     const cMap = new Map<string, CustRow & { p1_pct?: number; p2_pct?: number }>();
@@ -1361,68 +1411,88 @@ export default function InventoryValueReportPage() {
         )}
       </div>
 
-      <div className="filter-panel" style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
-          {reportMode === "current" ? (
-            <div style={{ width: 180 }}>
-              <label className="filter-label">Tính đến ngày</label>
-              <input type="date" className="input" value={qEnd} onChange={e => setQEnd(e.target.value)} />
-            </div>
-          ) : (
-            <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
-              <div style={{ display: "flex", gap: 8, padding: "8px 12px", background: "var(--slate-50)", borderRadius: 6, alignItems: "center", border: "1px solid var(--slate-200)" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--slate-500)", width: 40, textTransform: "uppercase" }}>Kỳ 1:</span>
-                <input type="date" className="input" style={{ width: 130, padding: "6px 10px" }} value={p1Start} onChange={e => setP1Start(e.target.value)} />
-                <span style={{ color: "var(--slate-300)" }}>→</span>
-                <input type="date" className="input" style={{ width: 130, padding: "6px 10px" }} value={p1End} onChange={e => setP1End(e.target.value)} />
+      <div className="glass-panel" style={{ 
+        marginBottom: 24, padding: "20px 24px", borderRadius: 16, 
+        border: "1px solid rgba(255,255,255,0.4)",
+        background: "rgba(255,255,255,0.7)", 
+        backdropFilter: "blur(12px)",
+        boxShadow: "0 8px 32px rgba(31, 38, 135, 0.07)"
+      }}>
+        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-end" }}>
+          
+          {/* Group 1: Time */}
+          <div style={{ display: "flex", gap: 12, padding: "4px 16px 4px 4px", borderRight: "1px solid var(--slate-200)" }}>
+            {reportMode === "current" ? (
+              <div style={{ width: 180 }}>
+                <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>📅 Tính đến ngày</label>
+                <input type="date" className="input" value={qEnd} onChange={e => setQEnd(e.target.value)} style={{ borderRadius: 10 }} />
+                <div style={{ fontSize: 10, color: "var(--slate-400)", marginTop: 4, fontWeight: 500 }}>
+                  Anchor: {bounds.S ? `Snapshot ${bounds.S}` : "Hệ thống"}
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 8, padding: "8px 12px", background: "var(--brand-light)", borderRadius: 6, alignItems: "center", border: "1px solid var(--brand-glow)" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--brand)", width: 40, textTransform: "uppercase" }}>Kỳ 2:</span>
-                <input type="date" className="input" style={{ width: 130, padding: "6px 10px" }} value={p2Start} onChange={e => setP2Start(e.target.value)} />
-                <span style={{ color: "var(--brand-glow)" }}>→</span>
-                <input type="date" className="input" style={{ width: 130, padding: "6px 10px" }} value={p2End} onChange={e => setP2End(e.target.value)} />
+            ) : (
+              <div style={{ display: "flex", gap: 16 }}>
+                <div style={{ width: 160 }}>
+                  <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--slate-500)" }}>📅 Kỳ 1 (Mốc chốt)</label>
+                  <input type="date" className="input" value={p1End} onChange={e => setP1End(e.target.value)} style={{ borderRadius: 10 }} />
+                  <div style={{ fontSize: 10, color: "var(--slate-400)", marginTop: 4, fontWeight: 500 }}>S: {bounds1.S || "N/A"}</div>
+                </div>
+                <div style={{ width: 160 }}>
+                  <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--brand)" }}>📅 Kỳ 2 (Mốc chốt)</label>
+                  <input type="date" className="input" value={p2End} onChange={e => setP2End(e.target.value)} style={{ borderRadius: 10, borderColor: "var(--brand-glow)" }} />
+                  <div style={{ fontSize: 10, color: "var(--brand-glow)", marginTop: 4, fontWeight: 500 }}>S: {bounds2.S || "N/A"}</div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, justifyContent: "center" }}>
+                   <button className="btn btn-secondary btn-sm" style={{ fontSize: 10, padding: "4px 8px" }} onClick={applyPresetPreviousMonth}>Tháng trước</button>
+                   <button className="btn btn-secondary btn-sm" style={{ fontSize: 10, padding: "4px 8px" }} onClick={applyPresetSameMonthLastYear}>Cùng kỳ năm ngoái</button>
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button className="btn btn-secondary btn-sm" style={{ padding: "8px 12px" }} onClick={applyPresetPreviousMonth}>Kỳ trước</button>
-                <button className="btn btn-secondary btn-sm" style={{ padding: "8px 12px" }} onClick={applyPresetSameMonthLastYear}>Cùng kỳ</button>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          <div style={{ width: 220 }}>
-            <label className="filter-label">Khách hàng</label>
-            <select className="input" value={qCustomer} onChange={e => setQCustomer(e.target.value)}>
-              <option value="">-- Tất cả khách hàng --</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
-            </select>
+          {/* Group 2: Entity */}
+          <div style={{ display: "flex", gap: 16, flex: 1, minWidth: 400 }}>
+            <div style={{ flex: 1 }}>
+              <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>👤 Khách hàng</label>
+              <select className="input" value={qCustomer} onChange={e => setQCustomer(e.target.value)} style={{ borderRadius: 10 }}>
+                <option value="">-- Tất cả khách hàng --</option>
+                {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>🔍 Tìm sản phẩm</label>
+              <input type="text" className="input" placeholder="SKU hoặc tên..." value={qProduct} onChange={e => setQProduct(e.target.value)} style={{ borderRadius: 10 }} />
+            </div>
           </div>
-          <div style={{ width: 220 }}>
-            <label className="filter-label">Sản phẩm</label>
-            <input type="text" className="input" placeholder="Mã hàng hoặc tên hàng..." value={qProduct} onChange={e => setQProduct(e.target.value)} />
-          </div>
+
+          {/* Group 3: Scope */}
           <div style={{ width: 120 }}>
-            <label className="filter-label">Top mã</label>
-            <select className="input" value={topN} onChange={e => setTopN(Number(e.target.value))}>
+            <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>🏆 Top hiển thị</label>
+            <select className="input" value={topN} onChange={e => setTopN(Number(e.target.value))} style={{ borderRadius: 10 }}>
               <option value={10}>Top 10</option>
               <option value={20}>Top 20</option>
               <option value={50}>Top 50</option>
               <option value={100}>Top 100</option>
             </select>
           </div>
-          <div style={{ flex: 1, textAlign: "right", paddingBottom: 4 }}>
-            <button className="btn btn-primary" onClick={load} disabled={loading}>{loading ? "Đang tải..." : "Lấy dữ liệu"}</button>
-          </div>
         </div>
-        <div style={{ display: "flex", gap: 20, marginTop: 16 }}>
-           <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
-             <input type="checkbox" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} />
+
+        <div style={{ display: "flex", gap: 24, marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+           <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--slate-600)" }}>
+             <input type="checkbox" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} style={{ width: 16, height: 16 }} />
              <span>Chỉ hiện hàng còn tồn ({">"}0)</span>
            </label>
            {reportMode === "compare" && (
-             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
-               <input type="checkbox" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} />
+             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--slate-600)" }}>
+               <input type="checkbox" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} style={{ width: 16, height: 16 }} />
                <span>Chỉ hiện mã có biến động</span>
              </label>
+           )}
+           {loading && (
+             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, color: "var(--brand)", fontSize: 12, fontWeight: 700 }}>
+                <div className="spinner-small" style={{ width: 14, height: 14, border: "2px solid var(--brand-light)", borderTopColor: "var(--brand)", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+                Đang đồng bộ dữ liệu...
+             </div>
            )}
         </div>
       </div>
@@ -1479,28 +1549,28 @@ export default function InventoryValueReportPage() {
             <>
               <InsightCard 
                 icon="🚀" title="Tăng vốn mạnh" subtitle="Giá trị tồn tăng > 20%" 
-                value={`${compareProductData.filter(r => r.valDiff > 0 && r.val1 > 0 && (r.valDiff / r.val1) > 0.2).length} mã`}
+                value={`${(compareData.all || []).filter(r => r.valDiff > 0 && r.val1 > 0 && (r.valDiff / r.val1) > 0.2).length} mã hàng`}
                 active={activeInsightFilter === "growth"}
                 color="crimson"
                 onClick={() => setActiveInsightFilter(f => f === "growth" ? null : "growth")}
               />
               <InsightCard 
                 icon="📉" title="Giải phóng kho" subtitle="Giảm tồn kho > 20%" 
-                value={`${compareProductData.filter(r => r.valDiff < 0 && r.val1 > 0 && (Math.abs(r.valDiff) / r.val1) > 0.2).length} mã`}
+                value={`${(compareData.all || []).filter(r => r.valDiff < 0 && r.val1 > 0 && (Math.abs(r.valDiff) / r.val1) > 0.2).length} mã hàng`}
                 active={activeInsightFilter === "reduction"}
                 color="#10b981"
                 onClick={() => setActiveInsightFilter(f => f === "reduction" ? null : "reduction")}
               />
               <InsightCard 
                 icon="🆕" title="Mã hàng mới" subtitle="Mới phát sinh ở Kỳ 2" 
-                value={`${compareProductData.filter(r => r.val2 > 0 && r.val1 <= 0).length} mã`}
+                value={`${(compareData.all || []).filter(r => r.val2 > 0 && r.val1 <= 0).length} mã hàng`}
                 active={activeInsightFilter === "new"}
                 color="#06b6d4"
                 onClick={() => setActiveInsightFilter(f => f === "new" ? null : "new")}
               />
               <InsightCard 
-                icon="🛑" title="Hàng đã hết" subtitle="Hết hàng ở Kỳ 2" 
-                value={`${compareProductData.filter(r => r.val1 > 0 && r.val2 <= 0).length} mã`}
+                icon="🛑" title="Mã hàng đã hết tồn" subtitle="Hết hàng ở Kỳ 2" 
+                value={`${(compareData.all || []).filter(r => r.val1 > 0 && r.val2 <= 0).length} mã hàng`}
                 active={activeInsightFilter === "gone"}
                 color="#64748b"
                 onClick={() => setActiveInsightFilter(f => f === "gone" ? null : "gone")}
@@ -1520,10 +1590,10 @@ export default function InventoryValueReportPage() {
             {activeInsightFilter === "capital" && "Vốn tập trung (80/20)"}
             {activeInsightFilter === "dead" && "Hàng tồn đọng (>30 ngày)"}
             {activeInsightFilter === "no_price" && "Mã hàng chưa có giá"}
-            {activeInsightFilter === "growth" && "Dân số tăng vốn > 20%"}
+            {activeInsightFilter === "growth" && "Các mã có giá trị tồn tăng > 20%"}
             {activeInsightFilter === "reduction" && "Giải phóng kho > 20%"}
             {activeInsightFilter === "new" && "Mã hàng mới phát sinh"}
-            {activeInsightFilter === "gone" && "Mã hàng đã clear sạch"}
+            {activeInsightFilter === "gone" && "Mã hàng đã hết tồn"}
           </span>
           <button className="btn btn-clear-filter btn-sm" onClick={() => setActiveInsightFilter(null)} style={{ marginLeft: "auto" }}>Xóa lọc nhanh ❌</button>
         </motion.div>
@@ -1571,7 +1641,7 @@ export default function InventoryValueReportPage() {
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
               <div className="filter-panel" style={{ padding: 20 }}>
-                <ClusteredBarChart title="So sánh giá trị tồn mã hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareProductData.sort((a,b) => (b.val2 || 0) - (a.val2 || 0)).slice(0, 10).map(p => ({ label: p.product.sku, val1: p.val1 || 0, val2: p.val2 || 0 }))} />
+                <ClusteredBarChart title="So sánh giá trị tồn mã hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareTopProducts.map(p => ({ label: p.product.sku, val1: p.val1 || 0, val2: p.val2 || 0 }))} />
               </div>
               <div className="filter-panel" style={{ padding: 20 }}>
                 <ClusteredBarChart title="So sánh giá trị tồn khách hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareCustomerSummary.sort((a,b) => (b.p2_value || 0) - (a.p2_value || 0)).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), val1: c.p1_value || 0, val2: c.p2_value || 0 }))} />
@@ -1612,18 +1682,18 @@ export default function InventoryValueReportPage() {
                     <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
                     {reportMode === "current" ? (
                       <>
-                        <ThCell label="Số mã" colKey="products" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Số mã hàng" colKey="products" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
                         <ThCell label="Số lượng" colKey="qty" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
                         <ThCell label="Giá trị tồn kho" colKey="value" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
                         <th style={{ ...thStyle, textAlign: "right", position: "sticky", top: 0, zIndex: 60, color: "var(--slate-900)" }} className="glass-header text-right">Tỷ trọng</th>
                       </>
                     ) : (
                       <>
-                        <ThCell label="Số mã" colKey="products" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
-                        <ThCell label="Giá trị K1" colKey="p1_value" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
-                        <ThCell label="Giá trị K2" colKey="p2_value" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
-                        <ThCell label="Chênh lệch" colKey="valDiff" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
-                        <ThCell label="% CL" colKey="pctDiff" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Số mã hàng" colKey="products" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Giá trị Kỳ 1" colKey="p1_value" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="Giá trị Kỳ 2" colKey="p2_value" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="CHÊNH LỆCH" colKey="valDiff" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
+                        <ThCell label="% CHÊNH LỆCH" colKey="pctDiff" sortable isNum align="right" colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
                       </>
                     )}
                   </tr>
