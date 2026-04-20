@@ -210,22 +210,36 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
 /* ------------------------------------------------------------------ */
 
 function useCountAnimation(targetValue: number, speed = 1) {
-  const [displayValue, setDisplayValue] = useState(0);
+  const [displayValue, setDisplayValue] = useState(targetValue);
+  const prevValueRef = useRef(targetValue);
+
   useEffect(() => {
-    let start = 0; // Ensure it starts from 0 for the animation effect
+    const start = prevValueRef.current;
     const end = targetValue;
     if (start === end) return;
+
     let totalDuration = 800 * speed;
     let startTime = performance.now();
+
     const animate = (now: number) => {
       let elapsed = now - startTime;
       let progress = Math.min(elapsed / totalDuration, 1);
       let easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-      setDisplayValue(Math.floor(start + (end - start) * easeProgress));
-      if (progress < 1) requestAnimationFrame(animate);
+      
+      const current = Math.floor(start + (end - start) * easeProgress);
+      setDisplayValue(current);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        prevValueRef.current = end;
+      }
     };
+
     requestAnimationFrame(animate);
+    return () => { prevValueRef.current = end; };
   }, [targetValue, speed]);
+
   return displayValue;
 }
 
@@ -405,9 +419,12 @@ function HistoricalTrendChart({ data }: { data: { label: string; value: number }
   );
 }
 
-function SummaryCard({ title, v1, v2, diff, bg, accent, icon, unit = "đ" }: { title: string; v1: number; v2: number; diff: number; bg: string; accent: string; icon?: React.ReactNode; unit?: string }) {
+function SummaryCard({ title, v1, v2, diff, bg, accent, icon, unit = "đ", showDiffValue = false }: { title: string; v1: number; v2: number; diff: number; bg: string; accent: string; icon?: React.ReactNode; unit?: string; showDiffValue?: boolean }) {
   const pct = calcPct(diff, v1);
   const isPositive = diff > 0;
+  // For counts (SKUs), we might not want the "đ" unit
+  const displayUnit = unit;
+  
   const countV1 = useCountAnimation(v1);
   const countV2 = useCountAnimation(v2);
   const countDiff = useCountAnimation(diff);
@@ -421,16 +438,16 @@ function SummaryCard({ title, v1, v2, diff, bg, accent, icon, unit = "đ" }: { t
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 11, color: "var(--slate-400)", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>Kỳ 1</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "var(--slate-600)" }}>{fmtNum(countV1)} <small style={{ fontSize: 10 }}>{unit}</small></div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "var(--slate-600)" }}>{fmtNum(countV1)} <small style={{ fontSize: 10 }}>{displayUnit}</small></div>
         </div>
         <div style={{ paddingLeft: 16, borderLeft: "1px solid var(--slate-100)" }}>
           <div style={{ fontSize: 11, color: "var(--slate-400)", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>Kỳ 2</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "var(--brand)" }}>{fmtNum(countV2)} <small style={{ fontSize: 10 }}>{unit}</small></div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "var(--brand)" }}>{fmtNum(countV2)} <small style={{ fontSize: 10 }}>{displayUnit}</small></div>
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, paddingTop: 12, borderTop: "1px solid var(--slate-50)" }}>
         <span style={{ fontSize: 16, fontWeight: 900, display: "flex", alignItems: "center", gap: 4, color: isPositive ? "var(--color-danger)" : "var(--color-success)" }}>
-          {isPositive ? "↑" : "↓"} {isPositive ? "+" : ""}{fmtNum(countDiff)} <small style={{ fontSize: 11, fontWeight: 600 }}>đ</small>
+          {isPositive ? "↑" : "↓"} {showDiffValue && (isPositive ? "+" : "") + fmtNum(countDiff) + " " + displayUnit}
         </span>
         <span className={`badge ${isPositive ? "badge-danger" : "badge-success"}`} style={{ fontSize: 14, fontWeight: 800, padding: "2px 10px", background: isPositive ? "rgba(220, 20, 60, 0.1)" : "rgba(16, 185, 129, 0.1)", color: isPositive ? "var(--color-danger)" : "var(--color-success)", border: "none" }}>
           {Math.abs(pct).toFixed(1)}%
@@ -1188,24 +1205,31 @@ export default function InventoryValueReportPage() {
   const compareTotals = useMemo(() => compareData.totals || { val1: 0, val2: 0, diff: 0, pct: 0, cust1: 0, cust2: 0 }, [compareData]);
 
   const deadStockStats = useMemo(() => {
-    const calcDead = (rows: any[], totalVal: number) => {
+    const calcDead = (rows: any[]) => {
       const deadRows = (rows || []).filter(r => 
         Number(r.inbound_qty) === 0 && 
         Number(r.outbound_qty) === 0 && 
         Number(r.current_qty) > 0
       );
-      const deadValue = deadRows.reduce((acc, r) => acc + (r.inventory_value || 0), 0);
-      return { value: deadValue, pct: calcPct(deadValue, totalVal) };
+      const deadValue = deadRows.reduce((acc, r) => acc + (Number(r.current_qty) * (productMap.get(r.product_id)?.unit_price || 0)), 0);
+      return deadValue;
     };
 
-    const s1 = calcDead(rpcRowsP1, compareTotals.val1);
-    const s2 = calcDead(rpcRowsP2, compareTotals.val2);
-    return {
-      v1: s1.pct,
-      v2: s2.pct,
-      diff: s2.pct - s1.pct
+    const v1 = calcDead(rpcRowsP1);
+    const v2 = calcDead(rpcRowsP2);
+    return { v1, v2, diff: v2 - v1 };
+  }, [rpcRowsP1, rpcRowsP2, productMap]);
+
+  const activeSkuStats = useMemo(() => {
+    const countUnique = (rows: any[]) => {
+      const s = new Set<string>();
+      (rows || []).forEach(r => { if (Number(r.current_qty) > 0) s.add(r.product_id); });
+      return s.size;
     };
-  }, [rpcRowsP1, rpcRowsP2, compareTotals.val1, compareTotals.val2]);
+    const v1 = countUnique(rpcRowsP1);
+    const v2 = countUnique(rpcRowsP2);
+    return { v1, v2, diff: v2 - v1 };
+  }, [rpcRowsP1, rpcRowsP2]);
 
   const compareProductDataFiltered = useMemo(() => {
     if (!compareData.all) return [];
@@ -1487,12 +1511,9 @@ export default function InventoryValueReportPage() {
           </>
         ) : (
           <>
-            <SummaryCard title="Giá trị kho" v1={compareTotals.val1} v2={compareTotals.val2} diff={compareTotals.diff} bg="var(--brand-light)" accent="var(--brand)" icon="📊" />
-            <SummaryCard title="% Hàng chậm luân chuyển" v1={deadStockStats.v1} v2={deadStockStats.v2} diff={deadStockStats.diff} bg="var(--brand-light)" accent="#f59e0b" icon="🧊" unit="%" />
-            <div className="stat-card brand !border-none !shadow-md hover:shadow-lg transition-all" style={{ borderLeft: "4px solid var(--brand-light)" }}>
-              <div className="stat-label">Số khách hàng (Kỳ 2)</div>
-              <div className="stat-value">{fmtNum(compareTotals.cust2)}</div>
-            </div>
+            <SummaryCard title="Giá trị kho" v1={compareTotals.val1} v2={compareTotals.val2} diff={compareTotals.diff} bg="var(--brand-light)" accent="var(--brand)" icon="📊" showDiffValue />
+            <SummaryCard title="Giá trị hàng chậm luân chuyển" v1={deadStockStats.v1} v2={deadStockStats.v2} diff={deadStockStats.diff} bg="var(--brand-light)" accent="#f59e0b" icon="🧊" unit="đ" showDiffValue />
+            <SummaryCard title="Số mã hàng có tồn" v1={activeSkuStats.v1} v2={activeSkuStats.v2} diff={activeSkuStats.diff} bg="var(--brand-light)" accent="#6366f1" icon="🏷️" unit="mã" showDiffValue />
           </>
         )}
       </div>
