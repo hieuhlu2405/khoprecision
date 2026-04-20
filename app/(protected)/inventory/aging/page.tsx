@@ -714,6 +714,8 @@ export default function InventoryAgingReportPage() {
   const [p2End, setP2End] = useState(defEnd);
   const [txs1, setTxs1] = useState<InventoryTx[]>([]);
   const [txs2, setTxs2] = useState<InventoryTx[]>([]);
+  // RPC-based rows cho chế độ "current" — engine DB, khớp 100% với trang Tồn kho hiện tại
+  const [stockRowsRpc, setStockRowsRpc] = useState<any[]>([]);
 
   const [qCustomer, setQCustomer] = useState("");
   const [qCustomerSearch, setQCustomerSearch] = useState("");
@@ -823,14 +825,20 @@ export default function InventoryAgingReportPage() {
       const ops = (openData ?? []) as OpeningBalance[];
       setOpenings(ops);
 
-      let mCurr = qStart, m1 = p1Start, m2 = p2Start;
-      for (const o of ops) { const d = o.period_month.slice(0, 10); if (d < mCurr) mCurr = d; if (d < m1) m1 = d; if (d < m2) m2 = d; }
-
       if (reportMode === "current") {
-        const { data: txData, error: eT } = await supabase.from("inventory_transactions").select("*").gte("tx_date", mCurr).lt("tx_date", dayAfter(qEnd)).is("deleted_at", null);
-        if (eT) throw eT;
-        setTxsPeriod((txData ?? []) as InventoryTx[]);
+        // Dùng DB RPC thay vì JS buildStockRows — tránh sai số string-comparison timezone
+        const computedBounds = computeSnapshotBounds(qStart, qEnd, ops);
+        const baselineDate = computedBounds.S || qStart;
+        const { data: rpcData, error: eRpc } = await supabase.rpc("inventory_calculate_report_v2", {
+          p_baseline_date: baselineDate,
+          p_movements_start_date: computedBounds.effectiveStart,
+          p_movements_end_date: dayAfter(qEnd),
+        });
+        if (eRpc) throw eRpc;
+        setStockRowsRpc(rpcData ?? []);
       } else {
+        let m1 = p1Start, m2 = p2Start;
+        for (const o of ops) { const d = o.period_month.slice(0, 10); if (d < m1) m1 = d; if (d < m2) m2 = d; }
         const [t1, t2] = await Promise.all([
           supabase.from("inventory_transactions").select("*").gte("tx_date", m1).lt("tx_date", dayAfter(p1End)).is("deleted_at", null),
           supabase.from("inventory_transactions").select("*").gte("tx_date", m2).lt("tx_date", dayAfter(p2End)).is("deleted_at", null),
@@ -853,33 +861,69 @@ export default function InventoryAgingReportPage() {
 
   /* ---- Calculations (UNCHANGED business logic) ---- */
   const productData = useMemo(() => {
-    const endPlus1 = new Date(qEnd);
-    endPlus1.setDate(endPlus1.getDate() + 1);
-    const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
-
-    const baselineDate = bounds.S || qStart;
-    const stockRows = buildStockRows(baselineDate, bounds.effectiveStart, nextD, openings, txsPeriod);
-
     const results: AgingRow[] = [];
-    for (const r of stockRows) {
-      const p = productMap.get(r.product_id);
-      if (!p) continue;
 
-      results.push({
-        product: p,
-        customer_id: r.customer_id,
-        opening_qty: r.opening_qty,
-        inbound_qty: r.inbound_qty,
-        outbound_qty: r.outbound_qty,
-        current_qty: r.current_qty,
-        is_long_aging: r.is_long_aging,
-        long_aging_note: r.long_aging_note,
-        inventory_value: p.unit_price != null ? r.current_qty * p.unit_price : 0
-      });
+    if (reportMode === "current") {
+      // Chế độ hiện tại: qty từ DB RPC (chính xác) + aging flag từ snapshot gần nhất
+      const baselineDate = bounds.S || qStart;
+      const baselineBoundary = baselineDate.length === 10 ? baselineDate + "T23:59:59.999Z" : baselineDate;
+
+      // Build map aging từ snapshot (mirror logic của buildStockRows)
+      const agingMap = new Map<string, { is_long_aging: boolean; long_aging_note: string | null; period_month: string }>();
+      for (const s of openings) {
+        if (s.deleted_at) continue;
+        if (s.period_month > baselineBoundary) continue;
+        const key = `${s.product_id}_${s.customer_id || ""}`;
+        const existing = agingMap.get(key);
+        if (!existing || s.period_month > existing.period_month) {
+          agingMap.set(key, { is_long_aging: !!s.is_long_aging, long_aging_note: s.long_aging_note || null, period_month: s.period_month });
+        }
+      }
+
+      for (const r of stockRowsRpc) {
+        const p = productMap.get(r.product_id);
+        if (!p) continue;
+        const key = `${r.product_id}_${r.customer_id || ""}`;
+        const agingInfo = agingMap.get(key);
+        const curQty = Number(r.current_qty);
+        results.push({
+          product: p,
+          customer_id: r.customer_id,
+          opening_qty: Number(r.opening_qty),
+          inbound_qty: Number(r.inbound_qty),
+          outbound_qty: Number(r.outbound_qty),
+          current_qty: curQty,
+          is_long_aging: agingInfo?.is_long_aging ?? false,
+          long_aging_note: agingInfo?.long_aging_note ?? null,
+          inventory_value: p.unit_price != null ? curQty * p.unit_price : 0
+        });
+      }
+    } else {
+      // Chế độ so sánh: vẫn dùng buildStockRows (txsPeriod = [] trong compare, không đổi)
+      const endPlus1 = new Date(qEnd);
+      endPlus1.setDate(endPlus1.getDate() + 1);
+      const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
+      const baselineDate = bounds.S || qStart;
+      const stockRows = buildStockRows(baselineDate, bounds.effectiveStart, nextD, openings, txsPeriod);
+      for (const r of stockRows) {
+        const p = productMap.get(r.product_id);
+        if (!p) continue;
+        results.push({
+          product: p,
+          customer_id: r.customer_id,
+          opening_qty: r.opening_qty,
+          inbound_qty: r.inbound_qty,
+          outbound_qty: r.outbound_qty,
+          current_qty: r.current_qty,
+          is_long_aging: r.is_long_aging,
+          long_aging_note: r.long_aging_note,
+          inventory_value: p.unit_price != null ? r.current_qty * p.unit_price : 0
+        });
+      }
     }
 
     return results;
-  }, [productMap, openings, txsPeriod, qStart, qEnd, bounds]);
+  }, [reportMode, stockRowsRpc, productMap, openings, txsPeriod, qStart, qEnd, bounds]);
 
   // Overall calculations BEFORE UI filters (except period)
   const overallTally = useMemo(() => {
