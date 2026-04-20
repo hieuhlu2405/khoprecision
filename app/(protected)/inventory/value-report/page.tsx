@@ -1555,20 +1555,32 @@ export default function InventoryValueReportPage() {
           {(reportMode as string) === "current" ? (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
               <div className="page-section" style={{ padding: 24 }}>
-                <BarChart title="Top 10 mã hàng theo giá trị tồn" isRiskHeatmap data={baseTopProducts.slice(0, 10).map(p => ({ label: p.product.sku, value: p.inventory_value }))} />
+                <BarChart 
+                  title={`Top 10 mã hàng theo giá trị${activeInsightFilter ? ` (${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"})` : ""}`} 
+                  isRiskHeatmap 
+                  data={baseTopProducts.slice(0, 10).map(p => ({ label: p.product.sku, value: p.inventory_value }))} 
+                />
               </div>
               <div className="page-section" style={{ padding: 24 }}>
-                <BarChart title="Top 10 khách hàng theo giá trị tồn" isRiskHeatmap data={baseCustomerSummary.slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.value }))} />
+                <BarChart 
+                  title={`Top 10 khách hàng theo giá trị${activeInsightFilter ? ` (${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"})` : ""}`} 
+                  isRiskHeatmap 
+                  data={baseCustomerSummary.slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.value }))} 
+                />
               </div>
               <div className="page-section" style={{ gridColumn: "span 2", padding: 24 }}>
-                <StackedBarChart title="Cơ cấu giá trị tồn kho theo khách hàng (%)" totalValue={overallTotals.totalValue} data={(() => {
-                  const sorted = [...baseCustomerSummary].sort((a,b) => b.value - a.value);
-                  const top5 = sorted.slice(0, 5);
-                  const restSum = sorted.slice(5).reduce((acc, c) => acc + c.value, 0);
-                  const chartData = top5.map(c => ({ label: customerLabel(c.customer_id), value: c.value }));
-                  if (restSum > 0) chartData.push({ label: "Khác", value: restSum });
-                  return chartData;
-                })()} />
+                <StackedBarChart 
+                  title={`Cơ cấu giá trị tồn kho theo khách hàng (%)${activeInsightFilter ? ` - Đang lọc: ${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"}` : ""}`}
+                  totalValue={overallTotals.totalValue} 
+                  data={(() => {
+                    const sorted = [...baseCustomerSummary].sort((a,b) => b.value - a.value);
+                    const top5 = sorted.slice(0, 5);
+                    const restSum = sorted.slice(5).reduce((acc, c) => acc + c.value, 0);
+                    const chartData = top5.map(c => ({ label: customerLabel(c.customer_id), value: c.value }));
+                    if (restSum > 0) chartData.push({ label: "Khác", value: restSum });
+                    return chartData;
+                  })()} 
+                />
               </div>
             </div>
           ) : (
