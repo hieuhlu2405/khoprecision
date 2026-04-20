@@ -1434,7 +1434,7 @@ export default function InventoryValueReportPage() {
                 <div style={{ width: 160 }}>
                   <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--brand)" }}>📅 Chọn Kỳ 2</label>
                   <input type="date" className="input" value={p2End} onChange={e => setP2End(e.target.value)} style={{ borderRadius: 10, borderColor: "var(--brand-glow)" }} />
-                  <div style={{ fontSize: 10, color: "var(--brand-glow)", marginTop: 4, fontWeight: 500 }}>{bounds2.S ? `Tính từ mốc kiểm kê: ${formatToVietnameseDate(bounds2.S)}` : ""}</div>
+                  <div style={{ fontSize: 10, color: "var(--slate-500)", marginTop: 4, fontWeight: 500 }}>{bounds2.S ? `Tính từ mốc kiểm kê: ${formatToVietnameseDate(bounds2.S)}` : ""}</div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, justifyContent: "center" }}>
                    <button className="btn btn-secondary btn-sm" style={{ fontSize: 10, padding: "4px 8px" }} onClick={applyPresetPreviousMonth}>Tháng trước</button>
