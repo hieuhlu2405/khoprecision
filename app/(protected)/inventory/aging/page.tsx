@@ -712,8 +712,8 @@ export default function InventoryAgingReportPage() {
   const [p1End, setP1End] = useState(prevMonthEnd);
   const [p2Start, setP2Start] = useState(defStart);
   const [p2End, setP2End] = useState(defEnd);
-  const [txs1, setTxs1] = useState<InventoryTx[]>([]);
-  const [txs2, setTxs2] = useState<InventoryTx[]>([]);
+  const [rpcData1, setRpcData1] = useState<any[]>([]);
+  const [rpcData2, setRpcData2] = useState<any[]>([]);
   // RPC-based rows cho chế độ "current" — engine DB, khớp 100% với trang Tồn kho hiện tại
   const [stockRowsRpc, setStockRowsRpc] = useState<any[]>([]);
 
@@ -837,16 +837,24 @@ export default function InventoryAgingReportPage() {
         if (eRpc) throw eRpc;
         setStockRowsRpc(rpcData ?? []);
       } else {
-        let m1 = p1Start, m2 = p2Start;
-        for (const o of ops) { const d = o.period_month.slice(0, 10); if (d < m1) m1 = d; if (d < m2) m2 = d; }
+        const b1 = computeSnapshotBounds(p1Start, p1End, ops);
+        const b2 = computeSnapshotBounds(p2Start, p2End, ops);
         const [t1, t2] = await Promise.all([
-          supabase.from("inventory_transactions").select("*").gte("tx_date", m1).lt("tx_date", dayAfter(p1End)).is("deleted_at", null),
-          supabase.from("inventory_transactions").select("*").gte("tx_date", m2).lt("tx_date", dayAfter(p2End)).is("deleted_at", null),
+          supabase.rpc("inventory_calculate_report_v2", {
+            p_baseline_date: b1.S || p1Start,
+            p_movements_start_date: b1.effectiveStart,
+            p_movements_end_date: dayAfter(p1End),
+          }),
+          supabase.rpc("inventory_calculate_report_v2", {
+            p_baseline_date: b2.S || p2Start,
+            p_movements_start_date: b2.effectiveStart,
+            p_movements_end_date: dayAfter(p2End),
+          }),
         ]);
         if (t1.error) throw t1.error;
         if (t2.error) throw t2.error;
-        setTxs1((t1.data ?? []) as InventoryTx[]);
-        setTxs2((t2.data ?? []) as InventoryTx[]);
+        setRpcData1((t1.data ?? []) as any[]);
+        setRpcData2((t2.data ?? []) as any[]);
       }
     } catch (err: unknown) {
       setError((err as Error)?.message ?? "Có lỗi xảy ra");
@@ -1001,47 +1009,68 @@ export default function InventoryAgingReportPage() {
   /* ---- Compare memos (only used in compare mode) ---- */
   const compareAgingData = useMemo((): CompareAgingRow[] => {
     if (reportMode !== "compare") return [];
-    function dayAfterStr(d: string) { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toLocaleDateString('sv-SE'); }
+    
+    // Map is_long_aging info from snapshots for both periods
+    const baselineBoundary1 = (bounds1.S || p1Start).length === 10 ? (bounds1.S || p1Start) + "T23:59:59.999Z" : (bounds1.S || p1Start);
+    const baselineBoundary2 = (bounds2.S || p2Start).length === 10 ? (bounds2.S || p2Start) + "T23:59:59.999Z" : (bounds2.S || p2Start);
 
-    const stock1 = buildStockRows(bounds1.S || p1Start, bounds1.effectiveStart, dayAfterStr(p1End), openings, txs1);
-    const stock2 = buildStockRows(bounds2.S || p2Start, bounds2.effectiveStart, dayAfterStr(p2End), openings, txs2);
+    const agingMap1 = new Map<string, { is_long_aging: boolean; note: string | null; period_month: string }>();
+    const agingMap2 = new Map<string, { is_long_aging: boolean; note: string | null; period_month: string }>();
+    
+    for (const s of openings) {
+      if (s.deleted_at) continue;
+      const key = `${s.product_id}_${s.customer_id || ""}`;
+      if (s.period_month <= baselineBoundary1) {
+        const ex1 = agingMap1.get(key);
+        if (!ex1 || s.period_month > ex1.period_month) agingMap1.set(key, { is_long_aging: !!s.is_long_aging, note: s.long_aging_note || null, period_month: s.period_month });
+      }
+      if (s.period_month <= baselineBoundary2) {
+        const ex2 = agingMap2.get(key);
+        if (!ex2 || s.period_month > ex2.period_month) agingMap2.set(key, { is_long_aging: !!s.is_long_aging, note: s.long_aging_note || null, period_month: s.period_month });
+      }
+    }
 
-    const map1 = new Map<string, typeof stock1[0]>();
-    const map2 = new Map<string, typeof stock2[0]>();
-    for (const r of stock1) map1.set(r.product_id, r);
-    for (const r of stock2) map2.set(r.product_id, r);
+    const map1 = new Map<string, any>();
+    const map2 = new Map<string, any>();
+    for (const r of rpcData1) map1.set(`${r.product_id}_${r.customer_id || ""}`, r);
+    for (const r of rpcData2) map2.set(`${r.product_id}_${r.customer_id || ""}`, r);
 
-    const allPids = new Set<string>();
-    stock1.forEach(r => allPids.add(r.product_id));
-    stock2.forEach(r => allPids.add(r.product_id));
-
+    const allKeys = new Set([...map1.keys(), ...map2.keys()]);
     const results: CompareAgingRow[] = [];
-    for (const pid of allPids) {
+    
+    for (const key of allKeys) {
+      const r1 = map1.get(key);
+      const r2 = map2.get(key);
+      const pid = r1 ? r1.product_id : r2.product_id;
+      const cid = r1 ? r1.customer_id : r2.customer_id;
+      
       const product = productMap.get(pid);
       if (!product) continue;
-      if (qCustomer && product.customer_id !== qCustomer) continue;
+      if (qCustomer && cid !== qCustomer) continue;
       if (debouncedQProd) {
         const s = debouncedQProd.toLowerCase();
         if (!product.sku.toLowerCase().includes(s) && !product.name.toLowerCase().includes(s)) continue;
       }
 
-      const r1 = map1.get(pid);
-      const r2 = map2.get(pid);
-      const isAging1 = !!(r1?.is_long_aging);
-      const isAging2 = !!(r2?.is_long_aging);
+      const ag1 = agingMap1.get(key);
+      const ag2 = agingMap2.get(key);
+      const isAging1 = !!ag1?.is_long_aging;
+      const isAging2 = !!ag2?.is_long_aging;
       if (!isAging1 && !isAging2) continue;
 
-      const qty1 = isAging1 ? (r1?.current_qty ?? 0) : 0;
-      const qty2 = isAging2 ? (r2?.current_qty ?? 0) : 0;
+      const qty1 = isAging1 && r1 ? Number(r1.current_qty) : 0;
+      const qty2 = isAging2 && r2 ? Number(r2.current_qty) : 0;
       if (onlyInStock && qty1 <= 0 && qty2 <= 0) continue;
+      
       const up = product.unit_price ?? 0;
       const val1 = qty1 * up, val2 = qty2 * up;
       const valDiff = val2 - val1;
       const pctDiff = val1 !== 0 ? (valDiff / val1) * 100 : 0;
-      results.push({ product, customer_id: product.customer_id, qty1, qty2, val1, val2, valDiff, pctDiff, isAging1, isAging2, note1: r1?.long_aging_note ?? null, note2: r2?.long_aging_note ?? null });
+      
+      results.push({ product, customer_id: cid, qty1, qty2, val1, val2, valDiff, pctDiff, isAging1, isAging2, note1: ag1?.note ?? null, note2: ag2?.note ?? null });
     }
     return results.sort((a, b) => Math.abs(b.valDiff) - Math.abs(a.valDiff));
-  }, [reportMode, productMap, openings, txs1, txs2, bounds1, bounds2, p1Start, p1End, p2Start, p2End, qCustomer, debouncedQProd, onlyInStock]);
+  }, [reportMode, productMap, openings, rpcData1, rpcData2, bounds1, bounds2, p1Start, p1End, p2Start, p2End, qCustomer, debouncedQProd, onlyInStock]);
 
   const compareTotals = useMemo(() => {
     let v1 = 0, v2 = 0, count1 = 0, count2 = 0;

@@ -233,6 +233,8 @@ export default function InventoryComparisonPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [openings, setOpenings] = useState<OpeningBalance[]>([]);
+  const [rpcData1, setRpcData1] = useState<any[]>([]);
+  const [rpcData2, setRpcData2] = useState<any[]>([]);
   const [txs1, setTxs1] = useState<InventoryTx[]>([]);
   const [txs2, setTxs2] = useState<InventoryTx[]>([]);
   const [loading, setLoading] = useState(true);
@@ -271,7 +273,7 @@ export default function InventoryComparisonPage() {
   }, [openPopupId]);
 
   const load = useCallback(async () => {
-    setError(""); setLoading(true); setTxs1([]); setTxs2([]);
+    setError(""); setLoading(true); setRpcData1([]); setRpcData2([]); setTxs1([]); setTxs2([]);
     try {
       const [rP, rC] = await Promise.all([
         supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null),
@@ -284,14 +286,26 @@ export default function InventoryComparisonPage() {
       const { data: openData } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", lastDayStr).is("deleted_at", null);
       const ops = (openData ?? []) as OpeningBalance[];
       setOpenings(ops);
-      let minDate1 = p1Start, minDate2 = p2Start;
-      for (const o of ops) { const d = o.period_month.slice(0, 10); if (d < minDate1) minDate1 = d; if (d < minDate2) minDate2 = d; }
-      const [t1, t2] = await Promise.all([
-        supabase.from("inventory_transactions").select("*").gte("tx_date", minDate1).lt("tx_date", dayAfter(p1End)).is("deleted_at", null),
-        supabase.from("inventory_transactions").select("*").gte("tx_date", minDate2).lt("tx_date", dayAfter(p2End)).is("deleted_at", null),
+      const b1 = computeSnapshotBounds(p1Start, p1End, ops);
+      const b2 = computeSnapshotBounds(p2Start, p2End, ops);
+      const [t1, t2, t1tx, t2tx] = await Promise.all([
+        supabase.rpc("inventory_calculate_report_v2", {
+          p_baseline_date: b1.S || p1Start,
+          p_movements_start_date: b1.effectiveStart,
+          p_movements_end_date: dayAfter(p1End),
+        }),
+        supabase.rpc("inventory_calculate_report_v2", {
+          p_baseline_date: b2.S || p2Start,
+          p_movements_start_date: b2.effectiveStart,
+          p_movements_end_date: dayAfter(p2End),
+        }),
+        supabase.from("inventory_transactions").select("*").gte("tx_date", b1.effectiveStart).lt("tx_date", dayAfter(p1End)).is("deleted_at", null),
+        supabase.from("inventory_transactions").select("*").gte("tx_date", b2.effectiveStart).lt("tx_date", dayAfter(p2End)).is("deleted_at", null),
       ]);
-      setTxs1((t1.data ?? []) as InventoryTx[]);
-      setTxs2((t2.data ?? []) as InventoryTx[]);
+      setRpcData1((t1.data ?? []) as any[]);
+      setRpcData2((t2.data ?? []) as any[]);
+      setTxs1((t1tx.data ?? []) as InventoryTx[]);
+      setTxs2((t2tx.data ?? []) as InventoryTx[]);
     } catch (err: unknown) { setError((err as Error)?.message ?? "Có lỗi xảy ra"); } finally { setLoading(false); }
   }, [p1Start, p1End, p2Start, p2End]);
 
@@ -304,26 +318,40 @@ export default function InventoryComparisonPage() {
   const bounds2 = useMemo(() => computeSnapshotBounds(p2Start, p2End, openings), [p2Start, p2End, openings]);
 
   const productRows = useMemo(() => {
-    const s1 = buildStockRows(bounds1.S || p1Start, bounds1.effectiveStart, dayAfter(p1End), openings, txs1);
-    const s2 = buildStockRows(bounds2.S || p2Start, bounds2.effectiveStart, dayAfter(p2End), openings, txs2);
-    const m1 = new Map<string, { in: number; out: number }>();
-    for (const r of s1) { const e = m1.get(r.product_id) || { in: 0, out: 0 }; e.in += r.inbound_qty; e.out += r.outbound_qty; m1.set(r.product_id, e); }
-    const m2 = new Map<string, { in: number; out: number }>();
-    for (const r of s2) { const e = m2.get(r.product_id) || { in: 0, out: 0 }; e.in += r.inbound_qty; e.out += r.outbound_qty; m2.set(r.product_id, e); }
-    const ids = new Set([...m1.keys(), ...m2.keys()]);
+    const m1 = new Map<string, { in: number; out: number; pid: string; cid: string | null }>();
+    for (const r of rpcData1) { 
+      const key = `${r.product_id}_${r.customer_id || ""}`;
+      const e = m1.get(key) || { in: 0, out: 0, pid: r.product_id, cid: r.customer_id }; 
+      e.in += Number(r.inbound_qty); e.out += Number(r.outbound_qty); 
+      m1.set(key, e); 
+    }
+    const m2 = new Map<string, { in: number; out: number; pid: string; cid: string | null }>();
+    for (const r of rpcData2) { 
+      const key = `${r.product_id}_${r.customer_id || ""}`;
+      const e = m2.get(key) || { in: 0, out: 0, pid: r.product_id, cid: r.customer_id }; 
+      e.in += Number(r.inbound_qty); e.out += Number(r.outbound_qty); 
+      m2.set(key, e); 
+    }
+    const keys = new Set([...m1.keys(), ...m2.keys()]);
     const res: ProdRow[] = [];
-    for (const id of ids) {
-      const p = products.find(x => x.id === id);
-      if (!p || (qCustomer && p.customer_id !== qCustomer)) continue;
+    for (const key of keys) {
+      const v1 = m1.get(key) || { in: 0, out: 0, pid: "", cid: null };
+      const v2 = m2.get(key) || { in: 0, out: 0, pid: "", cid: null };
+      const pid = v1.pid || v2.pid;
+      const cid = v1.pid ? v1.cid : v2.cid;
+
+      const p = products.find(x => x.id === pid);
+      if (!p || (qCustomer && cid !== qCustomer)) continue;
       if (qProduct && !p.sku.toLowerCase().includes(qProduct.toLowerCase()) && !p.name.toLowerCase().includes(qProduct.toLowerCase())) continue;
-      const v1 = m1.get(id) || { in: 0, out: 0 }, v2 = m2.get(id) || { in: 0, out: 0 };
+      
       const inDiff = v2.in - v1.in, outDiff = v2.out - v1.out;
       if (onlyChanged && inDiff === 0 && outDiff === 0) continue;
+      
       const up = p.unit_price || 0;
-      res.push({ product: p, customer_id: p.customer_id, in1: v1.in, in2: v2.in, inDiff, out1: v1.out, out2: v2.out, outDiff, inVal1: v1.in * up, inVal2: v2.in * up, inValDiff: inDiff * up, outVal1: v1.out * up, outVal2: v2.out * up, outValDiff: outDiff * up });
+      res.push({ product: p, customer_id: cid, in1: v1.in, in2: v2.in, inDiff, out1: v1.out, out2: v2.out, outDiff, inVal1: v1.in * up, inVal2: v2.in * up, inValDiff: inDiff * up, outVal1: v1.out * up, outVal2: v2.out * up, outValDiff: outDiff * up });
     }
     return res;
-  }, [products, openings, txs1, txs2, p1Start, p1End, p2Start, p2End, qCustomer, qProduct, onlyChanged, bounds1, bounds2]);
+  }, [products, rpcData1, rpcData2, qCustomer, qProduct, onlyChanged]);
 
   const customerRows = useMemo(() => {
     const cMap = new Map<string, CustRow>();
