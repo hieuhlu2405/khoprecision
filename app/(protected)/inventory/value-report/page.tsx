@@ -909,17 +909,22 @@ export default function InventoryValueReportPage() {
     for (const r of rows) {
       const p = productMap.get(r.product_id);
       if (!p) continue;
-      if (qCustomer && p.customer_id !== qCustomer) continue;
+      if (qCustomer && r.customer_id !== qCustomer) continue;
       if (debouncedQProd) {
         const s = debouncedQProd.toLowerCase();
         if (!p.sku.toLowerCase().includes(s) && !p.name.toLowerCase().includes(s)) continue;
       }
       const curQty = Number(r.current_qty);
       if (onlyInStock && curQty <= 0) continue;
-      if (curQty <= 0) continue;
+      
+      const qOp = Number(r.opening_qty);
+      const qIn = Number(r.inbound_qty);
+      const qOut = Number(r.outbound_qty);
+      if (qOp === 0 && qIn === 0 && qOut === 0 && curQty === 0) continue;
+
       results.push({
         product: p,
-        customer_id: p.customer_id,
+        customer_id: r.customer_id,
         opening_qty: Number(r.opening_qty),
         inbound_qty: Number(r.inbound_qty),
         outbound_qty: Number(r.outbound_qty),
