@@ -545,42 +545,59 @@ function BarChart({ data, title, isRiskHeatmap = false, minHeight = 220 }: {
 function StackedBarChart({ data, totalValue, title }: { data: { label: string; value: number }[]; totalValue: number; title: string }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   
-  // Heatmap palette for segments
-  const colors = ["crimson", "orange", "#f59e0b", "#6366f1", "#0ea5e9", "#94a3b8"];
+  // Refined categorical palette for better contrast
+  const colors = ["crimson", "orange", "#f59e0b", "#4338ca", "#0891b2", "#94a3b8"];
 
   return (
     <div style={{ width: "100%" }}>
       <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</div>
-      <div style={{ height: 32, width: "100%", background: "#f1f5f9", borderRadius: 8, display: "flex", overflow: "hidden", boxShadow: "inset 0 2px 4px rgba(0,0,0,0.05)" }}>
+      <div style={{ 
+        height: 36, width: "100%", background: "#f1f5f9", borderRadius: 8, 
+        display: "flex", overflow: "hidden", boxShadow: "inset 0 2px 4px rgba(0,0,0,0.05)",
+        position: "relative" 
+      }}>
         {data.map((d, i) => {
-          const w = totalValue > 0 ? (d.value / totalValue) * 100 : 0;
-          if (w < 0.5) return null;
+          const pct = totalValue > 0 ? (d.value / totalValue) * 100 : 0;
+          if (pct < 0.5) return null;
           return (
             <div 
               key={i}
               onMouseEnter={() => setHoverIdx(i)}
               onMouseLeave={() => setHoverIdx(null)}
               style={{
-                width: `${w}%`,
+                width: `${pct}%`,
                 background: colors[i % colors.length],
                 height: "100%",
                 transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                 cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 position: "relative",
                 opacity: hoverIdx === null || hoverIdx === i ? 1 : 0.7,
                 boxShadow: hoverIdx === i ? "inset 0 0 10px rgba(0,0,0,0.2)" : "none",
-                transform: hoverIdx === i ? "scaleY(1.1)" : "scaleY(1)"
+                zIndex: hoverIdx === i ? 10 : 1
               }}
-            />
+            >
+              {pct > 8 && (
+                <span style={{ 
+                  fontSize: 10, fontWeight: 900, color: "white", 
+                  textShadow: "0 1px 2px rgba(0,0,0,0.3)",
+                  pointerEvents: "none" 
+                }}>
+                  {pct.toFixed(0)}%
+                </span>
+              )}
+            </div>
           );
         })}
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 16 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", marginTop: 16 }}>
         {data.map((d, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, opacity: hoverIdx === null || hoverIdx === i ? 1 : 0.5, transition: "opacity 0.2s" }}>
             <span style={{ width: 10, height: 10, borderRadius: 3, background: colors[i % colors.length] }} />
-            <span style={{ fontWeight: 600, color: "var(--slate-700)" }}>{d.label}:</span>
-            <span style={{ color: "var(--brand)", fontWeight: 700 }}>{((d.value/totalValue)*100).toFixed(1)}%</span>
+            <span style={{ fontWeight: 600, color: "var(--slate-700)" }}>{shortLabel(d.label, 20)}:</span>
+            <span style={{ color: colors[i % colors.length === 0 ? 0 : 3], fontWeight: 700 }}>{((d.value/totalValue)*100).toFixed(1)}%</span>
           </div>
         ))}
       </div>
@@ -630,17 +647,17 @@ function ClusteredBarChart({ data, title, label1, label2, color1 = "#94a3b8", co
                 {shortLabel(d.label, 22)}
               </text>
               
-              {/* Trend connection line */}
-              <line 
-                x1={`calc(${marginLeft}px + ${w1}%)`} y1={y - 8} 
-                x2={`calc(${marginLeft}px + ${w2}%)`} y2={y + 8} 
-                stroke={d.val2 > d.val1 ? "crimson" : "var(--color-success)"} 
-                strokeWidth={1} strokeDasharray="3,2" opacity={0.4}
-              />
-
               <svg x={marginLeft} y={y - 12} width={`calc(100% - ${marginLeft + marginRight}px)`} height={24} style={{ overflow: "visible" }}>
+                {/* Trend connection line - Unified with bars scale */}
+                <line 
+                  x1={`${w1}%`} y1={4} 
+                  x2={`${w2}%`} y2={20} 
+                  stroke={d.val2 > d.val1 ? "crimson" : "var(--color-success)"} 
+                  strokeWidth={1.5} strokeDasharray="4,2" opacity={0.6}
+                />
+
                 <rect x={0} y={0} width={`${w1}%`} height={8} fill={color1} rx={2} opacity={0.6} />
-                <rect x={0} y={10} width={`${w2}%`} height={8} fill={color2} rx={2} />
+                <rect x={0} y={16} width={`${w2}%`} height={8} fill={color2} rx={2} />
                 
                 {/* Diff indicator */}
                 {hoverIdx === i && (
@@ -657,12 +674,6 @@ function ClusteredBarChart({ data, title, label1, label2, color1 = "#94a3b8", co
   );
 }
 
-const COLORS = [
-  "#2563eb", "#059669", "#d97706", "#dc2626", "#7c3aed",
-  "#0891b2", "#be123c", "#1d4ed8", "#b45309", "#4338ca",
-  "#94a3b8" // for 'Khác'
-];
-
 function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, total2 }: {
   data1: { label: string; value: number }[];
   data2: { label: string; value: number }[];
@@ -673,101 +684,75 @@ function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, t
   total2: number;
 }) {
   const [hoverIdx, setHoverIdx] = useState<{ series: number, idx: number } | null>(null);
+  const colors = ["crimson", "orange", "#f59e0b", "#4338ca", "#0891b2", "#94a3b8"];
 
   if ((!data1.length && !data2.length) || (total1 <= 0 && total2 <= 0)) return null;
 
   const barHeight = 36;
-  const gap = 16;
   
-  // Helper to render a single stacked bar
   const renderBarRow = (seriesIdx: number, seriesLabel: string, data: { label: string; value: number }[], total: number) => {
-    let currentX = 0;
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ width: 45, fontSize: 12, fontWeight: 600, color: "#475569", textAlign: "right" }}>{seriesLabel}</div>
-        <div style={{ flex: 1, position: "relative" }}>
-          {total > 0 ? (
-            <svg width="100%" height={barHeight} style={{ display: "block", borderRadius: 4, overflow: "hidden" }}>
-              {data.map((d, i) => {
-                const pct = (d.value / total) * 100;
-                const w = `${pct}%`;
-                const x = `${currentX}%`;
-                currentX += pct;
-                const isHovered = hoverIdx?.series === seriesIdx && hoverIdx?.idx === i;
-                
-                return (
-                  <g 
-                    key={i}
-                    onMouseEnter={() => setHoverIdx({ series: seriesIdx, idx: i })}
-                    onMouseLeave={() => setHoverIdx(null)}
-                    style={{ cursor: "pointer", transition: "opacity 0.2s" }}
-                    opacity={!hoverIdx || isHovered ? 1 : 0.6}
-                  >
-                    <rect x={x} y={0} width={w} height={barHeight} fill={COLORS[i % COLORS.length]} />
-                    {pct >= 6 && (
-                      <text x={`${currentX - pct / 2}%`} y={barHeight / 2 + 4} textAnchor="middle" fill="white" fontSize={10} fontWeight={600}>
-                        {pct.toFixed(1)}%
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-            </svg>
-          ) : (
-            <div style={{ height: barHeight, display: "flex", alignItems: "center", background: "#f1f5f9", borderRadius: 4, paddingLeft: 12, fontSize: 11, color: "#94a3b8" }}>Không có dữ liệu</div>
-          )}
-          
-          {hoverIdx?.series === seriesIdx && (
-            <div style={{
-              position: "absolute", zIndex: 10,
-              background: "rgba(15, 23, 42, 0.95)", color: "white",
-              padding: "8px 12px", borderRadius: 6, fontSize: 12,
-              pointerEvents: "none",
-              left: "50%", transform: "translateX(-50%)", bottom: barHeight + 8,
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-              minWidth: 200, whiteSpace: "normal"
-            }}>
-              <div style={{ display: "flex", alignItems: "center", marginBottom: 4 }}>
-                <span style={{ width: 10, height: 10, background: COLORS[hoverIdx.idx % COLORS.length], borderRadius: 2, marginRight: 8 }}></span>
-                <span style={{ fontWeight: 600, color: "#f8fafc" }}>{data[hoverIdx.idx].label}</span>
+        <div style={{ width: 50, fontSize: 11, fontWeight: 700, color: "var(--slate-500)", textAlign: "right", textTransform: "uppercase" }}>{seriesLabel}</div>
+        <div style={{ flex: 1, height: barHeight, background: "#f1f5f9", borderRadius: 8, display: "flex", overflow: "hidden", boxShadow: "inset 0 2px 4px rgba(0,0,0,0.05)", position: "relative" }}>
+          {total > 0 ? data.map((d, i) => {
+            const pct = (d.value / total) * 100;
+            if (pct < 0.3) return null;
+            const isHovered = hoverIdx?.series === seriesIdx && hoverIdx?.idx === i;
+            return (
+              <div 
+                key={i}
+                onMouseEnter={() => setHoverIdx({ series: seriesIdx, idx: i })}
+                onMouseLeave={() => setHoverIdx(null)}
+                style={{
+                  width: `${pct}%`,
+                  background: colors[i % colors.length],
+                  height: "100%",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: !hoverIdx || isHovered ? 1 : 0.7,
+                  boxShadow: isHovered ? "inset 0 0 10px rgba(0,0,0,0.2)" : "none",
+                  zIndex: isHovered ? 10 : 1
+                }}
+              >
+                {pct > 12 && <span style={{ fontSize: 10, fontWeight: 900, color: "white", textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>{pct.toFixed(0)}%</span>}
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", color: "#cbd5e1", marginBottom: 2 }}>
-                <span>Giá trị:</span> <span style={{ fontWeight: 600, color: "white" }}>{fmtNum(data[hoverIdx.idx].value)} VNĐ</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", color: "#cbd5e1" }}>
-                <span>Tỷ trọng:</span> <span style={{ fontWeight: 600, color: "white" }}>{fmtPercent((data[hoverIdx.idx].value / total) * 100)}</span>
-              </div>
-            </div>
+            );
+          }) : (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", paddingLeft: 12, fontSize: 11, color: "var(--slate-400)" }}>Không có dữ liệu</div>
           )}
         </div>
       </div>
     );
   };
 
-  // Build merged legend
   const allLabels = new Set([...data1.map(d => d.label), ...data2.map(d => d.label)]);
   const legendItems = Array.from(allLabels);
 
   return (
     <div style={{ width: "100%", marginBottom: 16 }}>
-      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: "#334155" }}>{title}</div>
-      <div style={{ display: "flex", flexDirection: "column", gap }}>
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 16, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {renderBarRow(1, label1, data1, total1)}
         {renderBarRow(2, label2, data2, total2)}
       </div>
       
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", marginTop: 16, paddingTop: 12, borderTop: "1px dashed #e2e8f0" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--slate-100)" }}>
         {legendItems.map((lbl, i) => {
           const d1 = data1.find(x => x.label === lbl);
           const d2 = data2.find(x => x.label === lbl);
           const pct1 = d1 && total1 > 0 ? (d1.value / total1) * 100 : 0;
           const pct2 = d2 && total2 > 0 ? (d2.value / total2) * 100 : 0;
+          const isHovered = hoverIdx?.idx === i;
           
           return (
-            <div key={i} style={{ display: "flex", alignItems: "center", fontSize: 11, color: "#475569" }}>
-              <span style={{ width: 8, height: 8, background: COLORS[i % COLORS.length], borderRadius: "50%", marginRight: 6 }}></span>
-              <span style={{ fontWeight: 500, marginRight: 4 }}>{shortLabel(lbl, 15)}</span>
-              <span style={{ color: "#94a3b8" }}>({pct1.toFixed(1)}% vs {pct2.toFixed(1)}%)</span>
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, opacity: !hoverIdx || isHovered ? 1 : 0.5, transition: "opacity 0.2s" }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: colors[i % colors.length] }} />
+              <span style={{ fontWeight: 600, color: "var(--slate-700)" }}>{shortLabel(lbl, 18)}:</span>
+              <span style={{ color: "var(--brand)", fontWeight: 700 }}>{pct1.toFixed(1)}% vs {pct2.toFixed(1)}%</span>
             </div>
           );
         })}
