@@ -596,7 +596,7 @@ function StackedBarChart({ data, totalValue, title }: { data: { label: string; v
         {data.map((d, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, opacity: hoverIdx === null || hoverIdx === i ? 1 : 0.5, transition: "opacity 0.2s" }}>
             <span style={{ width: 10, height: 10, borderRadius: 3, background: colors[i % colors.length] }} />
-            <span style={{ fontWeight: 600, color: "var(--slate-700)" }}>{shortLabel(d.label, 20)}:</span>
+            <span style={{ fontWeight: 600, color: "var(--slate-700)" }}>{d.label}:</span>
             <span style={{ color: colors[i % colors.length === 0 ? 0 : 3], fontWeight: 700 }}>{((d.value/totalValue)*100).toFixed(1)}%</span>
           </div>
         ))}
@@ -751,7 +751,7 @@ function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, t
           return (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, opacity: !hoverIdx || isHovered ? 1 : 0.5, transition: "opacity 0.2s" }}>
               <span style={{ width: 10, height: 10, borderRadius: 3, background: colors[i % colors.length] }} />
-              <span style={{ fontWeight: 600, color: "var(--slate-700)" }}>{shortLabel(lbl, 18)}:</span>
+              <span style={{ fontWeight: 600, color: "var(--slate-700)" }}>{lbl}:</span>
               <span style={{ color: "var(--brand)", fontWeight: 700 }}>{pct1.toFixed(1)}% vs {pct2.toFixed(1)}%</span>
             </div>
           );
