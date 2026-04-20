@@ -854,18 +854,6 @@ export default function InventoryValueReportPage() {
   const [activeInsightFilter, setActiveInsightFilter] = useState<string | null>(null);
   const [openPopupId, setOpenPopupId] = useState<string | null>(null);
 
-  const dayAfter = (d: string) => { 
-    if (!d) return "";
-    const x = new Date(d); 
-    x.setDate(x.getDate() + 1); 
-    return x.toLocaleDateString('sv-SE'); 
-  };
-
-  const getDaysAgo = (d: string, days: number) => {
-    const x = new Date(d);
-    x.setDate(x.getDate() - days);
-    return x.toLocaleDateString('sv-SE');
-  };
 
   /* ---- Column resizing ---- */
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
