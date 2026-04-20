@@ -968,9 +968,7 @@ export default function InventoryValueReportPage() {
 
   /* ---- Raw Calculations ---- */
   const productData = useMemo(() => {
-    const rows = reportMode === "current"
-      ? stockRowsFromRpc
-      : buildStockRows(bounds.S || qStart, bounds.effectiveStart, bounds.effectiveEnd, openings, txs);
+    const rows = stockRowsFromRpc;
     
     // Preliminary processing
     const results: ProdRow[] = [];
