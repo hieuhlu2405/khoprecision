@@ -372,12 +372,12 @@ function SummaryCard({ title, v1, v2, diff, bg, accent, icon, unit = "đ" }: { t
           <div style={{ fontSize: 18, fontWeight: 700, color: "var(--brand)" }}>{fmtNum(countV2)} <small style={{ fontSize: 10 }}>{unit}</small></div>
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 12, borderTop: "1px solid var(--slate-50)" }}>
-        <span style={{ fontSize: 14, fontWeight: 800, color: isPositive ? "var(--color-danger)" : "var(--color-success)" }}>
-          {isPositive ? "+" : ""}{fmtNum(countDiff)}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6, paddingTop: 12, borderTop: "1px solid var(--slate-50)" }}>
+        <span style={{ fontSize: 16, fontWeight: 900, display: "flex", alignItems: "center", gap: 4, color: isPositive ? "var(--color-danger)" : "var(--color-success)" }}>
+          {isPositive ? "↑" : "↓"} {isPositive ? "+" : ""}{fmtNum(countDiff)} <small style={{ fontSize: 11, fontWeight: 600 }}>đ</small>
         </span>
-        <span className={`badge ${isPositive ? "badge-danger" : "badge-success"}`} style={{ fontSize: 10, padding: "2px 8px" }}>
-          {isPositive ? "↑" : "↓"} {Math.abs(pct).toFixed(1)}%
+        <span className={`badge ${isPositive ? "badge-danger" : "badge-success"}`} style={{ fontSize: 10, padding: "2px 8px", background: isPositive ? "rgba(220, 20, 60, 0.1)" : "rgba(16, 185, 129, 0.1)", color: isPositive ? "var(--color-danger)" : "var(--color-success)", border: "none" }}>
+          {Math.abs(pct).toFixed(1)}%
         </span>
       </div>
     </div>
