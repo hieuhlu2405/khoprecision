@@ -77,6 +77,14 @@ function fmtNum(n: number | null | undefined): string {
   return parts.join(".");
 }
 
+/**
+ * getCurrentPrice — Hướng 1: Lấy giá hiện hành từ bảng products.
+ * Nếu không có (mã hàng bị ẩn), fallback về opening_unit_cost đã lưu.
+ */
+function getCurrentPrice(r: OpeningBalance): number {
+  return r.products?.unit_price ?? r.opening_unit_cost ?? 0;
+}
+
 function fmtDate(iso: string) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -380,21 +388,21 @@ export default function InventoryOpeningBalancesPage() {
         const val = Number((f as NumFilter).value.replace(/,/g, ""));
         list = list.filter(r => {
           if (key === "qty") return r.opening_qty === val;
-          if (key === "price") return r.opening_unit_cost === val;
+          if (key === "price") return getCurrentPrice(r) === val;
           return true;
         });
       } else if (f.mode === "gt") {
         const val = Number((f as NumFilter).value.replace(/,/g, ""));
         list = list.filter(r => {
           if (key === "qty") return r.opening_qty > val;
-          if (key === "price") return (r.opening_unit_cost || 0) > val;
+          if (key === "price") return getCurrentPrice(r) > val;
           return true;
         });
       } else if (f.mode === "lt") {
         const val = Number((f as NumFilter).value.replace(/,/g, ""));
         list = list.filter(r => {
           if (key === "qty") return r.opening_qty < val;
-          if (key === "price") return (r.opening_unit_cost || 0) < val;
+          if (key === "price") return getCurrentPrice(r) < val;
           return true;
         });
       } else if (f.mode === "range") {
@@ -402,7 +410,7 @@ export default function InventoryOpeningBalancesPage() {
         const hi = Number((f as NumFilter).valueTo?.replace(/,/g, "") || Infinity);
         list = list.filter(r => {
           if (key === "qty") return r.opening_qty >= lo && r.opening_qty <= hi;
-          if (key === "price") return (r.opening_unit_cost || 0) >= lo && (r.opening_unit_cost || 0) <= hi;
+          if (key === "price") return getCurrentPrice(r) >= lo && getCurrentPrice(r) <= hi;
           return true;
         });
       } else if (f.mode === "between") {
@@ -435,7 +443,7 @@ export default function InventoryOpeningBalancesPage() {
         else if (sortCol === "sku") { va = a.products?.sku || ""; vb = b.products?.sku || ""; }
         else if (sortCol === "name") { va = a.products?.name || ""; vb = b.products?.name || ""; }
         else if (sortCol === "qty") { va = a.opening_qty; vb = b.opening_qty; }
-        else if (sortCol === "price") { va = a.opening_unit_cost || 0; vb = b.opening_unit_cost || 0; }
+        else if (sortCol === "price") { va = getCurrentPrice(a); vb = getCurrentPrice(b); }
         else if (sortCol === "isLongAging") { va = a.is_long_aging ? 1 : 0; vb = b.is_long_aging ? 1 : 0; }
         else if (sortCol === "createdAt") { va = a.created_at; vb = b.created_at; }
         else if (sortCol === "updatedAt") { va = a.updated_at; vb = b.updated_at; }
@@ -672,7 +680,7 @@ export default function InventoryOpeningBalancesPage() {
       "Tên hàng": r.products?.name || "",
       "Kích thước (MM)": r.products?.spec || "",
       "Tồn đầu kỳ": r.opening_qty,
-      "Đơn giá": r.opening_unit_cost || "",
+      "Đơn giá": getCurrentPrice(r) || "",
       "Tồn dài kỳ": r.is_long_aging ? "Có" : "Không",
       "Ghi chú tồn dài kỳ": r.long_aging_note || "",
       "Tạo lúc": fmtDatetime(r.created_at)
@@ -730,7 +738,7 @@ export default function InventoryOpeningBalancesPage() {
         </div>
         <div className="stat-card border-l-4 border-green-500">
           <div className="stat-card-label">Tổng giá trị (ước tính)</div>
-          <div className="stat-card-value text-green-600">{fmtNum(finalFiltered.reduce((acc, r) => acc + (r.opening_qty * (r.opening_unit_cost || 0)), 0))}</div>
+          <div className="stat-card-value text-green-600">{fmtNum(finalFiltered.reduce((acc, r) => acc + (r.opening_qty * getCurrentPrice(r)), 0))}</div>
         </div>
         <div className="stat-card border-l-4 border-amber-500">
           <div className="stat-card-label">Mã hàng tồn dài kỳ</div>
@@ -1040,7 +1048,7 @@ export default function InventoryOpeningBalancesPage() {
                          <span className="font-black text-slate-800 text-[15px]">{fmtNum(r.opening_qty)}</span>
                        </div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-right text-slate-600 font-medium text-[15px]" style={{ width: colWidths["price"], minWidth: colWidths["price"] || 120 }}>{fmtNum(r.opening_unit_cost)}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-right text-slate-600 font-medium text-[15px]" style={{ width: colWidths["price"], minWidth: colWidths["price"] || 120 }}>{fmtNum(getCurrentPrice(r))}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-center">
                       {r.is_long_aging ? (
                         <div className="tooltip-wrap group relative inline-block">
