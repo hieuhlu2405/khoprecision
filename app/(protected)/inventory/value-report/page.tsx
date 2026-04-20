@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { buildStockRows, SnapshotRow, TransactionRow } from "../shared/calc";
+import { motion, AnimatePresence } from "framer-motion";
 import { formatToVietnameseDate, computeSnapshotBounds, applySamePeriodLastYearDates } from "../shared/date-utils";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { exportToExcel } from "@/lib/excel-utils";
@@ -196,34 +197,87 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
 /* Shared components                                                   */
 /* ------------------------------------------------------------------ */
 
+function StatCardV2({ label, value, icon, unit, color = "var(--brand)" }: { label: string; value: number; icon?: string; unit?: string; color?: string }) {
+  const displayVal = useCountAnimation(value);
+  return (
+    <div className="stat-card glass-panel" style={{ borderLeft: `5px solid ${color}`, minHeight: 100, display: "flex", flexDirection: "column", justifyContent: "center", position: "relative", overflow: "hidden", padding: "16px 20px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        {icon && <span style={{ fontSize: 20 }}>{icon}</span>}
+        <div className="stat-label" style={{ marginBottom: 0, fontSize: 12, color: "var(--slate-500)", fontWeight: 600, textTransform: "uppercase" }}>{label}</div>
+      </div>
+      <div className="stat-value" style={{ color: "var(--slate-900)", display: "flex", alignItems: "baseline", gap: 6, fontSize: 28, fontWeight: 800 }}>
+        {fmtNum(displayVal)}
+        {unit && <small className="stat-unit" style={{ fontSize: 13, color: "var(--slate-400)", fontWeight: 500 }}>{unit}</small>}
+      </div>
+      <div style={{ position: "absolute", bottom: -20, right: -20, width: 80, height: 80, background: color, filter: "blur(40px)", opacity: 0.1, pointerEvents: "none" }} />
+    </div>
+  );
+}
+
+const customStyles = `
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07) !important;
+  }
+  .glass-header {
+    background: rgba(255, 255, 255, 0.8) !important;
+    backdrop-filter: blur(8px) !important;
+  }
+  .risk-row-glow {
+    position: relative;
+  }
+  .risk-row-glow::after {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0; width: 4px;
+    background: crimson;
+    opacity: 0.7;
+  }
+  .risk-row-glow:hover {
+    background: rgba(220, 20, 60, 0.03) !important;
+  }
+  @keyframes pulse-glow {
+    0% { box-shadow: 0 0 0 0 rgba(220, 20, 60, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(220, 20, 60, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 20, 60, 0); }
+  }
+  .animate-pulse-glow {
+    animation: pulse-glow 2s infinite;
+  }
+`;
+
 function SummaryCard({ title, v1, v2, diff, bg, accent, icon, unit = "đ" }: { title: string; v1: number; v2: number; diff: number; bg: string; accent: string; icon?: React.ReactNode; unit?: string }) {
   const pct = calcPct(diff, v1);
   const isPositive = diff > 0;
+  const countV1 = useCountAnimation(v1);
+  const countV2 = useCountAnimation(v2);
+  const countDiff = useCountAnimation(diff);
+
   return (
-    <div className="stat-card" style={{ borderLeftColor: accent }}>
-      <div className="stat-card-header">
-        <span className="stat-card-title">{title}</span>
-        {icon && <div className="stat-card-icon" style={{ background: bg, color: accent }}>{icon}</div>}
+    <div className="stat-card glass-panel" style={{ borderLeft: `5px solid ${accent}`, padding: "20px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--slate-500)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</span>
+        {icon && <div style={{ fontSize: 22 }}>{icon}</div>}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 11, color: "var(--slate-400)", marginBottom: 4, textTransform: "uppercase" }}>Kỳ 1</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "var(--slate-600)" }}>{fmtNum(v1)} <small style={{ fontSize: 10 }}>{unit}</small></div>
+          <div style={{ fontSize: 11, color: "var(--slate-400)", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>Kỳ 1</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "var(--slate-600)" }}>{fmtNum(countV1)} <small style={{ fontSize: 10 }}>{unit}</small></div>
         </div>
-        <div style={{ paddingLeft: 12, borderLeft: "1px solid var(--slate-100)" }}>
-          <div style={{ fontSize: 11, color: "var(--slate-400)", marginBottom: 4, textTransform: "uppercase" }}>Kỳ 2</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "var(--brand)" }}>{fmtNum(v2)} <small style={{ fontSize: 10 }}>{unit}</small></div>
+        <div style={{ paddingLeft: 16, borderLeft: "1px solid var(--slate-100)" }}>
+          <div style={{ fontSize: 11, color: "var(--slate-400)", marginBottom: 4, textTransform: "uppercase", fontWeight: 700 }}>Kỳ 2</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "var(--brand)" }}>{fmtNum(countV2)} <small style={{ fontSize: 10 }}>{unit}</small></div>
         </div>
       </div>
-      <div className="stat-card-footer" style={{ background: "var(--slate-50)", margin: "0 -16px -16px", padding: "10px 16px", borderBottomLeftRadius: 10, borderBottomRightRadius: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: isPositive ? "var(--color-danger)" : "var(--color-success)" }}>
-            {isPositive ? "+" : ""}{fmtNum(diff)}
-          </span>
-          <span className={`badge ${isPositive ? "badge-danger" : "badge-success"}`} style={{ fontSize: 10 }}>
-            {isPositive ? "↑" : "↓"} {Math.abs(pct).toFixed(1)}%
-          </span>
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 12, borderTop: "1px solid var(--slate-50)" }}>
+        <span style={{ fontSize: 14, fontWeight: 800, color: isPositive ? "var(--color-danger)" : "var(--color-success)" }}>
+          {isPositive ? "+" : ""}{fmtNum(countDiff)}
+        </span>
+        <span className={`badge ${isPositive ? "badge-danger" : "badge-success"}`} style={{ fontSize: 10, padding: "2px 8px" }}>
+          {isPositive ? "↑" : "↓"} {Math.abs(pct).toFixed(1)}%
+        </span>
       </div>
     </div>
   );
@@ -335,10 +389,10 @@ function shortLabel(s: string, max = 14): string {
   return s.length > max ? s.slice(0, max - 1) + "…" : s;
 }
 
-function BarChart({ data, title, color = "#0f172a", minHeight = 220 }: {
+function BarChart({ data, title, isRiskHeatmap = false, minHeight = 220 }: {
   data: { label: string; value: number }[];
   title: string;
-  color?: string;
+  isRiskHeatmap?: boolean;
   minHeight?: number;
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -349,21 +403,29 @@ function BarChart({ data, title, color = "#0f172a", minHeight = 220 }: {
   const rowHeight = 36;
   const marginTop = 30;
   const marginBottom = 20;
-  const marginLeft = 140; // Space for long labels
-  const marginRight = 60; // Space for value labels
+  const marginLeft = 140;
+  const marginRight = 60;
   const height = Math.max(minHeight, data.length * rowHeight + marginTop + marginBottom);
-  const plotWidth = "100%";
+
+  // Risk heatmap colors: Crimson -> Orange -> Amber -> Slate
+  const getRiskColor = (idx: number) => {
+    if (!isRiskHeatmap) return "var(--brand)";
+    if (idx === 0) return "crimson";
+    if (idx === 1) return "orange";
+    if (idx === 2) return "#f59e0b"; // Amber
+    return "#94a3b8"; // Slate
+  };
   
   return (
     <div style={{ position: "relative", width: "100%" }}>
-      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: "#334155" }}>{title}</div>
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</div>
       <svg width="100%" height={height} style={{ display: "block", overflow: "visible" }}>
-        {/* Background grid lines could go here */}
         <line x1={marginLeft} y1={marginTop} x2={marginLeft} y2={height - marginBottom} stroke="#e2e8f0" strokeWidth={1} />
         
         {data.map((d, i) => {
           const y = marginTop + i * rowHeight + rowHeight / 2;
           const barW = `${Math.max(1, (d.value / maxVal) * 100)}%`;
+          const activeColor = getRiskColor(i);
           
           return (
             <g 
@@ -373,20 +435,13 @@ function BarChart({ data, title, color = "#0f172a", minHeight = 220 }: {
               style={{ cursor: "pointer", transition: "opacity 0.2s" }}
               opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.6}
             >
-              {/* Invisible rect for easier hovering */}
               <rect x={0} y={marginTop + i * rowHeight} width="100%" height={rowHeight} fill="transparent" />
-              
-              {/* Y-axis Label */}
-              <text x={marginLeft - 8} y={y + 4} textAnchor="end" fontSize={11} fill="#475569" style={{ whiteSpace: "pre" }}>
-                {shortLabel(d.label, 20)}
+              <text x={marginLeft - 8} y={y + 4} textAnchor="end" fontSize={11} fill="var(--slate-600)" fontWeight="500">
+                {shortLabel(d.label, 22)}
               </text>
-              
-              {/* Bar */}
               <svg x={marginLeft} y={y - 10} width={`calc(100% - ${marginLeft + marginRight}px)`} height={20} style={{ overflow: "visible" }}>
-                <rect x={0} y={0} width={barW} height={20} fill={color} rx={3} opacity={0.85} />
-                
-                {/* Data Value Label */}
-                <text x={barW} dx={6} y={14} fontSize={11} fill="#334155" fontWeight="600">
+                <rect x={0} y={0} width={barW} height={18} fill={activeColor} rx={4} opacity={0.85} />
+                <text x={barW} dx={8} y={13} fontSize={11} fill="var(--slate-800)" fontWeight="700">
                   {d.value >= 1e9 ? (d.value / 1e9).toFixed(1) + "B" : d.value >= 1e6 ? (d.value / 1e6).toFixed(1) + "M" : d.value >= 1e3 ? (d.value / 1e3).toFixed(0) + "K" : fmtNum(d.value)}
                 </text>
               </svg>
@@ -394,28 +449,57 @@ function BarChart({ data, title, color = "#0f172a", minHeight = 220 }: {
           );
         })}
       </svg>
-      
-      {/* Tooltip */}
-      {hoverIdx !== null && (
-        <div style={{
-          position: "absolute", zIndex: 10,
-          background: "rgba(15, 23, 42, 0.95)", color: "white",
-          padding: "8px 12px", borderRadius: 6, fontSize: 12,
-          pointerEvents: "none",
-          left: `max(20px, calc(${marginLeft}px + 20px))`,
-          top: marginTop + hoverIdx * rowHeight - 10,
-          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-          maxWidth: 300, whiteSpace: "normal", wordWrap: "break-word"
-        }}>
-          <div style={{ fontWeight: 600, marginBottom: 4, color: "#f8fafc" }}>{data[hoverIdx].label}</div>
-          <div style={{ color: "#cbd5e1" }}>Giá trị: <span style={{ fontWeight: 600, color: "white" }}>{fmtNum(data[hoverIdx].value)} VNĐ</span></div>
-        </div>
-      )}
     </div>
   );
 }
 
-function ClusteredBarChart({ data, title, label1, label2, color1 = "#0f172a", color2 = "#16a34a", minHeight = 240 }: {
+function StackedBarChart({ data, totalValue, title }: { data: { label: string; value: number }[]; totalValue: number; title: string }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  
+  // Heatmap palette for segments
+  const colors = ["crimson", "orange", "#f59e0b", "#6366f1", "#0ea5e9", "#94a3b8"];
+
+  return (
+    <div style={{ width: "100%" }}>
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</div>
+      <div style={{ height: 32, width: "100%", background: "#f1f5f9", borderRadius: 8, display: "flex", overflow: "hidden", boxShadow: "inset 0 2px 4px rgba(0,0,0,0.05)" }}>
+        {data.map((d, i) => {
+          const w = totalValue > 0 ? (d.value / totalValue) * 100 : 0;
+          if (w < 0.5) return null;
+          return (
+            <div 
+              key={i}
+              onMouseEnter={() => setHoverIdx(i)}
+              onMouseLeave={() => setHoverIdx(null)}
+              style={{
+                width: `${w}%`,
+                background: colors[i % colors.length],
+                height: "100%",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                cursor: "pointer",
+                position: "relative",
+                opacity: hoverIdx === null || hoverIdx === i ? 1 : 0.7,
+                boxShadow: hoverIdx === i ? "inset 0 0 10px rgba(0,0,0,0.2)" : "none",
+                transform: hoverIdx === i ? "scaleY(1.1)" : "scaleY(1)"
+              }}
+            />
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 16 }}>
+        {data.map((d, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, opacity: hoverIdx === null || hoverIdx === i ? 1 : 0.5, transition: "opacity 0.2s" }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: colors[i % colors.length] }} />
+            <span style={{ fontWeight: 600, color: "var(--slate-700)" }}>{d.label}:</span>
+            <span style={{ color: "var(--brand)", fontWeight: 700 }}>{((d.value/totalValue)*100).toFixed(1)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ClusteredBarChart({ data, title, label1, label2, color1 = "#94a3b8", color2 = "var(--brand)", minHeight = 240 }: {
   data: { label: string; val1: number; val2: number }[];
   title: string;
   label1: string;
@@ -425,106 +509,61 @@ function ClusteredBarChart({ data, title, label1, label2, color1 = "#0f172a", co
   minHeight?: number;
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  
   if (!data.length) return <div style={{ padding: "16px 0", color: "#94a3b8", textAlign: "center", fontSize: 13 }}>Không có dữ liệu</div>;
-  
   const maxVal = Math.max(...data.flatMap(d => [d.val1, d.val2]), 1);
-  const rowGroupHeight = 50;
-  const marginTop = 40;
+  const rowGroupHeight = 56;
+  const marginTop = 45;
   const marginBottom = 20;
   const marginLeft = 140;
   const marginRight = 60;
   const height = Math.max(minHeight, data.length * rowGroupHeight + marginTop + marginBottom);
+  const gap = 16;
   
   return (
     <div style={{ position: "relative", width: "100%" }}>
-      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: "#334155" }}>{title}</div>
-      <div style={{ display: "flex", gap: 16, marginBottom: 8, fontSize: 11, position: "absolute", top: 20, right: 10 }}>
-        <span style={{ display: "flex", alignItems: "center" }}><span style={{ width: 10, height: 10, background: color1, borderRadius: 2, marginRight: 4 }} />{label1}</span>
-        <span style={{ display: "flex", alignItems: "center" }}><span style={{ width: 10, height: 10, background: color2, borderRadius: 2, marginRight: 4 }} />{label2}</span>
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</div>
+      <div style={{ display: "flex", gap: 16, marginBottom: 12, fontSize: 11, position: "absolute", top: 20, right: 10 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, color: "var(--slate-500)" }}><span style={{ width: 12, height: 4, background: color1, borderRadius: 2 }} />{label1}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, color: "var(--brand)" }}><span style={{ width: 12, height: 4, background: color2, borderRadius: 2 }} />{label2}</span>
       </div>
       
       <svg width="100%" height={height} style={{ display: "block", overflow: "visible" }}>
         <line x1={marginLeft} y1={marginTop} x2={marginLeft} y2={height - marginBottom} stroke="#e2e8f0" strokeWidth={1} />
         
         {data.map((d, i) => {
-          const cy = marginTop + i * rowGroupHeight + rowGroupHeight / 2;
-          const barH = 14;
-          const gap = 2;
-          const y1 = cy - barH - gap / 2;
-          const y2 = cy + gap / 2;
-          
-          const w1 = `${Math.max(1, (d.val1 / maxVal) * 100)}%`;
-          const w2 = `${Math.max(1, (d.val2 / maxVal) * 100)}%`;
+          const y = marginTop + i * rowGroupHeight + rowGroupHeight / 2;
+          const w1 = (d.val1 / maxVal) * 100;
+          const w2 = (d.val2 / maxVal) * 100;
           
           return (
-            <g 
-              key={i}
-              onMouseEnter={() => setHoverIdx(i)} 
-              onMouseLeave={() => setHoverIdx(null)}
-              style={{ cursor: "pointer", transition: "opacity 0.2s" }}
-              opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.6}
-            >
-              <rect x={0} y={marginTop + i * rowGroupHeight} width="100%" height={rowGroupHeight} fill="transparent" />
-              
-              <text x={marginLeft - 8} y={cy + 4} textAnchor="end" fontSize={11} fill="#475569">
-                {shortLabel(d.label, 20)}
+            <g key={i} onMouseEnter={() => setHoverIdx(i)} onMouseLeave={() => setHoverIdx(null)} style={{ cursor: "pointer" }} opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.6}>
+              <text x={marginLeft - 8} y={y + 4} textAnchor="end" fontSize={11} fill="var(--slate-600)" fontWeight="500">
+                {shortLabel(d.label, 22)}
               </text>
               
-              <svg x={marginLeft} y={y1} width={`calc(100% - ${marginLeft + marginRight}px)`} height={rowGroupHeight} style={{ overflow: "visible" }}>
-                <rect x={0} y={0} width={w1} height={barH} fill={color1} rx={2} opacity={0.85} />
-                <rect x={0} y={barH + gap} width={w2} height={barH} fill={color2} rx={2} opacity={0.85} />
+              {/* Trend connection line */}
+              <line 
+                x1={`calc(${marginLeft}px + ${w1}%)`} y1={y - 8} 
+                x2={`calc(${marginLeft}px + ${w2}%)`} y2={y + 8} 
+                stroke={d.val2 > d.val1 ? "crimson" : "var(--color-success)"} 
+                strokeWidth={1} strokeDasharray="3,2" opacity={0.4}
+              />
+
+              <svg x={marginLeft} y={y - 12} width={`calc(100% - ${marginLeft + marginRight}px)`} height={24} style={{ overflow: "visible" }}>
+                <rect x={0} y={0} width={`${w1}%`} height={8} fill={color1} rx={2} opacity={0.6} />
+                <rect x={0} y={10} width={`${w2}%`} height={8} fill={color2} rx={2} />
                 
-                <text x={w1} dx={6} y={barH - 3} fontSize={10} fill="#64748b" fontWeight="500">
-                  {d.val1 >= 1e9 ? (d.val1 / 1e9).toFixed(1) + "B" : d.val1 >= 1e6 ? (d.val1 / 1e6).toFixed(1) + "M" : d.val1 >= 1e3 ? (d.val1 / 1e3).toFixed(0) + "K" : fmtNum(d.val1)}
-                </text>
-                
-                <text x={w2} dx={6} y={barH * 2 + gap - 3} fontSize={10} fill="#64748b" fontWeight="500">
-                  {d.val2 >= 1e9 ? (d.val2 / 1e9).toFixed(1) + "B" : d.val2 >= 1e6 ? (d.val2 / 1e6).toFixed(1) + "M" : d.val2 >= 1e3 ? (d.val2 / 1e3).toFixed(0) + "K" : fmtNum(d.val2)}
-                </text>
+                {/* Diff indicator */}
+                {hoverIdx === i && (
+                  <text x={`max(${w1}%, ${w2}%)`} dx={10} y={14} fontSize={10} fontWeight="700" fill={d.val2 > d.val1 ? "crimson" : "var(--color-success)"}>
+                    {d.val2 > d.val1 ? "↑" : "↓"} {fmtNum(Math.abs(d.val2 - d.val1))}
+                  </text>
+                )}
               </svg>
             </g>
           );
         })}
       </svg>
-      
-      {/* Tooltip */}
-      {hoverIdx !== null && (
-        <div style={{
-          position: "absolute", zIndex: 10,
-          background: "rgba(15, 23, 42, 0.95)", color: "white",
-          padding: "8px 12px", borderRadius: 6, fontSize: 12,
-          pointerEvents: "none",
-          left: `max(20px, calc(${marginLeft}px + 20px))`,
-          top: marginTop + hoverIdx * rowGroupHeight,
-          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-          maxWidth: 300, whiteSpace: "normal"
-        }}>
-          <div style={{ fontWeight: 600, marginBottom: 6, color: "#f8fafc", paddingBottom: 4, borderBottom: "1px solid #334155" }}>
-            {data[hoverIdx].label}
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 2 }}>
-            <span style={{ color: "#cbd5e1", display: "flex", alignItems: "center" }}>
-              <span style={{ width: 8, height: 8, background: color1, borderRadius: "50%", marginRight: 6 }}></span>
-              {label1}:
-            </span>
-            <span style={{ fontWeight: 600 }}>{fmtNum(data[hoverIdx].val1)} VNĐ</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 4 }}>
-            <span style={{ color: "#cbd5e1", display: "flex", alignItems: "center" }}>
-              <span style={{ width: 8, height: 8, background: color2, borderRadius: "50%", marginRight: 6 }}></span>
-              {label2}:
-            </span>
-            <span style={{ fontWeight: 600 }}>{fmtNum(data[hoverIdx].val2)} VNĐ</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, borderTop: "1px dashed #475569", paddingTop: 4, marginTop: 4 }}>
-            <span style={{ color: "#94a3b8" }}>Chênh lệch:</span>
-            <span style={{ fontWeight: 600, color: data[hoverIdx].val2 > data[hoverIdx].val1 ? "#4ade80" : data[hoverIdx].val2 < data[hoverIdx].val1 ? "#f87171" : "white" }}>
-              {data[hoverIdx].val2 > data[hoverIdx].val1 ? "+" : ""}{fmtNum(data[hoverIdx].val2 - data[hoverIdx].val1)}
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -534,83 +573,6 @@ const COLORS = [
   "#0891b2", "#be123c", "#1d4ed8", "#b45309", "#4338ca",
   "#94a3b8" // for 'Khác'
 ];
-
-function StackedBarChart({ data, title, totalValue }: {
-  data: { label: string; value: number }[];
-  title: string;
-  totalValue: number;
-}) {
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-
-  if (!data.length || totalValue <= 0) return null;
-
-  const height = 40;
-  let currentX = 0;
-
-  return (
-    <div style={{ width: "100%", marginBottom: 16 }}>
-      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: "#334155" }}>{title}</div>
-      <div style={{ position: "relative" }}>
-        <svg width="100%" height={height} style={{ display: "block", borderRadius: 6, overflow: "hidden" }}>
-          {data.map((d, i) => {
-            const pct = (d.value / totalValue) * 100;
-            const w = `${pct}%`;
-            const x = `${currentX}%`;
-            currentX += pct;
-            
-            return (
-              <g 
-                key={i}
-                onMouseEnter={() => setHoverIdx(i)}
-                onMouseLeave={() => setHoverIdx(null)}
-                style={{ cursor: "pointer", transition: "opacity 0.2s" }}
-                opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.6}
-              >
-                <rect x={x} y={0} width={w} height={height} fill={COLORS[i % COLORS.length]} />
-                {pct >= 8 && (
-                  <text x={`${currentX - pct / 2}%`} y={height / 2 + 4} textAnchor="middle" fill="white" fontSize={11} fontWeight={600}>
-                    {pct.toFixed(1)}%
-                  </text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
-
-        {hoverIdx !== null && (
-          <div style={{
-            position: "absolute", zIndex: 10,
-            background: "rgba(15, 23, 42, 0.95)", color: "white",
-            padding: "8px 12px", borderRadius: 6, fontSize: 12,
-            pointerEvents: "none",
-            left: "50%", transform: "translateX(-50%)", top: height + 8,
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-            minWidth: 200, whiteSpace: "normal"
-          }}>
-            <div style={{ display: "flex", alignItems: "center", marginBottom: 4 }}>
-              <span style={{ width: 10, height: 10, background: COLORS[hoverIdx % COLORS.length], borderRadius: 2, marginRight: 8 }}></span>
-              <span style={{ fontWeight: 600, color: "#f8fafc" }}>{data[hoverIdx].label}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", color: "#cbd5e1", marginBottom: 2 }}>
-              <span>Giá trị:</span> <span style={{ fontWeight: 600, color: "white" }}>{fmtNum(data[hoverIdx].value)} VNĐ</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", color: "#cbd5e1" }}>
-              <span>Tỷ trọng:</span> <span style={{ fontWeight: 600, color: "white" }}>{fmtPercent((data[hoverIdx].value / totalValue) * 100)}</span>
-            </div>
-          </div>
-        )}
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", marginTop: 12 }}>
-        {data.map((d, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", fontSize: 11, color: "#475569" }}>
-            <span style={{ width: 8, height: 8, background: COLORS[i % COLORS.length], borderRadius: "50%", marginRight: 6 }}></span>
-            {shortLabel(d.label, 15)} ({((d.value / totalValue) * 100).toFixed(1)}%)
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, total2 }: {
   data1: { label: string; value: number }[];
@@ -807,7 +769,21 @@ export default function InventoryValueReportPage() {
   const [colFiltersProd, setColFiltersProd] = useState<Record<string, ColFilter>>({});
   const [sortColProd, setSortColProd] = useState<string | null>(null);
   const [sortDirProd, setSortDirProd] = useState<SortDir>(null);
+  const [activeInsightFilter, setActiveInsightFilter] = useState<string | null>(null);
   const [openPopupId, setOpenPopupId] = useState<string | null>(null);
+
+  const dayAfter = (d: string) => { 
+    if (!d) return "";
+    const x = new Date(d); 
+    x.setDate(x.getDate() + 1); 
+    return x.toLocaleDateString('sv-SE'); 
+  };
+
+  const getDaysAgo = (d: string, days: number) => {
+    const x = new Date(d);
+    x.setDate(x.getDate() - days);
+    return x.toLocaleDateString('sv-SE');
+  };
 
   /* ---- Column resizing ---- */
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
@@ -869,10 +845,11 @@ export default function InventoryValueReportPage() {
       function dayAfter(d: string) { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toLocaleDateString('sv-SE'); }
 
       if (reportMode === "current") {
-        // Dùng RPC (DB-side) thay vì JS buildStockRows để đảm bảo tính toán nhất quán
-        // với trang "Tồn kho hiện tại" và tránh lỗi off-by-one-day ở movements_end_date
-        const computedBounds = computeSnapshotBounds(qStart, qEnd, ops);
-        const baselineDate = computedBounds.S || qStart;
+        // Tối ưu cho Smart Insights: Lấy cửa sổ 30 ngày để phát hiện "Hàng đọng" (Dead Stock)
+        // ngay trong 1 lần gọi RPC.
+        const lookback30 = getDaysAgo(qEnd, 30);
+        const computedBounds = computeSnapshotBounds(lookback30, qEnd, ops);
+        const baselineDate = computedBounds.S || lookback30;
         const { data: rpcData, error: eRpc } = await supabase.rpc("inventory_calculate_report_v2", {
           p_baseline_date: baselineDate,
           p_movements_start_date: computedBounds.effectiveStart,
@@ -900,11 +877,11 @@ export default function InventoryValueReportPage() {
 
   /* ---- Raw Calculations ---- */
   const productData = useMemo(() => {
-    // Chế độ "current": dùng stockRowsFromRpc (DB RPC) — khớp với trang Tồn kho hiện tại
-    // Chế độ "compare": vẫn dùng buildStockRows JS với txs (không có gì thay đổi)
     const rows = reportMode === "current"
       ? stockRowsFromRpc
       : buildStockRows(bounds.S || qStart, bounds.effectiveStart, bounds.effectiveEnd, openings, txs);
+    
+    // Preliminary processing
     const results: ProdRow[] = [];
     for (const r of rows) {
       const p = productMap.get(r.product_id);
@@ -925,15 +902,37 @@ export default function InventoryValueReportPage() {
       results.push({
         product: p,
         customer_id: r.customer_id,
-        opening_qty: Number(r.opening_qty),
-        inbound_qty: Number(r.inbound_qty),
-        outbound_qty: Number(r.outbound_qty),
+        opening_qty: qOp,
+        inbound_qty: qIn,
+        outbound_qty: qOut,
         current_qty: curQty,
         inventory_value: curQty * (p.unit_price ?? 0)
       });
     }
-    return results;
-  }, [reportMode, stockRowsFromRpc, productMap, openings, txs, qCustomer, debouncedQProd, onlyInStock, qStart, qEnd, bounds]);
+
+    // Sort by value to calculate ABC 80/20 concentration
+    const sorted = [...results].sort((a,b) => b.inventory_value - a.inventory_value);
+    const totalVal = sorted.reduce((acc, r) => acc + r.inventory_value, 0);
+    let runningSum = 0;
+    const abcSet = new Set<string>();
+    for (const r of sorted) {
+      runningSum += r.inventory_value;
+      abcSet.add(`${r.product.id}_${r.customer_id || ""}`);
+      if (runningSum > totalVal * 0.8) break;
+    }
+
+    // Apply Smart Insight Filters
+    let final = results;
+    if (activeInsightFilter === "capital") {
+      final = final.filter(r => abcSet.has(`${r.product.id}_${r.customer_id || ""}`));
+    } else if (activeInsightFilter === "dead") {
+      final = final.filter(r => r.inbound_qty === 0 && r.outbound_qty === 0 && r.current_qty > 0);
+    } else if (activeInsightFilter === "no_price") {
+      final = final.filter(r => r.current_qty > 0 && (r.product.unit_price || 0) === 0);
+    }
+
+    return final;
+  }, [reportMode, stockRowsFromRpc, productMap, openings, txs, qCustomer, debouncedQProd, onlyInStock, qStart, qEnd, bounds, activeInsightFilter]);
 
   const overallTotals = useMemo(() => {
     let tVal = 0, tQty = 0, productsWithStock = 0;
@@ -996,9 +995,23 @@ export default function InventoryValueReportPage() {
     return { val1: v1, val2: v2, diff: v2 - v1, pct: v1 > 0 ? ((v2 - v1) / v1) * 100 : 0, cust1: c1.size, cust2: c2.size };
   }, [compareProductData]);
 
+  const compareProductDataFiltered = useMemo(() => {
+    let rows = compareProductData;
+    if (activeInsightFilter === "growth") {
+      rows = rows.filter(r => r.valDiff > 0 && r.val1 > 0 && (r.valDiff / r.val1) > 0.2);
+    } else if (activeInsightFilter === "reduction") {
+      rows = rows.filter(r => r.valDiff < 0 && r.val1 > 0 && (Math.abs(r.valDiff) / r.val1) > 0.2);
+    } else if (activeInsightFilter === "new") {
+      rows = rows.filter(r => r.val2 > 0 && r.val1 <= 0);
+    } else if (activeInsightFilter === "gone") {
+      rows = rows.filter(r => r.val1 > 0 && r.val2 <= 0);
+    }
+    return rows;
+  }, [compareProductData, activeInsightFilter]);
+
   const compareCustomerSummary = useMemo(() => {
     const cMap = new Map<string, CustRow & { p1_pct?: number; p2_pct?: number }>();
-    for (const r of compareProductData) {
+    for (const r of compareProductDataFiltered) {
       const cid = r.customer_id || "UNKNOWN";
       let curr = cMap.get(cid);
       if (!curr) { curr = { customer_id: r.customer_id, productCount: 0, qty: 0, value: 0, p1_value: 0, p2_value: 0, valDiff: 0 }; cMap.set(cid, curr); }
@@ -1011,11 +1024,11 @@ export default function InventoryValueReportPage() {
       const p1 = c.p1_value || 0, p2 = c.p2_value || 0;
       return { ...c, pctDiff: p1 !== 0 ? ((p2 - p1) / p1) * 100 : 0, p1_pct: compareTotals.val1 > 0 ? (p1 / compareTotals.val1) * 100 : 0, p2_pct: compareTotals.val2 > 0 ? (p2 / compareTotals.val2) * 100 : 0 };
     }).filter(x => (x.p1_value || 0) > 0 || (x.p2_value || 0) > 0 || !onlyInStock).sort((a, b) => (b.p2_value || 0) - (a.p2_value || 0));
-  }, [compareProductData, onlyInStock, compareTotals]);
+  }, [compareProductDataFiltered, onlyInStock, compareTotals]);
 
   const compareTopProducts = useMemo(() => {
-    return [...compareProductData].sort((a, b) => Math.abs(b.valDiff) - Math.abs(a.valDiff)).slice(0, topN).map((row, i) => ({ ...row, rank: i + 1 }));
-  }, [compareProductData, topN]);
+    return [...compareProductDataFiltered].sort((a, b) => Math.abs(b.valDiff) - Math.abs(a.valDiff)).slice(0, topN).map((row, i) => ({ ...row, rank: i + 1 }));
+  }, [compareProductDataFiltered, topN]);
 
   /* ---- Display Helpers ---- */
   function customerLabel(cId: string | null) {
@@ -1136,13 +1149,6 @@ export default function InventoryValueReportPage() {
     });
   };
 
-  /* ---- Header Cell Components ---- */
-
-
-  const activeCustFilters = Object.keys(colFiltersCust).length;
-  const activeProdFilters = Object.keys(colFiltersProd).length;
-  const activeFilterCount = activeCustFilters + activeProdFilters;
-
   /* ---- Export Excel ---- */
   function handleExport() {
     if (reportMode === "current") {
@@ -1199,37 +1205,24 @@ export default function InventoryValueReportPage() {
   }
 
   return (
-    <div className="page-root" ref={containerRef}>
-      <div className="page-header bg-white/80 backdrop-blur-md z-40 py-4 px-6 -mx-6 mb-6 border-b border-slate-200/60 shadow-sm text-slate-900">
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div className="w-10 h-10 rounded-xl bg-[#6366f1]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
-            📊
-          </div>
-          <div>
-            <h1 className="page-title">GIÁ TRỊ TỒN KHO</h1>
-            <p className="text-xs font-medium text-slate-500">Phân tích giá trị tồn kho và xếp hạng khách hàng, mã hàng</p>
-          </div>
+    <div className="page-root" style={{ padding: "24px 32px" }} ref={containerRef}>
+      <style>{customStyles}</style>
+      <div className="page-header" style={{ marginBottom: 32 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+           <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+             📦 Báo cáo Giá trị Tồn kho 
+             <span style={{ fontSize: 12, fontWeight: 500, padding: "4px 8px", background: "var(--brand-light)", color: "var(--brand)", borderRadius: 6, textTransform: "none", letterSpacing: "normal" }}>Premium Dashboard</span>
+           </h1>
+           <p style={{ fontSize: 13, color: "var(--slate-500)", margin: 0 }}>Góc nhìn toàn diện về dòng tiền và phân bổ hàng hóa trong kho</p>
         </div>
-
-        <div className="toolbar" style={{ margin: 0 }}>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button 
-              className="btn btn-outline" 
-              onClick={handleExport} 
-              disabled={loading || (reportMode === "current" ? displayTopProducts.length === 0 : displayCompareTopProducts.length === 0)}
-              style={{ display: "flex", alignItems: "center", gap: 6 }}
-            >
+        <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
+            <button className="btn btn-outline" onClick={handleExport} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
               Xuất Excel
             </button>
-            <button 
-              className="btn btn-primary" 
-              onClick={closeReport} 
-              disabled={closing || loading || productData.length === 0}
-            >
+            <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading || productData.length === 0}>
               {closing ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}
             </button>
-          </div>
         </div>
       </div>
 
@@ -1274,26 +1267,14 @@ export default function InventoryValueReportPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20, marginBottom: 32 }}>
         {reportMode === "current" ? (
           <>
-            <div className="stat-card brand !border-none !shadow-md hover:shadow-lg transition-all" style={{ borderLeft: "4px solid var(--brand)" }}>
-              <div className="stat-label">Tổng giá trị tồn kho</div>
-              <div className="stat-value" style={{ color: "var(--brand)" }}>{fmtNum(overallTotals.totalValue)} <small className="stat-unit">VNĐ</small></div>
-            </div>
-            <div className="stat-card secondary !border-none !shadow-md hover:shadow-lg transition-all" style={{ borderLeft: "4px solid var(--slate-400)" }}>
-              <div className="stat-label">Tổng số lượng tồn</div>
-              <div className="stat-value">{fmtNum(overallTotals.totalQty)}</div>
-            </div>
-            <div className="stat-card brand !border-none !shadow-md hover:shadow-lg transition-all" style={{ borderLeft: "4px solid var(--brand-light)" }}>
-              <div className="stat-label">Số mã còn tồn</div>
-              <div className="stat-value" style={{ color: "var(--brand)" }}>{fmtNum(overallTotals.productCount)}</div>
-            </div>
-            <div className="stat-card secondary !border-none !shadow-md hover:shadow-lg transition-all" style={{ borderLeft: "4px solid var(--slate-500)" }}>
-              <div className="stat-label">Số khách hàng</div>
-              <div className="stat-value">{fmtNum(overallTotals.customerCount)}</div>
-            </div>
+            <StatCardV2 label="Tổng giá trị tồn kho" value={overallTotals.totalValue} unit="VNĐ" color="crimson" icon="💰" />
+            <StatCardV2 label="Tổng số lượng tồn" value={overallTotals.totalQty} color="var(--slate-400)" icon="📦" />
+            <StatCardV2 label="Số mã còn tồn" value={overallTotals.productCount} color="var(--brand)" icon="🏷️" />
+            <StatCardV2 label="Số khách hàng" value={overallTotals.customerCount} color="var(--slate-500)" icon="👤" />
           </>
         ) : (
           <>
-            <SummaryCard title="Giá trị kho" v1={compareTotals.val1} v2={compareTotals.val2} diff={compareTotals.diff} bg="var(--brand-light)" accent="var(--brand)" />
+            <SummaryCard title="Giá trị kho" v1={compareTotals.val1} v2={compareTotals.val2} diff={compareTotals.diff} bg="var(--brand-light)" accent="var(--brand)" icon="📊" />
             <div className="stat-card secondary !border-none !shadow-md hover:shadow-lg transition-all" style={{ borderLeft: "4px solid var(--slate-400)" }}>
               <div className="stat-label">Số khách (Kỳ 1)</div>
               <div className="stat-value">{fmtNum(compareTotals.cust1)}</div>
@@ -1309,33 +1290,27 @@ export default function InventoryValueReportPage() {
       <div className="filter-panel" style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
           {reportMode === "current" ? (
-            <div style={{ display: "flex", gap: 12 }}>
-              <div style={{ width: 160 }}>
-                <label className="filter-label">Từ ngày</label>
-                <input type="date" className="input" value={qStart} onChange={e => setQStart(e.target.value)} />
-              </div>
-              <div style={{ width: 160 }}>
-                <label className="filter-label">Đến ngày</label>
-                <input type="date" className="input" value={qEnd} onChange={e => setQEnd(e.target.value)} />
-              </div>
+            <div style={{ width: 180 }}>
+              <label className="filter-label">Tính đến ngày</label>
+              <input type="date" className="input" value={qEnd} onChange={e => setQEnd(e.target.value)} />
             </div>
           ) : (
             <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
-              <div style={{ display: "flex", gap: 8, padding: "8px 12px", background: "var(--slate-50)", borderRadius: 6, alignItems: "center" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--slate-500)", width: 40 }}>Kỳ 1:</span>
-                <input type="date" className="input" style={{ width: 130 }} value={p1Start} onChange={e => setP1Start(e.target.value)} />
+              <div style={{ display: "flex", gap: 8, padding: "8px 12px", background: "var(--slate-50)", borderRadius: 6, alignItems: "center", border: "1px solid var(--slate-200)" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--slate-500)", width: 40, textTransform: "uppercase" }}>Kỳ 1:</span>
+                <input type="date" className="input" style={{ width: 130, padding: "6px 10px" }} value={p1Start} onChange={e => setP1Start(e.target.value)} />
                 <span style={{ color: "var(--slate-300)" }}>→</span>
-                <input type="date" className="input" style={{ width: 130 }} value={p1End} onChange={e => setP1End(e.target.value)} />
+                <input type="date" className="input" style={{ width: 130, padding: "6px 10px" }} value={p1End} onChange={e => setP1End(e.target.value)} />
               </div>
-              <div style={{ display: "flex", gap: 8, padding: "8px 12px", background: "var(--brand-light)", borderRadius: 6, alignItems: "center" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--brand)", width: 40 }}>Kỳ 2:</span>
-                <input type="date" className="input" style={{ width: 130 }} value={p2Start} onChange={e => setP2Start(e.target.value)} />
-                <span style={{ color: "var(--brand-light)" }}>→</span>
-                <input type="date" className="input" style={{ width: 130 }} value={p2End} onChange={e => setP2End(e.target.value)} />
+              <div style={{ display: "flex", gap: 8, padding: "8px 12px", background: "var(--brand-light)", borderRadius: 6, alignItems: "center", border: "1px solid var(--brand-glow)" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--brand)", width: 40, textTransform: "uppercase" }}>Kỳ 2:</span>
+                <input type="date" className="input" style={{ width: 130, padding: "6px 10px" }} value={p2Start} onChange={e => setP2Start(e.target.value)} />
+                <span style={{ color: "var(--brand-glow)" }}>→</span>
+                <input type="date" className="input" style={{ width: 130, padding: "6px 10px" }} value={p2End} onChange={e => setP2End(e.target.value)} />
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn btn-outline" style={{ padding: "4px 8px", fontSize: 11 }} onClick={applyPresetPreviousMonth}>Kỳ trước</button>
-                <button className="btn btn-outline" style={{ padding: "4px 8px", fontSize: 11 }} onClick={applyPresetSameMonthLastYear}>Cùng kỳ</button>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button className="btn btn-secondary btn-sm" style={{ padding: "8px 12px" }} onClick={applyPresetPreviousMonth}>Kỳ trước</button>
+                <button className="btn btn-secondary btn-sm" style={{ padding: "8px 12px" }} onClick={applyPresetSameMonthLastYear}>Cùng kỳ</button>
               </div>
             </div>
           )}
@@ -1378,19 +1353,107 @@ export default function InventoryValueReportPage() {
         </div>
       </div>
 
-      <div style={{ marginTop: 12, marginBottom: 20, fontSize: 13, color: "var(--slate-500)", display: "flex", gap: 16 }}>
-        {reportMode === "current" ? (
-          <>
-            <span><strong>Kỳ dữ liệu:</strong> Từ ngày {formatToVietnameseDate(bounds.effectiveStart)} đến ngày {formatToVietnameseDate(bounds.effectiveEnd)}</span>
-            {bounds.S && <span className="badge badge-outline">Mốc tồn: {formatToVietnameseDate(bounds.S)}</span>}
-          </>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-             <span><strong>Kỳ 1:</strong> {formatToVietnameseDate(bounds1.effectiveStart)} - {formatToVietnameseDate(bounds1.effectiveEnd)} {bounds1.S && `(Mốc tồn: ${formatToVietnameseDate(bounds1.S)})`}</span>
-             <span><strong>Kỳ 2:</strong> {formatToVietnameseDate(bounds2.effectiveStart)} - {formatToVietnameseDate(bounds2.effectiveEnd)} {bounds2.S && `(Mốc tồn: ${formatToVietnameseDate(bounds2.S)})`}</span>
-          </div>
-        )}
-      </div>
+      {/* ---- SMART INSIGHTS GRID (BENTO STYLE) ---- */}
+      <AnimatePresence>
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20, marginBottom: 24 }}
+        >
+          {reportMode === "current" ? (
+            <>
+              <InsightCard 
+                icon="💰" title="Vốn tập trung" subtitle="Top 80% vốn (Luật 80/20)" 
+                value={(() => {
+                  const sorted = [...(stockRowsFromRpc || [])].sort((a,b) => (Number(b.current_qty) * (productMap.get(b.product_id)?.unit_price || 0)) - (Number(a.current_qty) * (productMap.get(a.product_id)?.unit_price || 0)));
+                  const total = sorted.reduce((acc, r) => acc + (Number(r.current_qty) * (productMap.get(r.product_id)?.unit_price || 0)), 0);
+                  let sum = 0, count = 0;
+                  for(const r of sorted) { sum += (Number(r.current_qty) * (productMap.get(r.product_id)?.unit_price || 0)); count++; if (sum > total * 0.8) break; }
+                  return `${count} sản phẩm`;
+                })()} 
+                active={activeInsightFilter === "capital"}
+                color="crimson"
+                onClick={() => setActiveInsightFilter(f => f === "capital" ? null : "capital")}
+              />
+              <InsightCard 
+                icon="🧊" title="Hàng tồn đọng" subtitle="Không giao dịch > 30 ngày" 
+                value={`${(stockRowsFromRpc || []).filter(r => Number(r.inbound_qty) === 0 && Number(r.outbound_qty) === 0 && Number(r.current_qty) > 0).length} mã`}
+                active={activeInsightFilter === "dead"}
+                color="orange"
+                onClick={() => setActiveInsightFilter(f => f === "dead" ? null : "dead")}
+              />
+              <InsightCard 
+                icon="⚠️" title="Thiếu đơn giá" subtitle="Tồn kho nhưng giá = 0" 
+                value={`${(stockRowsFromRpc || []).filter(r => Number(r.current_qty) > 0 && (productMap.get(r.product_id)?.unit_price || 0) === 0).length} mã`}
+                active={activeInsightFilter === "no_price"}
+                color="#f59e0b"
+                onClick={() => setActiveInsightFilter(f => f === "no_price" ? null : "no_price")}
+              />
+              <InsightCard 
+                icon="🎯" title="Khách trọng điểm" subtitle="Phụ thuộc Top 3 khách" 
+                value={(() => {
+                  const sorted = [...baseCustomerSummary].sort((a,b) => b.value - a.value);
+                  const top3 = sorted.slice(0, 3).reduce((acc, c) => acc + c.value, 0);
+                  return overallTotals.totalValue > 0 ? ((top3 / overallTotals.totalValue) * 100).toFixed(1) + "% vốn" : "0%";
+                })()}
+                active={false}
+                color="#6366f1"
+                notClickable
+              />
+            </>
+          ) : (
+            <>
+              <InsightCard 
+                icon="🚀" title="Tăng vốn mạnh" subtitle="Giá trị tồn tăng > 20%" 
+                value={`${compareProductData.filter(r => r.valDiff > 0 && r.val1 > 0 && (r.valDiff / r.val1) > 0.2).length} mã`}
+                active={activeInsightFilter === "growth"}
+                color="crimson"
+                onClick={() => setActiveInsightFilter(f => f === "growth" ? null : "growth")}
+              />
+              <InsightCard 
+                icon="📉" title="Giải phóng kho" subtitle="Giảm tồn kho > 20%" 
+                value={`${compareProductData.filter(r => r.valDiff < 0 && r.val1 > 0 && (Math.abs(r.valDiff) / r.val1) > 0.2).length} mã`}
+                active={activeInsightFilter === "reduction"}
+                color="#10b981"
+                onClick={() => setActiveInsightFilter(f => f === "reduction" ? null : "reduction")}
+              />
+              <InsightCard 
+                icon="🆕" title="Mã hàng mới" subtitle="Mới phát sinh ở Kỳ 2" 
+                value={`${compareProductData.filter(r => r.val2 > 0 && r.val1 <= 0).length} mã`}
+                active={activeInsightFilter === "new"}
+                color="#06b6d4"
+                onClick={() => setActiveInsightFilter(f => f === "new" ? null : "new")}
+              />
+              <InsightCard 
+                icon="🛑" title="Hàng đã hết" subtitle="Hết hàng ở Kỳ 2" 
+                value={`${compareProductData.filter(r => r.val1 > 0 && r.val2 <= 0).length} mã`}
+                active={activeInsightFilter === "gone"}
+                color="#64748b"
+                onClick={() => setActiveInsightFilter(f => f === "gone" ? null : "gone")}
+              />
+            </>
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* ---- FILTER BAR ---- */}
+      {activeInsightFilter && (
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+          style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", background: "white", borderRadius: 10, border: "1px solid var(--brand-glow)", boxShadow: "var(--shadow-sm)" }}
+        >
+          <span style={{ fontSize: 13, color: "var(--slate-500)", fontWeight: 500 }}>Đang lọc thông minh:</span>
+          <span className="badge badge-brand" style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            {activeInsightFilter === "capital" && "Vốn tập trung (80/20)"}
+            {activeInsightFilter === "dead" && "Hàng tồn đọng (>30 ngày)"}
+            {activeInsightFilter === "no_price" && "Mã hàng chưa có giá"}
+            {activeInsightFilter === "growth" && "Dân số tăng vốn > 20%"}
+            {activeInsightFilter === "reduction" && "Giải phóng kho > 20%"}
+            {activeInsightFilter === "new" && "Mã hàng mới phát sinh"}
+            {activeInsightFilter === "gone" && "Mã hàng đã clear sạch"}
+          </span>
+          <button className="btn btn-clear-filter btn-sm" onClick={() => setActiveInsightFilter(null)} style={{ marginLeft: "auto" }}>Xóa lọc nhanh ❌</button>
+        </motion.div>
+      )}
 
       {loading ? (
         <div className="py-20 text-center color-slate font-medium">
@@ -1402,13 +1465,13 @@ export default function InventoryValueReportPage() {
           {/* ---- CHARTS SECTION ---- */}
           {(reportMode as string) === "current" ? (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-              <div className="filter-panel" style={{ padding: 20 }}>
-                <BarChart title="Top 10 mã hàng theo giá trị tồn" data={baseTopProducts.slice(0, 10).map(p => ({ label: p.product.sku, value: p.inventory_value }))} color="var(--brand)" />
+              <div className="page-section" style={{ padding: 24 }}>
+                <BarChart title="Top 10 mã hàng theo giá trị tồn" isRiskHeatmap data={baseTopProducts.slice(0, 10).map(p => ({ label: p.product.sku, value: p.inventory_value }))} />
               </div>
-              <div className="filter-panel" style={{ padding: 20 }}>
-                <BarChart title="Top 10 khách hàng theo giá trị tồn" data={baseCustomerSummary.slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.value }))} color="var(--color-success)" />
+              <div className="page-section" style={{ padding: 24 }}>
+                <BarChart title="Top 10 khách hàng theo giá trị tồn" isRiskHeatmap data={baseCustomerSummary.slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.value }))} />
               </div>
-              <div className="filter-panel" style={{ gridColumn: "span 2", padding: 20 }}>
+              <div className="page-section" style={{ gridColumn: "span 2", padding: 24 }}>
                 <StackedBarChart title="Cơ cấu giá trị tồn kho theo khách hàng (%)" totalValue={overallTotals.totalValue} data={(() => {
                   const sorted = [...baseCustomerSummary].sort((a,b) => b.value - a.value);
                   const top5 = sorted.slice(0, 5);
