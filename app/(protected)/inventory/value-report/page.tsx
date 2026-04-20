@@ -197,6 +197,95 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
 /* Shared components                                                   */
 /* ------------------------------------------------------------------ */
 
+function useCountAnimation(targetValue: number, speed = 1) {
+  const [displayValue, setDisplayValue] = useState(0);
+  useEffect(() => {
+    let start = 0; // Ensure it starts from 0 for the animation effect
+    const end = targetValue;
+    if (start === end) return;
+    let totalDuration = 800 * speed;
+    let startTime = performance.now();
+    const animate = (now: number) => {
+      let elapsed = now - startTime;
+      let progress = Math.min(elapsed / totalDuration, 1);
+      let easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+      setDisplayValue(Math.floor(start + (end - start) * easeProgress));
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, [targetValue, speed]);
+  return displayValue;
+}
+
+function Tabs({ items, activeId, onSelect }: { items: { id: string; label: string; icon?: string }[]; activeId: string; onSelect: (id: string) => void }) {
+  return (
+    <div className="mode-tabs" style={{ display: "flex", background: "var(--slate-100)", padding: 4, borderRadius: 10, border: "1px solid var(--slate-200)" }}>
+      {items.map(item => (
+        <button
+          key={item.id}
+          onClick={() => onSelect(item.id)}
+          style={{
+            padding: "8px 16px",
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 700,
+            border: "none",
+            cursor: "pointer",
+            background: activeId === item.id ? "white" : "transparent",
+            color: activeId === item.id ? "var(--brand)" : "var(--slate-500)",
+            boxShadow: activeId === item.id ? "var(--shadow-sm)" : "none",
+            transition: "all 0.2s var(--ease)",
+            display: "flex",
+            alignItems: "center",
+            gap: 6
+          }}
+        >
+          {item.icon && <span>{item.icon}</span>}
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function InsightCard({ icon, title, subtitle, value, active, onClick, color, notClickable }: { icon: string; title: string; subtitle: string; value: string; active: boolean; onClick?: () => void; color?: string; notClickable?: boolean }) {
+  return (
+    <div 
+      onClick={!notClickable ? onClick : undefined}
+      style={{
+        padding: "16px 20px",
+        background: active ? "white" : "rgba(255, 255, 255, 0.6)",
+        backdropFilter: "blur(8px)",
+        border: `1px solid ${active ? (color || "var(--brand)") : "var(--slate-200)"}`,
+        borderRadius: "var(--radius-lg)",
+        cursor: notClickable ? "default" : "pointer",
+        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        boxShadow: active ? `0 10px 25px -5px ${color || "var(--brand-glow)"}` : "var(--shadow-sm)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+        position: "relative",
+        overflow: "hidden",
+        transform: active ? "translateY(-4px)" : "none"
+      }}
+      className="group hover:shadow-md"
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+        <div style={{ fontSize: 22 }}>{icon}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</div>
+      </div>
+      <div style={{ fontSize: 11, color: "var(--slate-500)", fontWeight: 500 }}>{subtitle}</div>
+      <div style={{ fontSize: 20, fontWeight: 900, color: active ? (color || "var(--brand)") : "var(--slate-900)", marginTop: 4 }}>{value}</div>
+      {active && (
+        <motion.div 
+          layoutId="active-insight-ring"
+          style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 3, background: color || "var(--brand)" }}
+        />
+      )}
+    </div>
+  );
+}
+
 function StatCardV2({ label, value, icon, unit, color = "var(--brand)" }: { label: string; value: number; icon?: string; unit?: string; color?: string }) {
   const displayVal = useCountAnimation(value);
   return (
