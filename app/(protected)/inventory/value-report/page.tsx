@@ -1420,21 +1420,21 @@ export default function InventoryValueReportPage() {
               <div style={{ width: 180 }}>
                 <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>📅 Tính đến ngày</label>
                 <input type="date" className="input" value={qEnd} onChange={e => setQEnd(e.target.value)} style={{ borderRadius: 10 }} />
-                <div style={{ fontSize: 10, color: "var(--slate-400)", marginTop: 4, fontWeight: 500 }}>
-                  Anchor: {bounds.S ? `Snapshot ${bounds.S}` : "Hệ thống"}
+                <div style={{ fontSize: 10, color: "var(--slate-500)", marginTop: 4, fontWeight: 500 }}>
+                  {bounds.S ? `Tính từ mốc kiểm kê: ${formatToVietnameseDate(bounds.S)}` : "Hệ thống"}
                 </div>
               </div>
             ) : (
               <div style={{ display: "flex", gap: 16 }}>
                 <div style={{ width: 160 }}>
-                  <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--slate-500)" }}>📅 Kỳ 1 (Mốc chốt)</label>
+                  <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--slate-500)" }}>📅 Chọn Kỳ 1</label>
                   <input type="date" className="input" value={p1End} onChange={e => setP1End(e.target.value)} style={{ borderRadius: 10 }} />
-                  <div style={{ fontSize: 10, color: "var(--slate-400)", marginTop: 4, fontWeight: 500 }}>S: {bounds1.S || "N/A"}</div>
+                  <div style={{ fontSize: 10, color: "var(--slate-500)", marginTop: 4, fontWeight: 500 }}>{bounds1.S ? `Tính từ mốc kiểm kê: ${formatToVietnameseDate(bounds1.S)}` : ""}</div>
                 </div>
                 <div style={{ width: 160 }}>
-                  <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--brand)" }}>📅 Kỳ 2 (Mốc chốt)</label>
+                  <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--brand)" }}>📅 Chọn Kỳ 2</label>
                   <input type="date" className="input" value={p2End} onChange={e => setP2End(e.target.value)} style={{ borderRadius: 10, borderColor: "var(--brand-glow)" }} />
-                  <div style={{ fontSize: 10, color: "var(--brand-glow)", marginTop: 4, fontWeight: 500 }}>S: {bounds2.S || "N/A"}</div>
+                  <div style={{ fontSize: 10, color: "var(--brand-glow)", marginTop: 4, fontWeight: 500 }}>{bounds2.S ? `Tính từ mốc kiểm kê: ${formatToVietnameseDate(bounds2.S)}` : ""}</div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, justifyContent: "center" }}>
                    <button className="btn btn-secondary btn-sm" style={{ fontSize: 10, padding: "4px 8px" }} onClick={applyPresetPreviousMonth}>Tháng trước</button>
@@ -1454,8 +1454,8 @@ export default function InventoryValueReportPage() {
               </select>
             </div>
             <div style={{ flex: 1 }}>
-              <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>🔍 Tìm sản phẩm</label>
-              <input type="text" className="input" placeholder="SKU hoặc tên..." value={qProduct} onChange={e => setQProduct(e.target.value)} style={{ borderRadius: 10 }} />
+              <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--slate-500)" }}>🔍 Tìm sản phẩm</label>
+              <input type="text" className="input" placeholder="Mã hàng hoặc tên..." value={qProduct} onChange={e => setQProduct(e.target.value)} style={{ borderRadius: 10 }} />
             </div>
           </div>
 
@@ -1501,13 +1501,13 @@ export default function InventoryValueReportPage() {
           {reportMode === "current" ? (
             <>
               <InsightCard 
-                icon="💰" title="Vốn tập trung" subtitle="Top 80% vốn (Luật 80/20)" 
+                icon="💰" title="Vốn tập trung" subtitle="Chiếm 80% tổng giá trị kho hàng" 
                 value={(() => {
                   const sorted = [...(stockRowsFromRpc || [])].sort((a,b) => (Number(b.current_qty) * (productMap.get(b.product_id)?.unit_price || 0)) - (Number(a.current_qty) * (productMap.get(a.product_id)?.unit_price || 0)));
                   const total = sorted.reduce((acc, r) => acc + (Number(r.current_qty) * (productMap.get(r.product_id)?.unit_price || 0)), 0);
                   let sum = 0, count = 0;
                   for(const r of sorted) { sum += (Number(r.current_qty) * (productMap.get(r.product_id)?.unit_price || 0)); count++; if (sum > total * 0.8) break; }
-                  return `${count} sản phẩm`;
+                  return `${count} mã hàng`;
                 })()} 
                 active={activeInsightFilter === "capital"}
                 color="crimson"
@@ -1581,7 +1581,7 @@ export default function InventoryValueReportPage() {
         >
           <span style={{ fontSize: 13, color: "var(--slate-500)", fontWeight: 500 }}>Đang lọc thông minh:</span>
           <span className="badge badge-brand" style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            {activeInsightFilter === "capital" && "Vốn tập trung (80/20)"}
+            {activeInsightFilter === "capital" && "Chiếm 80% tổng giá trị kho hàng"}
             {activeInsightFilter === "dead" && "Hàng tồn đọng (>30 ngày)"}
             {activeInsightFilter === "no_price" && "Mã hàng chưa có giá"}
             {activeInsightFilter === "growth" && "Các mã có giá trị tồn tăng > 20%"}
