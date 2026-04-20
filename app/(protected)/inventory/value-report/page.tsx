@@ -768,6 +768,8 @@ export default function InventoryValueReportPage() {
   const [topN, setTopN] = useState<number>(20);
   const [txs1, setTxs1] = useState<InventoryTx[]>([]);
   const [txs2, setTxs2] = useState<InventoryTx[]>([]);
+  // RPC-based stock rows for "current" mode — ensures same calculation engine as "Tồn kho hiện tại" page
+  const [stockRowsFromRpc, setStockRowsFromRpc] = useState<any[]>([]);
 
   // O(1) Lookup Maps
   const productMap = useMemo(() => {
@@ -865,14 +867,22 @@ export default function InventoryValueReportPage() {
       setOpenings(ops);
 
       function dayAfter(d: string) { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toLocaleDateString('sv-SE'); }
-      let mCurr = qStart, m1 = p1Start, m2 = p2Start;
-      for (const o of ops) { const d = o.period_month.slice(0, 10); if (d < mCurr) mCurr = d; if (d < m1) m1 = d; if (d < m2) m2 = d; }
 
       if (reportMode === "current") {
-        const { data: txData, error: eT } = await supabase.from("inventory_transactions").select("*").gte("tx_date", mCurr).lt("tx_date", dayAfter(qEnd)).is("deleted_at", null);
-        if (eT) throw eT;
-        setTxs((txData ?? []) as InventoryTx[]);
+        // Dùng RPC (DB-side) thay vì JS buildStockRows để đảm bảo tính toán nhất quán
+        // với trang "Tồn kho hiện tại" và tránh lỗi off-by-one-day ở movements_end_date
+        const computedBounds = computeSnapshotBounds(qStart, qEnd, ops);
+        const baselineDate = computedBounds.S || qStart;
+        const { data: rpcData, error: eRpc } = await supabase.rpc("inventory_calculate_report_v2", {
+          p_baseline_date: baselineDate,
+          p_movements_start_date: computedBounds.effectiveStart,
+          p_movements_end_date: dayAfter(qEnd),
+        });
+        if (eRpc) throw eRpc;
+        setStockRowsFromRpc(rpcData ?? []);
       } else {
+        let m1 = p1Start, m2 = p2Start;
+        for (const o of ops) { const d = o.period_month.slice(0, 10); if (d < m1) m1 = d; if (d < m2) m2 = d; }
         const [t1, t2] = await Promise.all([
           supabase.from("inventory_transactions").select("*").gte("tx_date", m1).lt("tx_date", dayAfter(p1End)).is("deleted_at", null),
           supabase.from("inventory_transactions").select("*").gte("tx_date", m2).lt("tx_date", dayAfter(p2End)).is("deleted_at", null),
@@ -890,7 +900,11 @@ export default function InventoryValueReportPage() {
 
   /* ---- Raw Calculations ---- */
   const productData = useMemo(() => {
-    const rows = buildStockRows(bounds.S || qStart, bounds.effectiveStart, bounds.effectiveEnd, openings, txs);
+    // Chế độ "current": dùng stockRowsFromRpc (DB RPC) — khớp với trang Tồn kho hiện tại
+    // Chế độ "compare": vẫn dùng buildStockRows JS với txs (không có gì thay đổi)
+    const rows = reportMode === "current"
+      ? stockRowsFromRpc
+      : buildStockRows(bounds.S || qStart, bounds.effectiveStart, bounds.effectiveEnd, openings, txs);
     const results: ProdRow[] = [];
     for (const r of rows) {
       const p = productMap.get(r.product_id);
@@ -900,20 +914,21 @@ export default function InventoryValueReportPage() {
         const s = debouncedQProd.toLowerCase();
         if (!p.sku.toLowerCase().includes(s) && !p.name.toLowerCase().includes(s)) continue;
       }
-      if (onlyInStock && r.current_qty <= 0) continue;
-      if (r.current_qty <= 0) continue;
+      const curQty = Number(r.current_qty);
+      if (onlyInStock && curQty <= 0) continue;
+      if (curQty <= 0) continue;
       results.push({
         product: p,
         customer_id: p.customer_id,
-        opening_qty: r.opening_qty,
-        inbound_qty: r.inbound_qty,
-        outbound_qty: r.outbound_qty,
-        current_qty: r.current_qty,
-        inventory_value: r.current_qty * (p.unit_price ?? 0)
+        opening_qty: Number(r.opening_qty),
+        inbound_qty: Number(r.inbound_qty),
+        outbound_qty: Number(r.outbound_qty),
+        current_qty: curQty,
+        inventory_value: curQty * (p.unit_price ?? 0)
       });
     }
     return results;
-  }, [productMap, openings, txs, qCustomer, debouncedQProd, onlyInStock, qStart, qEnd, bounds]);
+  }, [reportMode, stockRowsFromRpc, productMap, openings, txs, qCustomer, debouncedQProd, onlyInStock, qStart, qEnd, bounds]);
 
   const overallTotals = useMemo(() => {
     let tVal = 0, tQty = 0, productsWithStock = 0;
