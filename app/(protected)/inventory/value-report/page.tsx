@@ -94,8 +94,20 @@ function fmtPercent(n: number): string {
   return n.toFixed(2) + "%";
 }
 
+function getDaysAgo(d: string, days: number): string {
+  const x = new Date(d);
+  x.setDate(x.getDate() - days);
+  return x.toLocaleDateString('sv-SE');
+}
+
+function dayAfterStr(d: string): string {
+  const x = new Date(d);
+  x.setDate(x.getDate() + 1);
+  return x.toLocaleDateString('sv-SE');
+}
+
 function calcPct(v: number, total: number): number {
-  if (total === 0) return 0;
+  if (!total || total === 0) return 0;
   return (v / total) * 100;
 }
 
@@ -772,7 +784,6 @@ export default function InventoryValueReportPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [openings, setOpenings] = useState<OpeningBalance[]>([]);
-  const [txs, setTxs] = useState<InventoryTx[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -788,7 +799,6 @@ export default function InventoryValueReportPage() {
   const prevMonthEnd = `${lastOfPrevMonth.getFullYear()}-${String(lastOfPrevMonth.getMonth() + 1).padStart(2, "0")}-${String(lastOfPrevMonth.getDate()).padStart(2, "0")}`;
 
   const [reportMode, setReportMode] = useState<"current" | "compare">("current");
-  const [qStart, setQStart] = useState(defStart);
   const [qEnd, setQEnd] = useState(defEnd);
   const [p1End, setP1End] = useState(prevMonthEnd);
   const [p2End, setP2End] = useState(defEnd);
@@ -919,8 +929,6 @@ export default function InventoryValueReportPage() {
       if (eO) throw eO;
       const ops = (openData ?? []) as OpeningBalance[];
       setOpenings(ops);
-
-      const dayAfterStr = (d: string) => { const x = new Date(d); x.setDate(x.getDate() + 1); return x.toLocaleDateString('sv-SE'); };
 
       if (reportMode === "current") {
         const lookback30 = getDaysAgo(qEnd, 30);
@@ -1312,9 +1320,9 @@ export default function InventoryValueReportPage() {
       const { data: ins, error: e1 } = await supabase.from("inventory_report_closures").insert({
         report_type: "inventory_value_report",
         title: `Giá trị tồn kho ${formatToVietnameseDate(bounds.effectiveStart)} -> ${formatToVietnameseDate(bounds.effectiveEnd)}`,
-        period_1_start: bounds.effectiveStart, period_1_end: bounds.effectiveEnd, baseline_snapshot_date_1: bounds.S || qStart,
+        period_1_start: bounds.effectiveStart, period_1_end: bounds.effectiveEnd, baseline_snapshot_date_1: bounds.S || bounds.effectiveStart,
         summary_json: { "Tổng giá trị tồn kho": overallTotals.totalValue, "Tổng số lượng": overallTotals.totalQty, "Số mã hàng": overallTotals.productCount, "Số khách hàng": overallTotals.customerCount },
-        filters_json: { qStart, qEnd, customer: qCustomer, product: qProduct, onlyInStock, topN },
+        filters_json: { qEnd, customer: qCustomer, product: qProduct, onlyInStock, topN },
       }).select("id").single();
       if (e1) throw e1;
       const custLines = displayCustomerSummary.map((c, i) => ({ closure_id: ins.id, line_type: "customer_summary", sort_order: i, customer_id: c.customer_id || null, row_json: { "khách hàng": customerLabel(c.customer_id), "số mã còn tồn": c.productCount, "tổng số lượng tồn": c.qty, "tổng giá trị tồn": c.value } }));
@@ -1758,11 +1766,11 @@ export default function InventoryValueReportPage() {
                       </>
                     ) : (
                       <>
-                        <ThCell label="Tồn K1" colKey="qty1" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
-                        <ThCell label="Tồn K2" colKey="qty2" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
-                        <ThCell label="Giá trị K1" colKey="val1" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
-                        <ThCell label="Giá trị K2" colKey="val2" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
-                        <ThCell label="CL Giá trị" colKey="valDiff" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
+                        <ThCell label="Tồn Kỳ 1" colKey="qty1" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
+                        <ThCell label="Tồn Kỳ 2" colKey="qty2" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
+                        <ThCell label="Giá trị Kỳ 1" colKey="val1" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
+                        <ThCell label="Giá trị Kỳ 2" colKey="val2" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
+                        <ThCell label="CHÊNH LỆCH Giá trị" colKey="valDiff" sortable isNum align="right" colFilters={colFiltersProd} setColFilters={setColFiltersProd} sortCol={sortColProd} sortDir={sortDirProd} onSort={key => { if(sortColProd===key) setSortDirProd(sortDirProd==="asc"?"desc":null); else {setSortColProd(key); setSortDirProd("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsProd} onResize={onResizeProd} popupPrefix="prod" glassHeader />
                       </>
                     )}
                   </tr>
