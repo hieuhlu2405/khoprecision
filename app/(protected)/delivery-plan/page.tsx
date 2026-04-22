@@ -833,7 +833,8 @@ export default function DeliveryPlanPage() {
         return;
       }
 
-      const { error } = await supabase.from("delivery_plans").upsert(upserts, { onConflict: 'plan_date, product_id, customer_id' });
+      // Phase 9: conflict key bao g\u1ed3m delivery_customer_id (m\u1eb7c \u0111\u1ecbnh NULL = giao t\u1ea1i C\u00f4ng ty M\u1eb9)
+      const { error } = await supabase.from("delivery_plans").upsert(upserts, { onConflict: 'plan_date, product_id, customer_id, delivery_customer_id' });
 
       if (error) throw error;
       showToast("Đã lưu kế hoạch & lưu ý thành công!", "success");
