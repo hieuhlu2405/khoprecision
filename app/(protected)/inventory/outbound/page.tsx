@@ -74,6 +74,7 @@ type FormLine = {
   qty: string;
   unitCost: string;
   note: string;
+  deliveryCustomerId: string; // NEW: điểm giao thực tế (Vendor con hoặc để trống = Mẹ)
 };
 
 /* ------------------------------------------------------------------ */
@@ -283,12 +284,21 @@ function DateFilterPopup({ filter, onChange, onClose }: { filter: DateFilter | n
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
 
+function getMonthRange() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
+  return { start: `${y}-${m}-01`, end: `${y}-${m}-${String(lastDay).padStart(2, "0")}` };
+}
+
 export default function InventoryOutboundPage() {
   const { showConfirm, showToast } = useUI();
   const [rows, setRows] = useState<OutboundTx[]>([]);
   const [adjRows, setAdjRows] = useState<AdjTx[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]); // Tất cả customers (Mẹ + Con)
+  const [allCustomers, setAllCustomers] = useState<(Customer & { parent_customer_id: string | null })[]>([]); // For vendor lookup
   const [q, setQ] = useState("");
   const debouncedQ = useDebounce(q, 300);
   const [qDate, setQDate] = useState("");
@@ -297,13 +307,17 @@ export default function InventoryOutboundPage() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [mounted, setMounted] = useState(false);
+  // Date range filter — mặc định tháng hiện tại (performance fix)
+  const defaultRange = getMonthRange();
+  const [filterDateStart, setFilterDateStart] = useState(defaultRange.start);
+  const [filterDateEnd, setFilterDateEnd] = useState(defaultRange.end);
 
   /* ---- multi-line create form state ---- */
   const [showCreate, setShowCreate] = useState(false);
   const [hDate, setHDate] = useState(getTodayVNStr());
   const [hNote, setHNote] = useState("");
   const [lines, setLines] = useState<FormLine[]>(() => [
-    { key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }
+    { key: nextKey(), productId: "", qty: "", unitCost: "", note: "", deliveryCustomerId: "" }
   ]);
   const [saving, setSaving] = useState(false);
 
@@ -622,7 +636,7 @@ export default function InventoryOutboundPage() {
   function resetCreateForm() {
     setHDate(getTodayVNStr());
     setHNote("");
-    setLines([{ key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }]);
+    setLines([{ key: nextKey(), productId: "", qty: "", unitCost: "", note: "", deliveryCustomerId: "" }]);
   }
 
   function handleCancelCreate() {
@@ -637,7 +651,7 @@ export default function InventoryOutboundPage() {
   }
 
   function addLine() {
-    setLines(p => [...p, { key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }]);
+    setLines(p => [...p, { key: nextKey(), productId: "", qty: "", unitCost: "", note: "", deliveryCustomerId: "" }]);
   }
 
   function removeLine(key: string) {
@@ -689,13 +703,19 @@ export default function InventoryOutboundPage() {
 
       const [rP, rC, rT, rA] = await Promise.all([
         supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null).order("sku"),
-        supabase.from("customers").select("id, code, name").is("deleted_at", null).order("code"),
-        supabase.from("inventory_transactions").select("*").eq("tx_type", "out").is("deleted_at", null).order("tx_date", { ascending: false }),
+        supabase.from("customers").select("id, code, name, parent_customer_id").is("deleted_at", null).order("code"),
+        // Performance fix: chỉ load tháng hiện tại thay vì toàn bộ lịch sử
+        supabase.from("inventory_transactions").select("*").eq("tx_type", "out").is("deleted_at", null)
+          .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd)
+          .order("tx_date", { ascending: false }),
         supabase.from("inventory_transactions").select("*").in("tx_type", ["adjust_in", "adjust_out"]).not("adjusted_from_transaction_id", "is", null).is("deleted_at", null)
+          .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd)
       ]);
       if (rP.error) throw rP.error;
       setProducts(rP.data || []);
-      setCustomers(rC.data || []);
+      const allCust = (rC.data || []) as (Customer & { parent_customer_id: string | null })[];
+      setAllCustomers(allCust);
+      setCustomers(allCust.filter(c => !c.parent_customer_id)); // Chỉ hiện Công ty Mẹ ở filter toolbar
       setRows(rT.data || []);
       setAdjRows(rA.data || []);
     } catch (err: any) {
@@ -705,7 +725,7 @@ export default function InventoryOutboundPage() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [filterDateStart, filterDateEnd]); // eslint-disable-line
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
@@ -732,6 +752,7 @@ export default function InventoryOutboundPage() {
         return {
           tx_date: hDate,
           customer_id: p?.customer_id,
+          delivery_customer_id: l.deliveryCustomerId || null, // NEW: điểm giao thực tế
           product_id: l.productId,
           product_name_snapshot: p?.name || "",
           product_spec_snapshot: p?.spec,
@@ -914,6 +935,7 @@ export default function InventoryOutboundPage() {
                 <th style={{ padding: "8px 0" }}>Sản phẩm / Khách hàng *</th>
                 <th style={{ width: 120 }}>Số lượng *</th>
                 <th style={{ width: 150 }}>Đơn giá</th>
+                <th style={{ width: 180 }}>Điểm giao (nếu có)</th>
                 <th style={{ width: 200, paddingLeft: 10 }}>Ghi chú riêng</th>
                 <th style={{ width: 40 }}></th>
               </tr>
@@ -958,8 +980,22 @@ export default function InventoryOutboundPage() {
                         </div>
                       )}
                    </td>
-                   <td style={{ padding: "4px" }}><input type="number" className="input text-center" value={l.qty} onChange={e => updateLine(l.key, "qty", e.target.value)} /></td>
+                    <td style={{ padding: "4px" }}><input type="number" className="input text-center" value={l.qty} onChange={e => updateLine(l.key, "qty", e.target.value)} /></td>
                    <td style={{ padding: "4px" }}><input type="number" className="input text-right" value={l.unitCost} onChange={e => updateLine(l.key, "unitCost", e.target.value)} placeholder="Mặc định" /></td>
+                   <td style={{ padding: "4px" }}>
+                     {/* Dropdown điểm giao: chỉ hiện nếu sản phẩm được chọn và công ty mẹ có vendor con */}
+                     {(() => {
+                       const prod = products.find(p => p.id === l.productId);
+                       const vendorOptions = prod ? allCustomers.filter(c => c.parent_customer_id === prod.customer_id) : [];
+                       if (vendorOptions.length === 0) return <span className="text-slate-300 text-xs italic px-2">Không có vendor</span>;
+                       return (
+                         <select className="input text-xs" value={l.deliveryCustomerId} onChange={e => updateLine(l.key, "deliveryCustomerId", e.target.value)}>
+                           <option value="">— Giao tại Công ty Mẹ</option>
+                           {vendorOptions.map(v => <option key={v.id} value={v.id}>{v.code} – {v.name}</option>)}
+                         </select>
+                       );
+                     })()}
+                   </td>
                    <td style={{ padding: "4px" }}><input type="text" className="input" value={l.note} onChange={e => updateLine(l.key, "note", e.target.value)} /></td>
                    <td style={{ padding: "4px", textAlign: "center" }}>
                       <button onClick={() => removeLine(l.key)} className="text-red-500 hover:scale-110 transition-transform">✕</button>
@@ -981,10 +1017,30 @@ export default function InventoryOutboundPage() {
       )}
 
       {/* FILTER BAR */}
-      <div className="toolbar shadow-sm" style={{ background: "#f8fafc", padding: "16px 20px", borderRadius: 12, marginBottom: 20, display: "flex", gap: 16, alignItems: "center", border: "1px solid #e2e8f0" }}>
-        <div style={{ position: "relative", flex: 1 }}>
+      <div className="toolbar shadow-sm" style={{ background: "#f8fafc", padding: "16px 20px", borderRadius: 12, marginBottom: 20, display: "flex", gap: 16, alignItems: "center", border: "1px solid #e2e8f0", flexWrap: "wrap" }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
           <span style={{ position: "absolute", left: 12, top: 10, color: "#94a3b8" }}>🔍</span>
           <input className="input" style={{ paddingLeft: 36 }} placeholder="Tìm nhanh theo SKU, Tên hàng..." value={q} onChange={e => setQ(e.target.value)} />
+        </div>
+        {/* DATE RANGE MONTH NAVIGATOR */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, background: "white", border: "1px solid #e2e8f0", borderRadius: 10, padding: "4px 10px" }}>
+          <button className="btn btn-ghost btn-sm" style={{ padding: "2px 8px", fontSize: 16 }} title="Tháng trước" onClick={() => {
+            const d = new Date(filterDateStart);
+            d.setMonth(d.getMonth() - 1);
+            const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, "0");
+            const last = new Date(y, d.getMonth() + 1, 0).getDate();
+            setFilterDateStart(`${y}-${m}-01`); setFilterDateEnd(`${y}-${m}-${String(last).padStart(2, "0")}`);
+          }}>‹</button>
+          <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+            {new Date(filterDateStart).toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}
+          </span>
+          <button className="btn btn-ghost btn-sm" style={{ padding: "2px 8px", fontSize: 16 }} title="Tháng sau" onClick={() => {
+            const d = new Date(filterDateStart);
+            d.setMonth(d.getMonth() + 1);
+            const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, "0");
+            const last = new Date(y, d.getMonth() + 1, 0).getDate();
+            setFilterDateStart(`${y}-${m}-01`); setFilterDateEnd(`${y}-${m}-${String(last).padStart(2, "0")}`);
+          }}>›</button>
         </div>
         <input type="date" className="input" style={{ width: 160 }} value={qDate} onChange={e => setQDate(e.target.value)} />
         <select className="select input" style={{ width: 220 }} value={qCustomer} onChange={e => setQCustomer(e.target.value)}>

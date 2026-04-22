@@ -304,6 +304,16 @@ export default function InventoryInboundPage() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [mounted, setMounted] = useState(false);
+  // Date range filter — mặc định tháng hiện tại (performance fix)
+  const [filterDateStart, setFilterDateStart] = useState(() => {
+    const now = new Date(); const y = now.getFullYear(); const m = String(now.getMonth()+1).padStart(2,"0");
+    return `${y}-${m}-01`;
+  });
+  const [filterDateEnd, setFilterDateEnd] = useState(() => {
+    const now = new Date(); const y = now.getFullYear(); const m = now.getMonth();
+    const last = new Date(y, m+1, 0).getDate();
+    return `${y}-${String(m+1).padStart(2,"0")}-${String(last).padStart(2,"0")}`;
+  });
 
   /* ---- multi-line create form state ---- */
   const [showCreate, setShowCreate] = useState(false);
@@ -696,8 +706,12 @@ export default function InventoryInboundPage() {
       const [rP, rC, rT, rA] = await Promise.all([
         supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null).order("sku"),
         supabase.from("customers").select("id, code, name").is("deleted_at", null).order("code"),
-        supabase.from("inventory_transactions").select("*").eq("tx_type", "in").is("deleted_at", null).order("tx_date", { ascending: false }),
+        // Performance fix: chỉ load tháng hiện tại
+        supabase.from("inventory_transactions").select("*").eq("tx_type", "in").is("deleted_at", null)
+          .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd)
+          .order("tx_date", { ascending: false }),
         supabase.from("inventory_transactions").select("*").in("tx_type", ["adjust_in", "adjust_out"]).not("adjusted_from_transaction_id", "is", null).is("deleted_at", null)
+          .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd)
       ]);
       if (rP.error) throw rP.error;
       setProducts(rP.data || []);
@@ -711,7 +725,7 @@ export default function InventoryInboundPage() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [filterDateStart, filterDateEnd]); // eslint-disable-line
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
@@ -987,10 +1001,28 @@ export default function InventoryInboundPage() {
       )}
 
       {/* FILTER BAR */}
-      <div className="toolbar shadow-sm" style={{ background: "#f8fafc", padding: "16px 20px", borderRadius: 12, marginBottom: 20, display: "flex", gap: 16, alignItems: "center", border: "1px solid #e2e8f0" }}>
-        <div style={{ position: "relative", flex: 1 }}>
+      <div className="toolbar shadow-sm" style={{ background: "#f8fafc", padding: "16px 20px", borderRadius: 12, marginBottom: 20, display: "flex", gap: 16, alignItems: "center", border: "1px solid #e2e8f0", flexWrap: "wrap" }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
           <span style={{ position: "absolute", left: 12, top: 10, color: "#94a3b8" }}>🔍</span>
           <input className="input" style={{ paddingLeft: 36 }} placeholder="Tìm nhanh theo SKU, Tên hàng..." value={q} onChange={e => setQ(e.target.value)} />
+        </div>
+        {/* DATE RANGE MONTH NAVIGATOR */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, background: "white", border: "1px solid #e2e8f0", borderRadius: 10, padding: "4px 10px" }}>
+          <button className="btn btn-ghost btn-sm" style={{ padding: "2px 8px", fontSize: 16 }} onClick={() => {
+            const d = new Date(filterDateStart); d.setMonth(d.getMonth()-1);
+            const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,"0");
+            const last = new Date(y, d.getMonth()+1, 0).getDate();
+            setFilterDateStart(`${y}-${m}-01`); setFilterDateEnd(`${y}-${m}-${String(last).padStart(2,"0")}`);
+          }}>‹</button>
+          <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+            {new Date(filterDateStart).toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}
+          </span>
+          <button className="btn btn-ghost btn-sm" style={{ padding: "2px 8px", fontSize: 16 }} onClick={() => {
+            const d = new Date(filterDateStart); d.setMonth(d.getMonth()+1);
+            const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,"0");
+            const last = new Date(y, d.getMonth()+1, 0).getDate();
+            setFilterDateStart(`${y}-${m}-01`); setFilterDateEnd(`${y}-${m}-${String(last).padStart(2,"0")}`);
+          }}>›</button>
         </div>
         <input type="date" className="input" style={{ width: 160 }} value={qDate} onChange={e => setQDate(e.target.value)} />
         <select className="select input" style={{ width: 220 }} value={qCustomer} onChange={e => setQCustomer(e.target.value)}>

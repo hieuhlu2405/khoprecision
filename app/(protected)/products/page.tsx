@@ -499,10 +499,13 @@ export default function ProductsPage() {
       const { data: pData } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).single();
       if (pData) setProfile(pData as Profile);
 
+      // Chỉ load Công ty Mẹ (parent_customer_id IS NULL)
+      // Vendor con tự động thừa hưởng mã hàng của Mẹ — không cần gán riêng
       const { data: cust, error: e1 } = await supabase
         .from("customers")
         .select("id,code,name")
         .is("deleted_at", null)
+        .is("parent_customer_id", null)
         .order("name", { ascending: true });
 
       if (e1) throw e1;
