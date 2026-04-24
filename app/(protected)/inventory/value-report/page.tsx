@@ -624,7 +624,7 @@ function BarChart({ data, title, isRiskHeatmap = false, minHeight = 220 }: {
   );
 }
 
-function StackedBarChart({ data, totalValue, title }: { data: { label: string; value: number }[]; totalValue: number; title: string }) {
+function StackedBarChart({ data, totalValue, title }: { data: { label: string; value: number; color?: string }[]; totalValue: number; title: string }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   
   const colors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
@@ -647,7 +647,7 @@ function StackedBarChart({ data, totalValue, title }: { data: { label: string; v
               onMouseLeave={() => setHoverIdx(null)}
               style={{
                 width: `${pct}%`,
-                background: colors[i % colors.length],
+                background: d.color || colors[i % colors.length],
                 height: "100%",
                 transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                 cursor: "pointer",
@@ -676,9 +676,9 @@ function StackedBarChart({ data, totalValue, title }: { data: { label: string; v
       <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", marginTop: 16 }}>
         {data.map((d, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, opacity: hoverIdx === null || hoverIdx === i ? 1 : 0.5, transition: "opacity 0.2s" }}>
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: colors[i % colors.length] }} />
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: d.color || colors[i % colors.length] }} />
             <span style={{ fontWeight: 600, color: "var(--slate-700)" }}>{d.label}:</span>
-            <span style={{ color: colors[i % colors.length === 0 ? 0 : 3], fontWeight: 700 }}>{((d.value/totalValue)*100).toFixed(1)}%</span>
+            <span style={{ color: d.color || colors[i % colors.length], fontWeight: 700 }}>{((d.value/totalValue)*100).toFixed(1)}%</span>
           </div>
         ))}
       </div>
@@ -756,8 +756,8 @@ function ClusteredBarChart({ data, title, label1, label2, color1 = "#94a3b8", co
 }
 
 function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, total2 }: {
-  data1: { label: string; value: number }[];
-  data2: { label: string; value: number }[];
+  data1: { label: string; value: number; color?: string }[];
+  data2: { label: string; value: number; color?: string }[];
   title: string;
   label1: string;
   label2: string;
@@ -771,7 +771,7 @@ function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, t
 
   const barHeight = 36;
   
-  const renderBarRow = (seriesIdx: number, seriesLabel: string, data: { label: string; value: number }[], total: number) => {
+  const renderBarRow = (seriesIdx: number, seriesLabel: string, data: { label: string; value: number; color?: string }[], total: number) => {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ width: 50, fontSize: 11, fontWeight: 700, color: "var(--slate-500)", textAlign: "right", textTransform: "uppercase" }}>{seriesLabel}</div>
@@ -787,7 +787,7 @@ function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, t
                 onMouseLeave={() => setHoverIdx(null)}
                 style={{
                   width: `${pct}%`,
-                  background: colors[i % colors.length],
+                  background: d.color || colors[i % colors.length],
                   height: "100%",
                   transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                   cursor: "pointer",
@@ -831,7 +831,7 @@ function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, t
           
           return (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, opacity: !hoverIdx || isHovered ? 1 : 0.5, transition: "opacity 0.2s" }}>
-              <span style={{ width: 10, height: 10, borderRadius: 3, background: colors[i % colors.length] }} />
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: (d1?.color || d2?.color) || colors[i % colors.length] }} />
               <span style={{ fontWeight: 600, color: "var(--slate-700)" }}>{lbl}:</span>
               <span style={{ color: "var(--brand)", fontWeight: 700 }}>{pct1.toFixed(1)}% vs {pct2.toFixed(1)}%</span>
             </div>
@@ -1763,8 +1763,8 @@ export default function InventoryValueReportPage() {
                     const sorted = [...baseCustomerSummary].sort((a,b) => b.value - a.value);
                     const top5 = sorted.slice(0, 5);
                     const restSum = sorted.slice(5).reduce((acc, c) => acc + c.value, 0);
-                    const chartData = top5.map(c => ({ label: customerLabel(c.customer_id), value: c.value }));
-                    if (restSum > 0) chartData.push({ label: "Khác", value: restSum });
+                    const chartData: { label: string; value: number; color?: string }[] = top5.map(c => ({ label: customerLabel(c.customer_id), value: c.value }));
+                    if (restSum > 0) chartData.push({ label: "Khác", value: restSum, color: "#cbd5e1" });
                     return chartData;
                   })()} 
                 />
@@ -1784,16 +1784,16 @@ export default function InventoryValueReportPage() {
                     const sorted = [...compareCustomerSummary].sort((a,b) => (b.p1_value || 0) - (a.p1_value || 0));
                     const top5 = sorted.slice(0, 5);
                     const rest = sorted.slice(5).reduce((acc, c) => acc + (c.p1_value || 0), 0);
-                    const res = top5.map(c => ({ label: customerLabel(c.customer_id), value: c.p1_value || 0 }));
-                    if (rest > 0) res.push({ label: "Khác", value: rest });
+                    const res: { label: string; value: number; color?: string }[] = top5.map(c => ({ label: customerLabel(c.customer_id), value: c.p1_value || 0 }));
+                    if (rest > 0) res.push({ label: "Khác", value: rest, color: "#cbd5e1" });
                     return res;
                   })()}
                   data2={(() => {
                     const sorted1 = [...compareCustomerSummary].sort((a,b) => (b.p1_value || 0) - (a.p1_value || 0));
                     const topIds = new Set(sorted1.slice(0, 5).map(c => c.customer_id));
-                    const res = sorted1.slice(0, 5).map(c => ({ label: customerLabel(c.customer_id), value: c.p2_value || 0 }));
+                    const res: { label: string; value: number; color?: string }[] = sorted1.slice(0, 5).map(c => ({ label: customerLabel(c.customer_id), value: c.p2_value || 0 }));
                     const rest = compareCustomerSummary.filter(c => !topIds.has(c.customer_id)).reduce((acc, c) => acc + (c.p2_value||0), 0);
-                    if (rest > 0) res.push({ label: "Khác", value: rest });
+                    if (rest > 0) res.push({ label: "Khác", value: rest, color: "#cbd5e1" });
                     return res;
                   })()}
                 />
@@ -1810,7 +1810,7 @@ export default function InventoryValueReportPage() {
               <table className="data-table !border-separate !border-spacing-0 overflow-visible" style={{ minWidth: 1000 }}>
                 <thead>
                   <tr>
-                    <th style={{ ...thStyle, textAlign: "center", width: 50, position: "sticky", top: 0, zIndex: 60, color: "var(--slate-900)" }} className="glass-header text-center">STT</th>
+                    <th style={{ ...thStyle, textAlign: "center", width: 50, position: "sticky", top: 0, zIndex: 60, color: "var(--slate-900)" }} className="glass-header text-center">Hạng</th>
                     <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} colFilters={colFiltersCust} setColFilters={setColFiltersCust} sortCol={sortColCust} sortDir={sortDirCust} onSort={key => { if(sortColCust===key) setSortDirCust(sortDirCust==="asc"?"desc":null); else {setSortColCust(key); setSortDirCust("asc");} }} openPopupId={openPopupId} setOpenPopupId={setOpenPopupId} colWidths={colWidthsCust} onResize={onResizeCust} popupPrefix="cust" glassHeader />
                     {reportMode === "current" ? (
                       <>
@@ -1836,7 +1836,7 @@ export default function InventoryValueReportPage() {
                       <tr><td colSpan={6} className="py-20 text-center opacity-40 italic">Không có dữ liệu.</td></tr>
                     ) : displayCustomerSummary.map((c, i) => (
                       <tr key={c.customer_id || `u1-${i}`} className="hover:bg-brand/[0.02] transition-colors odd:bg-white even:bg-slate-50/30">
-                        <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
+                        <td style={{ ...tdStyle, textAlign: "center", fontWeight: 700, color: (i + 1) <= 3 ? "var(--color-danger)" : "inherit" }}>#{i + 1}</td>
                         <td style={{ ...tdStyle, fontWeight: 600 }}>{customerLabel(c.customer_id)}</td>
                         <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.productCount)}</td>
                         <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.qty)}</td>
@@ -1853,7 +1853,7 @@ export default function InventoryValueReportPage() {
                       <tr><td colSpan={7} className="py-20 text-center opacity-40 italic">Không có dữ liệu so sánh.</td></tr>
                     ) : compareCustomerSummary.map((c, i) => (
                       <tr key={c.customer_id || `u2-${i}`} className="hover:bg-brand/[0.02] transition-colors odd:bg-white even:bg-slate-50/30">
-                        <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
+                        <td style={{ ...tdStyle, textAlign: "center", fontWeight: 700, color: (i + 1) <= 3 ? "var(--color-danger)" : "inherit" }}>#{i + 1}</td>
                         <td style={{ ...tdStyle, fontWeight: 600 }}>{customerLabel(c.customer_id)}</td>
                         <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.productCount)}</td>
                         <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.p1_value || 0)}</td>
