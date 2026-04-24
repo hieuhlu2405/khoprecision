@@ -239,6 +239,11 @@ export default function ShortageReportPage() {
       list.sort((a, b) => {
         if (sortCol === "sku") return a.p.sku.localeCompare(b.p.sku) * dir;
         if (sortCol === "name") return a.p.name.localeCompare(b.p.name) * dir;
+        if (sortCol === "customer") {
+          const cA = customers.find(x => x.id === a.p.customer_id);
+          const cB = customers.find(x => x.id === b.p.customer_id);
+          return (cA?.code || "").localeCompare(cB?.code || "") * dir;
+        }
         if (sortCol === "stock") return (a.currentStock - b.currentStock) * dir;
         if (sortCol === "max_shortage") return (a.maxShortage - b.maxShortage) * dir;
         return 0;
@@ -382,7 +387,7 @@ export default function ShortageReportPage() {
               <tr style={{ display: "flex", width: "100%" }}>
                 <ThCell label="Mã hàng" colKey="sku" sortable sticky w="200px" />
                 <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="300px" />
-                <ThCell label="Khách hàng" colKey="customer" w="130px" align="center" />
+                <ThCell label="Khách hàng" colKey="customer" sortable w="130px" align="center" />
                 <ThCell label="Ghi chú 1" colKey="note1" w="150px" />
                 <ThCell label="Ghi chú 2" colKey="note2" w="150px" />
                 <ThCell label="TỒN KHO" colKey="stock" sortable w="120px" align="right" isNum />

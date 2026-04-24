@@ -928,8 +928,8 @@ export default function DeliveryPlanPage() {
         else if (sortCol === "customer") {
           const cA = customers.find(x => x.id === a.customer_id);
           const cB = customers.find(x => x.id === b.customer_id);
-          valA = cA ? cA.name : "";
-          valB = cB ? cB.name : "";
+          valA = cA ? cA.code : "";
+          valB = cB ? cB.code : "";
         }
         return valA.localeCompare(valB) * dir;
       });
@@ -961,14 +961,23 @@ export default function DeliveryPlanPage() {
 
       const combinedVendorIds = new Set([...vendorIdsWithPlans, ...childVendors.map(c => c.id)]);
       
+      const vendorRowsForProduct: { vId: string; cv: { id: string; code: string; name: string } }[] = [];
       combinedVendorIds.forEach(vId => {
         if (!vId) return;
-        
-        // Cực kỳ quan trọng: Nếu id của vendor ko còn nằm trong danh sách customers (vd như đã bị xoá thủ công)
-        // thì không hiển thị dòng đó ra Kế hoạch giao hàng nữa.
         const cv = customers.find(c => c.id === vId);
         if (!cv) return;
+        vendorRowsForProduct.push({ vId, cv: cv as any });
+      });
 
+      // Áp dụng luật sắp xếp của Mẹ cho các Vendor con bên trong
+      vendorRowsForProduct.sort((a, b) => {
+        const codeA = a.cv.code || "";
+        const codeB = b.cv.code || "";
+        const dir = (sortCol === "customer" && sortDir === "desc") ? -1 : 1;
+        return codeA.localeCompare(codeB) * dir;
+      });
+
+      vendorRowsForProduct.forEach(({ vId, cv }) => {
         rows.push({
           id: `${p.id}_${vId}`,
           p,
