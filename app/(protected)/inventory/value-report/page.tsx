@@ -581,13 +581,10 @@ function BarChart({ data, title, isRiskHeatmap = false, minHeight = 220 }: {
   const marginRight = 60;
   const height = Math.max(minHeight, data.length * rowHeight + marginTop + marginBottom);
 
-  // Risk heatmap colors: Crimson -> Orange -> Amber -> Slate
   const getRiskColor = (idx: number) => {
     if (!isRiskHeatmap) return "var(--brand)";
-    if (idx === 0) return "crimson";
-    if (idx === 1) return "orange";
-    if (idx === 2) return "#f59e0b"; // Amber
-    return "#94a3b8"; // Slate
+    const rankColors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
+    return rankColors[idx % rankColors.length];
   };
   
   return (
@@ -630,8 +627,7 @@ function BarChart({ data, title, isRiskHeatmap = false, minHeight = 220 }: {
 function StackedBarChart({ data, totalValue, title }: { data: { label: string; value: number }[]; totalValue: number; title: string }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   
-  // Refined categorical palette for better contrast
-  const colors = ["crimson", "orange", "#f59e0b", "#4338ca", "#0891b2", "#94a3b8"];
+  const colors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
 
   return (
     <div style={{ width: "100%" }}>
@@ -769,7 +765,7 @@ function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, t
   total2: number;
 }) {
   const [hoverIdx, setHoverIdx] = useState<{ series: number, idx: number } | null>(null);
-  const colors = ["crimson", "orange", "#f59e0b", "#4338ca", "#0891b2", "#94a3b8"];
+  const colors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
 
   if ((!data1.length && !data2.length) || (total1 <= 0 && total2 <= 0)) return null;
 
@@ -1747,14 +1743,14 @@ export default function InventoryValueReportPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
               <div className="page-section" style={{ padding: 24 }}>
                 <BarChart 
-                  title={`Top 10 mã hàng theo giá trị${activeInsightFilter ? ` (${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"})` : ""}`} 
+                  title={`Top 10 mã hàng theo giá trị tồn kho${activeInsightFilter ? ` (${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"})` : ""}`} 
                   isRiskHeatmap 
                   data={baseTopProducts.slice(0, 10).map(p => ({ label: p.product.sku, value: p.inventory_value }))} 
                 />
               </div>
               <div className="page-section" style={{ padding: 24 }}>
                 <BarChart 
-                  title={`Top 10 khách hàng theo giá trị${activeInsightFilter ? ` (${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"})` : ""}`} 
+                  title={`Top 10 khách hàng theo giá trị tồn kho${activeInsightFilter ? ` (${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"})` : ""}`} 
                   isRiskHeatmap 
                   data={baseCustomerSummary.slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.value }))} 
                 />
