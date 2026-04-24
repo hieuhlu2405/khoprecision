@@ -956,26 +956,29 @@ export default function DeliveryPlanPage() {
       const pPlans = plans.filter(pl => pl.product_id === p.id && pl.delivery_customer_id !== null);
       const vendorIdsWithPlans = new Set(pPlans.map(pl => pl.delivery_customer_id));
       
-      // Các vendor do người dùng vừa ấn thêm (+)
-      const expPrefix = p.id + "_";
-      const explicitIds = Array.from(addedVendorRows)
-        .filter(key => key.startsWith(expPrefix))
-        .map(key => key.replace(expPrefix, ""));
+      // Các vendor thuộc quản lý của mẹ (auto-expand)
+      const childVendors = customers.filter(c => c.parent_customer_id === p.customer_id);
 
-      const combinedVendorIds = new Set([...vendorIdsWithPlans, ...explicitIds]);
+      const combinedVendorIds = new Set([...vendorIdsWithPlans, ...childVendors.map(c => c.id)]);
       
       combinedVendorIds.forEach(vId => {
         if (!vId) return;
+        
+        // Cực kỳ quan trọng: Nếu id của vendor ko còn nằm trong danh sách customers (vd như đã bị xoá thủ công)
+        // thì không hiển thị dòng đó ra Kế hoạch giao hàng nữa.
+        const cv = customers.find(c => c.id === vId);
+        if (!cv) return;
+
         rows.push({
           id: `${p.id}_${vId}`,
           p,
           deliveryCustomerId: vId,
-          vendorName: customers.find(c => c.id === vId)?.name || 'Không xác định'
+          vendorName: cv.name
         });
       });
     });
     return rows;
-  }, [displayProducts, plans, addedVendorRows, customers]);
+  }, [displayProducts, plans, customers]);
 
   const rowVirtualizer = useVirtualizer({
     count: tableRows.length,
@@ -1309,26 +1312,6 @@ export default function DeliveryPlanPage() {
                       <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0 group/cust relative flex flex-col justify-center" style={{ width: colWidths['customer'] || 140, flexBasis: colWidths['customer'] || 140 }}>
                         <div className="text-slate-500 font-medium text-[13px] uppercase truncate flex items-center gap-1 justify-center relative">
                           {c?.code || "-"}
-                          {isParentRow && hasVendors && (
-                            <div className="dropdown dropdown-hover absolute right-0">
-                              <label tabIndex={0} className="w-4 h-4 rounded bg-indigo-100 text-indigo-600 flex items-center justify-center cursor-pointer hover:bg-indigo-500 hover:text-white transition-colors opacity-0 group-hover/cust:opacity-100">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                              </label>
-                              <ul tabIndex={0} className="dropdown-content menu p-2 shadow-xl bg-white rounded-xl w-48 z-[200] border border-slate-100 left-full top-0 ml-1">
-                                <li className="menu-title px-2 py-1 text-[10px] uppercase font-black tracking-widest text-slate-400">Thêm điểm giao</li>
-                                {customers.filter(x => x.parent_customer_id === p.customer_id).map(cv => (
-                                  <li key={cv.id}>
-                                    <button 
-                                      className="text-[11px] font-bold whitespace-nowrap text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 leading-tight block w-full px-2 py-1.5 rounded transition-colors text-left"
-                                      onClick={() => setAddedVendorRows(prev => { const n = new Set(prev); n.add(p.id + "_" + cv.id); return n; })}
-                                    >
-                                      {cv.name}
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
                         </div>
                         <div className="text-[9px] text-slate-400 font-medium uppercase tracking-wider truncate text-center" title={c?.name}>{c?.name}</div>
                         {!isParentRow && <div className="text-[8px] bg-indigo-50 text-indigo-500 rounded px-1 absolute top-1 -left-1 font-black uppercase shadow-sm rotate-[-9deg]">Vendor</div>}
