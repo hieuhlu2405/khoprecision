@@ -13,7 +13,7 @@ import { getVNTimeNow } from "@/lib/date-utils";
 
 type Product = { id: string; sku: string; name: string; spec: string | null; customer_id: string | null };
 type Customer = { id: string; code: string; name: string; parent_customer_id: string | null };
-type Plan = { id: string; product_id: string; customer_id: string | null; plan_date: string; planned_qty: number; actual_qty: number; backlog_qty?: number };
+type Plan = { id: string; product_id: string; customer_id: string | null; delivery_customer_id?: string | null; plan_date: string; planned_qty: number; actual_qty: number; backlog_qty?: number; note?: string | null; note_2?: string | null };
 
 type TextFilter = { mode: "contains" | "equals"; value: string };
 type SortDir = "asc" | "desc" | null;
@@ -186,6 +186,7 @@ export default function ShortageReportPage() {
       let hasShortage = false;
       const dailyPlan: number[] = [];
       const dailyShortage: number[] = [];
+      const dailyNotes: { note: string, note2: string }[] = [];
 
       for (const d of days) {
         // FIX: dùng filter() + reduce() để tổng hợp từ nhiều vendor hàng cùng 1 sản phẩm
@@ -200,11 +201,16 @@ export default function ShortageReportPage() {
         runningStock = runningStock - qty;
         dailyPlan.push(qty);
         dailyShortage.push(shortageToday);
+        
+        const combinedNote1 = dayPlans.map(x => x.note).filter(Boolean).join(" | ");
+        const combinedNote2 = dayPlans.map(x => x.note_2).filter(Boolean).join(" | ");
+        dailyNotes.push({ note: combinedNote1, note2: combinedNote2 });
+
         if (shortageToday > 0) hasShortage = true;
       }
 
       const maxShortage = runningStock < 0 ? Math.abs(runningStock) : 0;
-      return { p, currentStock, dailyPlan, dailyShortage, hasShortage, maxShortage, finalStock: runningStock };
+      return { p, currentStock, dailyPlan, dailyShortage, dailyNotes, hasShortage, maxShortage, finalStock: runningStock };
     });
 
     // Customer filter
@@ -371,12 +377,14 @@ export default function ShortageReportPage() {
       {/* MAIN TABLE */}
       <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/30 overflow-hidden">
         <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 400px)" }}>
-          <table className="w-full text-xs !border-separate !border-spacing-0" style={{ tableLayout: "fixed", minWidth: 200 + 300 + 130 + 120 + (7 * 110) + 100 }}>
+          <table className="w-full text-xs !border-separate !border-spacing-0" style={{ tableLayout: "fixed", minWidth: (colWidths["sku"] || 200) + (colWidths["name"] || 300) + (colWidths["customer"] || 130) + (colWidths["note1"] || 150) + (colWidths["note2"] || 150) + (colWidths["stock"] || 120) + days.reduce((s, d) => s + (colWidths[d] || 110), 0) + (colWidths["max_shortage"] || 100) }}>
             <thead>
               <tr style={{ display: "flex", width: "100%" }}>
                 <ThCell label="Mã hàng" colKey="sku" sortable sticky w="200px" />
                 <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="300px" />
                 <ThCell label="Khách hàng" colKey="customer" w="130px" align="center" />
+                <ThCell label="Ghi chú 1" colKey="note1" w="150px" />
+                <ThCell label="Ghi chú 2" colKey="note2" w="150px" />
                 <ThCell label="TỒN KHO" colKey="stock" sortable w="120px" align="right" isNum />
                 {days.map((d) => (
                   <ThCell key={d} label="" colKey={d} w="110px" align="center" isToday={todayStr === d} extra={formatShortDate(d)} />
@@ -388,7 +396,7 @@ export default function ShortageReportPage() {
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i} style={{ display: "flex", width: "100%" }}>
-                    {Array.from({ length: 12 }).map((_, j) => (
+                    {Array.from({ length: 14 }).map((_, j) => (
                       <td key={j} className="animate-pulse bg-slate-100/50" style={{ height: 56, flex: j === 0 ? "0 0 200px" : j === 1 ? "0 0 300px" : "0 0 120px", borderBottom: "1px solid #f1f5f9" }} />
                     ))}
                   </tr>
@@ -415,7 +423,7 @@ export default function ShortageReportPage() {
                     className={`group hover:bg-indigo-50/30 transition-colors ${rowBg} ${urgency === "critical" ? "border-l-2 border-red-400" : ""}`}
                   >
                     {/* SKU */}
-                    <td style={{ width: 200, minWidth: 200, flexShrink: 0, boxSizing: "border-box" }}
+                    <td style={{ width: colWidths["sku"] || 200, minWidth: colWidths["sku"] || 200, flexShrink: 0, boxSizing: "border-box" }}
                       className={`py-3 px-4 sticky left-0 z-10 transition-colors border-r border-slate-100 ${urgency === "critical" ? "bg-red-50/80 group-hover:bg-red-50" : "bg-white group-hover:bg-indigo-50/40"}`}>
                       <div className="font-extrabold text-slate-900 font-mono text-sm tracking-tight uppercase">{r.p.sku}</div>
                       {urgency === "critical" && (
@@ -426,23 +434,31 @@ export default function ShortageReportPage() {
                     </td>
 
                     {/* Name */}
-                    <td style={{ width: 300, minWidth: 300, flexShrink: 0, boxSizing: "border-box" }} className="py-3 px-4 border-r border-slate-100">
+                    <td style={{ width: colWidths["name"] || 300, minWidth: colWidths["name"] || 300, flexShrink: 0, boxSizing: "border-box" }} className="py-3 px-4 border-r border-slate-100">
                       <div className="font-bold text-slate-900 text-sm leading-tight">{r.p.name}</div>
                       {r.p.spec && <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-0.5">{r.p.spec}</div>}
                     </td>
 
                     {/* Customer */}
-                    <td style={{ width: 130, minWidth: 130, flexShrink: 0, boxSizing: "border-box" }} className="py-3 px-3 border-r border-slate-100 text-center">
+                    <td style={{ width: colWidths["customer"] || 130, minWidth: colWidths["customer"] || 130, flexShrink: 0, boxSizing: "border-box" }} className="py-3 px-3 border-r border-slate-100 text-center">
                       {(() => {
                         const c = customers.find(x => x.id === r.p.customer_id);
                         return c ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-wider">{c.code}</span>
+                          <span className="inline-flex items-center px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-wider truncate">{c.code}</span>
                         ) : <span className="text-slate-300 text-[10px]">–</span>;
                       })()}
                     </td>
 
+                    {/* Notes */}
+                    <td style={{ width: colWidths["note1"] || 150, minWidth: colWidths["note1"] || 150, flexShrink: 0, boxSizing: "border-box" }} className="py-2 px-3 border-r border-slate-100 text-[11px] italic text-slate-500 whitespace-pre-wrap break-words">
+                      {r.dailyNotes[0]?.note || ""}
+                    </td>
+                    <td style={{ width: colWidths["note2"] || 150, minWidth: colWidths["note2"] || 150, flexShrink: 0, boxSizing: "border-box" }} className="py-2 px-3 border-r border-slate-100 text-[11px] italic text-slate-500 whitespace-pre-wrap break-words">
+                      {r.dailyNotes[0]?.note2 || ""}
+                    </td>
+
                     {/* Stock */}
-                    <td style={{ width: 120, minWidth: 120, flexShrink: 0, boxSizing: "border-box" }} className="py-3 px-4 border-r border-slate-100 text-right bg-slate-50/50">
+                    <td style={{ width: colWidths["stock"] || 120, minWidth: colWidths["stock"] || 120, flexShrink: 0, boxSizing: "border-box" }} className="py-3 px-4 border-r border-slate-100 text-right bg-slate-50/50">
                       <span className="font-black text-blue-700 text-sm">{fmtNum(r.currentStock)}</span>
                     </td>
 
@@ -452,10 +468,16 @@ export default function ShortageReportPage() {
                       const deficit = r.dailyShortage[i];
                       const isShort = deficit > 0;
                       const isToday = todayStr === d;
+                      const note1 = r.dailyNotes[i]?.note;
+                      const note2 = r.dailyNotes[i]?.note2;
+                      const hasNote = note1 || note2;
 
                       return (
-                        <td key={d} style={{ width: 110, minWidth: 110, flexShrink: 0, boxSizing: "border-box" }}
+                        <td key={d} style={{ width: colWidths[d] || 110, minWidth: colWidths[d] || 110, flexShrink: 0, boxSizing: "border-box" }}
                           className={`p-2 border-r border-slate-50 text-center relative transition-all ${isShort ? "bg-red-50/80" : isToday && plan > 0 ? "bg-amber-50/40" : ""}`}>
+                          {hasNote && (
+                            <div className="absolute top-0 right-0 w-2 h-2 bg-indigo-500 rounded-bl-full shadow-sm z-20 cursor-help" title={`Ghi chú:\n${note1 ? '- ' + note1 + '\n' : ''}${note2 ? '- ' + note2 : ''}`} />
+                          )}
                           {isShort && <div className="absolute inset-0 bg-red-400/5" style={{ animation: "pulse 2s infinite" }} />}
                           {plan > 0 && (
                             <div className="text-[9px] font-bold text-slate-400 mb-0.5 relative z-10">
@@ -479,7 +501,7 @@ export default function ShortageReportPage() {
                     })}
 
                     {/* Final Stock */}
-                    <td style={{ width: 100, minWidth: 100, flexShrink: 0, boxSizing: "border-box" }}
+                    <td style={{ width: colWidths["max_shortage"] || 100, minWidth: colWidths["max_shortage"] || 100, flexShrink: 0, boxSizing: "border-box" }}
                       className={`py-3 px-3 text-center font-black text-sm border-l-2 ${r.finalStock < 0
                         ? "text-red-600 bg-red-50/70 border-red-200"
                         : "text-emerald-700 bg-emerald-50/30 border-emerald-100"}`}>

@@ -7,7 +7,7 @@ import { LoadingPage, TableSkeleton, ErrorBanner, LoadingInline } from "@/app/co
 import { exportToExcel, readExcel } from "@/lib/excel-utils";
 
 type Profile = { id: string; role: "admin" | "manager" | "staff"; department: string; };
-type Customer = { id: string; code: string; name: string };
+type Customer = { id: string; code: string; name: string; parent_customer_id: string | null };
 type Product = {
   id: string;
   sku: string;
@@ -24,6 +24,7 @@ type Product = {
 
 export default function ProductsPage() {
   const { showConfirm, showToast } = useUI();
+  const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [rows, setRows] = useState<Product[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -503,14 +504,17 @@ export default function ProductsPage() {
       // Vendor con tự động thừa hưởng mã hàng của Mẹ — không cần gán riêng
       const { data: cust, error: e1 } = await supabase
         .from("customers")
-        .select("id,code,name")
+        .select("id,code,name,parent_customer_id")
         .is("deleted_at", null)
-        .is("parent_customer_id", null)
         .order("name", { ascending: true });
 
       if (e1) throw e1;
-      setCustomers((cust ?? []) as Customer[]);
-      const defaultCustomerId = (cust ?? [])[0]?.id ?? "";
+      const allC = (cust ?? []) as Customer[];
+      setAllCustomers(allC);
+      
+      const parents = allC.filter(c => !c.parent_customer_id);
+      setCustomers(parents);
+      const defaultCustomerId = parents[0]?.id ?? "";
       setCustomerId(defaultCustomerId);
 
       const { data, error: e2 } = await supabase
@@ -1135,7 +1139,17 @@ export default function ProductsPage() {
                     </td>
                     <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["customer"], minWidth: colWidths["customer"] || 220 }}>
                       <div className="text-slate-900 font-bold text-[15px] uppercase">{c ? c.code : "-"}</div>
-                      <div className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{c ? c.name : p.customer_id}</div>
+                      <div className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        {c ? c.name : p.customer_id}
+                        {c && (() => {
+                          const childCount = allCustomers.filter(x => x.parent_customer_id === c.id).length;
+                          return childCount > 0 ? (
+                             <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px] font-black uppercase shadow-sm border border-indigo-200">
+                               +{childCount} điểm giao
+                             </span>
+                          ) : null;
+                        })()}
+                      </div>
                     </td>
                     {isManager && (
                       <td className="py-4 px-4 border-r border-slate-50 whitespace-nowrap text-slate-400 text-[12px] font-medium" style={{ width: colWidths["createdAt"], minWidth: colWidths["createdAt"] || 180 }}>

@@ -32,12 +32,14 @@ type Customer = {
   tax_code: string | null;
   external_code: string | null;
   selling_entity_id?: string | null;
+  parent_customer_id: string | null;
 };
 type SellingEntity = { id: string; code: string; name: string; address?: string; tax_code?: string; phone?: string };
 type Plan = {
   id: string;
   product_id: string;
   customer_id: string | null;
+  delivery_customer_id: string | null;
   plan_date: string;
   planned_qty: number;
   actual_qty: number;
@@ -246,7 +248,7 @@ export default function DeliveryPlanPage() {
 
       const [rP, rC, rE, rV] = await Promise.all([
         supabase.from("products").select("id, sku, name, spec, uom, sap_code, external_sku, customer_id").is("deleted_at", null),
-        supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id").is("deleted_at", null),
+        supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id").is("deleted_at", null),
         supabase.from("selling_entities").select("id, code, name, address, tax_code, phone").is("deleted_at", null),
         supabase.from("vehicles").select("*").eq("is_active", true).order("license_plate"),
       ]);
@@ -283,28 +285,30 @@ export default function DeliveryPlanPage() {
     return canEdit && dateStr >= todayVN;
   }, [canEdit, todayVN]);
 
-  const handleQtyChange = (product_id: string, date: string, val: string) => {
+  const [addedVendorRows, setAddedVendorRows] = useState<Set<string>>(new Set());
+
+  const handleQtyChange = (product_id: string, delivery_id: string | null, date: string, val: string) => {
     if (!canEditDate(date)) return;
     setEdits(prev => {
-      const key = `${product_id}_${date}`;
+      const key = `${product_id}_${delivery_id || "null"}_${date}`;
       const curr = prev[key] || {};
       return { ...prev, [key]: { ...curr, qty: val } };
     });
   };
 
-  const handleNoteChange = (product_id: string, date: string, val: string) => {
+  const handleNoteChange = (product_id: string, delivery_id: string | null, date: string, val: string) => {
     if (!canEditDate(date)) return;
     setEdits(prev => {
-      const key = `${product_id}_${date}`;
+      const key = `${product_id}_${delivery_id || "null"}_${date}`;
       const curr = prev[key] || {};
       return { ...prev, [key]: { ...curr, note: val } };
     });
   };
 
-  const handleNote2Change = (product_id: string, date: string, val: string) => {
+  const handleNote2Change = (product_id: string, delivery_id: string | null, date: string, val: string) => {
     if (!canEditDate(date)) return;
     setEdits(prev => {
-      const key = `${product_id}_${date}`;
+      const key = `${product_id}_${delivery_id || "null"}_${date}`;
       const curr = prev[key] || {};
       return { ...prev, [key]: { ...curr, note2: val } };
     });
@@ -799,8 +803,15 @@ export default function DeliveryPlanPage() {
       const { data: u } = await supabase.auth.getUser();
 
       Object.entries(edits).forEach(([key, editData]) => {
-        const [product_id, plan_date] = key.split("_");
-        const existing = plans.find(x => x.product_id === product_id && x.plan_date === plan_date);
+        const pts = key.split("_");
+        // Do id hỗ trợ format product_id_delivery_id_date, nên nếu split ra:
+        // Cũ (chưa có multi-vendor): product_id_date -> len=2 (sẽ lỗi)
+        // Mới (multi-vendor): product_id_deliveryId_date -> len=3
+        const product_id = pts[0];
+        const delivery_id = pts[1] === "null" ? null : pts[1];
+        const plan_date = pts[2];
+
+        const existing = plans.find(x => x.product_id === product_id && x.plan_date === plan_date && String(x.delivery_customer_id || "null") === (delivery_id || "null"));
         
         const newQtyRaw = editData.qty !== undefined ? editData.qty : (existing?.planned_qty ?? "0");
         const newNote = editData.note !== undefined ? editData.note : (existing?.note ?? null);
@@ -817,6 +828,7 @@ export default function DeliveryPlanPage() {
           plan_date,
           product_id,
           customer_id: p.customer_id,
+          delivery_customer_id: delivery_id,
           planned_qty: qty,
           note: newNote,
           note_2: newNote2,
@@ -928,8 +940,45 @@ export default function DeliveryPlanPage() {
     return list;
   }, [products, customers, plans, edits, onlyScheduled, colFilters, sortCol, sortDir]);
 
+  const tableRows = useMemo(() => {
+    let list = displayProducts;
+    const rows: { id: string; p: Product; deliveryCustomerId: string | null; vendorName?: string }[] = [];
+    
+    list.forEach(p => {
+      // Dòng mặc định cho Công ty Mẹ
+      rows.push({
+        id: `${p.id}_null`,
+        p,
+        deliveryCustomerId: null
+      });
+
+      // Các điểm giao hàng khác (vendors) đã có kế hoạch
+      const pPlans = plans.filter(pl => pl.product_id === p.id && pl.delivery_customer_id !== null);
+      const vendorIdsWithPlans = new Set(pPlans.map(pl => pl.delivery_customer_id));
+      
+      // Các vendor do người dùng vừa ấn thêm (+)
+      const expPrefix = p.id + "_";
+      const explicitIds = Array.from(addedVendorRows)
+        .filter(key => key.startsWith(expPrefix))
+        .map(key => key.replace(expPrefix, ""));
+
+      const combinedVendorIds = new Set([...vendorIdsWithPlans, ...explicitIds]);
+      
+      combinedVendorIds.forEach(vId => {
+        if (!vId) return;
+        rows.push({
+          id: `${p.id}_${vId}`,
+          p,
+          deliveryCustomerId: vId,
+          vendorName: customers.find(c => c.id === vId)?.name || 'Không xác định'
+        });
+      });
+    });
+    return rows;
+  }, [displayProducts, plans, addedVendorRows, customers]);
+
   const rowVirtualizer = useVirtualizer({
-    count: displayProducts.length,
+    count: tableRows.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 56,
     overscan: 10,
@@ -1208,12 +1257,17 @@ export default function DeliveryPlanPage() {
                 ) : displayProducts.length === 0 ? (
                   <tr><td colSpan={10} className="py-32 text-center text-slate-300 font-bold italic">Không tìm thấy dữ liệu khớp bộ lọc.</td></tr>
                 ) : rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const p = displayProducts[virtualRow.index];
-                  const c = customers.find(x => x.id === p.customer_id);
+                  const row = tableRows[virtualRow.index];
+                  const p = row.p;
+                  const c = row.deliveryCustomerId ? customers.find(x => x.id === row.deliveryCustomerId) : customers.find(x => x.id === p.customer_id);
+                  const isParentRow = row.deliveryCustomerId === null;
+                  const hasVendors = customers.some(x => x.parent_customer_id === p.customer_id);
+                  
                   // Nhận diện cả dòng có planned_qty > 0 LẪN dòng chỉ có backlog_qty > 0 (nợ từ ngày trước)
                   const todayPlans = plans.filter(pl =>
                     pl.product_id === p.id &&
                     pl.plan_date === selectedOutboundDay &&
+                    (row.deliveryCustomerId ? pl.delivery_customer_id === row.deliveryCustomerId : pl.delivery_customer_id === null) &&
                     ((pl.planned_qty || 0) + (pl.backlog_qty || 0)) > 0
                   );
                   const todayPlan = todayPlans[0];
@@ -1223,7 +1277,7 @@ export default function DeliveryPlanPage() {
                   
                   return (
                     <tr 
-                      key={p.id} 
+                      key={row.id} 
                       data-index={virtualRow.index}
                       ref={rowVirtualizer.measureElement}
                       className={`hover:bg-brand/5 group transition-colors odd:bg-white even:bg-slate-50/20 ${isSelected ? 'bg-indigo-50/40 !odd:bg-indigo-50/40 !even:bg-indigo-50/40' : ''}`}
@@ -1252,15 +1306,38 @@ export default function DeliveryPlanPage() {
                         <div className="text-slate-900 font-bold text-[14px] leading-tight truncate" title={p.name}>{p.name}</div>
                         <div className="text-[10px] text-slate-900 font-bold uppercase tracking-wider mt-0.5 truncate">{p.spec || ""}</div>
                       </td>
-                      <td className="py-2 px-4 border-r border-slate-100 text-center shrink-0 grow-0" style={{ width: colWidths['customer'] || 140, flexBasis: colWidths['customer'] || 140 }}>
-                        <div className="text-slate-500 font-medium text-[13px] uppercase truncate">{c?.code || "-"}</div>
-                        <div className="text-[9px] text-slate-400 font-medium uppercase tracking-wider truncate" title={c?.name}>{c?.name}</div>
+                      <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0 group/cust relative flex flex-col justify-center" style={{ width: colWidths['customer'] || 140, flexBasis: colWidths['customer'] || 140 }}>
+                        <div className="text-slate-500 font-medium text-[13px] uppercase truncate flex items-center gap-1 justify-center relative">
+                          {c?.code || "-"}
+                          {isParentRow && hasVendors && (
+                            <div className="dropdown dropdown-hover absolute right-0">
+                              <label tabIndex={0} className="w-4 h-4 rounded bg-indigo-100 text-indigo-600 flex items-center justify-center cursor-pointer hover:bg-indigo-500 hover:text-white transition-colors opacity-0 group-hover/cust:opacity-100">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                              </label>
+                              <ul tabIndex={0} className="dropdown-content menu p-2 shadow-xl bg-white rounded-xl w-48 z-[200] border border-slate-100 left-full top-0 ml-1">
+                                <li className="menu-title px-2 py-1 text-[10px] uppercase font-black tracking-widest text-slate-400">Thêm điểm giao</li>
+                                {customers.filter(x => x.parent_customer_id === p.customer_id).map(cv => (
+                                  <li key={cv.id}>
+                                    <button 
+                                      className="text-[11px] font-bold whitespace-nowrap text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 leading-tight block w-full px-2 py-1.5 rounded transition-colors text-left"
+                                      onClick={() => setAddedVendorRows(prev => { const n = new Set(prev); n.add(p.id + "_" + cv.id); return n; })}
+                                    >
+                                      {cv.name}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-[9px] text-slate-400 font-medium uppercase tracking-wider truncate text-center" title={c?.name}>{c?.name}</div>
+                        {!isParentRow && <div className="text-[8px] bg-indigo-50 text-indigo-500 rounded px-1 absolute top-1 -left-1 font-black uppercase shadow-sm rotate-[-9deg]">Vendor</div>}
                       </td>
                       <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today'] || 150, flexBasis: colWidths['note_today'] || 150 }}>
                         {(() => {
                            const today = days[0];
-                           const plan = plans.find(x => x.product_id === p.id && x.plan_date === today);
-                           const noteVal = edits[`${p.id}_${today}`]?.note ?? plan?.note ?? "";
+                           const plan = plans.find(x => x.product_id === p.id && x.plan_date === today && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
+                           const noteVal = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note ?? plan?.note ?? "";
                            const disabled = !canEditDate(today);
                            return (
                              <input 
@@ -1269,7 +1346,7 @@ export default function DeliveryPlanPage() {
                                disabled={disabled}
                                className={`input input-ghost input-xs h-7 w-full text-[12px] font-black focus:bg-white focus:ring-1 focus:ring-indigo-300 italic ${disabled ? 'bg-slate-50/50 text-slate-500 cursor-not-allowed' : 'text-black placeholder:text-slate-300'}`}
                                value={noteVal}
-                               onChange={e => handleNoteChange(p.id, today, e.target.value)} 
+                               onChange={e => handleNoteChange(p.id, row.deliveryCustomerId, today, e.target.value)} 
                              />
                            );
                         })()}
@@ -1277,8 +1354,8 @@ export default function DeliveryPlanPage() {
                       <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today_2'] || 150, flexBasis: colWidths['note_today_2'] || 150 }}>
                         {(() => {
                            const today = days[0];
-                           const plan = plans.find(x => x.product_id === p.id && x.plan_date === today);
-                           const note2Val = edits[`${p.id}_${today}`]?.note2 ?? plan?.note_2 ?? "";
+                           const plan = plans.find(x => x.product_id === p.id && x.plan_date === today && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
+                           const note2Val = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note2 ?? plan?.note_2 ?? "";
                            const disabled = !canEditDate(today);
                            return (
                              <input 
@@ -1287,14 +1364,14 @@ export default function DeliveryPlanPage() {
                                disabled={disabled}
                                className={`input input-ghost input-xs h-7 w-full text-[12px] font-black focus:bg-white focus:ring-1 focus:ring-indigo-300 italic ${disabled ? 'bg-slate-50/50 text-slate-500 cursor-not-allowed' : 'text-black placeholder:text-slate-300'}`} 
                                value={note2Val}
-                               onChange={e => handleNote2Change(p.id, today, e.target.value)} 
+                               onChange={e => handleNote2Change(p.id, row.deliveryCustomerId, today, e.target.value)} 
                              />
                            );
                         })()}
                       </td>
                       {days.map(d => {
-                        const plan = plans.find(x => x.product_id === p.id && x.plan_date === d);
-                        const editData = edits[`${p.id}_${d}`];
+                        const plan = plans.find(x => x.product_id === p.id && x.plan_date === d && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
+                        const editData = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${d}`];
                         const val = editData?.qty !== undefined ? editData.qty : (plan?.planned_qty?.toString() || "");
                         const isChanged = editData?.qty !== undefined || editData?.note !== undefined;
                         const itdr = getVNTimeStr() === d;
@@ -1353,7 +1430,7 @@ export default function DeliveryPlanPage() {
                                 title={isDone ? `Đã xuất đủ: ${actualQty}/${plannedQty}` : hasPartialShipment ? `Đang xuất dở: ${actualQty}/${plannedQty}` : (editData?.note ?? plan?.note ?? "")}
                                 onChange={e => {
                                   const v = e.target.value.replace(/\D/g, "");
-                                  handleQtyChange(p.id, d, v);
+                                  handleQtyChange(p.id, row.deliveryCustomerId, d, v);
                                 }}
                                 onFocus={e => e.target.select()}
                               />
