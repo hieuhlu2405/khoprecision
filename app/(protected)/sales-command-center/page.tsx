@@ -445,7 +445,7 @@ export default function SalesCommandCenterPage() {
           formatted={fmtVND(avgShipmentValue)} color="#8b5cf6"
           sub="Quy mô giá trị kéo về mỗi chuyến" />
 
-        <KpiCard idx={5} icon="👑" label="Sản phẩm gánh Team" rawValue={0} 
+        <KpiCard idx={5} icon="👑" label="Mã hàng bán nhiều nhất" rawValue={0} 
           formatted={bestProductObj ? bestProductObj.label : "–"} color={bestProductObj ? "#14b8a6" : "#64748b"}
           sub={bestProductObj ? fmtVND(bestProductObj.rev) : "Chưa có dữ liệu"} />
       </div>
@@ -506,7 +506,7 @@ export default function SalesCommandCenterPage() {
                  style={{ boxShadow: "0 4px 24px -4px rgba(99,102,241,0.08)" }}>
                  <div className="flex items-center justify-between mb-5">
                    <div>
-                     <h3 className="font-black text-[13px] uppercase tracking-widest text-slate-800">Top 10 Mã hàng kiếm tiền (Best Sellers)</h3>
+                     <h3 className="font-black text-[13px] uppercase tracking-widest text-slate-800">Top Doanh thu theo Mã hàng</h3>
                      <p className="text-[10px] text-slate-400 font-bold mt-0.5">{currentRange.label} • Dựa trên giá trị xuất kho tương đối</p>
                    </div>
                  </div>
@@ -520,7 +520,7 @@ export default function SalesCommandCenterPage() {
                    ) : (
                      topProducts.slice(0, 10).map((r, i) => (
                        <RevenueBar key={r.id} label={r.label} desc={r.name} value={r.rev} max={topProducts[0].rev}
-                         color={UIColors[(i+2) % UIColors.length]} rank={i} unit="VND" />
+                         color={UIColors[i % UIColors.length]} rank={i} unit="VND" />
                      ))
                    )}
                  </div>
@@ -536,11 +536,19 @@ export default function SalesCommandCenterPage() {
                 {revenueByCustomer.length > 0 ? (
                   <DonutChart
                     title="PARENT"
-                    data={revenueByCustomer.slice(0, 5).map((r, i) => ({
-                      label: r.label,
-                      value: r.value,
-                      color: UIColors[i]
-                    }))}
+                    data={(() => {
+                      const top10 = revenueByCustomer.slice(0, 10);
+                      const othersValue = revenueByCustomer.slice(10).reduce((s, x) => s + x.value, 0);
+                      const chartData = top10.map((r, i) => ({
+                        label: r.label,
+                        value: r.value,
+                        color: UIColors[i % UIColors.length]
+                      }));
+                      if (othersValue > 0) {
+                        chartData.push({ label: "KHÁC", value: othersValue, color: "#cbd5e1" });
+                      }
+                      return chartData;
+                    })()}
                     total={totalRevenue}
                   />
                 ) : (
