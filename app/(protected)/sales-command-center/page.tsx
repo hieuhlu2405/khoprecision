@@ -153,7 +153,7 @@ function KpiCard({
 /* ------------------------------------------------------------------ */
 function RevenueBar({ label, desc, value, max, color, rank, unit }: { label: string; desc?: string; value: number; max: number; color: string; rank: number; unit?: string }) {
   const pct = max > 0 ? (value / max) * 100 : 0;
-  const rankColors = ["#f59e0b", "#94a3b8", "#b45309", "#6366f1", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6", "#ef4444", "#3b82f6"];
+  const rankColors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
   return (
     <motion.div className="flex items-center gap-3" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: rank * 0.04 }}>
       <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black text-white"
@@ -214,7 +214,7 @@ function DonutChart({ data, total, title }: { data: { label: string; value: numb
         {data.map((d, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
-            <span className="text-[11px] font-bold text-slate-600 truncate max-w-[120px]" title={d.label}>{d.label}</span>
+            <span className="text-[11px] font-bold text-slate-600 flex-1 leading-tight pr-2">{d.label}</span>
             <span className="text-[10px] font-black text-slate-400 ml-auto">{total > 0 ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
           </div>
         ))}
@@ -385,8 +385,7 @@ export default function SalesCommandCenterPage() {
 
   const bestProductObj = topProducts[0];
 
-  // Donut chart colors
-  const UIColors = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#06b6d4"];
+  const UIColors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
 
   const TABS = [
     { id: "overview", label: "Tổng quan Sales", icon: "📊" },
@@ -472,30 +471,30 @@ export default function SalesCommandCenterPage() {
           <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             className="grid grid-cols-3 gap-5">
 
-            {/* Left Column: Top SKUs & Entity Revenue */}
+            {/* Left Column: Top SKUs & Top Customers */}
             <div className="col-span-2 flex flex-col gap-5">
-               {/* Entity Revenue */}
+               {/* Customer Revenue */}
                <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6"
                  style={{ boxShadow: "0 4px 24px -4px rgba(99,102,241,0.08)" }}>
                  <div className="flex items-center justify-between mb-5">
                    <div>
-                     <h3 className="font-black text-[13px] uppercase tracking-widest text-slate-800">Doanh thu theo Pháp nhân (S.Entity)</h3>
-                     <p className="text-[10px] text-slate-400 font-bold mt-0.5">{currentRange.label} • Tách gộp quy mô Tập đoàn</p>
+                     <h3 className="font-black text-[13px] uppercase tracking-widest text-slate-800">Top Doanh thu theo Khách hàng</h3>
+                     <p className="text-[10px] text-slate-400 font-bold mt-0.5">{currentRange.label} • Xếp hạng nguồn thu</p>
                    </div>
                    <div className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
-                     {entities.length} Pháp nhân gốc
+                     {fmtVND(totalRevenue)}
                    </div>
                  </div>
                  <div className="space-y-4">
                    {shimmer ? (
-                     Array.from({ length: 3 }).map((_, i) => (
+                     Array.from({ length: 5 }).map((_, i) => (
                        <div key={i} className="h-8 bg-slate-100 rounded-lg animate-pulse" />
                      ))
-                   ) : revenueByEntity.length === 0 ? (
-                     <div className="text-center text-slate-400 py-10 text-sm font-bold">Chưa có dữ liệu pháp nhân</div>
+                   ) : revenueByCustomer.length === 0 ? (
+                     <div className="text-center text-slate-400 py-10 text-sm font-bold">Chưa có dữ liệu khách hàng</div>
                    ) : (
-                     revenueByEntity.map((r, i) => (
-                       <RevenueBar key={r.id} label={r.label} value={r.value} max={revenueByEntity[0].value}
+                     revenueByCustomer.slice(0, 10).map((r, i) => (
+                       <RevenueBar key={r.id} label={r.label} value={r.value} max={revenueByCustomer[0].value}
                          color={UIColors[i % UIColors.length]} rank={i} unit="VND" />
                      ))
                    )}
@@ -538,7 +537,7 @@ export default function SalesCommandCenterPage() {
                   <DonutChart
                     title="PARENT"
                     data={revenueByCustomer.slice(0, 5).map((r, i) => ({
-                      label: r.label.split("–")[1]?.trim() || r.label,
+                      label: r.label,
                       value: r.value,
                       color: UIColors[i]
                     }))}
@@ -549,33 +548,7 @@ export default function SalesCommandCenterPage() {
                 )}
               </div>
 
-              {/* Recent Shipments */}
-              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex-1">
-                <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-                  <h3 className="font-black text-[11px] uppercase tracking-widest text-slate-600">📋 Nhật ký chuyến hàng</h3>
-                </div>
-                <div className="divide-y divide-slate-50 overflow-y-auto" style={{ maxHeight: 500 }}>
-                  {shipments.slice(0, 15).map((s, i) => {
-                    const cust = customers.find(x => x.id === s.customer_id);
-                    return (
-                      <div key={s.id} className="px-5 py-3 hover:bg-slate-50/80 transition-colors">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="font-black text-[12px] text-slate-900">{s.shipment_no}</div>
-                            <div className="font-bold text-[10px] text-slate-400 mt-0.5">{cust?.name || "–"}</div>
-                          </div>
-                          <div className="text-right flex flex-col items-end">
-                            <div className="font-black text-[11px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">{s.shipment_date?.slice(5).replace("-", "/")}</div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {shipments.length === 0 && !shimmer && (
-                    <div className="py-12 text-center text-slate-300 font-bold text-sm">Chưa có chuyến nào</div>
-                  )}
-                </div>
-              </div>
+
             </div>
           </motion.div>
         )}
