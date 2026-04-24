@@ -1032,7 +1032,7 @@ export default function InventoryOutboundPage() {
             setFilterDateStart(`${y}-${m}-01`); setFilterDateEnd(`${y}-${m}-${String(last).padStart(2, "0")}`);
           }}>‹</button>
           <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
-            {new Date(filterDateStart).toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}
+            {new Date(filterDateStart).toLocaleDateString("vi-VN", { month: "long", year: "numeric" }).replace("tháng", "Tháng").replace("năm", "Năm")}
           </span>
           <button className="btn btn-ghost btn-sm" style={{ padding: "2px 8px", fontSize: 16 }} title="Tháng sau" onClick={() => {
             const d = new Date(filterDateStart);

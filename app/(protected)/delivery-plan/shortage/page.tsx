@@ -430,7 +430,7 @@ export default function ShortageReportPage() {
                     {/* SKU */}
                     <td style={{ width: colWidths["sku"] || 200, minWidth: colWidths["sku"] || 200, flexShrink: 0, boxSizing: "border-box" }}
                       className={`py-3 px-4 sticky left-0 z-10 transition-colors border-r border-slate-100 ${urgency === "critical" ? "bg-red-50/80 group-hover:bg-red-50" : "bg-white group-hover:bg-indigo-50/40"}`}>
-                      <div className="font-extrabold text-slate-900 font-mono text-sm tracking-tight uppercase">{r.p.sku}</div>
+                      <div className="font-black text-black tracking-wider text-[15px] break-all uppercase" style={{ color: '#000000' }}>{r.p.sku}</div>
                       {urgency === "critical" && (
                         <span className="inline-flex items-center gap-1 text-[9px] font-black text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full uppercase tracking-widest mt-1">
                           ⚡ Hôm nay

@@ -1318,11 +1318,10 @@ export default function DeliveryPlanPage() {
                         <div className="text-slate-900 font-bold text-[14px] leading-tight truncate" title={p.name}>{p.name}</div>
                         <div className="text-[10px] text-slate-900 font-bold uppercase tracking-wider mt-0.5 truncate">{p.spec || ""}</div>
                       </td>
-                      <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0 group/cust relative flex flex-col justify-center" style={{ width: colWidths['customer'] || 140, flexBasis: colWidths['customer'] || 140 }}>
-                        <div className="text-slate-500 font-medium text-[13px] uppercase truncate flex items-center gap-1 justify-center relative">
-                          {c?.code || "-"}
-                        </div>
-                        <div className="text-[9px] text-slate-400 font-medium uppercase tracking-wider truncate text-center" title={c?.name}>{c?.name}</div>
+                      <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0 flex items-center justify-center relative group/cust" style={{ width: colWidths['customer'] || 140, flexBasis: colWidths['customer'] || 140 }}>
+                        {c ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-wider truncate" title={c.code}>{c.code}</span>
+                        ) : <span className="text-slate-300 text-[10px]">–</span>}
                         {!isParentRow && <div className="text-[8px] bg-indigo-50 text-indigo-500 rounded px-1 absolute top-1 -left-1 font-black uppercase shadow-sm rotate-[-9deg]">Vendor</div>}
                       </td>
                       <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today'] || 150, flexBasis: colWidths['note_today'] || 150 }}>

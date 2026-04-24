@@ -44,7 +44,7 @@ function getMonthRange(offsetMonth = 0): { start: string; end: string; label: st
   return {
     start: `${y}-${ms}-01`,
     end: `${y}-${ms}-${String(last).padStart(2, "0")}`,
-    label: new Date(y, m, 1).toLocaleDateString("vi-VN", { month: "long", year: "numeric" }),
+    label: new Date(y, m, 1).toLocaleDateString("vi-VN", { month: "long", year: "numeric" }).replace("tháng", "Tháng").replace("năm", "Năm"),
   };
 }
 
