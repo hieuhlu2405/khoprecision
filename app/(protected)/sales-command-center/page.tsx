@@ -4,17 +4,15 @@ import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 import { getVNTimeNow, getTodayVNStr } from "@/lib/date-utils";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
 
-type Customer = { id: string; code: string; name: string; parent_customer_id: string | null };
+type SellingEntity = { id: string; code: string; header_text: string | null };
+type Customer = { id: string; code: string; name: string; parent_customer_id: string | null; selling_entity_id: string | null };
 type Product = { id: string; sku: string; name: string; customer_id: string | null; unit_price: number | null };
-type Plan = { id: string; product_id: string; customer_id: string | null; plan_date: string; planned_qty: number; actual_qty: number; backlog_qty?: number; is_completed: boolean };
-type StockRow = { product_id: string; current_qty: number };
 type OutboundTx = { id: string; product_id: string; customer_id: string | null; delivery_customer_id: string | null; tx_date: string; qty: number; unit_cost: number | null };
 type ShipmentLog = { id: string; shipment_no: string; shipment_date: string; customer_id: string | null; created_at: string };
 
@@ -151,25 +149,30 @@ function KpiCard({
 }
 
 /* ------------------------------------------------------------------ */
-/* Customer Revenue Bar                                                */
+/* Generic Bar                                                         */
 /* ------------------------------------------------------------------ */
-function RevenueBar({ label, value, max, color, rank }: { label: string; value: number; max: number; color: string; rank: number }) {
+function RevenueBar({ label, desc, value, max, color, rank, unit }: { label: string; desc?: string; value: number; max: number; color: string; rank: number; unit?: string }) {
   const pct = max > 0 ? (value / max) * 100 : 0;
-  const rankColors = ["#f59e0b", "#94a3b8", "#b45309", "#6366f1", "#10b981"];
+  const rankColors = ["#f59e0b", "#94a3b8", "#b45309", "#6366f1", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6", "#ef4444", "#3b82f6"];
   return (
-    <motion.div className="flex items-center gap-3" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: rank * 0.06 }}>
+    <motion.div className="flex items-center gap-3" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: rank * 0.04 }}>
       <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black text-white"
         style={{ background: rankColors[rank] || "#94a3b8", flexShrink: 0 }}>
         {rank + 1}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-baseline mb-1">
-          <span className="font-bold text-[12px] text-slate-800 truncate">{label}</span>
-          <span className="font-black text-[11px] text-slate-600 ml-2 flex-shrink-0">{fmtVND(value)}</span>
+          <div className="flex flex-col">
+             <span className="font-bold text-[12px] text-slate-800 truncate">{label}</span>
+             {desc && <span className="font-bold text-[9px] text-slate-400 uppercase truncate mt-0.5">{desc}</span>}
+          </div>
+          <span className="font-black text-[11px] text-slate-600 ml-2 flex-shrink-0">
+             {unit === "VND" ? fmtVND(value) : `${fmtNum(value)} ${unit || ""}`}
+          </span>
         </div>
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-2 bg-slate-100 rounded-full overflow-hidden mt-1">
           <motion.div className="h-full rounded-full" style={{ background: color }}
-            initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ delay: rank * 0.06 + 0.2, duration: 0.6 }} />
+            initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ delay: rank * 0.04 + 0.2, duration: 0.6 }} />
         </div>
       </div>
     </motion.div>
@@ -179,7 +182,7 @@ function RevenueBar({ label, value, max, color, rank }: { label: string; value: 
 /* ------------------------------------------------------------------ */
 /* Donut Chart                                                         */
 /* ------------------------------------------------------------------ */
-function DonutChart({ data, total }: { data: { label: string; value: number; color: string }[]; total: number }) {
+function DonutChart({ data, total, title }: { data: { label: string; value: number; color: string }[]; total: number; title: string }) {
   const r = 40;
   const cx = 60;
   const cy = 60;
@@ -205,7 +208,7 @@ function DonutChart({ data, total }: { data: { label: string; value: number; col
             style={{ transition: "stroke-dasharray 0.6s ease" }} />
         ))}
         <text x={cx} y={cy - 5} textAnchor="middle" fontSize="11" fontWeight="900" fill="#1e293b">{data.length}</text>
-        <text x={cx} y={cy + 9} textAnchor="middle" fontSize="9" fontWeight="600" fill="#94a3b8">KHÁCH</text>
+        <text x={cx} y={cy + 9} textAnchor="middle" fontSize="9" fontWeight="600" fill="#94a3b8">{title}</text>
       </svg>
       <div className="flex flex-col gap-2">
         {data.map((d, i) => (
@@ -229,16 +232,14 @@ export default function SalesCommandCenterPage() {
   const [loading, setLoading] = useState(true);
   const [monthOffset, setMonthOffset] = useState(0);
 
+  const [entities, setEntities] = useState<SellingEntity[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [stockMap, setStockMap] = useState<Record<string, number>>({});
   const [outboundTx, setOutboundTx] = useState<OutboundTx[]>([]);
   const [shipments, setShipments] = useState<ShipmentLog[]>([]);
   const [prevMonthTx, setPrevMonthTx] = useState<OutboundTx[]>([]);
 
   const currentRange = useMemo(() => getMonthRange(monthOffset), [monthOffset]);
-  const todayStr = getTodayStr();
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -249,10 +250,10 @@ export default function SalesCommandCenterPage() {
       const range = getMonthRange(monthOffset);
       const prevRange = getMonthRange(monthOffset - 1);
 
-      const [rC, rP, rPlan, rTx, rPTx, rShip] = await Promise.all([
-        supabase.from("customers").select("id, code, name, parent_customer_id").is("deleted_at", null),
+      const [rE, rC, rP, rTx, rPTx, rShip] = await Promise.all([
+        supabase.from("selling_entities").select("id, code, header_text"),
+        supabase.from("customers").select("id, code, name, parent_customer_id, selling_entity_id").is("deleted_at", null),
         supabase.from("products").select("id, sku, name, customer_id, unit_price").is("deleted_at", null),
-        supabase.from("delivery_plans").select("*").gte("plan_date", range.start).lte("plan_date", range.end).is("deleted_at", null),
         supabase.from("inventory_transactions").select("id, product_id, customer_id, delivery_customer_id, tx_date, qty, unit_cost")
           .eq("tx_type", "out").is("deleted_at", null)
           .gte("tx_date", range.start).lte("tx_date", range.end),
@@ -264,38 +265,18 @@ export default function SalesCommandCenterPage() {
           .order("created_at", { ascending: false }).limit(50),
       ]);
 
+      setEntities((rE.data || []) as SellingEntity[]);
       setCustomers((rC.data || []) as Customer[]);
       setProducts(rP.data || []);
-      setPlans(rPlan.data || []);
       setOutboundTx((rTx.data || []) as OutboundTx[]);
       setPrevMonthTx((rPTx.data || []) as OutboundTx[]);
       setShipments(rShip.data || []);
-
-      // Load current stock
-      const currD = getVNTimeNow();
-      const qStart = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-01`;
-      const qEnd = todayStr;
-      const { data: ops } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", qEnd + "T23:59:59.999Z").is("deleted_at", null);
-      const cb = computeSnapshotBounds(qStart, qEnd, ops || []);
-      const endPlus1 = new Date(qEnd);
-      endPlus1.setDate(endPlus1.getDate() + 1);
-      const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
-      const { data: stockRows } = await supabase.rpc("inventory_calculate_report_v2", {
-        p_baseline_date: cb.S || qStart,
-        p_movements_start_date: cb.effectiveStart,
-        p_movements_end_date: nextD,
-      });
-      if (stockRows) {
-        const sm: Record<string, number> = {};
-        (stockRows as StockRow[]).forEach(r => { sm[r.product_id] = (sm[r.product_id] || 0) + r.current_qty; });
-        setStockMap(sm);
-      }
     } catch (err: any) {
       showToast(err.message, "error");
     } finally {
       setLoading(false);
     }
-  }, [monthOffset, todayStr, showToast]);
+  }, [monthOffset, showToast]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -314,14 +295,23 @@ export default function SalesCommandCenterPage() {
 
   // Tổng chuyến hàng trong tháng
   const totalShipments = shipments.length;
-
-  // Completion rate = completed / total
-  const totalPlanQty = useMemo(() => plans.reduce((s, p) => s + (p.planned_qty || 0), 0), [plans]);
-  const completedPlanQty = useMemo(() => plans.reduce((s, p) => s + (p.actual_qty || 0), 0), [plans]);
-  const completionRate = totalPlanQty > 0 ? (completedPlanQty / totalPlanQty) * 100 : 0;
-
-  // Tổng tồn kho hiện tại
-  const totalStock = useMemo(() => Object.values(stockMap).reduce((s, v) => s + v, 0), [stockMap]);
+  
+  // Tốc độ xuất (Daily Burn Rate)
+  const dailyBurnRate = useMemo(() => {
+     const now = getVNTimeNow();
+     const [y, mStr] = currentRange.start.split("-");
+     const currentStart = new Date(Number(y), Number(mStr)-1, 1);
+     let daysPassed = 30;
+     if (now.getMonth() === currentStart.getMonth() && now.getFullYear() === currentStart.getFullYear()) {
+        daysPassed = Math.max(1, now.getDate());
+     } else {
+        daysPassed = new Date(Number(y), Number(mStr), 0).getDate();
+     }
+     return totalRevenue / daysPassed;
+  }, [totalRevenue, currentRange.start]);
+  
+  // Giá trị xuất / Chuyến (Avg Shipment Value)
+  const avgShipmentValue = totalShipments > 0 ? totalRevenue / totalShipments : 0;
 
   // Revenue by parent customer
   const revenueByCustomer = useMemo(() => {
@@ -329,7 +319,6 @@ export default function SalesCommandCenterPage() {
     outboundTx.forEach(t => {
       const custId = t.customer_id;
       if (!custId) return;
-      // Find parent customer
       const cust = customers.find(c => c.id === custId);
       const parentId = cust?.parent_customer_id || custId;
       map[parentId] = (map[parentId] || 0) + (t.qty || 0) * (t.unit_cost || 0);
@@ -342,44 +331,66 @@ export default function SalesCommandCenterPage() {
       .sort((a, b) => b.value - a.value);
   }, [outboundTx, customers]);
 
-  // Daily delivery trend (7 ngày gần nhất)
-  const dailyQtyTrend = useMemo(() => {
-    const now = getVNTimeNow();
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(now);
-      d.setDate(now.getDate() - (6 - i));
-      const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      return outboundTx.filter(t => t.tx_date.slice(0, 10) === ds).reduce((s, t) => s + (t.qty || 0), 0);
+  // Revenue by Selling Entity
+  const revenueByEntity = useMemo(() => {
+    const map: Record<string, number> = {};
+    const unmappedStr = "unmapped";
+    outboundTx.forEach(t => {
+      const custId = t.customer_id;
+      if (!custId) {
+         map[unmappedStr] = (map[unmappedStr] || 0) + (t.qty || 0) * (t.unit_cost || 0);
+         return;
+      }
+      const cust = customers.find(c => c.id === custId);
+      const parentId = cust?.parent_customer_id || custId;
+      const parentCust = customers.find(c => c.id === parentId);
+      const entId = parentCust?.selling_entity_id || unmappedStr;
+      map[entId] = (map[entId] || 0) + (t.qty || 0) * (t.unit_cost || 0);
     });
+    return Object.entries(map).map(([id, value]) => {
+      if (id === unmappedStr) return { id, label: "Khác / Giao tự do", value };
+      const e = entities.find(x => x.id === id);
+      return { id, label: e ? (e.code + " – " + (e.header_text || "Pháp nhân")) : "Chưa định danh", value };
+    }).filter(x => x.value > 0).sort((a,b) => b.value - a.value);
+  }, [outboundTx, customers, entities]);
+
+  // Top Products (Best Sellers)
+  const topProducts = useMemo(() => {
+    const map: Record<string, { qty: number, rev: number }> = {};
+    outboundTx.forEach(t => {
+       const pid = t.product_id;
+       if (!map[pid]) map[pid] = { qty: 0, rev: 0 };
+       map[pid].qty += (t.qty || 0);
+       map[pid].rev += (t.qty || 0) * (t.unit_cost || 0);
+    });
+    return Object.entries(map).map(([id, data]) => {
+       const p = products.find(x => x.id === id);
+       return {
+          id,
+          label: p ? p.sku : id,
+          name: p ? p.name : "Không rõ",
+          ...data
+       };
+    }).sort((a, b) => b.rev - a.rev);
+  }, [outboundTx, products]);
+
+  // Daily delivery trend (7 ngày gần nhất trong tháng)
+  const dailyQtyTrend = useMemo(() => {
+    // Để giữ sparkline đẹp, ta tính 7 ngày cuối cùng có data trong kỳ
+    const dates = Array.from(new Set(outboundTx.map(t => t.tx_date.slice(0, 10)))).sort();
+    const last7 = dates.slice(-7);
+    if(last7.length === 0) return [0,0];
+    return last7.map(d => outboundTx.filter(t => t.tx_date.slice(0, 10) === d).reduce((s, t) => s + (t.qty || 0), 0));
   }, [outboundTx]);
 
-  // Pending plans today
-  const todayPendingPlans = useMemo(() =>
-    plans.filter(p => p.plan_date === todayStr && p.planned_qty > 0 && !p.is_completed),
-    [plans, todayStr]);
+  const bestProductObj = topProducts[0];
 
-  // SKU shortage count (stock < sum of plans for next 3 days)
-  const skuAtRisk = useMemo(() => {
-    const now = getVNTimeNow();
-    const next3 = Array.from({ length: 3 }, (_, i) => {
-      const d = new Date(now);
-      d.setDate(now.getDate() + i);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    });
-    return products.filter(p => {
-      const needed = plans.filter(pl => pl.product_id === p.id && next3.includes(pl.plan_date))
-        .reduce((s, pl) => s + Math.max(0, (pl.planned_qty || 0) - (pl.actual_qty || 0)), 0);
-      return needed > 0 && (stockMap[p.id] || 0) < needed;
-    }).length;
-  }, [products, plans, stockMap]);
-
-  // Donut chart colors for customers
-  const custColors = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
+  // Donut chart colors
+  const UIColors = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#06b6d4"];
 
   const TABS = [
-    { id: "overview", label: "Tổng quan", icon: "📊" },
-    { id: "customers", label: "Theo Khách hàng", icon: "🏢" },
-    { id: "delivery", label: "Kế hoạch hôm nay", icon: "🚛" },
+    { id: "overview", label: "Tổng quan Sales", icon: "📊" },
+    { id: "customers", label: "Báo cáo theo Khách hàng", icon: "🏢" },
   ];
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -394,12 +405,12 @@ export default function SalesCommandCenterPage() {
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
             style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)", boxShadow: "0 8px 24px -4px #6366f160" }}>
-            ⚡
+            🚀
           </div>
           <div>
             <h1 className="page-title mb-0 text-2xl">SALES COMMAND CENTER</h1>
             <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] m-0">
-              Financial Consolidation Dashboard • Phase 9
+              Đài chỉ huy Doanh thu • Multi-Entity Architecture
             </p>
           </div>
         </div>
@@ -418,19 +429,26 @@ export default function SalesCommandCenterPage() {
 
       {/* ─── KPI GRID ───────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-        <KpiCard idx={0} icon="💰" label="Doanh thu tháng" rawValue={totalRevenue} formatted={fmtVND(totalRevenue)}
+        <KpiCard idx={0} icon="💳" label="Doanh thu tháng" rawValue={totalRevenue} formatted={fmtVND(totalRevenue)}
           color="#6366f1" trend={revenueTrend} sub={`vs ${getMonthRange(monthOffset - 1).label}`} sparkData={dailyQtyTrend} />
+        
         <KpiCard idx={1} icon="📦" label="Tổng xuất kho" rawValue={totalQty} color="#10b981" trend={qtyTrend}
           sub="Đơn vị (units)" sparkData={dailyQtyTrend} />
-        <KpiCard idx={2} icon="🚛" label="Chuyến giao hàng" rawValue={totalShipments} color="#f59e0b"
+        
+        <KpiCard idx={2} icon="🚛" label="Số chuyến xuất ngoại" rawValue={totalShipments} color="#f59e0b"
           sub={`Trong ${currentRange.label}`} />
-        <KpiCard idx={3} icon="🎯" label="Tỷ lệ HT kế hoạch" rawValue={Math.round(completionRate)}
-          formatted={`${completionRate.toFixed(1)}%`} color="#06b6d4"
-          sub={`${fmtNum(completedPlanQty)} / ${fmtNum(totalPlanQty)} units`} />
-        <KpiCard idx={4} icon="🏭" label="Tồn kho hiện tại" rawValue={totalStock} color="#8b5cf6"
-          sub={`${products.length} SKU đang theo dõi`} />
-        <KpiCard idx={5} icon="⚠️" label="SKU sắp thiếu" rawValue={skuAtRisk} color={skuAtRisk > 0 ? "#ef4444" : "#10b981"}
-          sub="Trong 3 ngày tới" />
+
+        <KpiCard idx={3} icon="🔥" label="Tốc độ xuất (Ngày)" rawValue={dailyBurnRate}
+          formatted={fmtVND(dailyBurnRate)} color="#ec4899"
+          sub="Doanh thu TB / Ngày" />
+
+        <KpiCard idx={4} icon="💎" label="Giá trị TB / Chuyến" rawValue={avgShipmentValue} 
+          formatted={fmtVND(avgShipmentValue)} color="#8b5cf6"
+          sub="Quy mô giá trị kéo về mỗi chuyến" />
+
+        <KpiCard idx={5} icon="👑" label="Sản phẩm gánh Team" rawValue={0} 
+          formatted={bestProductObj ? bestProductObj.label : "–"} color={bestProductObj ? "#14b8a6" : "#64748b"}
+          sub={bestProductObj ? fmtVND(bestProductObj.rev) : "Chưa có dữ liệu"} />
       </div>
 
       {/* ─── TABS ───────────────────────────────────────────────────── */}
@@ -454,46 +472,75 @@ export default function SalesCommandCenterPage() {
           <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             className="grid grid-cols-3 gap-5">
 
-            {/* Revenue by Customer */}
-            <div className="col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6"
-              style={{ boxShadow: "0 4px 24px -4px rgba(99,102,241,0.08)" }}>
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <h3 className="font-black text-[13px] uppercase tracking-widest text-slate-800">Doanh thu theo khách hàng</h3>
-                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">{currentRange.label} • Tính theo giá trị xuất kho</p>
-                </div>
-                <div className="text-[11px] font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">
-                  {fmtVND(totalRevenue)} tổng
-                </div>
-              </div>
-              <div className="space-y-4">
-                {shimmer ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="h-8 bg-slate-100 rounded-lg animate-pulse" />
-                  ))
-                ) : revenueByCustomer.length === 0 ? (
-                  <div className="text-center text-slate-400 py-10 text-sm font-bold">Chưa có dữ liệu xuất kho</div>
-                ) : (
-                  revenueByCustomer.slice(0, 8).map((r, i) => (
-                    <RevenueBar key={r.id} label={r.label} value={r.value} max={revenueByCustomer[0].value}
-                      color={custColors[i % custColors.length]} rank={i} />
-                  ))
-                )}
-              </div>
+            {/* Left Column: Top SKUs & Entity Revenue */}
+            <div className="col-span-2 flex flex-col gap-5">
+               {/* Entity Revenue */}
+               <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6"
+                 style={{ boxShadow: "0 4px 24px -4px rgba(99,102,241,0.08)" }}>
+                 <div className="flex items-center justify-between mb-5">
+                   <div>
+                     <h3 className="font-black text-[13px] uppercase tracking-widest text-slate-800">Doanh thu theo Pháp nhân (S.Entity)</h3>
+                     <p className="text-[10px] text-slate-400 font-bold mt-0.5">{currentRange.label} • Tách gộp quy mô Tập đoàn</p>
+                   </div>
+                   <div className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
+                     {entities.length} Pháp nhân gốc
+                   </div>
+                 </div>
+                 <div className="space-y-4">
+                   {shimmer ? (
+                     Array.from({ length: 3 }).map((_, i) => (
+                       <div key={i} className="h-8 bg-slate-100 rounded-lg animate-pulse" />
+                     ))
+                   ) : revenueByEntity.length === 0 ? (
+                     <div className="text-center text-slate-400 py-10 text-sm font-bold">Chưa có dữ liệu pháp nhân</div>
+                   ) : (
+                     revenueByEntity.map((r, i) => (
+                       <RevenueBar key={r.id} label={r.label} value={r.value} max={revenueByEntity[0].value}
+                         color={UIColors[i % UIColors.length]} rank={i} unit="VND" />
+                     ))
+                   )}
+                 </div>
+               </div>
+
+               {/* Trending Products */}
+               <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6"
+                 style={{ boxShadow: "0 4px 24px -4px rgba(99,102,241,0.08)" }}>
+                 <div className="flex items-center justify-between mb-5">
+                   <div>
+                     <h3 className="font-black text-[13px] uppercase tracking-widest text-slate-800">Top 10 Mã hàng kiếm tiền (Best Sellers)</h3>
+                     <p className="text-[10px] text-slate-400 font-bold mt-0.5">{currentRange.label} • Dựa trên giá trị xuất kho tương đối</p>
+                   </div>
+                 </div>
+                 <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                   {shimmer ? (
+                     Array.from({ length: 6 }).map((_, i) => (
+                       <div key={i} className="h-8 bg-slate-100 rounded-lg animate-pulse" />
+                     ))
+                   ) : topProducts.length === 0 ? (
+                     <div className="text-center col-span-2 text-slate-400 py-10 text-sm font-bold">Chưa có dữ liệu hàng hóa</div>
+                   ) : (
+                     topProducts.slice(0, 10).map((r, i) => (
+                       <RevenueBar key={r.id} label={r.label} desc={r.name} value={r.rev} max={topProducts[0].rev}
+                         color={UIColors[(i+2) % UIColors.length]} rank={i} unit="VND" />
+                     ))
+                   )}
+                 </div>
+               </div>
             </div>
 
             {/* Right column: Donut + Recent shipments */}
             <div className="flex flex-col gap-5">
-              {/* Donut */}
-              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex-1"
+              {/* Donut of Customers */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5"
                 style={{ boxShadow: "0 4px 24px -4px rgba(99,102,241,0.08)" }}>
-                <h3 className="font-black text-[11px] uppercase tracking-widest text-slate-600 mb-4">Phân bổ khách hàng</h3>
+                <h3 className="font-black text-[11px] uppercase tracking-widest text-slate-600 mb-4">Top Doanh thu Nhóm Khách Hàng</h3>
                 {revenueByCustomer.length > 0 ? (
                   <DonutChart
+                    title="PARENT"
                     data={revenueByCustomer.slice(0, 5).map((r, i) => ({
                       label: r.label.split("–")[1]?.trim() || r.label,
                       value: r.value,
-                      color: custColors[i]
+                      color: UIColors[i]
                     }))}
                     total={totalRevenue}
                   />
@@ -502,26 +549,31 @@ export default function SalesCommandCenterPage() {
                 )}
               </div>
 
-              {/* Quick stats */}
-              <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-5 text-white">
-                <div className="text-[10px] font-black uppercase tracking-widest opacity-70 mb-3">Hôm nay</div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-2xl font-black">{todayPendingPlans.length}</div>
-                    <div className="text-[9px] font-bold opacity-70 uppercase">K.hoạch chờ</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-black">{fmtNum(todayPendingPlans.reduce((s, p) => s + (p.planned_qty || 0), 0))}</div>
-                    <div className="text-[9px] font-bold opacity-70 uppercase">Units cần giao</div>
-                  </div>
-                  <div>
-                    <div className={`text-2xl font-black ${skuAtRisk > 0 ? "text-red-300" : "text-emerald-300"}`}>{skuAtRisk}</div>
-                    <div className="text-[9px] font-bold opacity-70 uppercase">SKU thiếu</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-black">{parentCustomers.length}</div>
-                    <div className="text-[9px] font-bold opacity-70 uppercase">Khách hàng</div>
-                  </div>
+              {/* Recent Shipments */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex-1">
+                <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+                  <h3 className="font-black text-[11px] uppercase tracking-widest text-slate-600">📋 Nhật ký chuyến hàng</h3>
+                </div>
+                <div className="divide-y divide-slate-50 overflow-y-auto" style={{ maxHeight: 500 }}>
+                  {shipments.slice(0, 15).map((s, i) => {
+                    const cust = customers.find(x => x.id === s.customer_id);
+                    return (
+                      <div key={s.id} className="px-5 py-3 hover:bg-slate-50/80 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="font-black text-[12px] text-slate-900">{s.shipment_no}</div>
+                            <div className="font-bold text-[10px] text-slate-400 mt-0.5">{cust?.name || "–"}</div>
+                          </div>
+                          <div className="text-right flex flex-col items-end">
+                            <div className="font-black text-[11px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">{s.shipment_date?.slice(5).replace("-", "/")}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {shipments.length === 0 && !shimmer && (
+                    <div className="py-12 text-center text-slate-300 font-bold text-sm">Chưa có chuyến nào</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -533,14 +585,14 @@ export default function SalesCommandCenterPage() {
           <motion.div key="customers" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
             <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="font-black text-[13px] uppercase tracking-widest text-slate-700">Báo cáo theo Khách hàng</h3>
+                <h3 className="font-black text-[13px] uppercase tracking-widest text-slate-700">Chi tiết Doanh thu Dòng chảy Khách Hàng</h3>
                 <span className="text-[11px] text-slate-400 font-bold">{currentRange.label}</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      {["#", "Khách hàng", "Loại", "Số SKU", "Tổng xuất (units)", "Doanh thu", "% Tổng DT", "So tháng tr."].map(h => (
+                      {["#", "Khách hàng", "Thực thể Sale", "Số SKU", "Tổng xuất (units)", "Doanh thu", "% Tổng DT", "So tháng tr."].map(h => (
                         <th key={h} className="py-3 px-4 text-left font-black text-[10px] uppercase tracking-widest text-slate-500">{h}</th>
                       ))}
                     </tr>
@@ -560,6 +612,7 @@ export default function SalesCommandCenterPage() {
                       const pct = totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0;
                       const trend = prevRev > 0 ? ((revenue - prevRev) / prevRev) * 100 : null;
                       const vendorCount = customers.filter(c => c.parent_customer_id === cust.id).length;
+                      const ent = entities.find(e => e.id === cust.selling_entity_id);
 
                       return (
                         <motion.tr key={cust.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
@@ -567,13 +620,19 @@ export default function SalesCommandCenterPage() {
                           className={`hover:bg-indigo-50/30 transition-colors ${i % 2 === 0 ? "bg-white" : "bg-slate-50/30"}`}>
                           <td className="py-3 px-4 font-black text-slate-300 text-[11px]">{i + 1}</td>
                           <td className="py-3 px-4">
-                            <div className="font-black text-slate-900 text-[12px]">{cust.name}</div>
-                            <div className="font-bold text-slate-400 text-[10px] uppercase">{cust.code}</div>
+                            <div className="font-black text-slate-900 text-[12px] uppercase">{cust.code}</div>
+                            <div className="font-bold text-slate-500 text-[10px] mt-0.5 truncate max-w-[200px]">{cust.name}</div>
                           </td>
                           <td className="py-3 px-4">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-indigo-50 text-indigo-600 border border-indigo-100">
-                              🏢 PARENT {vendorCount > 0 ? `+${vendorCount}` : ""}
-                            </span>
+                             {ent ? (
+                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-50 text-emerald-600 border border-emerald-100" title={ent.header_text || "Pháp nhân"}>
+                                 🏢 {ent.code} {vendorCount>0 ? `(+${vendorCount})` : ''}
+                               </span>
+                             ) : (
+                               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-black uppercase text-slate-400">
+                                 Chưa gán
+                               </span>
+                             )}
                           </td>
                           <td className="py-3 px-4 font-black text-slate-700">{skuCount}</td>
                           <td className="py-3 px-4 font-black text-slate-700">{fmtNum(qty)}</td>
@@ -602,104 +661,15 @@ export default function SalesCommandCenterPage() {
             </div>
           </motion.div>
         )}
-
-        {/* ─── TAB: DELIVERY TODAY ──────────────────────────────────── */}
-        {activeTab === "delivery" && (
-          <motion.div key="delivery" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-            <div className="grid grid-cols-3 gap-5">
-              {/* Pending plans */}
-              <div className="col-span-2 bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
-                <div className="px-6 py-4 border-b border-slate-100 bg-amber-50/40">
-                  <h3 className="font-black text-[13px] uppercase tracking-widest text-amber-800">🚛 Kế hoạch chờ xuất hôm nay</h3>
-                  <p className="text-[10px] font-bold text-amber-500 mt-0.5">{todayStr} • {todayPendingPlans.length} dòng chờ xử lý</p>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        {["Khách hàng", "Mã hàng", "Tên hàng", "Kế hoạch", "Đã giao", "Còn lại", "Tồn kho"].map(h => (
-                          <th key={h} className="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-left">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {shimmer ? Array.from({ length: 5 }).map((_, i) => (
-                        <tr key={i}><td colSpan={7} className="py-3 px-4"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td></tr>
-                      )) : todayPendingPlans.length === 0 ? (
-                        <tr><td colSpan={7} className="py-16 text-center">
-                          <div className="text-3xl mb-2">✅</div>
-                          <div className="font-black text-emerald-600">Đã hoàn thành tất cả kế hoạch hôm nay!</div>
-                        </td></tr>
-                      ) : todayPendingPlans.map((p, i) => {
-                        const prod = products.find(x => x.id === p.product_id);
-                        const cust = customers.find(x => x.id === (p.customer_id || prod?.customer_id));
-                        const stock = stockMap[p.product_id] || 0;
-                        const remaining = Math.max(0, (p.planned_qty || 0) + (p.backlog_qty || 0) - (p.actual_qty || 0));
-                        const isAtRisk = stock < remaining;
-                        return (
-                          <tr key={p.id} className={`hover:bg-amber-50/30 transition-colors ${i % 2 === 0 ? "bg-white" : "bg-slate-50/20"} ${isAtRisk ? "border-l-2 border-red-400" : ""}`}>
-                            <td className="py-3 px-4">
-                              <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-black text-[10px] border border-indigo-100">{cust?.code || "–"}</span>
-                            </td>
-                            <td className="py-3 px-4 font-mono font-black text-slate-900">{prod?.sku || "–"}</td>
-                            <td className="py-3 px-4 font-bold text-slate-600 max-w-[200px] truncate">{prod?.name || "–"}</td>
-                            <td className="py-3 px-4 font-black text-slate-700">{fmtNum(p.planned_qty || 0)}</td>
-                            <td className="py-3 px-4 font-black text-emerald-600">{fmtNum(p.actual_qty || 0)}</td>
-                            <td className="py-3 px-4">
-                              <span className={`font-black ${remaining > 0 ? "text-amber-600" : "text-emerald-500"}`}>{fmtNum(remaining)}</span>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className={`font-black inline-flex items-center gap-1 ${isAtRisk ? "text-red-600" : "text-blue-600"}`}>
-                                {isAtRisk && "⚠ "}{fmtNum(stock)}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Recent Shipments */}
-              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-100">
-                  <h3 className="font-black text-[12px] uppercase tracking-widest text-slate-700">📋 Chuyến hàng gần đây</h3>
-                </div>
-                <div className="divide-y divide-slate-50 overflow-y-auto" style={{ maxHeight: 480 }}>
-                  {shipments.slice(0, 15).map((s, i) => {
-                    const cust = customers.find(x => x.id === s.customer_id);
-                    return (
-                      <div key={s.id} className="px-5 py-3 hover:bg-slate-50/80 transition-colors">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="font-black text-[12px] text-slate-900">{s.shipment_no}</div>
-                            <div className="font-bold text-[10px] text-slate-400 mt-0.5">{cust?.name || "–"}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-black text-[11px] text-indigo-600">{s.shipment_date?.slice(5).replace("-", "/")}</div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {shipments.length === 0 && !shimmer && (
-                    <div className="py-12 text-center text-slate-300 font-bold text-sm">Chưa có chuyến nào</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
       </AnimatePresence>
 
       {/* ─── FOOTER BADGE ───────────────────────────────────────────── */}
       <div className="mt-8 flex items-center justify-center gap-2 text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-        <span>⚡ Phase 9 — Financial Consolidation Architecture</span>
+        <span>⚡ Phase 9 — Sales Command Center Console</span>
         <span>•</span>
-        <span>Parent-Child Hierarchy</span>
+        <span>Multi-Entity Ready</span>
         <span>•</span>
-        <span>Real-time Data</span>
+        <span>Real-time Financial Performance</span>
       </div>
     </motion.div>
   );
