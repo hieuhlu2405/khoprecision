@@ -1058,27 +1058,54 @@ export default function InventoryValueReportPage() {
   const productData = useMemo(() => {
     const rows = stockRowsFromRpc;
     
-    // Preliminary processing
-    const results: ProdRow[] = [];
+    const groupedRows = new Map<string, any>();
     for (const r of rows) {
       const p = productMap.get(r.product_id);
       if (!p) continue;
-      if (qCustomer && r.customer_id !== qCustomer) continue;
+      
+      if (!groupedRows.has(r.product_id)) {
+        groupedRows.set(r.product_id, {
+          product_id: r.product_id,
+          customer_id: p.customer_id,
+          opening_qty: 0,
+          inbound_qty: 0,
+          outbound_qty: 0,
+          current_qty: 0,
+        });
+      }
+      const g = groupedRows.get(r.product_id);
+      g.opening_qty += Number(r.opening_qty || 0);
+      g.inbound_qty += Number(r.inbound_qty || 0);
+      g.outbound_qty += Number(r.outbound_qty || 0);
+      g.current_qty += Number(r.current_qty || 0);
+    }
+
+    // Preliminary processing
+    const results: ProdRow[] = [];
+    const mergedArray = Array.from(groupedRows.values());
+
+    for (const g of mergedArray) {
+      const p = productMap.get(g.product_id);
+      if (!p) continue;
+      
+      if (qCustomer && p.customer_id !== qCustomer) continue;
+      
       if (debouncedQProd) {
         const s = debouncedQProd.toLowerCase();
         if (!p.sku.toLowerCase().includes(s) && !p.name.toLowerCase().includes(s)) continue;
       }
-      const curQty = Number(r.current_qty);
+      
+      const curQty = g.current_qty;
       if (onlyInStock && curQty <= 0) continue;
       
-      const qOp = Number(r.opening_qty);
-      const qIn = Number(r.inbound_qty);
-      const qOut = Number(r.outbound_qty);
+      const qOp = g.opening_qty;
+      const qIn = g.inbound_qty;
+      const qOut = g.outbound_qty;
       if (qOp === 0 && qIn === 0 && qOut === 0 && curQty === 0) continue;
 
       results.push({
         product: p,
-        customer_id: r.customer_id,
+        customer_id: p.customer_id,
         opening_qty: qOp,
         inbound_qty: qIn,
         outbound_qty: qOut,

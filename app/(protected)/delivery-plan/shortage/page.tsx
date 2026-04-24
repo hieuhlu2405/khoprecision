@@ -70,17 +70,17 @@ function KpiCard({ icon, label, value, sub, color, pulse }: { icon: string; labe
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/70 backdrop-blur-sm"
+      className="relative overflow-hidden rounded-xl border border-slate-200 bg-white/70 backdrop-blur-sm"
       style={{ boxShadow: `0 8px 24px -4px ${color}22` }}
     >
-      <div className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-10 pointer-events-none" style={{ background: color, transform: "translate(30%, -30%)" }} />
-      <div className="p-5 relative z-10">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-2xl">{icon}</span>
-          {pulse && <span className="w-2 h-2 rounded-full bg-red-500 animate-ping absolute top-4 right-4 opacity-75" />}
+      <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-10 pointer-events-none" style={{ background: color, transform: "translate(30%, -30%)" }} />
+      <div className="p-4 relative z-10">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xl">{icon}</span>
+          {pulse && <span className="w-2 h-2 rounded-full bg-red-500 animate-ping absolute top-3 right-3 opacity-75" />}
         </div>
-        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{label}</div>
-        <div className="text-3xl font-black" style={{ color }}>{typeof value === "number" ? fmtNum(value) : value}</div>
+        <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{label}</div>
+        <div className="text-2xl font-black" style={{ color }}>{typeof value === "number" ? fmtNum(value) : value}</div>
         {sub && <div className="text-[10px] text-slate-400 font-bold mt-1">{sub}</div>}
         <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ background: `linear-gradient(90deg, ${color}, transparent)` }} />
       </div>
@@ -363,7 +363,7 @@ export default function ShortageReportPage() {
       </div>
 
       {/* KPI CARDS */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-4 gap-3 mb-4">
         <KpiCard icon="🚨" label="Mã hàng thiếu hụt" value={totalShortage} color="#ef4444" pulse={totalShortage > 0}
           sub={`Trong ${reportData.length} mã được theo dõi`} />
         <KpiCard icon="⚡" label="Thiếu hôm nay" value={criticalToday} color="#f97316"
@@ -375,8 +375,8 @@ export default function ShortageReportPage() {
       </div>
 
       {/* MAIN TABLE */}
-      <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/30 overflow-hidden">
-        <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 400px)" }}>
+      <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200 shadow-xl shadow-slate-200/30 overflow-hidden">
+        <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 260px)" }}>
           <table className="w-full text-xs !border-separate !border-spacing-0" style={{ tableLayout: "fixed", minWidth: (colWidths["sku"] || 200) + (colWidths["name"] || 300) + (colWidths["customer"] || 130) + (colWidths["note1"] || 150) + (colWidths["note2"] || 150) + (colWidths["stock"] || 120) + days.reduce((s, d) => s + (colWidths[d] || 110), 0) + (colWidths["max_shortage"] || 100) }}>
             <thead>
               <tr style={{ display: "flex", width: "100%" }}>
@@ -513,37 +513,6 @@ export default function ShortageReportPage() {
               })}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* LEGEND / INFO */}
-      <div className="mt-6 grid grid-cols-3 gap-4">
-        <div className="flex items-start gap-4 p-5 bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl">
-          <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-indigo-600 font-black text-lg flex-shrink-0">ℹ</div>
-          <div>
-            <h4 className="text-indigo-900 font-black text-[10px] uppercase tracking-widest mb-1">Cơ chế Rolling Inventory</h4>
-            <p className="text-indigo-700/70 text-[10px] leading-relaxed font-bold">
-              Tồn thực tế trừ dần cho kế hoạch mỗi ngày. Ngày sau dùng tồn dự kiến của ngày trước để tính.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-start gap-4 p-5 bg-gradient-to-br from-red-50 to-rose-50 border border-red-100 rounded-2xl">
-          <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-xl flex-shrink-0">⚡</div>
-          <div>
-            <h4 className="text-red-900 font-black text-[10px] uppercase tracking-widest mb-1">Ưu tiên Sản xuất ngay</h4>
-            <p className="text-red-700/70 text-[10px] leading-relaxed font-bold">
-              Tập trung vào các mã có cột <strong>Thiếu = HÔM NAY</strong> (viền đỏ) - cần xử lý trong ngày.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-start gap-4 p-5 bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-100 rounded-2xl">
-          <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-xl flex-shrink-0">📊</div>
-          <div>
-            <h4 className="text-emerald-900 font-black text-[10px] uppercase tracking-widest mb-1">Multi-Vendor Support</h4>
-            <p className="text-emerald-700/70 text-[10px] leading-relaxed font-bold">
-              Kế hoạch từ nhiều điểm giao (Vendor) cùng 1 mã hàng được tổng hợp tự động vào 1 dòng.
-            </p>
-          </div>
         </div>
       </div>
     </motion.div>

@@ -1202,7 +1202,7 @@ export default function DeliveryPlanPage() {
           <div 
             ref={parentRef}
             className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" 
-            style={{ marginTop: 24, maxHeight: "calc(100vh - 350px)", position: 'relative' }}
+            style={{ marginTop: 24, maxHeight: "calc(100vh - 260px)", position: 'relative' }}
           >
             <table className="text-sm !border-separate !border-spacing-0 table-fixed" style={{ width: TABLE_MIN_WIDTH, minWidth: TABLE_MIN_WIDTH }}>
               <thead className="sticky top-0 z-[60]">

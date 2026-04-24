@@ -322,35 +322,52 @@ export default function InventoryReportPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  /* ---- Calculations ---- */
   const reportData = useMemo(() => {
-    const stockRows: any[] = txs || []; // txs now holds the db stockRows array
-    const results: ReportRow[] = [];
+    const stockRows: any[] = txs || []; // db stockRows array
+    const groupedRows = new Map<string, any>();
+
+    // B1: Gộp dữ liệu của các Vendor (cùng product_id) về chung 1 record
     for (const r of stockRows) {
-      if (qCustomer && r.customer_id !== qCustomer) continue;
       const p = products.find(x => x.id === r.product_id);
       if (!p) continue;
+
+      if (!groupedRows.has(r.product_id)) {
+        groupedRows.set(r.product_id, {
+          product: p,
+          customer_id: p.customer_id, // Gắn cứng về Công ty Mẹ, bỏ gộp theo r.customer_id của Vendor
+          opening_qty: 0,
+          inbound_qty: 0,
+          outbound_qty: 0,
+          current_qty: 0,
+        });
+      }
+      const g = groupedRows.get(r.product_id);
+      g.opening_qty += Number(r.opening_qty || 0);
+      g.inbound_qty += Number(r.inbound_qty || 0);
+      g.outbound_qty += Number(r.outbound_qty || 0);
+      g.current_qty += Number(r.current_qty || 0);
+    }
+
+    const results: ReportRow[] = [];
+    const mergedArray = Array.from(groupedRows.values());
+
+    for (const g of mergedArray) {
+      const p = g.product;
+      
+      // Lọc theo Khách hàng TỔNG (vì đã quy về Công ty Mẹ)
+      if (qCustomer && p.customer_id !== qCustomer) continue;
 
       if (debouncedQProduct) {
         const s = debouncedQProduct.toLowerCase();
         if (!p.sku.toLowerCase().includes(s) && !p.name.toLowerCase().includes(s)) continue;
       }
 
-      const qCur = Number(r.current_qty);
+      const qCur = g.current_qty;
       if (onlyInStock && qCur <= 0) continue;
 
-      const qOp = Number(r.opening_qty);
-      const qIn = Number(r.inbound_qty);
-      const qOut = Number(r.outbound_qty);
-
-      if (qOp !== 0 || qIn !== 0 || qOut !== 0 || qCur !== 0) {
+      if (g.opening_qty !== 0 || g.inbound_qty !== 0 || g.outbound_qty !== 0 || qCur !== 0) {
         results.push({
-          product: p,
-          customer_id: r.customer_id,
-          opening_qty: qOp,
-          inbound_qty: qIn,
-          outbound_qty: qOut,
-          current_qty: qCur,
+          ...g,
           inventory_value: p.unit_price != null ? qCur * p.unit_price : null
         });
       }
