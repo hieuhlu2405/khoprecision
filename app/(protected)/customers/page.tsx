@@ -192,26 +192,32 @@ export default function CustomersPage() {
 
   async function del(c: Customer) {
     if (!isManager) { showToast("Bạn không có quyền xóa", "error"); return; }
-    const ok = await showConfirm({ message: `Xóa khách hàng ${c.code}?`, danger: true, confirmLabel: "Xóa" });
+    const ok = await showConfirm({ message: `Xóa khách hàng ${c.code}? (Sẽ xóa luôn các vendor con nếu có)`, danger: true, confirmLabel: "Xóa" });
     if (!ok) return;
     try {
       const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("customers").update({ deleted_at: new Date().toISOString(), deleted_by: u.user?.id ?? null }).eq("id", c.id);
+      const { error } = await supabase.from("customers")
+        .update({ deleted_at: new Date().toISOString(), deleted_by: u.user?.id ?? null })
+        .or(`id.eq.${c.id},parent_customer_id.eq.${c.id}`);
       if (error) throw error;
+      showToast("Đã xoá khách hàng thành công", "success");
       await load();
     } catch (err: any) { setError(err?.message ?? "Lỗi khi xóa"); }
   }
 
   async function bulkDelete() {
     if (!isManager || selectedIds.size === 0) return;
-    const ok = await showConfirm({ message: `Xóa ${selectedIds.size} khách hàng đã chọn?`, danger: true, confirmLabel: "Xóa" });
+    const ok = await showConfirm({ message: `Xóa ${selectedIds.size} khách hàng đã chọn? (Sẽ xóa luôn các vendor con nếu có)`, danger: true, confirmLabel: "Xóa" });
     if (!ok) return;
     try {
       const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("customers").update({ deleted_at: new Date().toISOString(), deleted_by: u.user?.id ?? null }).in("id", Array.from(selectedIds));
+      const csv = Array.from(selectedIds).join(",");
+      const { error } = await supabase.from("customers")
+        .update({ deleted_at: new Date().toISOString(), deleted_by: u.user?.id ?? null })
+        .or(`id.in.(${csv}),parent_customer_id.in.(${csv})`);
       if (error) throw error;
       setSelectedIds(new Set());
-      showToast(`Đã xóa ${selectedIds.size} khách hàng.`, "success");
+      showToast(`Đã xóa ${selectedIds.size} tải khoản / vendor.`, "success");
       await load();
     } catch (err: any) { setError(err?.message ?? "Lỗi khi xóa"); }
   }
@@ -362,7 +368,13 @@ export default function CustomersPage() {
                 // --- Vendor Child Rows (expandable) ---
                 ...(isExpanded ? vendors.map(vendor => (
                   <tr key={`vendor-${vendor.id}`} className="group hover:bg-violet-50/30 transition-colors bg-slate-50/50">
-                    {isManager && <td className="py-2.5 px-3 text-center sticky left-0 z-10 bg-inherit" />}
+                    {isManager && (
+                      <td className="py-2.5 px-3 text-center sticky left-0 z-10 bg-inherit">
+                        <input type="checkbox" checked={selectedIds.has(vendor.id)} className="rounded text-violet-600 border-slate-300 w-4 h-4"
+                          onChange={e => { const n = new Set(selectedIds); if (e.target.checked) n.add(vendor.id); else n.delete(vendor.id); setSelectedIds(n); }}
+                        />
+                      </td>
+                    )}
                     {/* Loại - indented */}
                     <td className="py-2.5 px-3">
                       <div className="flex items-center gap-1.5 pl-7">
