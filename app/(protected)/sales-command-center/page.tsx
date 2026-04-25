@@ -510,7 +510,7 @@ export default function SalesCommandCenterPage() {
                
                <div className="flex flex-wrap items-end justify-center gap-8">
                   <div className="flex flex-col gap-2">
-                     <label className="text-[10px] font-black uppercase text-indigo-600 ml-1">Kỳ báo cáo chính (Kỳ 1)</label>
+                     <label className="text-[10px] font-black uppercase text-indigo-600 ml-1">Kỳ báo cáo mới (Kỳ Gần đây)</label>
                      <div className="flex items-center bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 gap-3">
                         <input type="date" value={p1Start} onChange={e => setP1Start(e.target.value)} className="bg-transparent border-none outline-none font-bold text-sm" />
                         <span className="text-slate-300">→</span>
@@ -518,7 +518,7 @@ export default function SalesCommandCenterPage() {
                      </div>
                   </div>
                   <div className="flex flex-col gap-2">
-                     <label className="text-[10px] font-black uppercase text-amber-600 ml-1">Kỳ đối soát so sánh (Kỳ 2)</label>
+                     <label className="text-[10px] font-black uppercase text-amber-600 ml-1">Kỳ so sánh cũ (Kỳ Quá khứ)</label>
                      <div className="flex items-center bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 gap-3">
                         <input type="date" value={p2Start} onChange={e => setP2Start(e.target.value)} className="bg-transparent border-none outline-none font-bold text-sm" />
                         <span className="text-slate-300">→</span>
@@ -545,7 +545,7 @@ export default function SalesCommandCenterPage() {
                             <div className={`flex items-center gap-2 font-black ${k.val >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
                                <span className="text-sm">{k.val >= 0 ? "▲ TĂNG" : "▼ GIẢM"}</span>
                                <span className="text-xl">
-                                 {k.val >= 0 ? "+" : "-"}{k.type === "vnd" ? fmtVND(Math.abs(k.val)) : Math.abs(k.val).toFixed(2) + "%"}
+                                 {k.val >= 0 ? "+" : "-"}{k.type === "vnd" ? fmtNum(Math.round(Math.abs(k.val))) : Math.abs(k.val).toFixed(2) + "%"}
                                </span>
                             </div>
                             <div className="text-[10px] font-bold text-slate-400 uppercase">Kỳ 1 vs Kỳ 2</div>
@@ -560,11 +560,11 @@ export default function SalesCommandCenterPage() {
                           <h4 className="font-black text-[11px] uppercase text-slate-900 border-l-4 border-black pl-3">Tổng quan Quy mô</h4>
                           <div className="flex flex-col gap-6 py-4">
                              {[
-                               { label: "Kỳ 1", val: compareData.kpis.p1_revenue, color: "bg-indigo-600" },
-                               { label: "Kỳ 2", val: compareData.kpis.p2_revenue, color: "bg-amber-500" }
+                               { label: "Kỳ Gần đây", val: compareData.kpis.p1_revenue, color: "bg-indigo-600" },
+                               { label: "Kỳ Quá khứ", val: compareData.kpis.p2_revenue, color: "bg-amber-500" }
                              ].map(c => (
                                <div key={c.label} className="flex flex-col gap-2">
-                                  <div className="flex justify-between text-[11px] font-black uppercase"><span>{c.label}</span> <span>{fmtVND(c.val)}</span></div>
+                                  <div className="flex justify-between text-[11px] font-black uppercase"><span>{c.label}</span> <span>{fmtNum(Math.round(c.val))}</span></div>
                                   <div className="h-5 bg-slate-100 rounded-lg overflow-hidden">
                                      <motion.div initial={{ width: 0 }} animate={{ width: `${(c.val / Math.max(compareData.kpis.p1_revenue, compareData.kpis.p2_revenue, 1)) * 100}%` }} className={`h-full ${c.color}`} />
                                   </div>
@@ -586,7 +586,7 @@ export default function SalesCommandCenterPage() {
                                const maxDelta = list[0]?.delta || 1;
                                return list.map((c: any) => (
                                  <div key={c.id} className="flex flex-col gap-1">
-                                    <div className="flex justify-between text-[10px] font-bold uppercase truncate"><span>{c.code}</span> <span className="text-emerald-600">+{fmtVND(c.delta)}</span></div>
+                                    <div className="flex justify-between text-[10px] font-bold uppercase truncate"><span>{c.code}</span> <span className="text-emerald-600">+{fmtNum(Math.round(c.delta))}</span></div>
                                     <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
                                        <div className="h-full bg-emerald-500" style={{ width: `${(c.delta / maxDelta) * 100}%` }} />
                                     </div>
@@ -609,7 +609,7 @@ export default function SalesCommandCenterPage() {
                                const maxAbsDelta = Math.abs(list[0]?.delta || 1);
                                return list.map((c: any) => (
                                  <div key={c.id} className="flex flex-col gap-1">
-                                    <div className="flex justify-between text-[10px] font-bold uppercase truncate"><span>{c.code}</span> <span className="text-rose-600">-{fmtVND(Math.abs(c.delta))}</span></div>
+                                    <div className="flex justify-between text-[10px] font-bold uppercase truncate"><span>{c.code}</span> <span className="text-rose-600">-{fmtNum(Math.round(Math.abs(c.delta)))}</span></div>
                                     <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
                                        <div className="h-full bg-rose-500" style={{ width: `${(Math.abs(c.delta) / maxAbsDelta) * 100}%` }} />
                                     </div>
@@ -631,8 +631,8 @@ export default function SalesCommandCenterPage() {
                              <tr className="bg-white border-b border-slate-100">
                                 <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400 w-[60px]">#</th>
                                 <th className="px-6 py-3 text-left text-[10px] font-black uppercase text-slate-400">Khách hàng</th>
-                                <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400">Kỳ 1</th>
-                                <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400">Kỳ 2</th>
+                                <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400">Kỳ Gần đây</th>
+                                <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400">Kỳ Quá khứ</th>
                                 <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400">Biến động</th>
                                 <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400">% +/-</th>
                              </tr>
@@ -656,8 +656,8 @@ export default function SalesCommandCenterPage() {
                                        </div>
                                        <div className="text-[10px] font-medium text-slate-400 truncate max-w-[200px]">{r.name}</div>
                                     </td>
-                                    <td className="px-6 py-4 text-center font-bold text-[13px] text-slate-700 bg-slate-50/30 border-r border-slate-100">{fmtVND(r.p1_revenue)}</td>
-                                    <td className="px-6 py-4 text-center font-bold text-[13px] text-slate-700 border-r border-slate-100">{fmtVND(r.p2_revenue)}</td>
+                                    <td className="px-6 py-4 text-center font-bold text-[13px] text-slate-700 bg-slate-50/30 border-r border-slate-100">{fmtNum(Math.round(r.p1_revenue))}</td>
+                                    <td className="px-6 py-4 text-center font-bold text-[13px] text-slate-700 border-r border-slate-100">{fmtNum(Math.round(r.p2_revenue))}</td>
                                     <td className={`px-6 py-4 text-center font-black text-[13px] border-r border-slate-100 ${delta >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
                                        {delta >= 0 ? "+" : ""}{fmtNum(Math.round(delta))}
                                     </td>
