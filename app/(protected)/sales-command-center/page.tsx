@@ -420,7 +420,7 @@ export default function SalesCommandCenterPage() {
               </div>
               {/* Top Products Card */}
               <div className="bg-white rounded-[2rem] border border-slate-200/80 p-8 shadow-xl shadow-slate-200/40 border-t-4 border-t-emerald-500">
-                <h3 className="font-black text-sm uppercase tracking-[0.2em] text-slate-800 mb-8">Top Doanh thu theo Mã hành</h3>
+                <h3 className="font-black text-sm uppercase tracking-[0.2em] text-slate-800 mb-8">Top Doanh thu theo Mã hàng</h3>
                 <div className="grid grid-cols-2 gap-x-12 gap-y-6">
                   {loading ? Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-10 bg-slate-100 rounded-xl animate-pulse" />) :
                     productReport.map((p, i) => <RevenueBar key={p.id} label={p.sku} desc={p.name} value={p.rev} max={productReport[0]?.rev || 1} color={UIColors[i % UIColors.length]} rank={i} unit="VND" />)}
@@ -461,36 +461,32 @@ export default function SalesCommandCenterPage() {
                   <thead>
                     <tr>
                       <ThCell label="#" colKey="rank" align="center" w="60px" colWidths={colWidths} onResize={onResize} />
-                      <ThCell label="Khách hàng" colKey="code" sortable w="400px" colWidths={colWidths} onResize={onResize} sortCol={sortCol} onSort={setSortCol} sortDir={sortDir} filterable />
-                      <ThCell label="Pháp nhân phân phối" colKey="entity" w="250px" colWidths={colWidths} onResize={onResize} align="center" />
-                      <ThCell label="Doanh thu thực tế" colKey="revenue" sortable align="center" w="250px" colWidths={colWidths} onResize={onResize} sortCol={sortCol} onSort={setSortCol} sortDir={sortDir} />
+                      <ThCell label="Khách hàng" colKey="code" sortable w="500px" colWidths={colWidths} onResize={onResize} sortCol={sortCol} onSort={setSortCol} sortDir={sortDir} />
+                      <ThCell label="Doanh thu thực tế" colKey="revenue" sortable align="center" w="280px" colWidths={colWidths} onResize={onResize} sortCol={sortCol} onSort={setSortCol} sortDir={sortDir} />
                       <ThCell label="% tỷ trọng doanh thu" colKey="pct" align="center" w="220px" colWidths={colWidths} onResize={onResize} />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {loading ? Array.from({ length: 8 }).map((_, i) => <tr key={i}><td colSpan={5} className="py-6 px-8"><div className="h-8 bg-slate-100 rounded-2xl animate-pulse" /></td></tr>) :
+                    {loading ? Array.from({ length: 8 }).map((_, i) => <tr key={i}><td colSpan={4} className="py-6 px-8"><div className="h-8 bg-slate-100 rounded-2xl animate-pulse" /></td></tr>) :
                       customerList.map((r, i) => {
-                        const ent = entities.find(e => e.id === r.selling_entity_id);
                         const pct = (r.revenue / (stats.monthRev || 1)) * 100;
+                        const isTop3 = i < 3;
                         return (
                           <tr key={r.id} className="hover:bg-indigo-50/20 transition-all group">
-                            <td className="py-4 px-4 text-center font-black text-slate-300 text-[11px] border-r border-slate-100 group-hover:text-indigo-400">#{i + 1}</td>
+                            <td className={`py-4 px-4 text-center font-black text-[11px] border-r border-slate-100 transition-colors ${isTop3 ? "text-rose-500" : "text-slate-300"}`}>#{i + 1}</td>
                             <td className="py-5 px-6 border-r border-slate-100">
-                              <div className="font-black text-slate-900 text-[14px] uppercase tracking-wider group-hover:text-indigo-600 transition-colors">{r.code}</div>
+                              <div className={`font-black text-[14px] uppercase tracking-wider transition-colors ${isTop3 ? "text-rose-600" : "text-slate-900"} group-hover:text-indigo-600`}>{r.code}</div>
                               <div className="font-medium text-slate-400 text-[11px] truncate opacity-80">{r.name}</div>
                             </td>
                             <td className="py-4 px-4 text-center border-r border-slate-100">
-                               {ent ? <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm">🏢 {ent.code}</span> : <span className="text-[10px] font-black uppercase text-slate-300 italic opacity-50">Chưa xác định</span>}
-                            </td>
-                            <td className="py-4 px-4 text-center border-r border-slate-100">
-                               <div className="font-black text-slate-900 text-[15px] tabular-nums group-hover:scale-110 transition-transform origin-center">{fmtNum(Math.round(r.revenue))} <small className="text-[11px] text-slate-300 ml-1">đ</small></div>
+                               <div className={`font-black text-[15px] tabular-nums transition-all origin-center group-hover:scale-110 ${isTop3 ? "text-rose-600" : "text-slate-900"}`}>{fmtNum(Math.round(r.revenue))} <small className="text-[11px] text-slate-300 ml-1">đ</small></div>
                             </td>
                             <td className="py-4 px-6 text-center">
                               <div className="flex items-center justify-center gap-4">
                                 <div className="flex-1 h-3.5 bg-slate-100 rounded-full max-w-[100px] overflow-hidden border border-slate-200/50 shadow-inner">
-                                   <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.3)] transition-all duration-1000" style={{ width: `${Math.min(pct, 100)}%` }} />
+                                   <div className={`h-full rounded-full shadow-[0_0_10px_rgba(255,50,50,0.2)] transition-all duration-1000 ${isTop3 ? "bg-gradient-to-r from-rose-500 to-rose-400" : "bg-gradient-to-r from-indigo-500 to-purple-500"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                                 </div>
-                                <span className="font-black text-[13px] text-indigo-600 min-w-[50px]">{pct.toFixed(1)}%</span>
+                                <span className={`font-black text-[13px] min-w-[50px] ${isTop3 ? "text-rose-600" : "text-indigo-600"}`}>{pct.toFixed(1)}%</span>
                               </div>
                             </td>
                           </tr>
