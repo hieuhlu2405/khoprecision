@@ -14,20 +14,20 @@ import { exportToExcel, readExcel, exportWithTemplate, exportDeliveryDraftExcel 
 /* ------------------------------------------------------------------ */
 
 type Profile = { id: string; role: "admin" | "manager" | "staff"; department: string };
-type Product = { 
-  id: string; 
-  sku: string; 
-  name: string; 
-  spec: string | null; 
+type Product = {
+  id: string;
+  sku: string;
+  name: string;
+  spec: string | null;
   uom: string;
   sap_code: string | null;
   external_sku: string | null;
   customer_id: string | null;
 };
-type Customer = { 
-  id: string; 
-  code: string; 
-  name: string; 
+type Customer = {
+  id: string;
+  code: string;
+  name: string;
   address: string | null;
   tax_code: string | null;
   external_code: string | null;
@@ -48,6 +48,7 @@ type Plan = {
   note_2: string | null;
   is_backlog?: boolean;
   backlog_qty?: number;
+  backlog_source?: string | null;
   qty_updated_at?: string | null;
   prev_planned_qty?: number | null;
 };
@@ -279,7 +280,7 @@ export default function DeliveryPlanPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const canEdit = profile?.role === "admin" || profile?.department === "sales";
-  
+
   const todayVN = getVNTimeStr();
   const canEditDate = useCallback((dateStr: string) => {
     return canEdit && dateStr >= todayVN;
@@ -405,13 +406,13 @@ export default function DeliveryPlanPage() {
       setLoadingOutbound(false);
     }
   };
-  
+
   const handleUndoOutbound = async (plan_id: string) => {
     if (profile?.role !== "admin") {
       showToast("Chỉ Admin mới có quyền hủy lệnh xuất kho.", "error");
       return;
     }
-    
+
     const ok = await showConfirm({
       message: "Bạn có chắc chắn muốn HỦY lệnh xuất kho này? Tồn kho sẽ được cộng lại và kế hoạch sẽ quay về trạng thái 'Chờ xuất'.",
       danger: true,
@@ -531,7 +532,7 @@ export default function DeliveryPlanPage() {
       setTripCountAlert(0);
       setRecentShipment(null);
       setIsMerging(false);
-      
+
       setShipmentProcessing(false);
       setShipmentModalOpen(true);
     } catch (err: any) {
@@ -573,8 +574,44 @@ export default function DeliveryPlanPage() {
       showToast("Vui lòng chọn Xe / Tài xế trước khi xuất chuyến.", "warning");
       return;
     }
+
     setShipmentProcessing(true);
     try {
+      // --- BỘ KIỂM TRA TỔNG THỂ (PRE-CHECK) ---
+      // Lấy tồn kho hiện tại
+      const { data: stockData, error: stockErr } = await supabase.rpc("inventory_calculate_report_v2", {
+        p_baseline_date: new Date().toISOString(),
+        p_movements_start_date: new Date().toISOString(),
+        p_movements_end_date: new Date().toISOString()
+      });
+
+      if (stockErr) throw stockErr;
+
+      const stockMap: Record<string, number> = {};
+      (stockData || []).forEach((s: any) => {
+        stockMap[s.product_id] = Number(s.current_qty || 0);
+      });
+
+      const errors: string[] = [];
+      shipmentItems.forEach((item) => {
+        const pId = plans.find(p => p.id === item.plan_id)?.product_id;
+        if (pId) {
+          const currentStock = stockMap[pId] || 0;
+          const requestedQty = Number(item.actual);
+          if (requestedQty > currentStock) {
+            errors.push(`${item.sku} (${item.product_name}) - Tồn hiện tại: ${currentStock} - Cố xuất: ${requestedQty}`);
+          }
+        }
+      });
+
+      if (errors.length > 0) {
+        const errorMsg = `Phát hiện ${errors.length} mã hàng không đủ tồn kho:\n` + errors.map((e, idx) => `${idx + 1}. ${e}`).join("\n");
+        showToast(errorMsg, "error");
+        setShipmentProcessing(false);
+        return;
+      }
+      // --- KẾT THÚC BỘ KIỂM TRA ---
+
       const payload = shipmentItems.map(x => ({
         plan_id: x.plan_id,
         actual_qty: Number(x.actual),
@@ -702,7 +739,7 @@ export default function DeliveryPlanPage() {
   const exportOutboundExcel = async () => {
     if (outboundItems.length === 0) return;
     const dateLabel = selectedOutboundDay ? selectedOutboundDay.split("-").reverse().join("/") : "";
-    
+
     const grouped: Record<string, typeof outboundItems> = {};
     outboundItems.forEach(item => {
       const key = `${item.customer_code}_${item.entity_code || "UNKNOWN"}`;
@@ -751,7 +788,7 @@ export default function DeliveryPlanPage() {
         exportToExcel(items, fileName, "Sheet1");
       }
     }
-    
+
     showToast("Đã tạo phiếu giao hàng chuyên nghiệp!", "success");
   };
 
@@ -812,14 +849,14 @@ export default function DeliveryPlanPage() {
         const plan_date = pts[2];
 
         const existing = plans.find(x => x.product_id === product_id && x.plan_date === plan_date && String(x.delivery_customer_id || "null") === (delivery_id || "null"));
-        
+
         const newQtyRaw = editData.qty !== undefined ? editData.qty : (existing?.planned_qty ?? "0");
         const newNote = editData.note !== undefined ? editData.note : (existing?.note ?? null);
         const newNote2 = editData.note2 !== undefined ? editData.note2 : (existing?.note_2 ?? null);
-        
+
         const qty = Number(newQtyRaw);
         if (isNaN(qty) || qty < 0) return;
-        
+
         const p = products.find(x => x.id === product_id);
         if (!p) return;
 
@@ -872,8 +909,8 @@ export default function DeliveryPlanPage() {
     try {
       const { error } = await supabase
         .from("delivery_plans")
-        .update({ 
-          backlog_qty: 0, 
+        .update({
+          backlog_qty: 0,
           is_backlog: false,
           updated_at: new Date().toISOString(),
           updated_by: profile?.id
@@ -943,7 +980,7 @@ export default function DeliveryPlanPage() {
   const tableRows = useMemo(() => {
     let list = displayProducts;
     const rows: { id: string; p: Product; deliveryCustomerId: string | null; vendorName?: string }[] = [];
-    
+
     list.forEach(p => {
       // Dòng mặc định cho Công ty Mẹ
       rows.push({
@@ -955,12 +992,12 @@ export default function DeliveryPlanPage() {
       // Các điểm giao hàng khác (vendors) đã có kế hoạch
       const pPlans = plans.filter(pl => pl.product_id === p.id && pl.delivery_customer_id !== null);
       const vendorIdsWithPlans = new Set(pPlans.map(pl => pl.delivery_customer_id));
-      
+
       // Các vendor thuộc quản lý của mẹ (auto-expand)
       const childVendors = customers.filter(c => c.parent_customer_id === p.customer_id);
 
       const combinedVendorIds = new Set([...vendorIdsWithPlans, ...childVendors.map(c => c.id)]);
-      
+
       const vendorRowsForProduct: { vId: string; cv: { id: string; code: string; name: string } }[] = [];
       combinedVendorIds.forEach(vId => {
         if (!vId) return;
@@ -1116,7 +1153,7 @@ export default function DeliveryPlanPage() {
 
         <div className="flex gap-3 items-center flex-wrap">
           <div className="flex bg-white p-1 rounded-xl items-center border border-slate-200/60 shadow-sm gap-1">
-            <button 
+            <button
               onClick={() => {
                 const d = new Date(anchorDate);
                 d.setDate(d.getDate() - 7);
@@ -1127,7 +1164,7 @@ export default function DeliveryPlanPage() {
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4"><polyline points="15 18 9 12 15 6"></polyline></svg>
             </button>
-            <input 
+            <input
               type="date"
               className="h-8 px-2 text-[11px] font-black rounded-lg border-none bg-slate-50 hover:bg-slate-100 text-slate-700 focus:ring-2 focus:ring-indigo-400 focus:bg-white cursor-pointer w-[120px] transition-all"
               value={anchorDate}
@@ -1135,13 +1172,13 @@ export default function DeliveryPlanPage() {
                 if (e.target.value) setAnchorDate(e.target.value);
               }}
             />
-            <button 
+            <button
               onClick={() => setAnchorDate(getVNTimeStr())}
               className={`btn btn-ghost btn-xs h-8 px-4 font-black uppercase tracking-widest rounded-lg transition-all ${anchorDate === getVNTimeStr() ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"}`}
             >
               {anchorDate === getVNTimeStr() ? "Hôm nay" : "Về hôm nay"}
             </button>
-            <button 
+            <button
               onClick={() => {
                 const d = new Date(anchorDate);
                 d.setDate(d.getDate() + 7);
@@ -1207,387 +1244,390 @@ export default function DeliveryPlanPage() {
 
       <div className="page-content">
         {activeTab === 'plan' ? (
-        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden flex flex-col">
-          <div 
-            ref={parentRef}
-            className="data-table-wrap overflow-auto flex-1" 
-            style={{ maxHeight: "calc(100vh - 260px)", position: 'relative' }}
-          >
-            <table className="text-sm !border-separate !border-spacing-0 table-fixed" style={{ width: TABLE_MIN_WIDTH, minWidth: TABLE_MIN_WIDTH }}>
-              <thead className="sticky top-0 z-[60]">
-                <tr style={{ display: 'flex', width: TABLE_MIN_WIDTH }}>
-                  <th style={{ width: '50px', minWidth: '50px', flexBasis: '50px', textAlign: 'center', position: 'sticky', top: 0, left: 0, zIndex: 62, background: 'white', borderBottom: '1px solid #e2e8f0', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="py-4 px-2 border-r border-slate-200/60">
-                    <input 
-                      type="checkbox" 
-                      className="checkbox checkbox-primary checkbox-sm rounded cursor-pointer"
-                      checked={(() => {
-                        const selectable = displayProducts.filter(p =>
-                          plans.some(pl =>
-                            pl.product_id === p.id &&
-                            pl.plan_date === selectedOutboundDay &&
-                            ((pl.planned_qty || 0) + (pl.backlog_qty || 0)) > 0 &&
-                            !pl.is_completed
-                          )
-                        );
-                        return selectable.length > 0 && selectable.every(p => {
-                          const plan = plans.find(pl => pl.product_id === p.id && pl.plan_date === selectedOutboundDay);
-                          return plan && selectedPlanIds.has(plan.id);
-                        });
-                      })()}
-                      onChange={toggleSelectAll}
-                      title="Chọn tất cả / Bỏ chọn tất cả"
-                    />
-                  </th>
-                  <ThCell label="Mã hàng" colKey="sku" sortable sticky w="180px" />
-                  <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="320px" />
-                  <ThCell label="Khách hàng" colKey="customer" sortable w="140px" align="center" />
-                  <ThCell label="LƯU Ý 1" colKey="note_today" sortable={false} w="150px" />
-                  <ThCell label="LƯU Ý 2" colKey="note_today_2" sortable={false} w="150px" />
-                  {days.map(d => (
-                    <ThCell
-                      key={d}
-                      label={""}
-                      colKey={d}
-                      w="100px"
-                      align="center"
-                      isToday={getVNTimeStr() === d}
-                      extra={formatDate(d)}
-                    />
-                  ))}
-                </tr>
-              </thead>
-              <tbody 
-                className="divide-y divide-slate-100 relative"
-                style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
-              >
-                {loading ? (
-                  Array.from({ length: 8 }).map((_, i) => (
-                    <tr key={i} className="animate-pulse">
-                      <td colSpan={10} className="py-8 bg-slate-50/30" />
-                    </tr>
-                  ))
-                ) : displayProducts.length === 0 ? (
-                  <tr><td colSpan={10} className="py-32 text-center text-slate-300 font-bold italic">Không tìm thấy dữ liệu khớp bộ lọc.</td></tr>
-                ) : rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const row = tableRows[virtualRow.index];
-                  const p = row.p;
-                  const c = row.deliveryCustomerId ? customers.find(x => x.id === row.deliveryCustomerId) : customers.find(x => x.id === p.customer_id);
-                  const isParentRow = row.deliveryCustomerId === null;
-                  const hasVendors = customers.some(x => x.parent_customer_id === p.customer_id);
-                  
-                  // Nhận diện cả dòng có planned_qty > 0 LẪN dòng chỉ có backlog_qty > 0 (nợ từ ngày trước)
-                  const todayPlans = plans.filter(pl =>
-                    pl.product_id === p.id &&
-                    pl.plan_date === selectedOutboundDay &&
-                    (row.deliveryCustomerId ? pl.delivery_customer_id === row.deliveryCustomerId : pl.delivery_customer_id === null) &&
-                    ((pl.planned_qty || 0) + (pl.backlog_qty || 0)) > 0
-                  );
-                  const todayPlan = todayPlans[0];
-                  const isSelected = todayPlan ? selectedPlanIds.has(todayPlan.id) : false;
-                  const totalPlanTarget = (todayPlan?.planned_qty || 0) + (todayPlan?.backlog_qty || 0);
-                  const canSelect = todayPlan && !todayPlan.is_completed && totalPlanTarget > 0;
-                  
-                  return (
-                    <tr 
-                      key={row.id} 
-                      data-index={virtualRow.index}
-                      ref={rowVirtualizer.measureElement}
-                      className={`hover:bg-brand/5 group transition-colors odd:bg-white even:bg-slate-50/20 ${isSelected ? 'bg-indigo-50/40 !odd:bg-indigo-50/40 !even:bg-indigo-50/40' : ''}`}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        transform: `translateY(${virtualRow.start}px)`,
-                        minWidth: TABLE_MIN_WIDTH,
-                        display: 'flex'
-                      }}
-                    >
-                      <td className="py-2 px-2 border-r border-slate-100 text-center sticky left-0 z-40 bg-white group-hover:bg-brand/10 transition-colors flex items-center justify-center shrink-0 grow-0" style={{ width: '50px', flexBasis: '50px' }}>
-                        {canSelect && (
-                          <input
-                            type="checkbox"
-                            className="checkbox checkbox-primary checkbox-sm rounded"
-                            checked={isSelected}
-                            onChange={() => togglePlanSelection(todayPlan!.id)}
-                          />
-                        )}
-                      </td>
-                      <td className="py-2 px-4 border-r border-slate-100 sticky left-[50px] z-40 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)] shrink-0 grow-0" style={{ width: colWidths['sku'] || 180, flexBasis: colWidths['sku'] || 180 }}>
-                        <div className="font-black text-black tracking-wider text-[15px] break-all uppercase" style={{ color: '#000000' }}>{p.sku}</div>
-                      </td>
-                      <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0 overflow-hidden" style={{ width: colWidths['name'] || 320, flexBasis: colWidths['name'] || 320 }}>
-                        <div className="text-slate-900 font-bold text-[14px] leading-tight truncate" title={p.name}>{p.name}</div>
-                        <div className="text-[10px] text-slate-900 font-bold uppercase tracking-wider mt-0.5 truncate">{p.spec || ""}</div>
-                      </td>
-                      <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0 flex items-center justify-center relative group/cust" style={{ width: colWidths['customer'] || 140, flexBasis: colWidths['customer'] || 140 }}>
-                        {c ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-wider truncate" title={c.code}>{c.code}</span>
-                        ) : <span className="text-slate-300 text-[10px]">–</span>}
-                        {!isParentRow && <div className="text-[8px] bg-indigo-50 text-indigo-500 rounded px-1 absolute top-1 -left-1 font-black uppercase shadow-sm rotate-[-9deg]">Vendor</div>}
-                      </td>
-                      <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today'] || 150, flexBasis: colWidths['note_today'] || 150 }}>
-                        {(() => {
-                           const today = days[0];
-                           const plan = plans.find(x => x.product_id === p.id && x.plan_date === today && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
-                           const noteVal = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note ?? plan?.note ?? "";
-                           const disabled = !canEditDate(today);
-                           return (
-                             <input 
-                               type="text" 
-                               placeholder={disabled ? "" : "Nhập ghi chú..."}
-                               disabled={disabled}
-                               className={`input input-ghost input-xs h-7 w-full text-[12px] font-black focus:bg-white focus:ring-1 focus:ring-indigo-300 italic ${disabled ? 'bg-slate-50/50 text-slate-500 cursor-not-allowed' : 'text-black placeholder:text-slate-300'}`}
-                               value={noteVal}
-                               onChange={e => handleNoteChange(p.id, row.deliveryCustomerId, today, e.target.value)} 
-                             />
-                           );
+          <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden flex flex-col">
+            <div
+              ref={parentRef}
+              className="data-table-wrap overflow-auto flex-1"
+              style={{ maxHeight: "calc(100vh - 260px)", position: 'relative' }}
+            >
+              <table className="text-sm !border-separate !border-spacing-0 table-fixed" style={{ width: TABLE_MIN_WIDTH, minWidth: TABLE_MIN_WIDTH }}>
+                <thead className="sticky top-0 z-[60]">
+                  <tr style={{ display: 'flex', width: TABLE_MIN_WIDTH }}>
+                    <th style={{ width: '50px', minWidth: '50px', flexBasis: '50px', textAlign: 'center', position: 'sticky', top: 0, left: 0, zIndex: 62, background: 'white', borderBottom: '1px solid #e2e8f0', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="py-4 px-2 border-r border-slate-200/60">
+                      <input
+                        type="checkbox"
+                        className="checkbox checkbox-primary checkbox-sm rounded cursor-pointer"
+                        checked={(() => {
+                          const selectable = displayProducts.filter(p =>
+                            plans.some(pl =>
+                              pl.product_id === p.id &&
+                              pl.plan_date === selectedOutboundDay &&
+                              ((pl.planned_qty || 0) + (pl.backlog_qty || 0)) > 0 &&
+                              !pl.is_completed
+                            )
+                          );
+                          return selectable.length > 0 && selectable.every(p => {
+                            const plan = plans.find(pl => pl.product_id === p.id && pl.plan_date === selectedOutboundDay);
+                            return plan && selectedPlanIds.has(plan.id);
+                          });
                         })()}
-                      </td>
-                      <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today_2'] || 150, flexBasis: colWidths['note_today_2'] || 150 }}>
-                        {(() => {
-                           const today = days[0];
-                           const plan = plans.find(x => x.product_id === p.id && x.plan_date === today && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
-                           const note2Val = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note2 ?? plan?.note_2 ?? "";
-                           const disabled = !canEditDate(today);
-                           return (
-                             <input 
-                               type="text" 
-                               placeholder={disabled ? "" : "Nhập ghi chú..."}
-                               disabled={disabled}
-                               className={`input input-ghost input-xs h-7 w-full text-[12px] font-black focus:bg-white focus:ring-1 focus:ring-indigo-300 italic ${disabled ? 'bg-slate-50/50 text-slate-500 cursor-not-allowed' : 'text-black placeholder:text-slate-300'}`} 
-                               value={note2Val}
-                               onChange={e => handleNote2Change(p.id, row.deliveryCustomerId, today, e.target.value)} 
-                             />
-                           );
-                        })()}
-                      </td>
-                      {days.map(d => {
-                        const plan = plans.find(x => x.product_id === p.id && x.plan_date === d && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
-                        const editData = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${d}`];
-                        const val = editData?.qty !== undefined ? editData.qty : (plan?.planned_qty?.toString() || "");
-                        const isChanged = editData?.qty !== undefined || editData?.note !== undefined;
-                        const itdr = getVNTimeStr() === d;
-                        const isDone = plan?.is_completed;
-                        const hasNote = !!(editData?.note ?? plan?.note);
-                        const actualQty = plan?.actual_qty || 0;
-                        const plannedQty = plan?.planned_qty || 0;
-                        const progressPct = plannedQty > 0 ? Math.min(100, Math.round((actualQty / plannedQty) * 100)) : 0;
-                        const hasPartialShipment = actualQty > 0 && !isDone;
-                        const colW = colWidths[d] || 100;
-                        const disabled = !canEditDate(d) || isDone;
+                        onChange={toggleSelectAll}
+                        title="Chọn tất cả / Bỏ chọn tất cả"
+                      />
+                    </th>
+                    <ThCell label="Mã hàng" colKey="sku" sortable sticky w="180px" />
+                    <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="320px" />
+                    <ThCell label="Khách hàng" colKey="customer" sortable w="140px" align="center" />
+                    <ThCell label="LƯU Ý 1" colKey="note_today" sortable={false} w="150px" />
+                    <ThCell label="LƯU Ý 2" colKey="note_today_2" sortable={false} w="150px" />
+                    {days.map(d => (
+                      <ThCell
+                        key={d}
+                        label={""}
+                        colKey={d}
+                        w="100px"
+                        align="center"
+                        isToday={getVNTimeStr() === d}
+                        extra={formatDate(d)}
+                      />
+                    ))}
+                  </tr>
+                </thead>
+                <tbody
+                  className="divide-y divide-slate-100 relative"
+                  style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+                >
+                  {loading ? (
+                    Array.from({ length: 8 }).map((_, i) => (
+                      <tr key={i} className="animate-pulse">
+                        <td colSpan={10} className="py-8 bg-slate-50/30" />
+                      </tr>
+                    ))
+                  ) : displayProducts.length === 0 ? (
+                    <tr><td colSpan={10} className="py-32 text-center text-slate-300 font-bold italic">Không tìm thấy dữ liệu khớp bộ lọc.</td></tr>
+                  ) : rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const row = tableRows[virtualRow.index];
+                    const p = row.p;
+                    const c = row.deliveryCustomerId ? customers.find(x => x.id === row.deliveryCustomerId) : customers.find(x => x.id === p.customer_id);
+                    const isParentRow = row.deliveryCustomerId === null;
+                    const hasVendors = customers.some(x => x.parent_customer_id === p.customer_id);
 
-                        // Check if modified in the last 4 hours
-                        const isRecentUpdate = (() => {
-                          if (!plan?.qty_updated_at) return false;
-                          const updateTime = new Date(plan.qty_updated_at).getTime();
-                          const now = new Date().getTime();
-                          return (now - updateTime) < (4 * 60 * 60 * 1000); // 4h
-                        })();
+                    // Nhận diện cả dòng có planned_qty > 0 LẪN dòng chỉ có backlog_qty > 0 (nợ từ ngày trước)
+                    const todayPlans = plans.filter(pl =>
+                      pl.product_id === p.id &&
+                      pl.plan_date === selectedOutboundDay &&
+                      (row.deliveryCustomerId ? pl.delivery_customer_id === row.deliveryCustomerId : pl.delivery_customer_id === null) &&
+                      ((pl.planned_qty || 0) + (pl.backlog_qty || 0)) > 0
+                    );
+                    const todayPlan = todayPlans[0];
+                    const isSelected = todayPlan ? selectedPlanIds.has(todayPlan.id) : false;
+                    const totalPlanTarget = (todayPlan?.planned_qty || 0) + (todayPlan?.backlog_qty || 0);
+                    const canSelect = todayPlan && !todayPlan.is_completed && totalPlanTarget > 0;
 
-                        return (
-                          <td key={d} className={`p-1 border-r border-slate-50 transition-all shrink-0 grow-0 
+                    return (
+                      <tr
+                        key={row.id}
+                        data-index={virtualRow.index}
+                        ref={rowVirtualizer.measureElement}
+                        className={`hover:bg-brand/5 group transition-colors odd:bg-white even:bg-slate-50/20 ${isSelected ? 'bg-indigo-50/40 !odd:bg-indigo-50/40 !even:bg-indigo-50/40' : ''}`}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          transform: `translateY(${virtualRow.start}px)`,
+                          minWidth: TABLE_MIN_WIDTH,
+                          display: 'flex'
+                        }}
+                      >
+                        <td className="py-2 px-2 border-r border-slate-100 text-center sticky left-0 z-40 bg-white group-hover:bg-brand/10 transition-colors flex items-center justify-center shrink-0 grow-0" style={{ width: '50px', flexBasis: '50px' }}>
+                          {canSelect && (
+                            <input
+                              type="checkbox"
+                              className="checkbox checkbox-primary checkbox-sm rounded"
+                              checked={isSelected}
+                              onChange={() => togglePlanSelection(todayPlan!.id)}
+                            />
+                          )}
+                        </td>
+                        <td className="py-2 px-4 border-r border-slate-100 sticky left-[50px] z-40 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)] shrink-0 grow-0" style={{ width: colWidths['sku'] || 180, flexBasis: colWidths['sku'] || 180 }}>
+                          <div className="font-black text-black tracking-wider text-[15px] break-all uppercase" style={{ color: '#000000' }}>{p.sku}</div>
+                        </td>
+                        <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0 overflow-hidden" style={{ width: colWidths['name'] || 320, flexBasis: colWidths['name'] || 320 }}>
+                          <div className="text-slate-900 font-bold text-[14px] leading-tight truncate" title={p.name}>{p.name}</div>
+                          <div className="text-[10px] text-slate-900 font-bold uppercase tracking-wider mt-0.5 truncate">{p.spec || ""}</div>
+                        </td>
+                        <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0 flex items-center justify-center relative group/cust" style={{ width: colWidths['customer'] || 140, flexBasis: colWidths['customer'] || 140 }}>
+                          {c ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-wider truncate" title={c.code}>{c.code}</span>
+                          ) : <span className="text-slate-300 text-[10px]">–</span>}
+                          {!isParentRow && <div className="text-[8px] bg-indigo-50 text-indigo-500 rounded px-1 absolute top-1 -left-1 font-black uppercase shadow-sm rotate-[-9deg]">Vendor</div>}
+                        </td>
+                        <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today'] || 150, flexBasis: colWidths['note_today'] || 150 }}>
+                          {(() => {
+                            const today = days[0];
+                            const plan = plans.find(x => x.product_id === p.id && x.plan_date === today && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
+                            const noteVal = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note ?? plan?.note ?? "";
+                            const disabled = !canEditDate(today);
+                            return (
+                              <input
+                                type="text"
+                                placeholder={disabled ? "" : "Nhập ghi chú..."}
+                                disabled={disabled}
+                                className={`input input-ghost input-xs h-7 w-full text-[12px] font-black focus:bg-white focus:ring-1 focus:ring-indigo-300 italic ${disabled ? 'bg-slate-50/50 text-slate-500 cursor-not-allowed' : 'text-black placeholder:text-slate-300'}`}
+                                value={noteVal}
+                                onChange={e => handleNoteChange(p.id, row.deliveryCustomerId, today, e.target.value)}
+                              />
+                            );
+                          })()}
+                        </td>
+                        <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today_2'] || 150, flexBasis: colWidths['note_today_2'] || 150 }}>
+                          {(() => {
+                            const today = days[0];
+                            const plan = plans.find(x => x.product_id === p.id && x.plan_date === today && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
+                            const note2Val = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note2 ?? plan?.note_2 ?? "";
+                            const disabled = !canEditDate(today);
+                            return (
+                              <input
+                                type="text"
+                                placeholder={disabled ? "" : "Nhập ghi chú..."}
+                                disabled={disabled}
+                                className={`input input-ghost input-xs h-7 w-full text-[12px] font-black focus:bg-white focus:ring-1 focus:ring-indigo-300 italic ${disabled ? 'bg-slate-50/50 text-slate-500 cursor-not-allowed' : 'text-black placeholder:text-slate-300'}`}
+                                value={note2Val}
+                                onChange={e => handleNote2Change(p.id, row.deliveryCustomerId, today, e.target.value)}
+                              />
+                            );
+                          })()}
+                        </td>
+                        {days.map(d => {
+                          const plan = plans.find(x => x.product_id === p.id && x.plan_date === d && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
+                          const editData = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${d}`];
+                          const val = editData?.qty !== undefined ? editData.qty : (plan?.planned_qty?.toString() || "");
+                          const isChanged = editData?.qty !== undefined || editData?.note !== undefined;
+                          const itdr = getVNTimeStr() === d;
+                          const isDone = plan?.is_completed;
+                          const hasNote = !!(editData?.note ?? plan?.note);
+                          const actualQty = plan?.actual_qty || 0;
+                          const plannedQty = plan?.planned_qty || 0;
+                          const progressPct = plannedQty > 0 ? Math.min(100, Math.round((actualQty / plannedQty) * 100)) : 0;
+                          const hasPartialShipment = actualQty > 0 && !isDone;
+                          const colW = colWidths[d] || 100;
+                          const disabled = !canEditDate(d) || isDone;
+
+                          // Check if modified in the last 4 hours
+                          const isRecentUpdate = (() => {
+                            if (!plan?.qty_updated_at) return false;
+                            const updateTime = new Date(plan.qty_updated_at).getTime();
+                            const now = new Date().getTime();
+                            return (now - updateTime) < (4 * 60 * 60 * 1000); // 4h
+                          })();
+
+                          return (
+                            <td key={d} className={`p-1 border-r border-slate-50 transition-all shrink-0 grow-0 
                             ${!disabled ? 'hover:bg-white' : 'bg-slate-50/50 cursor-not-allowed'} 
                             ${isChanged ? 'bg-amber-50/60' : ''} 
                             ${itdr ? 'bg-red-50/20' : ''}
                             ${isRecentUpdate ? 'ring-2 ring-inset ring-amber-400/50 bg-amber-50/30 shadow-[0_0_20px_rgba(251,191,36,0.3)] animate-pulse-subtle' : ''}
-                          `} 
-                          style={{ width: colW, flexBasis: colW }}>
-                            <div className="relative group/cell w-full h-full">
-                              {isRecentUpdate && (
-                                <div 
-                                  className="absolute -top-4 -right-2 flex flex-col items-end z-40 group/tooltip pointer-events-auto cursor-help"
-                                  title={`KẾ HOẠCH CŨ: ${plan?.prev_planned_qty || 0}\nKẾ HOẠCH MỚI: ${plan?.planned_qty || 0}\nCẬP NHẬT: ${new Date(plan!.qty_updated_at!).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`}
-                                >
-                                  <div className="flex items-center bg-amber-500 text-white rounded-md shadow-lg shadow-amber-200 border border-amber-400 overflow-hidden transform group-hover/tooltip:scale-110 transition-transform">
-                                    <span className="bg-white text-amber-500 px-1 font-black text-[14px] animate-pulse">⚡</span>
-                                    <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-tighter whitespace-nowrap">SỬA ĐỔI</span>
+                          `}
+                              style={{ width: colW, flexBasis: colW }}>
+                              <div className="relative group/cell w-full h-full">
+                                {isRecentUpdate && (
+                                  <div
+                                    className="absolute -top-4 -right-2 flex flex-col items-end z-40 group/tooltip pointer-events-auto cursor-help"
+                                    title={`KẾ HOẠCH CŨ: ${plan?.prev_planned_qty || 0}\nKẾ HOẠCH MỚI: ${plan?.planned_qty || 0}\nCẬP NHẬT: ${new Date(plan!.qty_updated_at!).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`}
+                                  >
+                                    <div className="flex items-center bg-amber-500 text-white rounded-md shadow-lg shadow-amber-200 border border-amber-400 overflow-hidden transform group-hover/tooltip:scale-110 transition-transform">
+                                      <span className="bg-white text-amber-500 px-1 font-black text-[14px] animate-pulse">⚡</span>
+                                      <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-tighter whitespace-nowrap">SỬA ĐỔI</span>
+                                    </div>
                                   </div>
-                                </div>
-                              )}
-                              <input
-                                type="text"
-                                className={`w-full text-center py-1.5 px-1 rounded-lg border-2 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-black text-sm
-                                    ${disabled ? 'opacity-70 bg-transparent border-transparent' : 
+                                )}
+                                <input
+                                  type="text"
+                                  className={`w-full text-center py-1.5 px-1 rounded-lg border-2 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-black text-sm
+                                    ${disabled ? 'opacity-70 bg-transparent border-transparent' :
                                       isChanged
-                                    ? 'border-amber-400 bg-white text-amber-700 shadow-md shadow-amber-200/40 z-10 relative scale-105'
-                                    : isDone ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600 shadow-inner' 
-                                    : hasPartialShipment ? 'border-yellow-300 bg-yellow-50/50 text-yellow-700'
-                                    : 'border-transparent bg-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-400'
-                                  }
+                                        ? 'border-amber-400 bg-white text-amber-700 shadow-md shadow-amber-200/40 z-10 relative scale-105'
+                                        : isDone ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600 shadow-inner'
+                                          : hasPartialShipment ? 'border-yellow-300 bg-yellow-50/50 text-yellow-700'
+                                            : 'border-transparent bg-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-400'
+                                    }
                                     ${itdr && !isChanged && !isDone ? 'text-red-600' : ''}
                                   `}
-                                disabled={disabled}
-                                value={val === "0" ? "" : val}
-                                placeholder="-"
-                                title={isDone ? `Đã xuất đủ: ${actualQty}/${plannedQty}` : hasPartialShipment ? `Đang xuất dở: ${actualQty}/${plannedQty}` : (editData?.note ?? plan?.note ?? "")}
-                                onChange={e => {
-                                  const v = e.target.value.replace(/\D/g, "");
-                                  handleQtyChange(p.id, row.deliveryCustomerId, d, v);
-                                }}
-                                onFocus={e => e.target.select()}
-                              />
-                              {(isDone || hasPartialShipment) && (
-                                <div className="absolute bottom-0 left-1 right-1 h-1 rounded-full bg-slate-200 overflow-hidden">
-                                  <div className={`h-full rounded-full transition-all ${isDone ? 'bg-emerald-500' : progressPct > 50 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${progressPct}%` }} />
-                                </div>
-                              )}
-                              {hasPartialShipment && (
-                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] font-black text-yellow-600 bg-yellow-50 px-1 rounded border border-yellow-200 opacity-0 group-hover/cell:opacity-100 transition-opacity z-20 whitespace-nowrap">
-                                  {actualQty}/{plannedQty}
-                                </div>
-                              )}
-                              {plan?.is_backlog && !isDone && (
-                                <div 
-                                  className={`absolute -top-2 right-1 text-[8px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded shadow-sm z-30 animate-pulse tracking-widest pointer-events-auto transition-all ${disabled ? 'opacity-80' : 'cursor-pointer hover:bg-red-600 hover:scale-110'}`}
-                                  title={`BẤM ĐỂ HỦY NỢ\nTỔNG CẦN GIAO: ${(plan?.planned_qty || 0) + (plan?.backlog_qty || 0)}\n(Kế hoạch gốc: ${plan?.planned_qty || 0} + Nợ: ${plan?.backlog_qty || 0})\n${plan?.note || ""}`}
-                                  onClick={(e) => { e.stopPropagation(); if (!disabled) handleCancelBacklog(plan!.id); }}
-                                >
-                                  NỢ
-                                </div>
-                              )}
-                              {hasNote && (
-                                <div className="absolute top-0 right-0 w-2 h-2 bg-indigo-500 rounded-bl-full shadow-sm z-20" title={editData?.note ?? plan?.note ?? ""} />
-                              )}
-                              {isDone && (
-                                <div className="absolute top-1 right-1 flex items-center gap-1.5 z-20">
-                                  {profile?.role === 'admin' && (
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); handleUndoOutbound(plan!.id); }}
-                                      className="w-5 h-5 bg-white border border-red-200 text-red-500 rounded-full flex items-center justify-center shadow-sm hover:bg-red-50 hover:border-red-400 transition-all opacity-0 group-hover/cell:opacity-100"
-                                      title="Admin: Hủy lệnh xuất kho này"
-                                    >
-                                      ✕
-                                    </button>
-                                  )}
-                                  <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm" title={`Đã xuất kho: ${actualQty}`}>
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" className="w-2.5 h-2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                                  disabled={disabled}
+                                  value={val === "0" ? "" : val}
+                                  placeholder="-"
+                                  title={isDone ? `Đã xuất đủ: ${actualQty}/${plannedQty}` : hasPartialShipment ? `Đang xuất dở: ${actualQty}/${plannedQty}` : (editData?.note ?? plan?.note ?? "")}
+                                  onChange={e => {
+                                    const v = e.target.value.replace(/\D/g, "");
+                                    handleQtyChange(p.id, row.deliveryCustomerId, d, v);
+                                  }}
+                                  onFocus={e => e.target.select()}
+                                />
+                                {(isDone || hasPartialShipment) && (
+                                  <div className="absolute bottom-0 left-1 right-1 h-1 rounded-full bg-slate-200 overflow-hidden">
+                                    <div className={`h-full rounded-full transition-all ${isDone ? 'bg-emerald-500' : progressPct > 50 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${progressPct}%` }} />
                                   </div>
-                                </div>
-                              )}
-                              {isChanged && (
-                                <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full animate-bounce z-20" title="Chưa lưu" />
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
-            <div className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
-              HIỂN THỊ {displayProducts.length} MÃ HÀNG KHỚP BỘ LỌC
+                                )}
+                                {hasPartialShipment && (
+                                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] font-black text-yellow-600 bg-yellow-50 px-1 rounded border border-yellow-200 opacity-0 group-hover/cell:opacity-100 transition-opacity z-20 whitespace-nowrap">
+                                    {actualQty}/{plannedQty}
+                                  </div>
+                                )}
+                                {plan?.is_backlog && !isDone && (
+                                  <div
+                                    className={`absolute -top-2 right-1 text-[8px] font-black text-white px-1.5 py-0.5 rounded shadow-sm z-30 animate-pulse tracking-widest pointer-events-auto transition-all ${plan?.backlog_source === 'edit' ? 'bg-amber-500' : 'bg-red-500'} ${disabled ? 'opacity-80' : 'cursor-pointer hover:scale-110'} ${plan?.backlog_source === 'edit' ? 'hover:bg-amber-600' : 'hover:bg-red-600'}`}
+                                    title={plan?.backlog_source === 'edit'
+                                      ? `NỢ PHÁT SINH TỪ SỬa PHIẾU\nTỔNG CẦN GIAO: ${(plan?.planned_qty || 0) + (plan?.backlog_qty || 0)}\n${plan?.note || ""}`
+                                      : `BẤM ĐỂ HỦY NỢ\nTỔNG CẦN GIAO: ${(plan?.planned_qty || 0) + (plan?.backlog_qty || 0)}\n(Kế hoạch gốc: ${plan?.planned_qty || 0} + Nợ: ${plan?.backlog_qty || 0})\n${plan?.note || ""}`
+                                    }
+                                    onClick={(e) => { e.stopPropagation(); if (!disabled) handleCancelBacklog(plan!.id); }}
+                                  >
+                                    {plan?.backlog_source === 'edit' ? 'SỬa' : 'NỢ'}
+                                  </div>
+                                )}
+                                {hasNote && (
+                                  <div className="absolute top-0 right-0 w-2 h-2 bg-indigo-500 rounded-bl-full shadow-sm z-20" title={editData?.note ?? plan?.note ?? ""} />
+                                )}
+                                {isDone && (
+                                  <div className="absolute top-1 right-1 flex items-center gap-1.5 z-20">
+                                    {profile?.role === 'admin' && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleUndoOutbound(plan!.id); }}
+                                        className="w-5 h-5 bg-white border border-red-200 text-red-500 rounded-full flex items-center justify-center shadow-sm hover:bg-red-50 hover:border-red-400 transition-all opacity-0 group-hover/cell:opacity-100"
+                                        title="Admin: Hủy lệnh xuất kho này"
+                                      >
+                                        ✕
+                                      </button>
+                                    )}
+                                    <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm" title={`Đã xuất kho: ${actualQty}`}>
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" className="w-2.5 h-2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                                    </div>
+                                  </div>
+                                )}
+                                {isChanged && (
+                                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full animate-bounce z-20" title="Chưa lưu" />
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            {activeFilterCount > 0 && (
-              <button onClick={() => setColFilters({})} className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest underline underline-offset-4">
-                Xóa tất cả bộ lọc ({activeFilterCount})
-              </button>
-            )}
-          </div>
-        </div>
-         ) : (
-           <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden">
-             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl">📋</div>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-900 leading-tight">LỊCH SỬ CHUYẾN HÀNG</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Danh sách 100 chuyến hàng gần đây nhất</p>
-                  </div>
-                </div>
-                <button onClick={loadShipmentHistory} className="btn btn-ghost btn-sm text-indigo-600 font-black">🔄 LÀM MỚI</button>
-             </div>
-             
-             <div className="overflow-x-auto">
-               <table className="w-full text-sm text-left">
-                 <thead className="bg-slate-50 border-b border-slate-100">
-                   <tr>
-                     <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest">SỐ PHIẾU</th>
-                     <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest text-center">NGÀY ĐI</th>
-                     <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest">KHÁCH HÀNG (ĐA ĐIỂM)</th>
-                     <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest">XE / TÀI XẾ</th>
-                     <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest text-right">THAO TÁC</th>
-                   </tr>
-                 </thead>
-                 <tbody className="divide-y divide-slate-50">
-                   {historyLoading ? (
-                     Array.from({ length: 5 }).map((_, i) => (
-                       <tr key={i} className="animate-pulse">
-                         <td colSpan={5} className="px-6 py-8 bg-slate-50/20" />
-                       </tr>
-                     ))
-                   ) : shipmentHistory.length === 0 ? (
-                     <tr><td colSpan={5} className="px-6 py-32 text-center text-slate-300 font-bold italic">Chưa có chuyến hàng nào được tạo.</td></tr>
-                   ) : shipmentHistory.map(s => {
-                     const txs = (s as any).inventory_transactions || [];
-                     const uniqueCusts: any[] = [];
-                     const seen = new Set();
-                     txs.forEach((t: any) => {
-                       if (t.customers && !seen.has(t.customer_id)) {
-                         seen.add(t.customer_id);
-                         uniqueCusts.push(t.customers);
-                       }
-                     });
 
-                     return (
-                       <tr key={s.id} className="hover:bg-indigo-50/30 transition-colors">
-                         <td className="px-6 py-4">
-                           <div className="font-extrabold text-indigo-600 font-mono text-[14px]">{s.shipment_no}</div>
-                         </td>
-                         <td className="px-6 py-4 text-center">
-                           <div className="font-bold text-slate-600">
-                             {new Date(s.shipment_date).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}
-                           </div>
-                         </td>
-                         <td className="px-6 py-4">
-                           <div className="flex flex-wrap gap-1.5 min-w-[200px]">
-                             {uniqueCusts.length > 0 ? uniqueCusts.map(c => (
-                               <span key={c.id} className="px-2 py-1 rounded-md bg-white border border-slate-200 text-slate-700 text-[10px] font-black uppercase shadow-sm">
-                                 {c.code}
-                               </span>
-                             )) : <span className="text-slate-300 italic">N/A</span>}
-                             {uniqueCusts.length > 1 && (
-                               <span className="px-2 py-1 rounded-md bg-amber-500 text-white text-[9px] font-black uppercase tracking-tighter">
-                                 ⚡ ĐA ĐIỂM
-                               </span>
-                             )}
-                           </div>
-                         </td>
-                         <td className="px-6 py-4">
-                           {(() => {
-                             const v = vehicles.find(x => x.id === s.vehicle_id);
-                             return (
-                               <div className="flex flex-col">
-                                 <span className="font-black text-slate-900 text-sm">{v?.license_plate || "N/A"}</span>
-                                 <span className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">
-                                   {[s.driver_1_name_snapshot, s.driver_2_name_snapshot].filter(Boolean).join(" & ")}
-                                 </span>
-                               </div>
-                             );
-                           })()}
-                         </td>
-                         <td className="px-6 py-4 text-right">
-                           <div className="flex justify-end gap-2">
-                             <button 
-                               onClick={() => handleUndoShipment(s.id, s.shipment_no)}
-                               className="w-8 h-8 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 transition-colors"
-                               title="Admin: Hủy chuyến hàng"
-                             >
-                               <span className="text-lg">🗑️</span>
-                             </button>
-                           </div>
-                         </td>
-                       </tr>
-                     );
-                   })}
-                 </tbody>
-               </table>
-             </div>
-           </div>
-         )}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+              <div className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
+                HIỂN THỊ {displayProducts.length} MÃ HÀNG KHỚP BỘ LỌC
+              </div>
+              {activeFilterCount > 0 && (
+                <button onClick={() => setColFilters({})} className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest underline underline-offset-4">
+                  Xóa tất cả bộ lọc ({activeFilterCount})
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl">📋</div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 leading-tight">LỊCH SỬ CHUYẾN HÀNG</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Danh sách 100 chuyến hàng gần đây nhất</p>
+                </div>
+              </div>
+              <button onClick={loadShipmentHistory} className="btn btn-ghost btn-sm text-indigo-600 font-black">🔄 LÀM MỚI</button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr>
+                    <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest">SỐ PHIẾU</th>
+                    <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest text-center">NGÀY ĐI</th>
+                    <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest">KHÁCH HÀNG (ĐA ĐIỂM)</th>
+                    <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest">XE / TÀI XẾ</th>
+                    <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest text-right">THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {historyLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i} className="animate-pulse">
+                        <td colSpan={5} className="px-6 py-8 bg-slate-50/20" />
+                      </tr>
+                    ))
+                  ) : shipmentHistory.length === 0 ? (
+                    <tr><td colSpan={5} className="px-6 py-32 text-center text-slate-300 font-bold italic">Chưa có chuyến hàng nào được tạo.</td></tr>
+                  ) : shipmentHistory.map(s => {
+                    const txs = (s as any).inventory_transactions || [];
+                    const uniqueCusts: any[] = [];
+                    const seen = new Set();
+                    txs.forEach((t: any) => {
+                      if (t.customers && !seen.has(t.customer_id)) {
+                        seen.add(t.customer_id);
+                        uniqueCusts.push(t.customers);
+                      }
+                    });
+
+                    return (
+                      <tr key={s.id} className="hover:bg-indigo-50/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="font-extrabold text-indigo-600 font-mono text-[14px]">{s.shipment_no}</div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="font-bold text-slate-600">
+                            {new Date(s.shipment_date).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-1.5 min-w-[200px]">
+                            {uniqueCusts.length > 0 ? uniqueCusts.map(c => (
+                              <span key={c.id} className="px-2 py-1 rounded-md bg-white border border-slate-200 text-slate-700 text-[10px] font-black uppercase shadow-sm">
+                                {c.code}
+                              </span>
+                            )) : <span className="text-slate-300 italic">N/A</span>}
+                            {uniqueCusts.length > 1 && (
+                              <span className="px-2 py-1 rounded-md bg-amber-500 text-white text-[9px] font-black uppercase tracking-tighter">
+                                ⚡ ĐA ĐIỂM
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {(() => {
+                            const v = vehicles.find(x => x.id === s.vehicle_id);
+                            return (
+                              <div className="flex flex-col">
+                                <span className="font-black text-slate-900 text-sm">{v?.license_plate || "N/A"}</span>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">
+                                  {[s.driver_1_name_snapshot, s.driver_2_name_snapshot].filter(Boolean).join(" & ")}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => handleUndoShipment(s.id, s.shipment_no)}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                              title="Admin: Hủy chuyến hàng"
+                            >
+                              <span className="text-lg">🗑️</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
@@ -1672,8 +1712,8 @@ export default function DeliveryPlanPage() {
                             setOverrideDriver2Name(v.driver_2_name || "");
                             setOverrideAst1Name(v.assistant_1_name || "");
                             setOverrideAst2Name(v.assistant_2_name || "");
-                            
-                            const { count } = await supabase.from("shipment_logs").select("*", {count: "exact", head: true}).eq("vehicle_id", val).eq("shipment_date", selectedOutboundDay).is("deleted_at", null);
+
+                            const { count } = await supabase.from("shipment_logs").select("*", { count: "exact", head: true }).eq("vehicle_id", val).eq("shipment_date", selectedOutboundDay).is("deleted_at", null);
                             setTripCountAlert(count || 0);
 
                             const twoHoursAgo = new Date(new Date().getTime() - 120 * 60 * 1000).toISOString();
@@ -1686,7 +1726,7 @@ export default function DeliveryPlanPage() {
                               .is("deleted_at", null)
                               .order("created_at", { ascending: false })
                               .limit(1);
-                            
+
                             if (recent && recent.length > 0) {
                               setRecentShipment(recent[0]);
                             }
@@ -1702,17 +1742,17 @@ export default function DeliveryPlanPage() {
                       >
                         <option value="">-- Chọn chuyến xe --</option>
                         {vehicles.map(v => (
-                           <option key={v.id} value={v.id}>
-                             {v.license_plate} {v.driver_1_name ? `- ${v.driver_1_name}` : ""} {v.driver_2_name ? `& ${v.driver_2_name}` : ""} {v.type === "nội_bộ" ? "(Xe Nội Bộ)" : "(Thuê Ngoài)"}
-                           </option>
+                          <option key={v.id} value={v.id}>
+                            {v.license_plate} {v.driver_1_name ? `- ${v.driver_1_name}` : ""} {v.driver_2_name ? `& ${v.driver_2_name}` : ""} {v.type === "nội_bộ" ? "(Xe Nội Bộ)" : "(Thuê Ngoài)"}
+                          </option>
                         ))}
                       </select>
-                      
+
                       {shipmentVehicleId && (
                         <div className="mt-2 space-y-2">
                           {recentShipment ? (
-                            <motion.div 
-                              initial={{ opacity: 0, y: -10 }} 
+                            <motion.div
+                              initial={{ opacity: 0, y: -10 }}
                               animate={{ opacity: 1, y: 0 }}
                               className={`p-3 rounded-xl border-2 transition-all flex items-center justify-between ${isMerging ? 'bg-amber-50 border-amber-400 shadow-lg scale-[1.02]' : 'bg-slate-50 border-slate-200'}`}
                             >
@@ -1725,19 +1765,19 @@ export default function DeliveryPlanPage() {
                                     Phát hiện xe vừa đi chuyến <span className="text-indigo-600">#{recentShipment.shipment_no}</span>
                                   </div>
                                   <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                                     Tạo lúc: {new Date(recentShipment.created_at).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} ({Math.round((new Date().getTime() - new Date(recentShipment.created_at).getTime()) / 60000)} phút trước)
+                                    Tạo lúc: {new Date(recentShipment.created_at).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} ({Math.round((new Date().getTime() - new Date(recentShipment.created_at).getTime()) / 60000)} phút trước)
                                   </div>
                                 </div>
                               </div>
                               <div className="flex gap-2">
-                                <button 
+                                <button
                                   onClick={() => setIsMerging(true)}
                                   className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${isMerging ? 'bg-amber-500 text-white shadow-md' : 'bg-white border border-slate-300 text-slate-600 hover:bg-amber-50 hover:border-amber-400'}`}
                                 >
                                   GHÉP CHUYẾN
                                 </button>
                                 {isMerging && (
-                                  <button 
+                                  <button
                                     onClick={() => setIsMerging(false)}
                                     className="px-3 py-1.5 rounded-lg text-[9px] font-black bg-white border border-slate-300 text-slate-400 hover:text-red-500"
                                   >
@@ -1760,48 +1800,47 @@ export default function DeliveryPlanPage() {
 
                   {shipmentVehicleId && (
                     <div className="mt-3 pt-3 border-t border-slate-200 border-dashed space-y-3">
-                       <div className="flex justify-between items-center px-1">
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cấu hình nhân sự chuyến này</label>
-                          <div className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
-                            (() => {
-                              const count = [overrideDriver1Name, overrideDriver2Name, overrideAst1Name, overrideAst2Name].filter(x => x.trim()).length;
-                              if (count > 3) return "bg-red-100 text-red-600 border-red-200 animate-pulse";
-                              if (count === 3) return "bg-amber-100 text-amber-600 border-amber-200";
-                              return "bg-slate-100 text-slate-600 border-slate-200";
-                            })()
+                      <div className="flex justify-between items-center px-1">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cấu hình nhân sự chuyến này</label>
+                        <div className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${(() => {
+                            const count = [overrideDriver1Name, overrideDriver2Name, overrideAst1Name, overrideAst2Name].filter(x => x.trim()).length;
+                            if (count > 3) return "bg-red-100 text-red-600 border-red-200 animate-pulse";
+                            if (count === 3) return "bg-amber-100 text-amber-600 border-amber-200";
+                            return "bg-slate-100 text-slate-600 border-slate-200";
+                          })()
                           }`}>
-                            NHÂN SỰ: {[overrideDriver1Name, overrideDriver2Name, overrideAst1Name, overrideAst2Name].filter(x => x.trim()).length}/3
-                          </div>
-                       </div>
+                          NHÂN SỰ: {[overrideDriver1Name, overrideDriver2Name, overrideAst1Name, overrideAst2Name].filter(x => x.trim()).length}/3
+                        </div>
+                      </div>
 
-                       <div className="flex gap-3">
-                         <div className="flex-1">
-                           <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">LÁI XE 1</label>
-                           <input className="input input-bordered input-sm w-full font-bold text-xs bg-white focus:bg-indigo-50/30 transition-colors" value={overrideDriver1Name} onChange={e=>setOverrideDriver1Name(e.target.value)} placeholder="Tên Lái Xe 1" />
-                         </div>
-                         <div className="flex-1">
-                           <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">LÁI XE 2</label>
-                           <input className="input input-bordered input-sm w-full font-bold text-xs bg-white focus:bg-indigo-50/30 transition-colors" value={overrideDriver2Name} onChange={e=>setOverrideDriver2Name(e.target.value)} placeholder="Tên Lái Xe 2" />
-                         </div>
-                       </div>
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">LÁI XE 1</label>
+                          <input className="input input-bordered input-sm w-full font-bold text-xs bg-white focus:bg-indigo-50/30 transition-colors" value={overrideDriver1Name} onChange={e => setOverrideDriver1Name(e.target.value)} placeholder="Tên Lái Xe 1" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">LÁI XE 2</label>
+                          <input className="input input-bordered input-sm w-full font-bold text-xs bg-white focus:bg-indigo-50/30 transition-colors" value={overrideDriver2Name} onChange={e => setOverrideDriver2Name(e.target.value)} placeholder="Tên Lái Xe 2" />
+                        </div>
+                      </div>
 
-                       <div className="flex gap-3">
-                         <div className="flex-1">
-                           <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">PHỤ XE 1</label>
-                           <input className="input input-bordered input-sm w-full font-bold text-xs bg-white focus:bg-indigo-50/30 transition-colors" value={overrideAst1Name} onChange={e=>setOverrideAst1Name(e.target.value)} placeholder="Tên Phụ 1" />
-                         </div>
-                         <div className="flex-1">
-                           <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">PHỤ XE 2</label>
-                           <input className="input input-bordered input-sm w-full font-bold text-xs bg-white focus:bg-indigo-50/30 transition-colors" value={overrideAst2Name} onChange={e=>setOverrideAst2Name(e.target.value)} placeholder="Tên Phụ 2" />
-                         </div>
-                       </div>
-                       
-                       {[overrideDriver1Name, overrideDriver2Name, overrideAst1Name, overrideAst2Name].filter(x => x.trim()).length > 3 && (
-                         <div className="p-2 rounded bg-red-50 border border-red-100 flex items-center gap-2 text-red-600">
-                           <span className="text-sm">⚠️</span>
-                           <span className="text-[10px] font-black uppercase tracking-tight">Cảnh báo: Tổng nhân sự không được vượt quá 3 người!</span>
-                         </div>
-                       )}
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">PHỤ XE 1</label>
+                          <input className="input input-bordered input-sm w-full font-bold text-xs bg-white focus:bg-indigo-50/30 transition-colors" value={overrideAst1Name} onChange={e => setOverrideAst1Name(e.target.value)} placeholder="Tên Phụ 1" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">PHỤ XE 2</label>
+                          <input className="input input-bordered input-sm w-full font-bold text-xs bg-white focus:bg-indigo-50/30 transition-colors" value={overrideAst2Name} onChange={e => setOverrideAst2Name(e.target.value)} placeholder="Tên Phụ 2" />
+                        </div>
+                      </div>
+
+                      {[overrideDriver1Name, overrideDriver2Name, overrideAst1Name, overrideAst2Name].filter(x => x.trim()).length > 3 && (
+                        <div className="p-2 rounded bg-red-50 border border-red-100 flex items-center gap-2 text-red-600">
+                          <span className="text-sm">⚠️</span>
+                          <span className="text-[10px] font-black uppercase tracking-tight">Cảnh báo: Tổng nhân sự không được vượt quá 3 người!</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

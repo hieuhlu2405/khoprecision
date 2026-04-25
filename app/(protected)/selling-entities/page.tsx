@@ -316,7 +316,7 @@ export default function SellingEntitiesPage() {
             {/* Card Header */}
             <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-6 py-5 border-b border-slate-100 flex justify-between items-start">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200/50 text-white text-xl font-black tracking-tight">
+                <div className="min-w-[3.5rem] h-14 px-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200/50 text-white text-base font-black tracking-tighter whitespace-nowrap">
                   {e.code}
                 </div>
                 <div>

@@ -623,8 +623,21 @@ export default function InventoryOutboundPage() {
   /* ---- permissions ---- */
   const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
   const canCreate = isManager;
-  const canEdit = profile?.role === "admin";
-  const canDelete = profile?.role === "admin";
+  const canEditAdmin = profile?.role === "admin";
+  const canDeleteAdmin = profile?.role === "admin";
+
+  // Kiểm tra giao dịch có nằm trong 3 ngày gần nhất không (cho Manager kho)
+  const isWithin3Days = (txDate: string) => {
+    const tx = new Date(txDate);
+    const now = new Date();
+    // Tính theo giờ VN
+    const vnNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+    const diffMs = vnNow.getTime() - tx.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    return diffDays <= 3;
+  };
+  const canEditRow = (txDate: string) => canEditAdmin || (isManager && isWithin3Days(txDate));
+  const canDeleteRow = (txDate: string) => canDeleteAdmin || (isManager && isWithin3Days(txDate));
 
   /* ---- inline expansion UI state ---- */
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -744,15 +757,53 @@ export default function InventoryOutboundPage() {
     if (!hDate) return showToast("Thiếu ngày xuất.", "error");
     const valid = lines.filter(l => l.productId && l.qty);
     if (valid.length === 0) return showToast("Vui lòng nhập ít nhất 1 dòng sản phẩm hợp lệ.", "error");
+    
     setSaving(true);
     try {
       const { data: u } = await supabase.auth.getUser();
+
+      // --- BỘ KIỂM TRA TỔNG THỂ (PRE-CHECK) ---
+      // Lấy tồn kho hiện tại của toàn bộ sản phẩm trong phiếu
+      const { data: stockData, error: stockErr } = await supabase.rpc("inventory_calculate_report_v2", {
+        p_baseline_date: new Date().toISOString(),
+        p_movements_start_date: new Date().toISOString(),
+        p_movements_end_date: new Date().toISOString()
+      });
+
+      if (stockErr) throw stockErr;
+
+      const stockMap: Record<string, number> = {};
+      (stockData || []).forEach((s: any) => {
+        stockMap[s.product_id] = Number(s.current_qty || 0);
+      });
+
+      const errors: string[] = [];
+      valid.forEach((l) => {
+        const p = products.find(x => x.id === l.productId);
+        const currentStock = stockMap[l.productId] || 0;
+        const requestedQty = Number(l.qty);
+
+        if (requestedQty > currentStock) {
+          errors.push(`${p?.sku} (${p?.name}) - Tồn hiện tại: ${currentStock} - Cố xuất: ${requestedQty}`);
+        }
+      });
+
+      if (errors.length > 0) {
+        const errorMsg = `Phát hiện ${errors.length} mã hàng không đủ tồn kho:\n` + errors.map((e, idx) => `${idx + 1}. ${e}`).join("\n");
+        // Sử dụng alert hoặc toast có khả năng xuống dòng. Ở đây toast có thể bị giới hạn nhưng ta cứ hiển thị.
+        // Với danh sách dài, dùng alert native sẽ dễ đọc hơn hoặc toast cho phép xuống dòng.
+        showToast(errorMsg, "error");
+        setSaving(false);
+        return;
+      }
+      // --- KẾT THÚC BỘ KIỂM TRA ---
+
       const insertRows = valid.map(l => {
         const p = products.find(x => x.id === l.productId);
         return {
           tx_date: hDate,
           customer_id: p?.customer_id,
-          delivery_customer_id: l.deliveryCustomerId || null, // NEW: điểm giao thực tế
+          delivery_customer_id: l.deliveryCustomerId || null,
           product_id: l.productId,
           product_name_snapshot: p?.name || "",
           product_spec_snapshot: p?.spec,
@@ -1145,9 +1196,9 @@ export default function InventoryOutboundPage() {
                     <td style={{ ...tdStyle, width: 120, textAlign: "center" }}>
                        <div className="flex gap-2 justify-center">
                           <button onClick={() => toggleExpanded(r.id)} className="btn-icon">{isExpanded ? "▲" : "▼"}</button>
-                          {canEdit && <button onClick={() => openEdit(r)} className="btn-icon">✏️</button>}
+                          {canEditRow(r.tx_date) && <button onClick={() => openEdit(r)} className="btn-icon">✏️</button>}
                           <button onClick={() => openAdjustment(r)} className="btn-icon">🛠️</button>
-                          {canDelete && <button onClick={() => handleDelete(r.id)} className="btn-icon text-red-500">🗑️</button>}
+                          {canDeleteRow(r.tx_date) && <button onClick={() => handleDelete(r.id)} className="btn-icon text-red-500">🗑️</button>}
                        </div>
                     </td>
                   </tr>
