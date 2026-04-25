@@ -311,9 +311,22 @@ export default function SalesCommandCenterPage() {
   const prevQty = useMemo(() => prevMonthTx.reduce((s, t) => s + (t.qty || 0), 0), [prevMonthTx]);
   const qtyTrend = prevQty > 0 ? ((totalQty - prevQty) / prevQty) * 100 : 0;
 
-  // Tổng chuyến hàng trong tháng & tuần
-  const totalShipments = useMemo(() => shipments.filter(s => s.shipment_date >= currentRange.start && s.shipment_date <= currentRange.end).length, [shipments, currentRange]);
-  const weeklyShipments = useMemo(() => shipments.filter(s => s.shipment_date >= weeklyStart && s.shipment_date <= effectiveEnd).length, [shipments, weeklyStart, effectiveEnd]);
+  // Tổng chuyến hàng trong tháng & tăng trưởng
+  const { totalShipments, shipmentsTrend } = useMemo(() => {
+     const curr = shipments.filter(s => s.shipment_date >= currentRange.start && s.shipment_date <= currentRange.end).length;
+     const prevRange = getMonthRange(monthOffset - 1);
+     const prev = shipments.filter(s => s.shipment_date >= prevRange.start && s.shipment_date <= prevRange.end).length;
+     const trend = prev > 0 ? ((curr - prev) / prev) * 100 : 0;
+     return { totalShipments: curr, shipmentsTrend: trend };
+  }, [shipments, currentRange, monthOffset]);
+
+  // Tổng chuyến hàng tuần & tăng trưởng
+  const { weeklyShipments, weeklyShipmentsTrend } = useMemo(() => {
+     const curr = shipments.filter(s => s.shipment_date >= weeklyStart && s.shipment_date <= effectiveEnd).length;
+     const prev = shipments.filter(s => s.shipment_date >= prevWeeklyStart && s.shipment_date <= prevWeeklyEnd).length;
+     const trend = prev > 0 ? ((curr - prev) / prev) * 100 : 0;
+     return { weeklyShipments: curr, weeklyShipmentsTrend: trend };
+  }, [shipments, weeklyStart, effectiveEnd, prevWeeklyStart, prevWeeklyEnd]);
 
   // Doanh thu tuần & tăng trưởng
   const { weeklyRevenue, weeklyTrend } = useMemo(() => {
@@ -461,21 +474,24 @@ export default function SalesCommandCenterPage() {
       </div>
 
       {/* ─── KPI GRID ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
         <KpiCard idx={0} icon="💳" label="Doanh thu tháng" rawValue={totalRevenue} formatted={fmtVND(totalRevenue)}
           color="#6366f1" trend={revenueTrend} sub={`vs ${getMonthRange(monthOffset - 1).label}`} sparkData={dailyQtyTrend} />
         
         <KpiCard idx={1} icon="⚡" label="Doanh thu 7 ngày" rawValue={weeklyRevenue} formatted={fmtVND(weeklyRevenue)} color="#10b981" 
           trend={weeklyTrend} sub={`vs 7 ngày trước đó (${prevWeeklyStart.slice(8)}/${prevWeeklyStart.slice(5,7)})`} />
         
-        <KpiCard idx={2} icon="🚛" label="Nhịp độ giao hàng" rawValue={totalShipments} color="#f59e0b" formatted={`${weeklyShipments} / ${totalShipments}`}
-          sub="Chuyến 7 ngày / Tháng" />
+        <KpiCard idx={2} icon="🚛" label="Số chuyến Tháng" rawValue={totalShipments} color="#f59e0b" formatted={`${fmtNum(totalShipments)} chuyến`}
+          trend={shipmentsTrend} sub={`vs ${getMonthRange(monthOffset - 1).label}`} />
+          
+        <KpiCard idx={3} icon="🚚" label="Số chuyến 7 ngày" rawValue={weeklyShipments} color="#eab308" formatted={`${fmtNum(weeklyShipments)} chuyến`}
+          trend={weeklyShipmentsTrend} sub={`vs 7 ngày trước đó (${prevWeeklyStart.slice(8)}/${prevWeeklyStart.slice(5,7)})`} />
 
-        <KpiCard idx={3} icon="🔥" label="Tốc độ xuất (Ngày)" rawValue={dailyBurnRate}
+        <KpiCard idx={4} icon="🔥" label="Tốc độ xuất (Ngày)" rawValue={dailyBurnRate}
           formatted={fmtVND(dailyBurnRate)} color="#ec4899"
           sub="Doanh thu TB / Ngày" />
 
-        <KpiCard idx={4} icon="💎" label="Giá trị TB / Chuyến" rawValue={avgShipmentValue} 
+        <KpiCard idx={5} icon="💎" label="Giá trị TB / Chuyến" rawValue={avgShipmentValue} 
           formatted={fmtVND(avgShipmentValue)} color="#8b5cf6"
           sub="Quy mô trung bình mỗi chuyến" />
       </div>
