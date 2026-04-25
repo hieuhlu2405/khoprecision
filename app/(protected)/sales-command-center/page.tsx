@@ -13,8 +13,30 @@ import { getVNTimeNow, getTodayVNStr } from "@/lib/date-utils";
 type SellingEntity = { id: string; code: string; header_text: string | null };
 type Customer = { id: string; code: string; name: string; parent_customer_id: string | null; selling_entity_id: string | null };
 type Product = { id: string; sku: string; name: string; customer_id: string | null; unit_price: number | null };
-type OutboundTx = { id: string; product_id: string; customer_id: string | null; delivery_customer_id: string | null; tx_date: string; qty: number; unit_cost: number | null };
-type ShipmentLog = { id: string; shipment_no: string; shipment_date: string; customer_id: string | null; created_at: string };
+
+type CustomerStat = { id: string; code: string; name: string; selling_entity_id: string | null; p1_revenue: number; p2_revenue: number };
+type ProductStat = { id: string; sku: string; name: string; p1_revenue: number; p2_revenue: number; p1_qty: number; p2_qty: number };
+type EntityStat = { id: string; code: string; header_text: string | null; p1_revenue: number; p2_revenue: number };
+
+type SalesReportData = {
+  kpis: {
+    p1_revenue: number; p2_revenue: number;
+    p1_qty: number; p2_qty: number;
+    p1_shipments: number; p2_shipments: number;
+    p1_days: number; p2_days: number;
+  };
+  customer_report: CustomerStat[];
+  product_report: ProductStat[];
+  entity_report: EntityStat[];
+  generated_at: string;
+};
+
+type ColFilter = { value: string; type: "contains" | "eq" | "gt" | "lt" };
+type SortDir = "asc" | "desc" | null;
+
+/* ------------------------------------------------------------------ */
+/* Utilities                                                           */
+/* ------------------------------------------------------------------ */
 
 function fmtNum(n: number | null | undefined): string {
   if (n == null) return "0";
@@ -23,27 +45,9 @@ function fmtNum(n: number | null | undefined): string {
 
 function fmtVND(n: number): string {
   if (n === 0) return "0 ₫";
-  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)} tỷ ₫`;
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(0)} tr ₫`;
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(2)} tỷ ₫`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} tr ₫`;
   return `${fmtNum(n)} ₫`;
-}
-
-function getTodayStr() {
-  return getTodayVNStr();
-}
-
-function getMonthRange(offsetMonth = 0): { start: string; end: string; label: string } {
-  const now = getVNTimeNow();
-  const d = new Date(now.getFullYear(), now.getMonth() + offsetMonth, 1);
-  const y = d.getFullYear();
-  const m = d.getMonth();
-  const last = new Date(y, m + 1, 0).getDate();
-  const ms = String(m + 1).padStart(2, "0");
-  return {
-    start: `${y}-${ms}-01`,
-    end: `${y}-${ms}-${String(last).padStart(2, "0")}`,
-    label: new Date(y, m, 1).toLocaleDateString("vi-VN", { month: "long", year: "numeric" }).replace("tháng", "Tháng").replace("năm", "Năm"),
-  };
 }
 
 function useCountAnimation(target: number, duration = 800) {
@@ -67,8 +71,9 @@ function useCountAnimation(target: number, duration = 800) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Mini Line Chart                                                     */
+/* Sub-Components                                                      */
 /* ------------------------------------------------------------------ */
+
 function Sparkline({ data, color = "var(--brand)", height = 40 }: { data: number[]; color?: string; height?: number }) {
   if (data.length < 2) return null;
   const max = Math.max(...data, 1);
@@ -89,9 +94,6 @@ function Sparkline({ data, color = "var(--brand)", height = 40 }: { data: number
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* KPI Card Component                                                  */
-/* ------------------------------------------------------------------ */
 function KpiCard({
   icon, label, rawValue, formatted, sub, color, sparkData, trend, idx = 0
 }: {
@@ -109,7 +111,6 @@ function KpiCard({
       className="relative overflow-hidden rounded-2xl bg-white border border-slate-200/80"
       style={{ boxShadow: `0 8px 32px -8px ${color}30` }}
     >
-      {/* Background glow */}
       <div className="absolute top-0 right-0 w-40 h-40 rounded-full pointer-events-none opacity-[0.07]"
         style={{ background: color, transform: "translate(40%, -40%)" }} />
 
@@ -131,8 +132,8 @@ function KpiCard({
           </div>
         </div>
 
-        <div className="text-3xl font-black mb-1" style={{ color }}>{display}</div>
-        {sub && <div className="text-[10px] text-slate-400 font-bold">{sub}</div>}
+        <div className="text-2xl font-black mb-1" style={{ color }}>{display}</div>
+        {sub && <div className="text-[10px] font-bold text-slate-400">{sub}</div>}
 
         {sparkData && sparkData.length > 1 && (
           <div className="mt-3 -mx-1">
@@ -140,7 +141,6 @@ function KpiCard({
           </div>
         )}
 
-        {/* Bottom accent */}
         <div className="absolute bottom-0 left-0 right-0 h-0.5"
           style={{ background: `linear-gradient(90deg, ${color}, transparent)` }} />
       </div>
@@ -148,78 +148,134 @@ function KpiCard({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Generic Bar                                                         */
-/* ------------------------------------------------------------------ */
-function RevenueBar({ label, desc, value, max, color, rank, unit }: { label: string; desc?: string; value: number; max: number; color: string; rank: number; unit?: string }) {
+function RevenueBar({ label, desc, value, value2, max, color, rank, unit, isCompare }: { 
+  label: string; desc?: string; value: number; value2?: number; max: number; color: string; rank: number; unit?: string; isCompare?: boolean 
+}) {
   const pct = max > 0 ? (value / max) * 100 : 0;
+  const pct2 = (isCompare && value2 !== undefined && max > 0) ? (value2 / max) * 100 : 0;
   const rankColors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
+  
   return (
-    <motion.div className="flex items-center gap-3" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: rank * 0.04 }}>
-      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black text-white"
-        style={{ background: rankColors[rank] || "#94a3b8", flexShrink: 0 }}>
-        {rank + 1}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex justify-between items-baseline mb-1">
-          <div className="flex flex-col">
-             <span className="font-bold text-[12px] text-slate-800 truncate">{label}</span>
-             {desc && <span className="font-bold text-[9px] text-slate-400 uppercase truncate mt-0.5">{desc}</span>}
-          </div>
-          <span className="font-black text-[11px] text-slate-600 ml-2 flex-shrink-0">
-             {unit === "VND" ? fmtVND(value) : `${fmtNum(value)} ${unit || ""}`}
-          </span>
+    <motion.div className="flex flex-col gap-1.5" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: rank * 0.04 }}>
+      <div className="flex items-center gap-3">
+        <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white"
+          style={{ background: rankColors[rank] || "#94a3b8", flexShrink: 0 }}>
+          #{rank + 1}
         </div>
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden mt-1">
-          <motion.div className="h-full rounded-full" style={{ background: color }}
-            initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ delay: rank * 0.04 + 0.2, duration: 0.6 }} />
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-baseline">
+            <div className="flex flex-col">
+               <span className="font-bold text-[12px] text-slate-800 truncate" title={label}>{label}</span>
+               {desc && <span className="font-bold text-[9px] text-slate-400 uppercase truncate mt-0.5">{desc}</span>}
+            </div>
+            <div className="flex flex-col items-end">
+              <span className="font-black text-[11px] text-slate-600 ml-2 group relative cursor-help">
+                {unit === "VND" ? fmtVND(value) : `${fmtNum(value)} ${unit || ""}`}
+                <div className="absolute hidden group-hover:block bottom-full right-0 bg-slate-900 text-white p-2 rounded text-[10px] whitespace-nowrap z-[100] shadow-xl">
+                  {fmtNum(value)} ₫
+                </div>
+              </span>
+              {isCompare && value2 !== undefined && (
+                <span className="font-bold text-[9px] text-slate-400">
+                  Kỳ đối soát: {unit === "VND" ? fmtVND(value2) : fmtNum(value2)}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="pl-9 space-y-1">
+        <div className="h-2 bg-slate-100 rounded-full overflow-hidden relative group">
+          <motion.div className="h-full rounded-full relative z-10" style={{ background: color }}
+            initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ delay: rank * 0.04 + 0.2, duration: 0.6 }}>
+            <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </motion.div>
+          {isCompare && (
+            <motion.div className="absolute top-0 left-0 h-full bg-slate-300/40 rounded-full z-0"
+              initial={{ width: 0 }} animate={{ width: `${pct2}%` }} transition={{ delay: rank * 0.04 + 0.3, duration: 0.6 }} />
+          )}
+          <div className="absolute inset-0 opacity-0 hover:bg-white/10 hover:shadow-[0_0_15px_rgba(255,255,255,0.5)] pointer-events-none transition-all duration-300" />
         </div>
       </div>
     </motion.div>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Donut Chart                                                         */
-/* ------------------------------------------------------------------ */
 function DonutChart({ data, total, title }: { data: { label: string; value: number; color: string }[]; total: number; title: string }) {
-  const r = 40;
-  const cx = 60;
-  const cy = 60;
-  const circumference = 2 * Math.PI * r;
-  let offset = 0;
-
-  const segments = data.map(d => {
-    const fraction = total > 0 ? d.value / total : 0;
-    const seg = { ...d, fraction, offset, dasharray: fraction * circumference };
-    offset += fraction * circumference;
-    return seg;
-  });
-
+  if (total === 0) return <div className="h-48 flex items-center justify-center text-slate-300 font-bold">Không có dữ liệu</div>;
+  let currentAngle = -90;
   return (
     <div className="flex items-center gap-6">
-      <svg width="120" height="120" viewBox="0 0 120 120">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth="16" />
-        {segments.map((s, i) => (
-          <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth="16"
-            strokeDasharray={`${s.dasharray} ${circumference - s.dasharray}`}
-            strokeDashoffset={-(s.offset - circumference / 4)}
-            transform={`rotate(-90 ${cx} ${cy})`}
-            style={{ transition: "stroke-dasharray 0.6s ease" }} />
-        ))}
-        <text x={cx} y={cy - 5} textAnchor="middle" fontSize="11" fontWeight="900" fill="#1e293b">{data.length}</text>
-        <text x={cx} y={cy + 9} textAnchor="middle" fontSize="9" fontWeight="600" fill="#94a3b8">{title}</text>
-      </svg>
-      <div className="flex flex-col gap-2">
+      <div className="relative w-32 h-32 flex-shrink-0">
+        <svg viewBox="0 0 36 36" className="w-full h-full transform hover:scale-105 transition-transform duration-500">
+          <circle cx="18" cy="18" r="15.9" fill="transparent" stroke="#f1f5f9" strokeWidth="3.5" />
+          {data.map((d, i) => {
+            const pct = (d.value / total) * 100;
+            const dash = `${pct} ${100 - pct}`;
+            const rotate = currentAngle;
+            currentAngle += (pct / 100) * 360;
+            return (
+              <circle key={i} cx="18" cy="18" r="15.9" fill="transparent" stroke={d.color} strokeWidth="3.2" strokeDasharray={dash}
+                strokeDashoffset="0" transform={`rotate(${rotate} 18 18)`} strokeLinecap="round" className="transition-all duration-700 hover:stroke-[4]" />
+            );
+          })}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</span>
+          <span className="text-[14px] font-black text-slate-800">{fmtVND(total)}</span>
+        </div>
+      </div>
+      <div className="flex-1 space-y-1.5 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
         {data.map((d, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
-            <span className="text-[11px] font-bold text-slate-600 flex-1 leading-tight pr-2">{d.label}</span>
-            <span className="text-[10px] font-black text-slate-400 ml-auto">{total > 0 ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
+          <div key={i} className="flex items-center justify-between group">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-2 h-2 rounded-full" style={{ background: d.color }} />
+              <span className="text-[10px] font-bold text-slate-600 truncate group-hover:text-indigo-600 transition-colors uppercase">{d.label}</span>
+            </div>
+            <span className="text-[10px] font-black text-slate-400 ml-2">{((d.value / total) * 100).toFixed(1)}%</span>
           </div>
         ))}
       </div>
     </div>
+  );
+}
+
+function ThCell({ label, colKey, sortable, isNum, align, sortCol, sortDir, onSort, w, colWidths, onResize }: any) {
+  const isSortTarget = sortCol === colKey;
+  const thRef = useRef<HTMLTableCellElement>(null);
+  const width = colWidths[colKey] || (w ? parseInt(w) : undefined);
+  
+  const startResizing = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const startX = e.pageX;
+    const startWidth = thRef.current?.offsetWidth || 0;
+    const onMouseMove = (me: MouseEvent) => {
+      const newW = Math.max(50, startWidth + (me.pageX - startX));
+      onResize(colKey, newW);
+    };
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
+
+  return (
+    <th ref={thRef} style={{ width, minWidth: width, background: "white", position: "relative" }} 
+      className={`px-4 py-3 text-${align || 'left'} border-b border-slate-200 group sticky top-0 z-10`}>
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] font-black text-black uppercase tracking-widest whitespace-nowrap">{label}</span>
+        {sortable && (
+          <button onClick={() => onSort(colKey)} className={`p-1 rounded hover:bg-slate-100 transition-colors ${isSortTarget ? "text-indigo-600" : "text-slate-300"}`}>
+            {isSortTarget ? (sortDir === "asc" ? "▲" : "▼") : "⇅"}
+          </button>
+        )}
+      </div>
+      <div onMouseDown={startResizing} 
+        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-indigo-400/50 active:bg-indigo-600 transition-colors z-20" />
+    </th>
   );
 }
 
@@ -230,207 +286,76 @@ function DonutChart({ data, total, title }: { data: { label: string; value: numb
 export default function SalesCommandCenterPage() {
   const { showToast } = useUI();
   const [loading, setLoading] = useState(true);
-  const [monthOffset, setMonthOffset] = useState(0);
+  const [activeTab, setActiveTab] = useState("overview");
+
+  // Filter States
+  const [isCompare, setIsCompare] = useState(false);
+  const [p1Start, setP1Start] = useState("");
+  const [p1End, setP1End] = useState("");
+  const [p2Start, setP2Start] = useState("");
+  const [p2End, setP2End] = useState("");
 
   const [entities, setEntities] = useState<SellingEntity[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [outboundTx, setOutboundTx] = useState<OutboundTx[]>([]);
-  const [shipments, setShipments] = useState<ShipmentLog[]>([]);
-  const [prevMonthTx, setPrevMonthTx] = useState<OutboundTx[]>([]);
+  const [reportData, setReportData] = useState<SalesReportData | null>(null);
 
-  const currentRange = useMemo(() => getMonthRange(monthOffset), [monthOffset]);
+  // Table Controls
+  const [showActiveOnly, setShowActiveOnly] = useState(true);
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sales_customer_col_widths");
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>(null);
+
+  // Initial Dates
+  useEffect(() => {
+    const today = getTodayVNStr();
+    const monthStart = `${today.slice(0, 8)}01`;
+    setP1Start(monthStart);
+    setP1End(today);
+    
+    const now = getVNTimeNow();
+    const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const pmY = prevMonthDate.getFullYear();
+    const pmM = String(prevMonthDate.getMonth() + 1).padStart(2, "0");
+    const pmEndDay = new Date(pmY, pmM as any, 0).getDate();
+    setP2Start(`${pmY}-${pmM}-01`);
+    setP2End(`${pmY}-${pmM}-${String(pmEndDay).padStart(2, "0")}`);
+  }, []);
+
+  const onResize = (key: string, w: number) => {
+    setColWidths(prev => {
+      const next = { ...prev, [key]: w };
+      localStorage.setItem("sales_customer_col_widths", JSON.stringify(next));
+      return next;
+    });
+  };
 
   const loadData = useCallback(async () => {
+    if (!p1Start || !p1End) return;
     setLoading(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return window.location.href = "/login";
-
-      const range = getMonthRange(monthOffset);
-      const prevRange = getMonthRange(monthOffset - 1);
-
-      const [rE, rC, rP, rTx, rPTx, rShip] = await Promise.all([
+      const [rE, rRPC] = await Promise.all([
         supabase.from("selling_entities").select("id, code, header_text"),
-        supabase.from("customers").select("id, code, name, parent_customer_id, selling_entity_id").is("deleted_at", null),
-        supabase.from("products").select("id, sku, name, customer_id, unit_price").is("deleted_at", null),
-        supabase.from("inventory_transactions").select("id, product_id, customer_id, delivery_customer_id, tx_date, qty, unit_cost")
-          .eq("tx_type", "out").is("deleted_at", null)
-          .gte("tx_date", range.start).lte("tx_date", range.end),
-        supabase.from("inventory_transactions").select("id, product_id, customer_id, delivery_customer_id, tx_date, qty, unit_cost")
-          .eq("tx_type", "out").is("deleted_at", null)
-          .gte("tx_date", prevRange.start).lte("tx_date", prevRange.end),
-        supabase.from("shipment_logs").select("id, shipment_no, shipment_date, customer_id, created_at")
-          .is("deleted_at", null).gte("shipment_date", prevRange.start).lte("shipment_date", range.end),
+        supabase.rpc("sales_command_center_report_v2", {
+           p1_start: p1Start, p1_end: p1End,
+           p2_start: isCompare ? p2Start : p1Start, p2_end: isCompare ? p2End : p1End
+        })
       ]);
 
       setEntities((rE.data || []) as SellingEntity[]);
-      setCustomers((rC.data || []) as Customer[]);
-      setProducts(rP.data || []);
-      setOutboundTx((rTx.data || []) as OutboundTx[]);
-      setPrevMonthTx((rPTx.data || []) as OutboundTx[]);
-      setShipments(rShip.data || []);
+      setReportData(rRPC.data as SalesReportData);
     } catch (err: any) {
       showToast(err.message, "error");
     } finally {
       setLoading(false);
     }
-  }, [monthOffset, showToast]);
+  }, [p1Start, p1End, p2Start, p2End, isCompare, showToast]);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  // --- COMPUTED KPIs ---
-  const { effectiveEnd, weeklyStart, prevWeeklyEnd, prevWeeklyStart } = useMemo(() => {
-     const todayStr = getTodayVNStr();
-     const isCurrentMonth = currentRange.end >= todayStr && currentRange.start <= todayStr;
-     const end = isCurrentMonth ? todayStr : currentRange.end;
-     const d = new Date(end);
-     d.setDate(d.getDate() - 6);
-     const wStart = d.toLocaleDateString("sv-SE");
-     
-     const dpEnd = new Date(end);
-     dpEnd.setDate(dpEnd.getDate() - 7);
-     const pwEnd = dpEnd.toLocaleDateString("sv-SE");
-     
-     const dpStart = new Date(dpEnd);
-     dpStart.setDate(dpStart.getDate() - 6);
-     const pwStart = dpStart.toLocaleDateString("sv-SE");
-
-     return { effectiveEnd: end, weeklyStart: wStart, prevWeeklyEnd: pwEnd, prevWeeklyStart: pwStart };
-  }, [currentRange]);
-
-  const parentCustomers = useMemo(() => customers.filter(c => !c.parent_customer_id), [customers]);
-
-  // Doanh thu tháng = qty * unit_cost
-  const totalRevenue = useMemo(() => outboundTx.reduce((s, t) => s + (t.qty || 0) * (t.unit_cost || 0), 0), [outboundTx]);
-  const prevRevenue = useMemo(() => prevMonthTx.reduce((s, t) => s + (t.qty || 0) * (t.unit_cost || 0), 0), [prevMonthTx]);
-  const revenueTrend = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : 0;
-
-  // Tổng số lượng xuất
-  const totalQty = useMemo(() => outboundTx.reduce((s, t) => s + (t.qty || 0), 0), [outboundTx]);
-  const prevQty = useMemo(() => prevMonthTx.reduce((s, t) => s + (t.qty || 0), 0), [prevMonthTx]);
-  const qtyTrend = prevQty > 0 ? ((totalQty - prevQty) / prevQty) * 100 : 0;
-
-  // Tổng chuyến hàng trong tháng & tăng trưởng
-  const { totalShipments, shipmentsTrend } = useMemo(() => {
-     const curr = shipments.filter(s => s.shipment_date >= currentRange.start && s.shipment_date <= currentRange.end).length;
-     const prevRange = getMonthRange(monthOffset - 1);
-     const prev = shipments.filter(s => s.shipment_date >= prevRange.start && s.shipment_date <= prevRange.end).length;
-     const trend = prev > 0 ? ((curr - prev) / prev) * 100 : 0;
-     return { totalShipments: curr, shipmentsTrend: trend };
-  }, [shipments, currentRange, monthOffset]);
-
-  // Tổng chuyến hàng tuần & tăng trưởng
-  const { weeklyShipments, weeklyShipmentsTrend } = useMemo(() => {
-     const curr = shipments.filter(s => s.shipment_date >= weeklyStart && s.shipment_date <= effectiveEnd).length;
-     const prev = shipments.filter(s => s.shipment_date >= prevWeeklyStart && s.shipment_date <= prevWeeklyEnd).length;
-     const trend = prev > 0 ? ((curr - prev) / prev) * 100 : 0;
-     return { weeklyShipments: curr, weeklyShipmentsTrend: trend };
-  }, [shipments, weeklyStart, effectiveEnd, prevWeeklyStart, prevWeeklyEnd]);
-
-  // Doanh thu tuần & tăng trưởng
-  const { weeklyRevenue, weeklyTrend } = useMemo(() => {
-     const pool = [...prevMonthTx, ...outboundTx];
-     const currRev = pool
-        .filter(t => t.tx_date >= weeklyStart && t.tx_date <= effectiveEnd)
-        .reduce((s, t) => s + (t.qty || 0) * (t.unit_cost || 0), 0);
-        
-     const prevRev = pool
-        .filter(t => t.tx_date >= prevWeeklyStart && t.tx_date <= prevWeeklyEnd)
-        .reduce((s, t) => s + (t.qty || 0) * (t.unit_cost || 0), 0);
-        
-     const trend = prevRev > 0 ? ((currRev - prevRev) / prevRev) * 100 : 0;
-     return { weeklyRevenue: currRev, weeklyTrend: trend };
-  }, [outboundTx, prevMonthTx, weeklyStart, effectiveEnd, prevWeeklyStart, prevWeeklyEnd]);
-  
-  // Tốc độ xuất (Daily Burn Rate)
-  const dailyBurnRate = useMemo(() => {
-     const now = getVNTimeNow();
-     const [y, mStr] = currentRange.start.split("-");
-     const currentStart = new Date(Number(y), Number(mStr)-1, 1);
-     let daysPassed = 30;
-     if (now.getMonth() === currentStart.getMonth() && now.getFullYear() === currentStart.getFullYear()) {
-        daysPassed = Math.max(1, now.getDate());
-     } else {
-        daysPassed = new Date(Number(y), Number(mStr), 0).getDate();
-     }
-     return totalRevenue / daysPassed;
-  }, [totalRevenue, currentRange.start]);
-  
-  // Giá trị xuất / Chuyến (Avg Shipment Value)
-  const avgShipmentValue = totalShipments > 0 ? totalRevenue / totalShipments : 0;
-
-  // Revenue by parent customer
-  const revenueByCustomer = useMemo(() => {
-    const map: Record<string, number> = {};
-    outboundTx.forEach(t => {
-      const custId = t.customer_id;
-      if (!custId) return;
-      const cust = customers.find(c => c.id === custId);
-      const parentId = cust?.parent_customer_id || custId;
-      map[parentId] = (map[parentId] || 0) + (t.qty || 0) * (t.unit_cost || 0);
-    });
-    return Object.entries(map)
-      .map(([id, value]) => {
-        const c = customers.find(x => x.id === id);
-        return { id, label: c ? (c.code + " – " + c.name) : "Không rõ", value };
-      })
-      .sort((a, b) => b.value - a.value);
-  }, [outboundTx, customers]);
-
-  // Revenue by Selling Entity
-  const revenueByEntity = useMemo(() => {
-    const map: Record<string, number> = {};
-    const unmappedStr = "unmapped";
-    outboundTx.forEach(t => {
-      const custId = t.customer_id;
-      if (!custId) {
-         map[unmappedStr] = (map[unmappedStr] || 0) + (t.qty || 0) * (t.unit_cost || 0);
-         return;
-      }
-      const cust = customers.find(c => c.id === custId);
-      const parentId = cust?.parent_customer_id || custId;
-      const parentCust = customers.find(c => c.id === parentId);
-      const entId = parentCust?.selling_entity_id || unmappedStr;
-      map[entId] = (map[entId] || 0) + (t.qty || 0) * (t.unit_cost || 0);
-    });
-    return Object.entries(map).map(([id, value]) => {
-      if (id === unmappedStr) return { id, label: "Khác / Giao tự do", value };
-      const e = entities.find(x => x.id === id);
-      return { id, label: e ? (e.code + " – " + (e.header_text || "Pháp nhân")) : "Chưa định danh", value };
-    }).filter(x => x.value > 0).sort((a,b) => b.value - a.value);
-  }, [outboundTx, customers, entities]);
-
-  // Top Products (Best Sellers)
-  const topProducts = useMemo(() => {
-    const map: Record<string, { qty: number, rev: number }> = {};
-    outboundTx.forEach(t => {
-       const pid = t.product_id;
-       if (!map[pid]) map[pid] = { qty: 0, rev: 0 };
-       map[pid].qty += (t.qty || 0);
-       map[pid].rev += (t.qty || 0) * (t.unit_cost || 0);
-    });
-    return Object.entries(map).map(([id, data]) => {
-       const p = products.find(x => x.id === id);
-       return {
-          id,
-          label: p ? p.sku : id,
-          name: p ? p.name : "Không rõ",
-          ...data
-       };
-    }).sort((a, b) => b.rev - a.rev);
-  }, [outboundTx, products]);
-
-  // Daily delivery trend (7 ngày gần nhất trong tháng)
-  const dailyQtyTrend = useMemo(() => {
-    // Để giữ sparkline đẹp, ta tính 7 ngày cuối cùng có data trong kỳ
-    const dates = Array.from(new Set(outboundTx.map(t => t.tx_date.slice(0, 10)))).sort();
-    const last7 = dates.slice(-7);
-    if(last7.length === 0) return [0,0];
-    return last7.map(d => outboundTx.filter(t => t.tx_date.slice(0, 10) === d).reduce((s, t) => s + (t.qty || 0), 0));
-  }, [outboundTx]);
-
-
 
   const UIColors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
 
@@ -438,250 +363,245 @@ export default function SalesCommandCenterPage() {
     { id: "overview", label: "Tổng quan Sales", icon: "📊" },
     { id: "customers", label: "Báo cáo theo Khách hàng", icon: "🏢" },
   ];
-  const [activeTab, setActiveTab] = useState("overview");
-
-  const shimmer = loading;
 
   return (
     <motion.div className="page-root" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
 
       {/* ─── HEADER ─────────────────────────────────────────────────── */}
-      <div className="page-header -mx-6 px-6 py-5 mb-6 flex items-center justify-between border-b border-slate-200/60"
-        style={{ background: "linear-gradient(135deg, #f0f9ff 0%, #faf5ff 50%, #fff7ed 100%)" }}>
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
-            style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)", boxShadow: "0 8px 24px -4px #6366f160" }}>
-            🚀
+      <div className="page-header -mx-6 px-6 py-5 mb-6 flex flex-col gap-4 border-b border-slate-200/60 shadow-sm bg-white/50 backdrop-blur-xl">
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
+              style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)", boxShadow: "0 8px 24px -4px #6366f160" }}>
+              🚀
+            </div>
+            <div>
+              <h1 className="page-title mb-0 text-2xl font-black text-slate-900 uppercase">SALES COMMAND CENTER</h1>
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] m-0">Đài chỉ huy Doanh thu • Phase 2 Professional</p>
+            </div>
           </div>
-          <div>
-            <h1 className="page-title mb-0 text-2xl">SALES COMMAND CENTER</h1>
-            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] m-0">
-              Đài chỉ huy Doanh thu • Multi-Entity Architecture
-            </p>
+          <div className="flex items-center gap-4">
+             <div className="flex items-center gap-2 bg-white/60 p-1.5 rounded-xl border border-white shadow-sm">
+                <button 
+                  onClick={() => setIsCompare(!isCompare)}
+                  className={`px-4 py-2 rounded-lg text-[11px] font-black uppercase transition-all ${isCompare ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:bg-white"}`}
+                >
+                  {isCompare ? "🔄 Chế độ So sánh: BẬT" : "📊 Báo cáo Kỳ đơn"}
+                </button>
+             </div>
+             <button onClick={loadData} className="w-10 h-10 border border-slate-200 rounded-xl bg-white flex items-center justify-center hover:bg-slate-50 transition-colors">↻</button>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Month Navigator */}
-          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm">
-            <button onClick={() => setMonthOffset(m => m - 1)} className="text-slate-400 hover:text-indigo-600 font-black text-lg transition-colors">‹</button>
-            <span className="font-black text-[13px] text-slate-700 min-w-[130px] text-center">{currentRange.label}</span>
-            <button onClick={() => setMonthOffset(m => Math.min(0, m + 1))} className="text-slate-400 hover:text-indigo-600 font-black text-lg transition-colors">›</button>
-          </div>
-          <button onClick={() => setMonthOffset(0)} className="btn btn-secondary btn-sm">Tháng này</button>
-          <button onClick={loadData} className="btn btn-secondary btn-sm">↻</button>
+        <div className="flex flex-wrap items-center gap-4 mt-2">
+           <div className="flex flex-col gap-1">
+              <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Kỳ báo cáo chính</label>
+              <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
+                 <input type="date" value={p1Start} onChange={e => setP1Start(e.target.value)} className="text-[12px] font-bold border-none bg-transparent outline-none p-0" />
+                 <span className="text-slate-300">→</span>
+                 <input type="date" value={p1End} onChange={e => setP1End(e.target.value)} className="text-[12px] font-bold border-none bg-transparent outline-none p-0" />
+              </div>
+           </div>
+           {isCompare && (
+             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-1">
+                <label className="text-[9px] font-black uppercase text-indigo-400 ml-1">Kỳ đối soát (Comparison)</label>
+                <div className="flex items-center gap-2 bg-indigo-50/50 border border-indigo-200 rounded-xl px-3 py-2 shadow-sm">
+                   <input type="date" value={p2Start} onChange={e => setP2Start(e.target.value)} className="text-[12px] font-bold border-none bg-transparent outline-none p-0 text-indigo-700" />
+                   <span className="text-indigo-300">→</span>
+                   <input type="date" value={p2End} onChange={e => setP2End(e.target.value)} className="text-[12px] font-bold border-none bg-transparent outline-none p-0 text-indigo-700" />
+                </div>
+             </motion.div>
+           )}
+           <div className="ml-auto text-[10px] text-slate-400 font-bold bg-white/40 px-3 py-2 rounded-xl border border-white italic">
+              Real-time Analysis • Data Precision 100%
+           </div>
         </div>
       </div>
 
       {/* ─── KPI GRID ───────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-        <KpiCard idx={0} icon="💳" label="Doanh thu tháng" rawValue={totalRevenue} formatted={fmtVND(totalRevenue)}
-          color="#6366f1" trend={revenueTrend} sub={`vs ${getMonthRange(monthOffset - 1).label}`} sparkData={dailyQtyTrend} />
+        <KpiCard idx={0} icon="💳" label="Doanh thu kỳ này" 
+          rawValue={reportData?.kpis.p1_revenue || 0} 
+          formatted={fmtVND(reportData?.kpis.p1_revenue || 0)}
+          color="#6366f1" 
+          trend={isCompare ? (reportData ? ((reportData.kpis.p1_revenue - reportData.kpis.p2_revenue) / (reportData.kpis.p2_revenue || 1) * 100) : 0) : undefined} 
+          sub={isCompare ? "vs Kỳ đối soát" : "Doanh thu tổng hợp"} />
         
-        <KpiCard idx={1} icon="⚡" label="Doanh thu 7 ngày" rawValue={weeklyRevenue} formatted={fmtVND(weeklyRevenue)} color="#10b981" 
-          trend={weeklyTrend} sub={`vs 7 ngày trước đó (${prevWeeklyStart.slice(8)}/${prevWeeklyStart.slice(5,7)})`} />
+        <KpiCard idx={1} icon="📦" label="Sản lượng xuất" 
+          rawValue={reportData?.kpis.p1_qty || 0} formatted={fmtNum(reportData?.kpis.p1_qty || 0)} 
+          color="#10b981" 
+          trend={isCompare ? (reportData ? ((reportData.kpis.p1_qty - reportData.kpis.p2_qty) / (reportData.kpis.p2_qty || 1) * 100) : 0) : undefined} 
+          sub="Đơn vị (units)" />
         
-        <KpiCard idx={2} icon="🚛" label="Số chuyến Tháng" rawValue={totalShipments} color="#f59e0b" formatted={`${fmtNum(totalShipments)} chuyến`}
-          trend={shipmentsTrend} sub={`vs ${getMonthRange(monthOffset - 1).label}`} />
+        <KpiCard idx={2} icon="🚛" label="Số chuyến giao" 
+          rawValue={reportData?.kpis.p1_shipments || 0} formatted={fmtNum(reportData?.kpis.p1_shipments || 0)}
+          color="#f59e0b" 
+          trend={isCompare ? (reportData ? ((reportData.kpis.p1_shipments - reportData.kpis.p2_shipments) / (reportData.kpis.p2_shipments || 1) * 100) : 0) : undefined} 
+          sub="Trong kỳ báo cáo" />
+
+        <KpiCard idx={3} icon="🔥" label="Tốc độ xuất (Ngày)" 
+          rawValue={reportData ? (reportData.kpis.p1_revenue / (reportData.kpis.p1_days || 1)) : 0}
+          formatted={fmtVND(reportData ? (reportData.kpis.p1_revenue / (reportData.kpis.p1_days || 1)) : 0)} 
+          color="#ec4899" sub="Doanh thu TB / Ngày" />
+
+        <KpiCard idx={4} icon="💎" label="Giá trị TB / Chuyến" 
+          rawValue={reportData && reportData.kpis.p1_shipments ? (reportData.kpis.p1_revenue / reportData.kpis.p1_shipments) : 0} 
+          formatted={fmtVND(reportData && reportData.kpis.p1_shipments ? (reportData.kpis.p1_revenue / reportData.kpis.p1_shipments) : 0)} 
+          color="#8b5cf6" sub="Quy mô / Chuyến" />
           
-        <KpiCard idx={3} icon="🚚" label="Số chuyến 7 ngày" rawValue={weeklyShipments} color="#eab308" formatted={`${fmtNum(weeklyShipments)} chuyến`}
-          trend={weeklyShipmentsTrend} sub={`vs 7 ngày trước đó (${prevWeeklyStart.slice(8)}/${prevWeeklyStart.slice(5,7)})`} />
-
-        <KpiCard idx={4} icon="🔥" label="Tốc độ xuất (Ngày)" rawValue={dailyBurnRate}
-          formatted={fmtVND(dailyBurnRate)} color="#ec4899"
-          sub="Doanh thu TB / Ngày" />
-
-        <KpiCard idx={5} icon="💎" label="Giá trị TB / Chuyến" rawValue={avgShipmentValue} 
-          formatted={fmtVND(avgShipmentValue)} color="#8b5cf6"
-          sub="Quy mô trung bình mỗi chuyến" />
+        <KpiCard idx={5} icon="🗓️" label="Số ngày của kỳ" 
+          rawValue={reportData?.kpis.p1_days || 0} formatted={`${reportData?.kpis.p1_days || 0} ngày`} 
+          color="#64748b" sub="Độ dài dải ngày lọc" />
       </div>
 
       {/* ─── TABS ───────────────────────────────────────────────────── */}
-      <div className="flex gap-1 bg-slate-100/80 p-1 rounded-xl mb-6 w-fit" style={{ border: "1px solid #e2e8f0" }}>
+      <div className="flex gap-1 bg-slate-100/80 p-1 rounded-xl mb-6 w-fit border border-slate-200">
         {TABS.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className="px-5 py-2 rounded-lg text-[12px] font-bold transition-all flex items-center gap-2"
-            style={{
-              background: activeTab === tab.id ? "white" : "transparent",
-              color: activeTab === tab.id ? "#6366f1" : "#64748b",
-              boxShadow: activeTab === tab.id ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
-            }}>
+            className={`px-5 py-2 rounded-lg text-[12px] font-bold transition-all flex items-center gap-2 ${activeTab === tab.id ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
             <span>{tab.icon}</span> {tab.label}
           </button>
         ))}
       </div>
 
       <AnimatePresence mode="wait">
-        {/* ─── TAB: OVERVIEW ────────────────────────────────────────── */}
         {activeTab === "overview" && (
-          <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="grid grid-cols-3 gap-5">
-
-            {/* Left Column: Top SKUs & Top Customers */}
+          <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-3 gap-5">
             <div className="col-span-2 flex flex-col gap-5">
-               {/* Customer Revenue */}
-               <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6"
-                 style={{ boxShadow: "0 4px 24px -4px rgba(99,102,241,0.08)" }}>
-                 <div className="flex items-center justify-between mb-5">
-                   <div>
-                     <h3 className="font-black text-[13px] uppercase tracking-widest text-slate-800">Top Doanh thu theo Khách hàng</h3>
-                     <p className="text-[10px] text-slate-400 font-bold mt-0.5">{currentRange.label} • Xếp hạng nguồn thu</p>
-                   </div>
-                   <div className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
-                     {fmtVND(totalRevenue)}
-                   </div>
-                 </div>
-                 <div className="space-y-4">
-                   {shimmer ? (
-                     Array.from({ length: 5 }).map((_, i) => (
-                       <div key={i} className="h-8 bg-slate-100 rounded-lg animate-pulse" />
-                     ))
-                   ) : revenueByCustomer.length === 0 ? (
-                     <div className="text-center text-slate-400 py-10 text-sm font-bold">Chưa có dữ liệu khách hàng</div>
-                   ) : (
-                     revenueByCustomer.slice(0, 10).map((r, i) => (
-                       <RevenueBar key={r.id} label={r.label} value={r.value} max={revenueByCustomer[0].value}
-                         color={UIColors[i % UIColors.length]} rank={i} unit="VND" />
-                     ))
-                   )}
-                 </div>
-               </div>
+                <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-5">
+                    <div>
+                      <h3 className="font-black text-[13px] uppercase tracking-widest text-slate-800">Top Doanh thu theo Khách hàng</h3>
+                      <p className="text-[10px] text-slate-400 font-bold mt-0.5">Xếp hạng nguồn thu kỳ báo cáo (Primary)</p>
+                    </div>
+                    <div className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
+                      {fmtVND(reportData?.kpis.p1_revenue || 0)}
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    {loading ? (
+                      Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-8 bg-slate-100 rounded-lg animate-pulse" />)
+                    ) : !reportData || reportData.customer_report.length === 0 ? (
+                      <div className="text-center text-slate-400 py-10 text-sm font-bold">Chưa có dữ liệu</div>
+                    ) : (
+                      reportData.customer_report.slice(0, 10).map((r, i) => (
+                        <RevenueBar key={r.id} label={r.name} desc={r.code} value={r.p1_revenue} value2={r.p2_revenue} 
+                          max={Math.max(reportData.customer_report[0].p1_revenue, reportData.customer_report[0].p1_revenue)}
+                          color={UIColors[i % UIColors.length]} rank={i} unit="VND" isCompare={isCompare} />
+                      ))
+                    )}
+                  </div>
+                </div>
 
-               {/* Trending Products */}
-               <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6"
-                 style={{ boxShadow: "0 4px 24px -4px rgba(99,102,241,0.08)" }}>
-                 <div className="flex items-center justify-between mb-5">
-                   <div>
-                     <h3 className="font-black text-[13px] uppercase tracking-widest text-slate-800">Top Doanh thu theo Mã hàng</h3>
-                     <p className="text-[10px] text-slate-400 font-bold mt-0.5">{currentRange.label} • Dựa trên giá trị xuất kho tương đối</p>
-                   </div>
-                 </div>
+                <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+                 <h3 className="font-black text-[13px] uppercase tracking-widest text-slate-800 mb-5">Top Doanh thu theo Mã hàng</h3>
                  <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                   {shimmer ? (
-                     Array.from({ length: 6 }).map((_, i) => (
-                       <div key={i} className="h-8 bg-slate-100 rounded-lg animate-pulse" />
-                     ))
-                   ) : topProducts.length === 0 ? (
-                     <div className="text-center col-span-2 text-slate-400 py-10 text-sm font-bold">Chưa có dữ liệu hàng hóa</div>
+                   {loading ? (
+                     Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-8 bg-slate-100 rounded-lg animate-pulse" />)
+                   ) : !reportData || reportData.product_report.length === 0 ? (
+                     <div className="text-center col-span-2 text-slate-400 py-10 text-sm font-bold">Chưa có dữ liệu</div>
                    ) : (
-                     topProducts.slice(0, 10).map((r, i) => (
-                       <RevenueBar key={r.id} label={r.label} desc={r.name} value={r.rev} max={topProducts[0].rev}
-                         color={UIColors[i % UIColors.length]} rank={i} unit="VND" />
+                     reportData.product_report.slice(0, 10).map((r, i) => (
+                       <RevenueBar key={r.id} label={r.sku} desc={r.name} value={r.p1_revenue} value2={r.p2_revenue}
+                         max={Math.max(reportData.product_report[0].p1_revenue, reportData.product_report[0].p1_revenue)}
+                         color={UIColors[i % UIColors.length]} rank={i} unit="VND" isCompare={isCompare} />
                      ))
                    )}
                  </div>
-               </div>
+                </div>
             </div>
 
-            {/* Right column: Donut + Recent shipments */}
             <div className="flex flex-col gap-5">
-              {/* Donut of Customers */}
-              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5"
-                style={{ boxShadow: "0 4px 24px -4px rgba(99,102,241,0.08)" }}>
-                <h3 className="font-black text-[11px] uppercase tracking-widest text-slate-600 mb-4">Top Doanh thu Nhóm Khách Hàng</h3>
-                {revenueByCustomer.length > 0 ? (
-                  <DonutChart
-                    title="PARENT"
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5">
+                <h3 className="font-black text-[11px] uppercase tracking-widest text-slate-600 mb-4">Cơ cấu Doanh thu</h3>
+                {reportData && reportData.customer_report.length > 0 ? (
+                  <DonutChart title="KHÁCH HÀNG" total={reportData.kpis.p1_revenue}
                     data={(() => {
-                      const top10 = revenueByCustomer.slice(0, 10);
-                      const othersValue = revenueByCustomer.slice(10).reduce((s, x) => s + x.value, 0);
-                      const chartData = top10.map((r, i) => ({
-                        label: r.label,
-                        value: r.value,
-                        color: UIColors[i % UIColors.length]
-                      }));
-                      if (othersValue > 0) {
-                        chartData.push({ label: "KHÁC", value: othersValue, color: "#cbd5e1" });
-                      }
+                      const top10 = reportData.customer_report.slice(0, 10);
+                      const othersValue = reportData.customer_report.slice(10).reduce((s, x) => s + x.p1_revenue, 0);
+                      const chartData = top10.map((r, i) => ({ label: r.name, value: r.p1_revenue, color: UIColors[i % UIColors.length] }));
+                      if (othersValue > 0) chartData.push({ label: "KHÁC", value: othersValue, color: "#cbd5e1" });
                       return chartData;
                     })()}
-                    total={totalRevenue}
                   />
-                ) : (
-                  <div className="w-24 h-24 rounded-full border-4 border-slate-100 mx-auto animate-pulse" />
-                )}
+                ) : <div className="w-24 h-24 rounded-full border-4 border-slate-100 mx-auto animate-pulse" />}
               </div>
-
-
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5">
+                 <h3 className="font-black text-[11px] uppercase tracking-widest text-slate-600 mb-4">Mã hàng Chủ lực</h3>
+                 <div className="space-y-4">
+                    {reportData?.product_report.slice(0, 5).map((p, i) => (
+                       <div key={p.id} className="flex flex-col gap-1">
+                          <div className="flex justify-between text-[10px] font-black uppercase text-slate-400">
+                             <span>{p.sku}</span>
+                             <span>{fmtNum(p.p1_qty)} units</span>
+                          </div>
+                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                             <div className="h-full bg-slate-400" style={{ width: `${(p.p1_revenue / reportData.product_report[0].p1_revenue) * 100}%` }} />
+                          </div>
+                       </div>
+                    ))}
+                 </div>
+              </div>
             </div>
           </motion.div>
         )}
 
-        {/* ─── TAB: CUSTOMERS ───────────────────────────────────────── */}
         {activeTab === "customers" && (
           <motion.div key="customers" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-            <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="font-black text-[13px] uppercase tracking-widest text-slate-700">Chi tiết Doanh thu Dòng chảy Khách Hàng</h3>
-                <span className="text-[11px] text-slate-400 font-bold">{currentRange.label}</span>
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white z-20">
+                <div className="flex items-center gap-4">
+                  <h3 className="font-black text-[13px] uppercase tracking-widest text-black">Báo cáo Dòng chảy Khách Hàng</h3>
+                  <button onClick={() => setShowActiveOnly(!showActiveOnly)}
+                    className={`px-3 py-1.5 rounded-lg border text-[11px] font-black uppercase transition-all ${showActiveOnly ? "bg-indigo-50 border-indigo-200 text-indigo-700" : "bg-white border-slate-200 text-slate-400"}`}>
+                    {showActiveOnly ? "✓ Chỉ hiện khách phát sinh DT" : "Hiển thị tất cả"}
+                  </button>
+                </div>
+                <div className="text-[11px] font-black text-slate-400 uppercase">Resizing Enabled • Professional Mode</div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200">
+              <div className="overflow-x-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 400px)' }}>
+                <table className="w-full border-collapse">
+                  <thead className="sticky top-0 z-30 bg-white">
                     <tr>
-                      {["#", "Khách hàng", "Thực thể Sale", "Số SKU", "Tổng xuất (units)", "Doanh thu", "% Tổng DT", "So tháng tr."].map(h => (
-                        <th key={h} className="py-3 px-4 text-left font-black text-[10px] uppercase tracking-widest text-slate-500">{h}</th>
-                      ))}
+                      <ThCell label="#" colKey="rank" align="center" w="50px" colWidths={colWidths} onResize={onResize} />
+                      <ThCell label="Khách hàng" colKey="code" sortable w="300px" sortCol={sortCol} sortDir={sortDir} onSort={setSortCol} colWidths={colWidths} onResize={onResize} />
+                      <ThCell label="Pháp nhân" colKey="entity" w="200px" colWidths={colWidths} onResize={onResize} />
+                      <ThCell label="Doanh thu" colKey="p1_revenue" sortable align="right" w="180px" sortCol={sortCol} sortDir={sortDir} onSort={setSortCol} colWidths={colWidths} onResize={onResize} />
+                      <ThCell label="% tổng Doanh thu" colKey="pct" align="center" w="150px" colWidths={colWidths} onResize={onResize} />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {shimmer ? Array.from({ length: 6 }).map((_, i) => (
-                      <tr key={i}><td colSpan={8} className="py-4 px-4"><div className="h-5 bg-slate-100 rounded animate-pulse" /></td></tr>
-                    )) : parentCustomers.map((cust, i) => {
-                      // Transactions for this customer (hoặc vendor con của nó)
-                      const allCustIds = [cust.id, ...customers.filter(c => c.parent_customer_id === cust.id).map(c => c.id)];
-                      const custTx = outboundTx.filter(t => t.customer_id && allCustIds.includes(t.customer_id));
-                      const prevCustTx = prevMonthTx.filter(t => t.customer_id && allCustIds.includes(t.customer_id));
-                      const revenue = custTx.reduce((s, t) => s + (t.qty || 0) * (t.unit_cost || 0), 0);
-                      const prevRev = prevCustTx.reduce((s, t) => s + (t.qty || 0) * (t.unit_cost || 0), 0);
-                      const qty = custTx.reduce((s, t) => s + (t.qty || 0), 0);
-                      const skuCount = new Set(custTx.map(t => t.product_id)).size;
-                      const pct = totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0;
-                      const trend = prevRev > 0 ? ((revenue - prevRev) / prevRev) * 100 : null;
-                      const vendorCount = customers.filter(c => c.parent_customer_id === cust.id).length;
-                      const ent = entities.find(e => e.id === cust.selling_entity_id);
-
-                      return (
-                        <motion.tr key={cust.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.04 }}
-                          className={`hover:bg-indigo-50/30 transition-colors ${i % 2 === 0 ? "bg-white" : "bg-slate-50/30"}`}>
-                          <td className="py-3 px-4 font-black text-slate-300 text-[11px]">{i + 1}</td>
-                          <td className="py-3 px-4">
-                            <div className="font-black text-slate-900 text-[12px] uppercase">{cust.code}</div>
-                            <div className="font-bold text-slate-500 text-[10px] mt-0.5 truncate max-w-[200px]">{cust.name}</div>
-                          </td>
-                          <td className="py-3 px-4">
-                             {ent ? (
-                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-50 text-emerald-600 border border-emerald-100" title={ent.header_text || "Pháp nhân"}>
-                                 🏢 {ent.code} {vendorCount>0 ? `(+${vendorCount})` : ''}
-                               </span>
-                             ) : (
-                               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-black uppercase text-slate-400">
-                                 Chưa gán
-                               </span>
-                             )}
-                          </td>
-                          <td className="py-3 px-4 font-black text-slate-700">{skuCount}</td>
-                          <td className="py-3 px-4 font-black text-slate-700">{fmtNum(qty)}</td>
-                          <td className="py-3 px-4 font-black text-indigo-700">{fmtVND(revenue)}</td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden" style={{ minWidth: 60 }}>
-                                <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${Math.min(pct, 100)}%` }} />
-                              </div>
-                              <span className="text-[10px] font-black text-slate-500">{pct.toFixed(1)}%</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            {trend !== null ? (
-                              <span className={`text-[10px] font-black flex items-center gap-0.5 ${trend >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                                {trend >= 0 ? "▲" : "▼"} {Math.abs(trend).toFixed(1)}%
-                              </span>
-                            ) : <span className="text-slate-200 text-[10px]">–</span>}
-                          </td>
-                        </motion.tr>
-                      );
-                    })}
+                  <tbody className="divide-y divide-slate-100">
+                    {loading ? Array.from({ length: 6 }).map((_, i) => <tr key={i}><td colSpan={5} className="py-4 px-6"><div className="h-6 bg-slate-100 rounded animate-pulse" /></td></tr>) : 
+                      reportData?.customer_report
+                        .filter(r => !showActiveOnly || (r.p1_revenue !== 0))
+                        .map((r, i) => {
+                          const ent = entities.find(e => e.id === r.selling_entity_id);
+                          const totalRev = reportData.kpis.p1_revenue || 1;
+                          const pct = (r.p1_revenue / totalRev) * 100;
+                          return (
+                            <tr key={r.id} className="hover:bg-slate-50/50 transition-colors group">
+                              <td className="py-3 px-4 text-center font-black text-slate-300 text-[11px]">#{i + 1}</td>
+                              <td className="py-4 px-4">
+                                <div className="font-black text-slate-900 text-[14px] uppercase tracking-wider">{r.code}</div>
+                                <div className="font-medium text-slate-500 text-[11px] truncate">{r.name}</div>
+                              </td>
+                              <td className="py-3 px-4">
+                                 {ent ? <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm">🏢 {ent.code}</span> : <span className="text-[10px] font-black uppercase text-slate-300 italic">Chưa gán</span>}
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                 <div className="font-black text-slate-900 text-[14px] tabular-nums">{fmtNum(r.p1_revenue)} <small className="text-[10px] opacity-40 ml-0.5">₫</small></div>
+                              </td>
+                              <td className="py-3 px-4">
+                                 <div className="flex items-center justify-center gap-3">
+                                    <div className="flex-1 h-3 bg-slate-100 rounded-full max-w-[80px] overflow-hidden">
+                                       <div className="h-full bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.5)]" style={{ width: `${Math.min(pct, 100)}%` }} />
+                                    </div>
+                                    <span className="font-black text-[12px] text-indigo-600 min-w-[40px] text-right">{pct.toFixed(1)}%</span>
+                                 </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                   </tbody>
                 </table>
               </div>
@@ -689,15 +609,6 @@ export default function SalesCommandCenterPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* ─── FOOTER BADGE ───────────────────────────────────────────── */}
-      <div className="mt-8 flex items-center justify-center gap-2 text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-        <span>⚡ Phase 9 — Sales Command Center Console</span>
-        <span>•</span>
-        <span>Multi-Entity Ready</span>
-        <span>•</span>
-        <span>Real-time Financial Performance</span>
-      </div>
     </motion.div>
   );
 }
