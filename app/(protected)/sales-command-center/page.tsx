@@ -223,7 +223,7 @@ export default function SalesCommandCenterPage() {
       
       const { data: nowTx } = await supabase.from("inventory_transactions").select("id, product_id, customer_id, tx_date, qty, unit_cost").eq("tx_type", "out").is("deleted_at", null).gte("tx_date", range.start).lte("tx_date", range.end);
       const { data: pTx } = await supabase.from("inventory_transactions").select("id, product_id, customer_id, tx_date, qty, unit_cost").eq("tx_type", "out").is("deleted_at", null).gte("tx_date", prevRange.start).lte("tx_date", prevRange.end);
-      const { data: ships } = await supabase.from("shipment_logs").select("shipment_date").is("deleted_at", null).gte("shipment_date", prevRange.start).lte("shipment_date", range.end);
+      const { data: ships } = await supabase.from("shipment_logs").select("id, shipment_date").is("deleted_at", null).gte("shipment_date", prevRange.start).lte("shipment_date", range.end);
       const { data: ents } = await supabase.from("selling_entities").select("*");
       const { data: custs } = await supabase.from("customers").select("*").is("deleted_at", null);
       const { data: prods } = await supabase.from("products").select("*").is("deleted_at", null);
