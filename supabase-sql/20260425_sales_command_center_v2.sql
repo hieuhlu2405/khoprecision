@@ -135,7 +135,7 @@ BEGIN
   -- 4. Thống kê theo Pháp nhân (Selling Entity)
   WITH ent_p1 AS (
     SELECT 
-      COALESCE(ap.selling_entity_id, 'unmapped'::uuid) as entity_id,
+      COALESCE(ap.selling_entity_id, '00000000-0000-0000-0000-000000000000'::uuid) as entity_id,
       SUM(t.qty * t.unit_cost) as rev
     FROM inventory_transactions t
     JOIN customers c ON t.customer_id = c.id
@@ -146,7 +146,7 @@ BEGIN
   ),
   ent_p2 AS (
     SELECT 
-      COALESCE(ap.selling_entity_id, 'unmapped'::uuid) as entity_id,
+      COALESCE(ap.selling_entity_id, '00000000-0000-0000-0000-000000000000'::uuid) as entity_id,
       SUM(t.qty * t.unit_cost) as rev
     FROM inventory_transactions t
     JOIN customers c ON t.customer_id = c.id
@@ -169,10 +169,10 @@ BEGIN
     -- Handle Unmapped
     SELECT 
       '00000000-0000-0000-0000-000000000000'::uuid as id, 'KHÁC' as code, 'Chưa định danh thực thể' as header_text,
-      COALESCE((SELECT rev FROM ent_p1 WHERE entity_id = 'unmapped'::uuid), 0) as p1_revenue,
-      COALESCE((SELECT rev FROM ent_p2 WHERE entity_id = 'unmapped'::uuid), 0) as p2_revenue
-    WHERE EXISTS (SELECT 1 FROM ent_p1 WHERE entity_id = 'unmapped'::uuid) 
-       OR EXISTS (SELECT 1 FROM ent_p2 WHERE entity_id = 'unmapped'::uuid)
+      COALESCE((SELECT rev FROM ent_p1 WHERE entity_id = '00000000-0000-0000-0000-000000000000'::uuid), 0) as p1_revenue,
+      COALESCE((SELECT rev FROM ent_p2 WHERE entity_id = '00000000-0000-0000-0000-000000000000'::uuid), 0) as p2_revenue
+    WHERE EXISTS (SELECT 1 FROM ent_p1 WHERE entity_id = '00000000-0000-0000-0000-000000000000'::uuid) 
+       OR EXISTS (SELECT 1 FROM ent_p2 WHERE entity_id = '00000000-0000-0000-0000-000000000000'::uuid)
     ORDER BY p1_revenue DESC
   ) d;
 
