@@ -216,6 +216,7 @@ export default function SalesCommandCenterPage() {
   const [p2Start, setP2Start] = useState("");
   const [p2End, setP2End] = useState("");
   const [compareData, setCompareData] = useState<any>(null);
+  const [compareFilter, setCompareFilter] = useState<"all" | "growth" | "drop">("all");
 
   const [entities, setEntities] = useState<SellingEntity[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -622,51 +623,86 @@ export default function SalesCommandCenterPage() {
 
                     {/* Detailed Analysis Table */}
                     <div className="bg-white border border-slate-200 rounded-[1.5rem] overflow-hidden mt-6">
-                       <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                          <h3 className="font-black text-[12px] uppercase text-slate-800 tracking-widest">Báo cáo bóc tách chênh lệch chi tiết</h3>
-                          <div className="text-[10px] font-black uppercase text-slate-400">Đơn vị: VNĐ</div>
+                       <div className="bg-slate-50 px-8 py-5 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                          <div>
+                             <h3 className="font-black text-[14px] uppercase text-slate-800 tracking-widest">Báo cáo chênh lệch chi tiết</h3>
+                             <div className="text-[10px] font-black uppercase text-slate-400 mt-1">Đơn vị tính: VNĐ</div>
+                          </div>
+                          
+                          {/* Filter Tabs */}
+                          <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+                             {[
+                               { id: "all", label: "Tất cả", icon: "📋" },
+                               { id: "growth", label: "Tăng trưởng", icon: "📈" },
+                               { id: "drop", label: "Sụt giảm", icon: "📉" }
+                             ].map(f => (
+                               <button key={f.id} onClick={() => setCompareFilter(f.id as any)} className={`px-4 py-2 rounded-lg text-[11px] font-black uppercase transition-all flex items-center gap-2 ${compareFilter === f.id ? "bg-slate-900 text-white shadow-md" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"}`}>
+                                 <span>{f.icon}</span> {f.label}
+                               </button>
+                             ))}
+                          </div>
                        </div>
                        <table className="w-full border-collapse">
                           <thead>
-                             <tr className="bg-white border-b border-slate-100">
-                                <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400 w-[60px]">#</th>
-                                <th className="px-6 py-3 text-left text-[10px] font-black uppercase text-slate-400">Khách hàng</th>
-                                <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400">Kỳ Gần đây</th>
-                                <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400">Kỳ Quá khứ</th>
-                                <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400">Biến động</th>
-                                <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400">% +/-</th>
+                             <tr className="bg-white border-b border-slate-100 italic">
+                                <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 w-[60px]">#</th>
+                                <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 min-w-[300px]">Khách hàng</th>
+                                <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400">Kỳ Gần đây</th>
+                                <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400">Kỳ Quá khứ</th>
+                                <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400">Biến động</th>
+                                <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400">% +/-</th>
                              </tr>
                           </thead>
                           <tbody>
-                             {compareData.customer_report.map((r: any, i: number) => {
-                               const delta = r.p1_revenue - r.p2_revenue;
-                               const pct = (delta / (r.p2_revenue || 1)) * 100;
-                               const isNew = r.p2_revenue === 0 && r.p1_revenue > 0;
-                               const isLost = r.p1_revenue === 0 && r.p2_revenue > 0;
+                             {(() => {
+                               const list = compareData.customer_report
+                                 .map((r: any) => ({ ...r, delta: r.p1_revenue - r.p2_revenue }));
                                
-                               return (
-                                 <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                                    <td className={`px-6 py-4 text-center font-black text-[11px] ${i < 3 ? "text-rose-500" : "text-slate-300"}`}>#{i+1}</td>
-                                    <td className="px-6 py-4 border-r border-slate-100">
-                                       <div className="flex items-center gap-2">
-                                          <span className="font-black text-[13px] text-slate-900 uppercase">{r.code}</span>
-                                          {isNew && <span className="bg-emerald-100 text-emerald-600 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">MỚI</span>}
-                                          {isLost && <span className="bg-slate-100 text-slate-400 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">NGỪNG</span>}
-                                          {pct < -30 && !isLost && <span className="bg-rose-100 text-rose-500 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">SỤT GIẢM</span>}
-                                       </div>
-                                       <div className="text-[10px] font-medium text-slate-400 truncate max-w-[200px]">{r.name}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-center font-bold text-[13px] text-slate-700 bg-slate-50/30 border-r border-slate-100">{fmtNum(Math.round(r.p1_revenue))}</td>
-                                    <td className="px-6 py-4 text-center font-bold text-[13px] text-slate-700 border-r border-slate-100">{fmtNum(Math.round(r.p2_revenue))}</td>
-                                    <td className={`px-6 py-4 text-center font-black text-[13px] border-r border-slate-100 ${delta >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                                       {delta >= 0 ? "+" : ""}{fmtNum(Math.round(delta))}
-                                    </td>
-                                    <td className={`px-6 py-4 text-center font-black text-[12px] ${delta >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
-                                       {isNew ? "100%" : isLost ? "-100%" : (pct >= 0 ? "+" : "") + pct.toFixed(1) + "%"}
-                                    </td>
-                                 </tr>
-                               );
-                             })}
+                               if (compareFilter === "growth") {
+                                 list.sort((a: any, b: any) => b.delta - a.delta).filter((x: any) => x.delta > 0);
+                               } else if (compareFilter === "drop") {
+                                 list.sort((a: any, b: any) => a.delta - b.delta).filter((x: any) => x.delta < 0);
+                               }
+
+                               const filtered = list.filter((r: any) => {
+                                 if (compareFilter === "growth") return r.delta > 0;
+                                 if (compareFilter === "drop") return r.delta < 0;
+                                 return true;
+                               });
+
+                               if (compareFilter === "growth") filtered.sort((a: any, b: any) => b.delta - a.delta);
+                               if (compareFilter === "drop") filtered.sort((a: any, b: any) => a.delta - b.delta);
+
+                               return filtered.map((r: any, i: number) => {
+                                 const delta = r.delta;
+                                 const pct = (delta / (r.p2_revenue || 1)) * 100;
+                                 const isNew = r.p2_revenue === 0 && r.p1_revenue > 0;
+                                 const isLost = r.p1_revenue === 0 && r.p2_revenue > 0;
+                                 
+                                 return (
+                                   <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
+                                      <td className={`px-6 py-5 text-center font-black text-[11px] ${i < 3 ? "text-rose-500" : "text-slate-300"}`}>#{i+1}</td>
+                                      <td className="px-6 py-5 border-r border-slate-100">
+                                         <div className="flex items-center gap-2 mb-1">
+                                            <span className="font-black text-[14px] text-slate-900 uppercase group-hover:text-indigo-600 transition-colors">{r.code}</span>
+                                            {isNew && <span className="bg-emerald-100 text-emerald-600 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">MỚI</span>}
+                                            {isLost && <span className="bg-slate-100 text-slate-400 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">NGỪNG</span>}
+                                            {pct < -30 && !isLost && <span className="bg-rose-100 text-rose-500 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">SỤT GIẢM</span>}
+                                         </div>
+                                         <div className="text-[11px] font-bold text-slate-400 leading-tight break-words">{r.name}</div>
+                                      </td>
+                                      <td className="px-6 py-5 text-center font-bold text-[13px] text-slate-700 bg-slate-50/30 border-r border-slate-100">{fmtNum(Math.round(r.p1_revenue))}</td>
+                                      <td className="px-6 py-5 text-center font-bold text-[13px] text-slate-700 border-r border-slate-100">{fmtNum(Math.round(r.p2_revenue))}</td>
+                                      <td className={`px-6 py-5 text-center font-black text-[14px] border-r border-slate-100 ${delta >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                                         {delta >= 0 ? "+" : ""}{fmtNum(Math.round(delta))}
+                                      </td>
+                                      <td className={`px-6 py-5 text-center font-black text-[13px] ${delta >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                                         {isNew ? "100%" : isLost ? "-100%" : (pct >= 0 ? "+" : "") + pct.toFixed(1) + "%"}
+                                      </td>
+                                   </tr>
+                                 );
+                               });
+                             })()}
                           </tbody>
                        </table>
                     </div>
