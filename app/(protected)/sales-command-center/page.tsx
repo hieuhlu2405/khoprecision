@@ -84,7 +84,7 @@ function KpiCard({ icon, label, rawValue, formatted, sub, color, trend, idx = 0 
         <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: `${color}15` }}>{icon}</div>
         <div>
           <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">{label}</div>
-          {trend !== undefined && trend !== 0 && (
+          {trend !== undefined && (
             <div className={`text-[10px] font-black ${trend >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
               {trend >= 0 ? "▲" : "▼"} {Math.abs(trend).toFixed(1)}%
             </div>
