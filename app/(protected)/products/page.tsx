@@ -1072,7 +1072,7 @@ export default function ProductsPage() {
                    />
                  </th>
                )}
-               <ThCell label="Mã nội bộ" colKey="sku" sortable colType="text" w="200px" extra={{ position: "sticky", left: isManager ? 60 : 0, zIndex: 101, background: "white", boxShadow: "4px 0 10px -2px rgba(0,0,0,0.15)", borderRight: "1px solid #e2e8f0" }} />
+               <ThCell label="Mã nội bộ" colKey="sku" sortable colType="text" w="200px" extra={{ position: "sticky", left: isManager ? 50 : 0, zIndex: 101, background: "white", boxShadow: "4px 0 10px -2px rgba(0,0,0,0.15)", borderRight: "1px solid #e2e8f0" }} />
                <ThCell label="Mã SAP" colKey="sap_code" sortable colType="text" w="150px" />
                <ThCell label="Mã hàng (NCC)" colKey="external_sku" sortable colType="text" w="180px" />
                <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
@@ -1095,7 +1095,7 @@ export default function ProductsPage() {
               return (
                  <tr key={p.id} className="group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-indigo-50/40">
                     {isManager && (
-                      <td className="py-4 px-4 border-r border-slate-50 text-center sticky left-0 z-20 bg-white group-hover:bg-indigo-50/50">
+                      <td className="py-4 px-4 border-r border-slate-50 text-center sticky left-0 z-20 bg-white group-hover:bg-indigo-50/50" style={{ width: 50, minWidth: 50 }}>
                         <input type="checkbox" checked={selectedIds.has(p.id)}
                           className="rounded-lg text-indigo-600 border-slate-300 focus:ring-indigo-500 w-4 h-4 transition-all"
                           onChange={e => {
@@ -1106,16 +1106,16 @@ export default function ProductsPage() {
                         />
                       </td>
                     )}
-                                             <td 
-                        className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_5px -2px rgba(0,0,0,0.05)]`} 
+                    <td 
+                        className={`py-4 px-4 border-r border-slate-100 sticky z-20 bg-white group-hover:bg-indigo-50/50 transition-colors shadow-[2px_0_5px_rgba(0,0,0,0.05)]`} 
                         style={{ 
-                          left: isManager ? 60 : 0,
-                       width: colWidths["sku"] || 200,
-                       minWidth: colWidths["sku"] || 200 
-                     }}
-                   >
-                     <div className="font-extrabold text-slate-900 font-mono text-[15px] break-all">{p.sku}</div>
-                   </td>
+                          left: isManager ? 50 : 0,
+                          width: colWidths["sku"] || 200,
+                          minWidth: colWidths["sku"] || 200 
+                        }}
+                    >
+                      <div className="font-extrabold text-slate-900 text-[15px] break-all">{p.sku}</div>
+                    </td>
                    <td className="py-4 px-4 border-r border-slate-50 text-slate-500 text-[13px] font-medium" style={{ width: colWidths["sap_code"] || 150, minWidth: colWidths["sap_code"] || 150 }}>
                      {p.sap_code || "-"}
                    </td>
