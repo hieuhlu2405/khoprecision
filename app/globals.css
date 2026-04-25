@@ -274,8 +274,8 @@ select:not([class]):focus {
   text-align: left;
   padding: 10px 10px;
   background: var(--table-th-bg);
-  color: #000000;
-  font-weight: 900;
+  color: var(--slate-900);
+  font-weight: 800;
   border-bottom: 2px solid var(--table-border);
   border-right: 1px solid var(--table-border);
   white-space: nowrap;
@@ -292,8 +292,7 @@ select:not([class]):focus {
   padding: 9px 10px;
   border-bottom: 1px solid var(--table-border);
   border-right: 1px solid #f1f5f9;
-  color: #000000;
-  font-weight: 500;
+  color: inherit;
 }
 
 /* Specific for notes/captions in tables */
@@ -641,17 +640,14 @@ fieldset legend {
 table {
   font-size: 13px;
   font-family: var(--font-inter), sans-serif !important;
-  color: #000000;
 }
 
 table th {
-  color: #000000;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 table td {
-  color: #000000;
-  font-weight: 500;
+  font-weight: inherit;
 }
 
 /* Implicit focus ring for inputs with inline styles */
