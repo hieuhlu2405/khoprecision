@@ -540,12 +540,15 @@ export default function SalesCommandCenterPage() {
                          { label: "Biến động AOV (Giá trị TB)", val: (compareData.kpis.p1_revenue / (compareData.kpis.p1_shipments || 1)) - (compareData.kpis.p2_revenue / (compareData.kpis.p2_shipments || 1)), type: "vnd" },
                          { label: "Biến động Tốc độ/Ngày", val: (compareData.kpis.p1_revenue / compareData.kpis.p1_days) - (compareData.kpis.p2_revenue / compareData.kpis.p2_days), type: "vnd" }
                        ].map((k, i) => (
-                         <div key={i} className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-                            <div className="text-[10px] font-black uppercase text-slate-400 mb-2">{k.label}</div>
-                            <div className={`text-xl font-black ${k.val >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                               {k.val >= 0 ? "+" : ""}{k.type === "vnd" ? fmtVND(Math.abs(k.val)) : Math.abs(k.val).toFixed(2) + "%"}
+                         <div key={i} className="bg-slate-50 rounded-2xl p-6 border border-slate-100 flex flex-col gap-1">
+                            <div className="text-[10px] font-black uppercase text-slate-400 mb-1">{k.label}</div>
+                            <div className={`flex items-center gap-2 font-black ${k.val >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                               <span className="text-sm">{k.val >= 0 ? "▲ TĂNG" : "▼ GIẢM"}</span>
+                               <span className="text-xl">
+                                 {k.val >= 0 ? "+" : "-"}{k.type === "vnd" ? fmtVND(Math.abs(k.val)) : Math.abs(k.val).toFixed(2) + "%"}
+                               </span>
                             </div>
-                            <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Kỳ 1 vs Kỳ 2</div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase">Kỳ 1 vs Kỳ 2</div>
                          </div>
                        ))}
                     </div>
@@ -563,7 +566,7 @@ export default function SalesCommandCenterPage() {
                                <div key={c.label} className="flex flex-col gap-2">
                                   <div className="flex justify-between text-[11px] font-black uppercase"><span>{c.label}</span> <span>{fmtVND(c.val)}</span></div>
                                   <div className="h-5 bg-slate-100 rounded-lg overflow-hidden">
-                                     <motion.div initial={{ width: 0 }} animate={{ width: `${(c.val / Math.max(compareData.kpis.p1_revenue, compareData.kpis.p2_revenue)) * 100}%` }} className={`h-full ${c.color}`} />
+                                     <motion.div initial={{ width: 0 }} animate={{ width: `${(c.val / Math.max(compareData.kpis.p1_revenue, compareData.kpis.p2_revenue, 1)) * 100}%` }} className={`h-full ${c.color}`} />
                                   </div>
                                 </div>
                              ))}
@@ -574,18 +577,22 @@ export default function SalesCommandCenterPage() {
                        <div className="flex flex-col gap-4">
                           <h4 className="font-black text-[11px] uppercase text-emerald-600 border-l-4 border-emerald-600 pl-3">Top 5 Gainers (Tiềm năng)</h4>
                           <div className="flex flex-col gap-3 py-4">
-                             {compareData.customer_report
-                               .map((c: any) => ({ ...c, delta: c.p1_revenue - c.p2_revenue }))
-                               .sort((a: any, b: any) => b.delta - a.delta)
-                               .slice(0, 5)
-                               .map((c: any, i: number) => (
+                             {(() => {
+                               const list = compareData.customer_report
+                                 .map((c: any) => ({ ...c, delta: c.p1_revenue - c.p2_revenue }))
+                                 .filter((c: any) => c.delta > 0)
+                                 .sort((a: any, b: any) => b.delta - a.delta)
+                                 .slice(0, 5);
+                               const maxDelta = list[0]?.delta || 1;
+                               return list.map((c: any) => (
                                  <div key={c.id} className="flex flex-col gap-1">
                                     <div className="flex justify-between text-[10px] font-bold uppercase truncate"><span>{c.code}</span> <span className="text-emerald-600">+{fmtVND(c.delta)}</span></div>
                                     <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
-                                       <div className="h-full bg-emerald-500" style={{ width: `${(c.delta / (compareData.customer_report[0]?.p1_revenue || 1)) * 100}%` }} />
+                                       <div className="h-full bg-emerald-500" style={{ width: `${(c.delta / maxDelta) * 100}%` }} />
                                     </div>
                                  </div>
-                               ))}
+                               ));
+                             })()}
                           </div>
                        </div>
 
@@ -593,18 +600,22 @@ export default function SalesCommandCenterPage() {
                        <div className="flex flex-col gap-4">
                           <h4 className="font-black text-[11px] uppercase text-rose-600 border-l-4 border-rose-600 pl-3">Top 5 Losers (Rủi ro)</h4>
                           <div className="flex flex-col gap-3 py-4">
-                             {compareData.customer_report
-                               .map((c: any) => ({ ...c, delta: c.p1_revenue - c.p2_revenue }))
-                               .sort((a: any, b: any) => a.delta - b.delta)
-                               .slice(0, 5)
-                               .map((c: any, i: number) => (
+                             {(() => {
+                               const list = compareData.customer_report
+                                 .map((c: any) => ({ ...c, delta: c.p1_revenue - c.p2_revenue }))
+                                 .filter((c: any) => c.delta < 0)
+                                 .sort((a: any, b: any) => a.delta - b.delta) // Sâu nhất lên đầu
+                                 .slice(0, 5);
+                               const maxAbsDelta = Math.abs(list[0]?.delta || 1);
+                               return list.map((c: any) => (
                                  <div key={c.id} className="flex flex-col gap-1">
-                                    <div className="flex justify-between text-[10px] font-bold uppercase truncate"><span>{c.code}</span> <span className="text-rose-600">{fmtVND(c.delta)}</span></div>
+                                    <div className="flex justify-between text-[10px] font-bold uppercase truncate"><span>{c.code}</span> <span className="text-rose-600">-{fmtVND(Math.abs(c.delta))}</span></div>
                                     <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
-                                       <div className="h-full bg-rose-500" style={{ width: `${(Math.abs(c.delta) / (compareData.customer_report[0]?.p1_revenue || 1)) * 100}%` }} />
+                                       <div className="h-full bg-rose-500" style={{ width: `${(Math.abs(c.delta) / maxAbsDelta) * 100}%` }} />
                                     </div>
                                  </div>
-                               ))}
+                               ));
+                             })()}
                           </div>
                        </div>
                     </div>
