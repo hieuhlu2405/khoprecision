@@ -99,10 +99,12 @@ function KpiCard({ icon, label, rawValue, formatted, sub, color, trend, idx = 0 
 
 function RevenueBar({ label, desc, value, max, color, rank, unit }: any) {
   const pct = max > 0 ? (value / max) * 100 : 0;
+  const rankColor = rank < 3 ? "#ef4444" : color;
+  
   return (
     <motion.div className="flex flex-col gap-1.5 group cursor-default" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: rank * 0.04 }}>
       <div className="flex items-center gap-3">
-        <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white shadow-sm" style={{ background: color }}>#{rank + 1}</div>
+        <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white shadow-sm" style={{ background: rankColor }}>#{rank + 1}</div>
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-baseline">
             <div className="flex flex-col">
@@ -191,7 +193,6 @@ function ThCell({ label, colKey, sortable, align, w, colWidths, onResize, sortCo
         <span className="text-[11px] font-black text-black uppercase tracking-widest whitespace-nowrap">{label}</span>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
            {sortable && <button onClick={() => onSort(colKey)} className={`text-[10px] ${sortCol === colKey ? "text-indigo-600 font-black" : "text-slate-300"}`}>{sortCol === colKey ? (sortDir === "asc" ? "▲" : "▼") : "⇅"}</button>}
-           {filterable && <button className="text-[10px] text-slate-300 hover:text-indigo-600">🔍</button>}
         </div>
       </div>
       <div onMouseDown={startResizing} className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-indigo-500/50 z-40 transition-colors" />
@@ -419,7 +420,7 @@ export default function SalesCommandCenterPage() {
               </div>
               {/* Top Products Card */}
               <div className="bg-white rounded-[2rem] border border-slate-200/80 p-8 shadow-xl shadow-slate-200/40 border-t-4 border-t-emerald-500">
-                <h3 className="font-black text-sm uppercase tracking-[0.2em] text-slate-800 mb-8">Top Mã hàng xuất sắc trong kỳ</h3>
+                <h3 className="font-black text-sm uppercase tracking-[0.2em] text-slate-800 mb-8">Top Doanh thu theo Mã hành</h3>
                 <div className="grid grid-cols-2 gap-x-12 gap-y-6">
                   {loading ? Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-10 bg-slate-100 rounded-xl animate-pulse" />) :
                     productReport.map((p, i) => <RevenueBar key={p.id} label={p.sku} desc={p.name} value={p.rev} max={productReport[0]?.rev || 1} color={UIColors[i % UIColors.length]} rank={i} unit="VND" />)}
@@ -448,13 +449,12 @@ export default function SalesCommandCenterPage() {
             <div className="bg-white rounded-[2rem] border border-slate-200 shadow-2xl overflow-hidden flex flex-col">
               <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white z-40">
                 <div className="flex items-center gap-6">
-                  <h3 className="font-black text-[15px] uppercase tracking-[0.1em] text-slate-900 border-l-4 border-indigo-600 pl-4">Báo cáo Dòng chảy Doanh thu Chi tiết</h3>
+                  <h3 className="font-black text-[15px] uppercase tracking-[0.1em] text-slate-900 border-l-4 border-indigo-600 pl-4">Chi tiết báo cáo doanh thu theo khách hàng</h3>
                   <div className="h-8 w-[1px] bg-slate-200" />
                   <button onClick={() => setShowActiveOnly(!showActiveOnly)} className={`px-4 py-2 rounded-xl border text-[11px] font-black uppercase transition-all shadow-sm ${showActiveOnly ? "bg-indigo-600 border-indigo-700 text-white translate-y-[-2px] shadow-indigo-200" : "bg-white border-slate-200 text-slate-400 hover:bg-slate-50"}`}>
                     {showActiveOnly ? "✓ Đang lọc khách có DT" : "Tất cả khách hàng"}
                   </button>
                 </div>
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-4 py-2 rounded-full border border-slate-100">Professional Reporting • Grid v4</div>
               </div>
               <div className="overflow-x-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 350px)' }}>
                 <table className="w-full border-collapse">
