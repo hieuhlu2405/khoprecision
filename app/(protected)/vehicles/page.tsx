@@ -362,7 +362,7 @@ export default function VehiclesPage() {
   if (loading) return <LoadingPage text="Đang tải dữ liệu xe..." />;
 
   return (
-    <div className="page-root">
+    <div className="page-root font-sans">
       <div className="page-header">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-[1.25rem] bg-indigo-600 text-white flex items-center justify-center shadow-2xl shadow-indigo-200" style={{ fontSize: 24 }}>

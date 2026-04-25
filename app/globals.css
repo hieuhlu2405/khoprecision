@@ -267,21 +267,30 @@ select:not([class]):focus {
   border-collapse: collapse;
   width: 100%;
   font-size: 13px;
-  font-family: var(--font-inter), sans-serif !important;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif !important;
+  font-weight: 500;
+  color: var(--slate-700);
+}
+
+/* Ensure inputs and buttons inherit Inter */
+input, select, textarea, button {
+  font-family: inherit;
 }
 
 .data-table th {
+  padding: 16px 12px;
+  background: white;
   text-align: left;
-  padding: 10px 10px;
-  background: var(--table-th-bg);
+  font-weight: 900;
   color: var(--slate-900);
-  font-weight: 800;
-  border-bottom: 2px solid var(--table-border);
-  border-right: 1px solid var(--table-border);
-  white-space: nowrap;
-  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid var(--slate-100);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .data-table th:last-child {

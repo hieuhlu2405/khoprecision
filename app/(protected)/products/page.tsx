@@ -788,7 +788,7 @@ export default function ProductsPage() {
 
 
   return (
-    <div className="page-root">
+    <div className="page-root font-sans">
       <div className="page-header">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-[#2487C8]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>

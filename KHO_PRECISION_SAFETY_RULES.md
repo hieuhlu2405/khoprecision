@@ -25,5 +25,10 @@ Dành cho Antigravity (AI) để luôn ghi nhớ và tuân thủ:
 6. **TỰ ĐỘNG GIT PUSH (MỚI)**:
    - Sau khi hoàn thành một khối lượng công việc (refactor xong một trang, fix xong bug), luôn thực hiện `git add`, `git commit` và `git push` để lưu trữ tiến độ.
 
+7. **QUY TRÌNH LÀM VIỆC NGHIÊM NGẶT (MỚI)**:
+   - Tuyệt đối không tự ý sửa code cho tới khi khách hàng ra lệnh trực tiếp.
+   - Trước khi code: Phải lập kế hoạch chi tiết -> Tự Review rủi ro/mâu thuẫn -> Lập danh sách nhiệm vụ.
+   - Luôn luôn dừng lại để chờ khách hàng phê duyệt kế hoạch mới được phép thực thi.
+
 ---
 *Ghi nhớ: Logic là xương sống, UI là bộ mặt. Giữ xương sống nguyên vẹn, làm cho bộ mặt Premium.*
