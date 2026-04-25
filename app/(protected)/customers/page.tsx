@@ -346,14 +346,14 @@ export default function CustomersPage() {
                     <div className="font-bold text-slate-900 text-[14px] leading-tight">{parent.name}</div>
                     {hasVendors && <div className="text-[10px] text-slate-400 font-bold mt-0.5">{vendors.length} vendor</div>}
                   </td>
-                  <td className="py-3 px-3 text-slate-500 text-[12px]">{parent.address || "–"}</td>
+                  <td className="py-3 px-3 text-slate-500 text-[12px] font-medium">{parent.address || "–"}</td>
                   <td className="py-3 px-3 text-slate-500 font-mono text-[12px]">{parent.tax_code || "–"}</td>
                   <td className="py-3 px-3">
                     {ent ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider">🏢 {ent.code}</span>
                     ) : <span className="text-slate-300 text-[11px] italic">Chưa gán</span>}
                   </td>
-                  {isManager && <td className="py-3 px-3 text-slate-500 text-[11px] whitespace-nowrap">{mounted ? fmtDatetime(parent.created_at) : "…"}</td>}
+                  {isManager && <td className="py-3 px-3 text-slate-400 text-[11px] whitespace-nowrap">{mounted ? fmtDatetime(parent.created_at) : "…"}</td>}
                   {isManager && (
                     <td className="py-3 px-3">
                       <div className="flex gap-1.5 items-center">
@@ -393,10 +393,10 @@ export default function CustomersPage() {
                       <div className="font-medium text-slate-700 text-[13px] leading-tight">{vendor.name}</div>
                       <div className="text-[10px] text-slate-400 mt-0.5">↳ {parent.name}</div>
                     </td>
-                    <td className="py-2.5 px-3 text-slate-500 text-[12px]">{vendor.address || "–"}</td>
+                    <td className="py-2.5 px-3 text-slate-500 text-[12px] font-medium">{vendor.address || "–"}</td>
                     <td className="py-2.5 px-3 text-slate-400 font-mono text-[12px]">{vendor.tax_code || "–"}</td>
                     <td className="py-2.5 px-3" />
-                    {isManager && <td className="py-2.5 px-3 text-slate-500 text-[11px] whitespace-nowrap">{mounted ? fmtDatetime(vendor.created_at) : "…"}</td>}
+                    {isManager && <td className="py-2.5 px-3 text-slate-400 text-[11px] whitespace-nowrap">{mounted ? fmtDatetime(vendor.created_at) : "…"}</td>}
                     {isManager && (
                       <td className="py-2.5 px-3">
                         <div className="flex gap-1.5">

@@ -1116,10 +1116,10 @@ export default function ProductsPage() {
                    >
                      <div className="font-extrabold text-slate-900 font-mono text-[15px] break-all">{p.sku}</div>
                    </td>
-                   <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[13px] font-bold" style={{ width: colWidths["sap_code"] || 150, minWidth: colWidths["sap_code"] || 150 }}>
+                   <td className="py-4 px-4 border-r border-slate-50 text-slate-500 text-[13px] font-medium" style={{ width: colWidths["sap_code"] || 150, minWidth: colWidths["sap_code"] || 150 }}>
                      {p.sap_code || "-"}
                    </td>
-                   <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[13px] font-bold" style={{ width: colWidths["external_sku"] || 180, minWidth: colWidths["external_sku"] || 180 }}>
+                   <td className="py-4 px-4 border-r border-slate-50 text-slate-500 text-[13px] font-medium" style={{ width: colWidths["external_sku"] || 180, minWidth: colWidths["external_sku"] || 180 }}>
                      {p.external_sku || "-"}
                    </td>
                     <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["name"], minWidth: colWidths["name"] || "250px" }}>
@@ -1128,7 +1128,7 @@ export default function ProductsPage() {
                     <td className="py-4 px-4 border-r border-slate-50" style={{ width: colWidths["spec"], minWidth: colWidths["spec"] || 160 }}>
                       <div className="text-slate-900 text-[13px] font-bold uppercase tracking-wider">{(p.spec ?? "").replace(/x/g, "*")}</div>
                     </td>
-                    <td className="py-4 px-4 border-r border-slate-50 text-slate-600 text-[15px] font-medium" style={{ width: colWidths["uom"], minWidth: colWidths["uom"] || 120 }}>{p.uom}</td>
+                    <td className="py-4 px-4 border-r border-slate-50 text-slate-500 text-[13px] font-medium" style={{ width: colWidths["uom"], minWidth: colWidths["uom"] || 120 }}>{p.uom}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-right font-black text-[15px] text-slate-800" style={{ width: colWidths["price"], minWidth: colWidths["price"] || 120 }}>{fmtNum(p.unit_price)}</td>
                     <td className="py-4 px-4 border-r border-slate-50 text-center">
                       {p.is_active ? (

@@ -433,14 +433,14 @@ export default function VehiclesPage() {
                 </td>
                 <td className="py-7 px-8">
                    <div className="flex flex-col gap-1.5">
-                      <div className="text-[#000000] text-sm uppercase tracking-tight">{r.driver_1_name || "-"}</div>
-                      {r.driver_2_name && <div className="text-[#000000] text-sm uppercase tracking-tight opacity-100">{r.driver_2_name}</div>}
+                      <div className="text-slate-900 font-bold text-sm uppercase tracking-tight">{r.driver_1_name || "-"}</div>
+                      {r.driver_2_name && <div className="text-slate-500 text-[12px] uppercase tracking-tight">{r.driver_2_name}</div>}
                    </div>
                 </td>
                 <td className="py-7 px-8">
                    <div className="flex flex-col gap-1.5">
-                      {r.assistant_1_name ? <div className="text-[#000000] text-sm uppercase tracking-tight">{r.assistant_1_name}</div> : <div className="text-slate-300">-</div>}
-                      {r.assistant_2_name && <div className="text-[#000000] text-sm uppercase tracking-tight opacity-100">{r.assistant_2_name}</div>}
+                      {r.assistant_1_name ? <div className="text-slate-900 font-bold text-sm uppercase tracking-tight">{r.assistant_1_name}</div> : <div className="text-slate-300">-</div>}
+                      {r.assistant_2_name && <div className="text-slate-500 text-[12px] uppercase tracking-tight">{r.assistant_2_name}</div>}
                    </div>
                 </td>
                 <td className="py-7 px-8 text-right font-mono font-black text-base text-slate-800">
