@@ -260,9 +260,8 @@ export default function SalesCommandCenterPage() {
         supabase.from("inventory_transactions").select("id, product_id, customer_id, delivery_customer_id, tx_date, qty, unit_cost")
           .eq("tx_type", "out").is("deleted_at", null)
           .gte("tx_date", prevRange.start).lte("tx_date", prevRange.end),
-        supabase.from("shipment_logs").select("id, shipment_no, shipment_date, customer_id, created_at")
-          .is("deleted_at", null).gte("shipment_date", range.start).lte("shipment_date", range.end)
-          .order("created_at", { ascending: false }).limit(50),
+        supabase.from("shipment_logs").select("shipment_date")
+          .is("deleted_at", null).gte("shipment_date", prevRange.start).lte("shipment_date", range.end),
       ]);
 
       setEntities((rE.data || []) as SellingEntity[]);
@@ -281,6 +280,15 @@ export default function SalesCommandCenterPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   // --- COMPUTED KPIs ---
+  const { effectiveEnd, weeklyStart } = useMemo(() => {
+     const todayStr = getTodayVNStr();
+     const isCurrentMonth = currentRange.end >= todayStr && currentRange.start <= todayStr;
+     const end = isCurrentMonth ? todayStr : currentRange.end;
+     const d = new Date(end);
+     d.setDate(d.getDate() - 6);
+     return { effectiveEnd: end, weeklyStart: d.toLocaleDateString("sv-SE") };
+  }, [currentRange]);
+
   const parentCustomers = useMemo(() => customers.filter(c => !c.parent_customer_id), [customers]);
 
   // Doanh thu tháng = qty * unit_cost
@@ -293,8 +301,16 @@ export default function SalesCommandCenterPage() {
   const prevQty = useMemo(() => prevMonthTx.reduce((s, t) => s + (t.qty || 0), 0), [prevMonthTx]);
   const qtyTrend = prevQty > 0 ? ((totalQty - prevQty) / prevQty) * 100 : 0;
 
-  // Tổng chuyến hàng trong tháng
-  const totalShipments = shipments.length;
+  // Tổng chuyến hàng trong tháng & tuần
+  const totalShipments = useMemo(() => shipments.filter(s => s.shipment_date >= currentRange.start && s.shipment_date <= currentRange.end).length, [shipments, currentRange]);
+  const weeklyShipments = useMemo(() => shipments.filter(s => s.shipment_date >= weeklyStart && s.shipment_date <= effectiveEnd).length, [shipments, weeklyStart, effectiveEnd]);
+
+  // Doanh thu tuần
+  const weeklyRevenue = useMemo(() => {
+     return [...prevMonthTx, ...outboundTx]
+        .filter(t => t.tx_date >= weeklyStart && t.tx_date <= effectiveEnd)
+        .reduce((s, t) => s + (t.qty || 0) * (t.unit_cost || 0), 0);
+  }, [outboundTx, prevMonthTx, weeklyStart, effectiveEnd]);
   
   // Tốc độ xuất (Daily Burn Rate)
   const dailyBurnRate = useMemo(() => {
@@ -383,7 +399,7 @@ export default function SalesCommandCenterPage() {
     return last7.map(d => outboundTx.filter(t => t.tx_date.slice(0, 10) === d).reduce((s, t) => s + (t.qty || 0), 0));
   }, [outboundTx]);
 
-  const bestProductObj = topProducts[0];
+
 
   const UIColors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
 
@@ -427,15 +443,15 @@ export default function SalesCommandCenterPage() {
       </div>
 
       {/* ─── KPI GRID ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
         <KpiCard idx={0} icon="💳" label="Doanh thu tháng" rawValue={totalRevenue} formatted={fmtVND(totalRevenue)}
           color="#6366f1" trend={revenueTrend} sub={`vs ${getMonthRange(monthOffset - 1).label}`} sparkData={dailyQtyTrend} />
         
-        <KpiCard idx={1} icon="📦" label="Tổng xuất kho" rawValue={totalQty} color="#10b981" trend={qtyTrend}
-          sub="Đơn vị (units)" sparkData={dailyQtyTrend} />
+        <KpiCard idx={1} icon="⚡" label="Doanh thu 7 ngày" rawValue={weeklyRevenue} formatted={fmtVND(weeklyRevenue)} color="#10b981" 
+          sub={`Từ ${weeklyStart.slice(8)}/${weeklyStart.slice(5,7)} đến ${effectiveEnd.slice(8)}/${effectiveEnd.slice(5,7)}`} />
         
-        <KpiCard idx={2} icon="🚛" label="Số chuyến xuất ngoại" rawValue={totalShipments} color="#f59e0b"
-          sub={`Trong ${currentRange.label}`} />
+        <KpiCard idx={2} icon="🚛" label="Nhịp độ giao hàng" rawValue={totalShipments} color="#f59e0b" formatted={`${weeklyShipments} / ${totalShipments}`}
+          sub="Chuyến 7 ngày / Tháng" />
 
         <KpiCard idx={3} icon="🔥" label="Tốc độ xuất (Ngày)" rawValue={dailyBurnRate}
           formatted={fmtVND(dailyBurnRate)} color="#ec4899"
@@ -443,11 +459,7 @@ export default function SalesCommandCenterPage() {
 
         <KpiCard idx={4} icon="💎" label="Giá trị TB / Chuyến" rawValue={avgShipmentValue} 
           formatted={fmtVND(avgShipmentValue)} color="#8b5cf6"
-          sub="Quy mô giá trị kéo về mỗi chuyến" />
-
-        <KpiCard idx={5} icon="👑" label="Mã hàng bán nhiều nhất" rawValue={0} 
-          formatted={bestProductObj ? bestProductObj.label : "–"} color={bestProductObj ? "#14b8a6" : "#64748b"}
-          sub={bestProductObj ? fmtVND(bestProductObj.rev) : "Chưa có dữ liệu"} />
+          sub="Quy mô trung bình mỗi chuyến" />
       </div>
 
       {/* ─── TABS ───────────────────────────────────────────────────── */}
