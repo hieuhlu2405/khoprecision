@@ -419,33 +419,33 @@ export default function VehiclesPage() {
           <tbody className="divide-y divide-slate-100/50">
             {filtered.map((r) => (
               <tr key={r.id} className="hover:bg-white/80 transition-all group">
-                <td className="py-7 px-8">
-                  <div className="font-black text-slate-900 font-mono text-[17px] tracking-tight group-hover:text-indigo-600 transition-colors uppercase">{r.license_plate}</div>
-                </td>
-                <td className="py-7 px-8">
-                  <span className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2.5 w-fit border shadow-sm ${r.type === "nội_bộ" ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
-                    {r.type === "nội_bộ" ? (
-                      <><span className="text-base">🚛</span> XE NỘI BỘ</>
-                    ) : (
-                      <><span className="text-base">🤝</span> XE THUÊ</>
-                    )}
-                  </span>
-                </td>
-                <td className="py-7 px-8">
-                   <div className="flex flex-col gap-1.5">
-                      <div className="text-slate-900 font-bold text-sm uppercase tracking-tight">{r.driver_1_name || "-"}</div>
-                      {r.driver_2_name && <div className="text-slate-500 text-[12px] uppercase tracking-tight">{r.driver_2_name}</div>}
-                   </div>
-                </td>
-                <td className="py-7 px-8">
-                   <div className="flex flex-col gap-1.5">
-                      {r.assistant_1_name ? <div className="text-slate-900 font-bold text-sm uppercase tracking-tight">{r.assistant_1_name}</div> : <div className="text-slate-300">-</div>}
-                      {r.assistant_2_name && <div className="text-slate-500 text-[12px] uppercase tracking-tight">{r.assistant_2_name}</div>}
-                   </div>
-                </td>
-                <td className="py-7 px-8 text-right font-mono font-black text-base text-slate-800">
-                  {r.type === "thuê_ngoài" ? r.default_external_cost.toLocaleString() + " đ" : "-"}
-                </td>
+                 <td className="py-7 px-8">
+                   <div className="font-black text-slate-900 text-[17px] tracking-tight group-hover:text-indigo-600 transition-colors uppercase">{r.license_plate}</div>
+                 </td>
+                 <td className="py-7 px-8">
+                   <span className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2.5 w-fit border shadow-sm ${r.type === "nội_bộ" ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
+                     {r.type === "nội_bộ" ? (
+                       <><span className="text-base">🚛</span> XE NỘI BỘ</>
+                     ) : (
+                       <><span className="text-base">🤝</span> XE THUÊ</>
+                     )}
+                   </span>
+                 </td>
+                 <td className="py-7 px-8">
+                    <div className="flex flex-col gap-1.5">
+                       <div className="text-slate-900 font-bold text-sm uppercase tracking-tight">{r.driver_1_name || "-"}</div>
+                       {r.driver_2_name && <div className="text-slate-500 text-[12px] uppercase tracking-tight">{r.driver_2_name}</div>}
+                    </div>
+                 </td>
+                 <td className="py-7 px-8">
+                    <div className="flex flex-col gap-1.5">
+                       {r.assistant_1_name ? <div className="text-slate-900 font-bold text-sm uppercase tracking-tight">{r.assistant_1_name}</div> : <div className="text-slate-300">-</div>}
+                       {r.assistant_2_name && <div className="text-slate-500 text-[12px] uppercase tracking-tight">{r.assistant_2_name}</div>}
+                    </div>
+                 </td>
+                 <td className="py-7 px-8 text-right font-black text-base text-slate-800">
+                   {r.type === "thuê_ngoài" ? r.default_external_cost.toLocaleString() + " đ" : "-"}
+                 </td>
                 <td className="py-7 px-8 text-center">
                   <div className="flex items-center justify-center gap-3">
                     <span className={`w-3.5 h-3.5 rounded-full ring-4 ${r.is_active ? 'bg-emerald-500 ring-emerald-100' : 'bg-slate-300 ring-slate-100'}`}></span>
