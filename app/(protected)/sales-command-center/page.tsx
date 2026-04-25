@@ -501,16 +501,16 @@ export default function SalesCommandCenterPage() {
 
         {/* TAB: COMPARE */}
         {activeTab === "compare" && (
-          <motion.div key="compare" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}>
+          <motion.div key="compare" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="flex flex-col gap-8">
             <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-2xl p-10 flex flex-col gap-8">
                <div className="flex flex-col gap-2 border-b border-slate-100 pb-6 text-center">
-                  <h3 className="font-black text-[22px] text-slate-900 uppercase tracking-widest">Trung tâm Đối chiếu kỳ báo cáo</h3>
-                  <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">So sánh dải ngày tự do hoàn toàn từ Database Level</p>
+                  <h3 className="font-black text-[22px] text-slate-900 uppercase tracking-widest">Trung tâm Đối chiếu biến động doanh thu</h3>
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Phân tích chênh lệch VNĐ và sức khỏe tăng trưởng giữa 2 kỳ</p>
                </div>
                
                <div className="flex flex-wrap items-end justify-center gap-8">
                   <div className="flex flex-col gap-2">
-                     <label className="text-[10px] font-black uppercase text-indigo-600 ml-1">Kỳ báo cáo chính (P1)</label>
+                     <label className="text-[10px] font-black uppercase text-indigo-600 ml-1">Kỳ báo cáo chính (Kỳ 1)</label>
                      <div className="flex items-center bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 gap-3">
                         <input type="date" value={p1Start} onChange={e => setP1Start(e.target.value)} className="bg-transparent border-none outline-none font-bold text-sm" />
                         <span className="text-slate-300">→</span>
@@ -518,41 +518,146 @@ export default function SalesCommandCenterPage() {
                      </div>
                   </div>
                   <div className="flex flex-col gap-2">
-                     <label className="text-[10px] font-black uppercase text-amber-600 ml-1">Kỳ đối soát so sánh (P2)</label>
+                     <label className="text-[10px] font-black uppercase text-amber-600 ml-1">Kỳ đối soát so sánh (Kỳ 2)</label>
                      <div className="flex items-center bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 gap-3">
                         <input type="date" value={p2Start} onChange={e => setP2Start(e.target.value)} className="bg-transparent border-none outline-none font-bold text-sm" />
                         <span className="text-slate-300">→</span>
                         <input type="date" value={p2End} onChange={e => setP2End(e.target.value)} className="bg-transparent border-none outline-none font-bold text-sm" />
                      </div>
                   </div>
-                  <button onClick={loadCompare} className="h-12 px-8 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[12px] shadow-lg shadow-indigo-100 hover:shadow-indigo-200 hover:-translate-y-1 transition-all active:scale-95 disabled:bg-slate-300" disabled={loading}>
-                    {loading ? "Đang truy vấn..." : "Thực hiện Đối chiếu 🔄"}
+                  <button onClick={loadCompare} className="h-12 px-8 bg-black text-white rounded-2xl font-black uppercase text-[12px] shadow-lg shadow-slate-200 hover:shadow-indigo-200 hover:-translate-y-1 transition-all active:scale-95 disabled:bg-slate-300" disabled={loading}>
+                    {loading ? "Đang xử lý..." : "Thực hiện Đối chiếu 🔄"}
                   </button>
                </div>
 
                {compareData && (
-                 <div className="grid grid-cols-2 gap-10 mt-6 pt-10 border-t border-slate-100">
-                    <div className="bg-slate-50 rounded-[1.5rem] p-8">
-                       <h4 className="font-bold text-xs uppercase text-slate-500 mb-6 flex justify-between">So sánh Doanh thu <span>P1 vs P2</span></h4>
-                       <div className="flex items-baseline gap-4 mb-4">
-                          <span className="text-3xl font-black text-indigo-600">{fmtVND(compareData.kpis.p1_revenue)}</span>
-                          <span className="text-xs text-slate-400 font-bold">vs {fmtVND(compareData.kpis.p2_revenue)}</span>
+                 <div className="flex flex-col gap-8">
+                    {/* KPI Cards for Comparison */}
+                    <div className="grid grid-cols-4 gap-6">
+                       {[
+                         { label: "Biến động Doanh thu", val: compareData.kpis.p1_revenue - compareData.kpis.p2_revenue, p1: compareData.kpis.p1_revenue, p2: compareData.kpis.p2_revenue, type: "vnd" },
+                         { label: "Tăng trưởng Net", val: ((compareData.kpis.p1_revenue - compareData.kpis.p2_revenue) / (compareData.kpis.p2_revenue || 1)) * 100, type: "pct" },
+                         { label: "Biến động AOV (Giá trị TB)", val: (compareData.kpis.p1_revenue / (compareData.kpis.p1_shipments || 1)) - (compareData.kpis.p2_revenue / (compareData.kpis.p2_shipments || 1)), type: "vnd" },
+                         { label: "Biến động Tốc độ/Ngày", val: (compareData.kpis.p1_revenue / compareData.kpis.p1_days) - (compareData.kpis.p2_revenue / compareData.kpis.p2_days), type: "vnd" }
+                       ].map((k, i) => (
+                         <div key={i} className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+                            <div className="text-[10px] font-black uppercase text-slate-400 mb-2">{k.label}</div>
+                            <div className={`text-xl font-black ${k.val >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                               {k.val >= 0 ? "+" : ""}{k.type === "vnd" ? fmtVND(Math.abs(k.val)) : Math.abs(k.val).toFixed(2) + "%"}
+                            </div>
+                            <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Kỳ 1 vs Kỳ 2</div>
+                         </div>
+                       ))}
+                    </div>
+
+                    {/* Charts Row */}
+                    <div className="grid grid-cols-3 gap-8 pt-6 border-t border-slate-100">
+                       {/* Chart 1: Total Comparison */}
+                       <div className="flex flex-col gap-4">
+                          <h4 className="font-black text-[11px] uppercase text-slate-900 border-l-4 border-black pl-3">Tổng quan Quy mô</h4>
+                          <div className="flex flex-col gap-6 py-4">
+                             {[
+                               { label: "Kỳ 1", val: compareData.kpis.p1_revenue, color: "bg-indigo-600" },
+                               { label: "Kỳ 2", val: compareData.kpis.p2_revenue, color: "bg-amber-500" }
+                             ].map(c => (
+                               <div key={c.label} className="flex flex-col gap-2">
+                                  <div className="flex justify-between text-[11px] font-black uppercase"><span>{c.label}</span> <span>{fmtVND(c.val)}</span></div>
+                                  <div className="h-5 bg-slate-100 rounded-lg overflow-hidden">
+                                     <motion.div initial={{ width: 0 }} animate={{ width: `${(c.val / Math.max(compareData.kpis.p1_revenue, compareData.kpis.p2_revenue)) * 100}%` }} className={`h-full ${c.color}`} />
+                                  </div>
+                                </div>
+                             ))}
+                          </div>
                        </div>
-                       <div className="h-4 w-full bg-slate-200 rounded-full overflow-hidden flex">
-                          <div className="h-full bg-indigo-600" style={{ width: `${(compareData.kpis.p1_revenue / (compareData.kpis.p1_revenue + compareData.kpis.p2_revenue || 1)) * 100}%` }} />
-                          <div className="h-full bg-amber-500" style={{ width: `${(compareData.kpis.p2_revenue / (compareData.kpis.p1_revenue + compareData.kpis.p2_revenue || 1)) * 100}%` }} />
+
+                       {/* Chart 2: Top Gainers */}
+                       <div className="flex flex-col gap-4">
+                          <h4 className="font-black text-[11px] uppercase text-emerald-600 border-l-4 border-emerald-600 pl-3">Top 5 Gainers (Tiềm năng)</h4>
+                          <div className="flex flex-col gap-3 py-4">
+                             {compareData.customer_report
+                               .map((c: any) => ({ ...c, delta: c.p1_revenue - c.p2_revenue }))
+                               .sort((a: any, b: any) => b.delta - a.delta)
+                               .slice(0, 5)
+                               .map((c: any, i: number) => (
+                                 <div key={c.id} className="flex flex-col gap-1">
+                                    <div className="flex justify-between text-[10px] font-bold uppercase truncate"><span>{c.code}</span> <span className="text-emerald-600">+{fmtVND(c.delta)}</span></div>
+                                    <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
+                                       <div className="h-full bg-emerald-500" style={{ width: `${(c.delta / (compareData.customer_report[0]?.p1_revenue || 1)) * 100}%` }} />
+                                    </div>
+                                 </div>
+                               ))}
+                          </div>
+                       </div>
+
+                       {/* Chart 3: Top Losers */}
+                       <div className="flex flex-col gap-4">
+                          <h4 className="font-black text-[11px] uppercase text-rose-600 border-l-4 border-rose-600 pl-3">Top 5 Losers (Rủi ro)</h4>
+                          <div className="flex flex-col gap-3 py-4">
+                             {compareData.customer_report
+                               .map((c: any) => ({ ...c, delta: c.p1_revenue - c.p2_revenue }))
+                               .sort((a: any, b: any) => a.delta - b.delta)
+                               .slice(0, 5)
+                               .map((c: any, i: number) => (
+                                 <div key={c.id} className="flex flex-col gap-1">
+                                    <div className="flex justify-between text-[10px] font-bold uppercase truncate"><span>{c.code}</span> <span className="text-rose-600">{fmtVND(c.delta)}</span></div>
+                                    <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
+                                       <div className="h-full bg-rose-500" style={{ width: `${(Math.abs(c.delta) / (compareData.customer_report[0]?.p1_revenue || 1)) * 100}%` }} />
+                                    </div>
+                                 </div>
+                               ))}
+                          </div>
                        </div>
                     </div>
-                    <div className="bg-slate-50 rounded-[1.5rem] p-8">
-                       <h4 className="font-bold text-xs uppercase text-slate-500 mb-6 flex justify-between">Tăng trưởng sản lượng <span>Units</span></h4>
-                       <div className="flex items-baseline gap-4 mb-4">
-                          <span className="text-3xl font-black text-indigo-600">{fmtNum(compareData.kpis.p1_qty)} units</span>
-                          <span className="text-xs text-slate-400 font-bold">vs {fmtNum(compareData.kpis.p2_qty)} units</span>
+
+                    {/* Detailed Analysis Table */}
+                    <div className="bg-white border border-slate-200 rounded-[1.5rem] overflow-hidden mt-6">
+                       <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                          <h3 className="font-black text-[12px] uppercase text-slate-800 tracking-widest">Báo cáo bóc tách chênh lệch chi tiết</h3>
+                          <div className="text-[10px] font-black uppercase text-slate-400">Đơn vị: VNĐ</div>
                        </div>
-                       <div className={`text-xl font-black ${compareData.kpis.p1_qty >= compareData.kpis.p2_qty ? "text-emerald-500" : "text-rose-500"}`}>
-                          {compareData.kpis.p1_qty >= compareData.kpis.p2_qty ? "▲" : "▼"} 
-                          {Math.abs(((compareData.kpis.p1_qty - compareData.kpis.p2_qty) / (compareData.kpis.p2_qty || 1)) * 100).toFixed(1)}%
-                       </div>
+                       <table className="w-full border-collapse">
+                          <thead>
+                             <tr className="bg-white border-b border-slate-100">
+                                <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400 w-[60px]">#</th>
+                                <th className="px-6 py-3 text-left text-[10px] font-black uppercase text-slate-400">Khách hàng</th>
+                                <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400">Kỳ 1</th>
+                                <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400">Kỳ 2</th>
+                                <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400">Biến động</th>
+                                <th className="px-6 py-3 text-center text-[10px] font-black uppercase text-slate-400">% +/-</th>
+                             </tr>
+                          </thead>
+                          <tbody>
+                             {compareData.customer_report.map((r: any, i: number) => {
+                               const delta = r.p1_revenue - r.p2_revenue;
+                               const pct = (delta / (r.p2_revenue || 1)) * 100;
+                               const isNew = r.p2_revenue === 0 && r.p1_revenue > 0;
+                               const isLost = r.p1_revenue === 0 && r.p2_revenue > 0;
+                               
+                               return (
+                                 <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                                    <td className={`px-6 py-4 text-center font-black text-[11px] ${i < 3 ? "text-rose-500" : "text-slate-300"}`}>#{i+1}</td>
+                                    <td className="px-6 py-4 border-r border-slate-100">
+                                       <div className="flex items-center gap-2">
+                                          <span className="font-black text-[13px] text-slate-900 uppercase">{r.code}</span>
+                                          {isNew && <span className="bg-emerald-100 text-emerald-600 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">MỚI</span>}
+                                          {isLost && <span className="bg-slate-100 text-slate-400 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">NGỪNG</span>}
+                                          {pct < -30 && !isLost && <span className="bg-rose-100 text-rose-500 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">SỤT GIẢM</span>}
+                                       </div>
+                                       <div className="text-[10px] font-medium text-slate-400 truncate max-w-[200px]">{r.name}</div>
+                                    </td>
+                                    <td className="px-6 py-4 text-center font-bold text-[13px] text-slate-700 bg-slate-50/30 border-r border-slate-100">{fmtVND(r.p1_revenue)}</td>
+                                    <td className="px-6 py-4 text-center font-bold text-[13px] text-slate-700 border-r border-slate-100">{fmtVND(r.p2_revenue)}</td>
+                                    <td className={`px-6 py-4 text-center font-black text-[13px] border-r border-slate-100 ${delta >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                                       {delta >= 0 ? "+" : ""}{fmtNum(Math.round(delta))}
+                                    </td>
+                                    <td className={`px-6 py-4 text-center font-black text-[12px] ${delta >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                                       {isNew ? "100%" : isLost ? "-100%" : (pct >= 0 ? "+" : "") + pct.toFixed(1) + "%"}
+                                    </td>
+                                 </tr>
+                               );
+                             })}
+                          </tbody>
+                       </table>
                     </div>
                  </div>
                )}
