@@ -313,22 +313,38 @@ export default function SalesCommandCenterPage() {
 
   // Handle Tables & Lists
   const customerList = useMemo(() => {
-    const map: Record<string, any> = {};
+    // 1. Lọc ra danh sách các khách hàng cha (gốc)
+    const roots = customers.filter(c => !c.parent_customer_id);
+    
+    // 2. Tạo map doanh thu
+    const revMap: Record<string, number> = {};
     outboundTx.forEach(t => {
       const c = customers.find(x => x.id === t.customer_id);
       const parentId = c?.parent_customer_id || t.customer_id || "unknown";
-      if (!map[parentId]) {
-        const p = customers.find(x => x.id === parentId);
-        map[parentId] = { id: parentId, code: p?.code || "N/A", name: p?.name || "Unknown", revenue: 0, selling_entity_id: p?.selling_entity_id };
-      }
-      map[parentId].revenue += (t.qty * (t.unit_cost || 0));
+      revMap[parentId] = (revMap[parentId] || 0) + (t.qty * (t.unit_cost || 0));
     });
-    let list = Object.values(map);
-    // Explicit Filtering
-    if (showActiveOnly) list = list.filter(r => r.revenue > 0);
-    // Sorting
-    if (sortCol === "revenue") list.sort((a,b) => sortDir === "asc" ? a.revenue - b.revenue : b.revenue - a.revenue);
-    else if (sortCol === "code") list.sort((a,b) => sortDir === "asc" ? a.code.localeCompare(b.code) : b.code.localeCompare(a.code));
+
+    // 3. Xây dựng danh sách cuối cùng từ danh mục khách hàng cha
+    let list = roots.map(p => ({
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      revenue: revMap[p.id] || 0,
+      selling_entity_id: p.selling_entity_id
+    }));
+
+    // 4. Lọc theo trạng thái lọc "Chỉ hiện khách phát sinh DT"
+    if (showActiveOnly) {
+      list = list.filter(r => r.revenue > 0);
+    }
+
+    // 5. Sắp xếp
+    if (sortCol === "revenue") {
+      list.sort((a,b) => sortDir === "asc" ? a.revenue - b.revenue : b.revenue - a.revenue);
+    } else if (sortCol === "code") {
+      list.sort((a,b) => sortDir === "asc" ? a.code.localeCompare(b.code) : b.code.localeCompare(a.code));
+    }
+    
     return list;
   }, [outboundTx, customers, sortCol, sortDir, showActiveOnly]);
 
