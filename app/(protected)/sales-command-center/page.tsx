@@ -124,7 +124,7 @@ function KpiCard({
               <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</div>
               {trend !== undefined && (
                 <div className={`text-[10px] font-black flex items-center gap-1 ${trend >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                  {trend >= 0 ? "▲" : "▼"} {Math.abs(trend).toFixed(1)}% so tháng trước
+                  {trend >= 0 ? "▲" : "▼"} {Math.abs(trend).toFixed(1)}%
                 </div>
               )}
             </div>
