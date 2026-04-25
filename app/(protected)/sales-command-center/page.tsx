@@ -280,13 +280,23 @@ export default function SalesCommandCenterPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   // --- COMPUTED KPIs ---
-  const { effectiveEnd, weeklyStart } = useMemo(() => {
+  const { effectiveEnd, weeklyStart, prevWeeklyEnd, prevWeeklyStart } = useMemo(() => {
      const todayStr = getTodayVNStr();
      const isCurrentMonth = currentRange.end >= todayStr && currentRange.start <= todayStr;
      const end = isCurrentMonth ? todayStr : currentRange.end;
      const d = new Date(end);
      d.setDate(d.getDate() - 6);
-     return { effectiveEnd: end, weeklyStart: d.toLocaleDateString("sv-SE") };
+     const wStart = d.toLocaleDateString("sv-SE");
+     
+     const dpEnd = new Date(end);
+     dpEnd.setDate(dpEnd.getDate() - 7);
+     const pwEnd = dpEnd.toLocaleDateString("sv-SE");
+     
+     const dpStart = new Date(dpEnd);
+     dpStart.setDate(dpStart.getDate() - 6);
+     const pwStart = dpStart.toLocaleDateString("sv-SE");
+
+     return { effectiveEnd: end, weeklyStart: wStart, prevWeeklyEnd: pwEnd, prevWeeklyStart: pwStart };
   }, [currentRange]);
 
   const parentCustomers = useMemo(() => customers.filter(c => !c.parent_customer_id), [customers]);
@@ -305,12 +315,20 @@ export default function SalesCommandCenterPage() {
   const totalShipments = useMemo(() => shipments.filter(s => s.shipment_date >= currentRange.start && s.shipment_date <= currentRange.end).length, [shipments, currentRange]);
   const weeklyShipments = useMemo(() => shipments.filter(s => s.shipment_date >= weeklyStart && s.shipment_date <= effectiveEnd).length, [shipments, weeklyStart, effectiveEnd]);
 
-  // Doanh thu tuần
-  const weeklyRevenue = useMemo(() => {
-     return [...prevMonthTx, ...outboundTx]
+  // Doanh thu tuần & tăng trưởng
+  const { weeklyRevenue, weeklyTrend } = useMemo(() => {
+     const pool = [...prevMonthTx, ...outboundTx];
+     const currRev = pool
         .filter(t => t.tx_date >= weeklyStart && t.tx_date <= effectiveEnd)
         .reduce((s, t) => s + (t.qty || 0) * (t.unit_cost || 0), 0);
-  }, [outboundTx, prevMonthTx, weeklyStart, effectiveEnd]);
+        
+     const prevRev = pool
+        .filter(t => t.tx_date >= prevWeeklyStart && t.tx_date <= prevWeeklyEnd)
+        .reduce((s, t) => s + (t.qty || 0) * (t.unit_cost || 0), 0);
+        
+     const trend = prevRev > 0 ? ((currRev - prevRev) / prevRev) * 100 : 0;
+     return { weeklyRevenue: currRev, weeklyTrend: trend };
+  }, [outboundTx, prevMonthTx, weeklyStart, effectiveEnd, prevWeeklyStart, prevWeeklyEnd]);
   
   // Tốc độ xuất (Daily Burn Rate)
   const dailyBurnRate = useMemo(() => {
@@ -448,7 +466,7 @@ export default function SalesCommandCenterPage() {
           color="#6366f1" trend={revenueTrend} sub={`vs ${getMonthRange(monthOffset - 1).label}`} sparkData={dailyQtyTrend} />
         
         <KpiCard idx={1} icon="⚡" label="Doanh thu 7 ngày" rawValue={weeklyRevenue} formatted={fmtVND(weeklyRevenue)} color="#10b981" 
-          sub={`Từ ${weeklyStart.slice(8)}/${weeklyStart.slice(5,7)} đến ${effectiveEnd.slice(8)}/${effectiveEnd.slice(5,7)}`} />
+          trend={weeklyTrend} sub={`vs 7 ngày trước đó (${prevWeeklyStart.slice(8)}/${prevWeeklyStart.slice(5,7)})`} />
         
         <KpiCard idx={2} icon="🚛" label="Nhịp độ giao hàng" rawValue={totalShipments} color="#f59e0b" formatted={`${weeklyShipments} / ${totalShipments}`}
           sub="Chuyến 7 ngày / Tháng" />
