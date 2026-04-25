@@ -260,7 +260,7 @@ export default function SalesCommandCenterPage() {
         supabase.from("inventory_transactions").select("id, product_id, customer_id, delivery_customer_id, tx_date, qty, unit_cost")
           .eq("tx_type", "out").is("deleted_at", null)
           .gte("tx_date", prevRange.start).lte("tx_date", prevRange.end),
-        supabase.from("shipment_logs").select("shipment_date")
+        supabase.from("shipment_logs").select("id, shipment_no, shipment_date, customer_id, created_at")
           .is("deleted_at", null).gte("shipment_date", prevRange.start).lte("shipment_date", range.end),
       ]);
 
