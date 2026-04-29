@@ -570,21 +570,21 @@ export default function StocktakeListPage() {
             <tbody className="divide-y divide-slate-100">
               {finalFiltered.map((item, i) => (
                 <tr key={item.id} className="group transition-colors odd:bg-white even:bg-slate-50/30 hover:bg-brand/5">
-                  <td className="py-4 px-4 border-r border-slate-50 text-center font-medium text-slate-400">{i + 1}</td>
+                  <td className="py-4 px-4 border-r border-slate-50 text-center font-bold text-[#000000]">{i + 1}</td>
                   <td className="py-4 px-4 border-r border-slate-50">
-                    <div className="font-extrabold text-slate-900 font-mono text-[15px]">{properFmtDate(item.stocktake_date)}</div>
+                    <div className="font-black text-[#000000] text-[15px] tracking-tight">{properFmtDate(item.stocktake_date)}</div>
                   </td>
                   <td className="py-4 px-4 border-r border-slate-50">
                     {item.status === "draft" ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-100 uppercase tracking-widest">Nháp</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-700 border border-amber-200 uppercase tracking-widest">Bản nháp</span>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-widest">Đã xác nhận</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 border border-emerald-200 uppercase tracking-widest">Đã xác nhận</span>
                     )}
                   </td>
-                  <td className="py-4 px-4 border-r border-slate-50 text-[15px] font-medium text-slate-700">{item.created_by ? profiles[item.created_by] || item.created_by : "—"}</td>
-                  <td className="py-4 px-4 border-r border-slate-50 text-[15px] font-medium text-slate-700">{item.confirmed_by ? profiles[item.confirmed_by] || item.confirmed_by : "—"}</td>
-                  <td className="py-4 px-4 border-r border-slate-50 text-[13px] text-slate-500 font-medium">{item.confirmed_at ? fmtDatetime(item.confirmed_at) : "—"}</td>
-                  <td className="py-4 px-4 border-r border-slate-50 text-slate-500 italic text-[13px] break-all max-w-[200px] truncate" title={item.note || ""}>
+                  <td className="py-4 px-4 border-r border-slate-50 text-[14px] font-bold text-[#000000] uppercase">{item.created_by ? profiles[item.created_by] || item.created_by : "—"}</td>
+                  <td className="py-4 px-4 border-r border-slate-50 text-[14px] font-bold text-[#000000] uppercase">{item.confirmed_by ? profiles[item.confirmed_by] || item.confirmed_by : "—"}</td>
+                  <td className="py-4 px-4 border-r border-slate-50 text-[13px] text-[#000000] font-black">{item.confirmed_at ? fmtDatetime(item.confirmed_at) : "—"}</td>
+                  <td className="py-4 px-4 border-r border-slate-50 text-[#000000] font-black text-[13px] break-all max-w-[200px] truncate" title={item.note || ""}>
                     {item.note || "—"}
                   </td>
                   <td className="py-4 px-4 text-center w-[160px]">

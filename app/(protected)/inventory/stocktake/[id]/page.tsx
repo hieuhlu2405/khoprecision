@@ -360,8 +360,8 @@ export default function StocktakeDetailPage() {
     };
   }
 
-  function addEmptyLine() {
-    setLines([...lines, {
+  const addEmptyLine = useCallback(() => {
+    setLines(prev => [...prev, {
       id: "NEW_" + Date.now() + "_" + Math.random(),
       product_id: "",
       customer_id: null,
@@ -377,7 +377,7 @@ export default function StocktakeDetailPage() {
       _newQtyInput: "",
       _isNew: true
     }]);
-  }
+  }, []);
 
   async function handleProductSearchChange(lineId: string, skuInput: string) {
     const p = products.find(x => x.sku === skuInput || `${x.sku} - ${x.name}` === skuInput);
