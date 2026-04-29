@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef, Fragment } from "react";
+import { useEffect, useState, useMemo, useRef, Fragment, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { motion, AnimatePresence } from "framer-motion";
+import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 
 type Profile = {
   id: string;
@@ -202,6 +203,11 @@ export default function StocktakeDetailPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // --- Tab & Missing SKUs ---
+  const [activeTab, setActiveTab] = useState<"checklist" | "missing">("checklist");
+  const [systemStockMap, setSystemStockMap] = useState<Map<string, number>>(new Map());
+  const [loadingStock, setLoadingStock] = useState(false);
+
   const [editReason, setEditReason] = useState("");
 
   // ---- Table Header Filters & Sorting ----
@@ -293,35 +299,39 @@ export default function StocktakeDetailPage() {
     }
   }
 
-  async function computeSystemQty(productId: string, stocktakeDate: string): Promise<number> {
-    const periodMonthStart = stocktakeDate.slice(0, 7) + "-01";
-    const [rO, rT] = await Promise.all([
-      supabase.from("inventory_opening_balances").select("opening_qty").eq("product_id", productId).eq("period_month", periodMonthStart).is("deleted_at", null),
-      supabase.from("inventory_transactions").select("tx_type, qty, adjusted_from_transaction_id")
-        .eq("product_id", productId)
-        .gte("tx_date", periodMonthStart)
-        .lt("tx_date", stocktakeDate + "T23:59:59")
-        .is("deleted_at", null)
-    ]);
+  // Fetch tồn kho hệ thống cho TẤT CẢ sản phẩm - 1 lần duy nhất (dùng đúng RPC chuẩn)
+  async function fetchSystemStock(stocktakeDate: string): Promise<Map<string, number>> {
+    const qStart = stocktakeDate.slice(0, 7) + "-01";
+    const qEnd = stocktakeDate;
 
-    let currentQty = 0;
-    if (rO.data) {
-      currentQty += rO.data.reduce((sum, o) => sum + Number(o.opening_qty), 0);
+    const { data: ops } = await supabase
+      .from("inventory_opening_balances")
+      .select("*")
+      .lte("period_month", qEnd + "T23:59:59.999Z")
+      .is("deleted_at", null);
+
+    const bounds = computeSnapshotBounds(qStart, qEnd, ops || []);
+    const baselineDate = bounds.S || qStart;
+
+    const endPlus1 = new Date(qEnd);
+    endPlus1.setDate(endPlus1.getDate() + 1);
+    const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
+
+    const { data, error } = await supabase.rpc("inventory_calculate_report_v2", {
+      p_baseline_date: baselineDate,
+      p_movements_start_date: bounds.effectiveStart,
+      p_movements_end_date: nextD,
+    });
+
+    if (error) throw error;
+
+    // Gộp theo product_id (bỏ customer_id dimension) — giống report page
+    const map = new Map<string, number>();
+    for (const row of (data || [])) {
+      const pid = row.product_id;
+      map.set(pid, (map.get(pid) || 0) + Number(row.current_qty || 0));
     }
-
-    if (rT.data) {
-      let inbound = 0;
-      let outbound = 0;
-
-      rT.data.forEach((t: any) => {
-        if (t.tx_type === "in") inbound += Number(t.qty);
-        else if (t.tx_type === "out") outbound += Number(t.qty);
-        else if (t.tx_type === "adjust_in") inbound += Number(t.qty);
-        else if (t.tx_type === "adjust_out") outbound += Number(t.qty);
-      });
-      currentQty += (inbound - outbound);
-    }
-    return currentQty;
+    return map;
   }
 
   function applyDiffLogic(l: StocktakeLine, act: number) {
@@ -396,7 +406,12 @@ export default function StocktakeDetailPage() {
 
     if (p) {
       setSaving(true);
-      const qtyB4 = header ? await computeSystemQty(p.id, header.stocktake_date) : 0;
+      // Tra cứu từ systemStockMap (đã fetch sẵn) hoặc fetch lần đầu
+      let stockMap = systemStockMap;
+      if (stockMap.size === 0 && header) {
+        try { stockMap = await fetchSystemStock(header.stocktake_date); setSystemStockMap(stockMap); } catch { /* ignore */ }
+      }
+      const qtyB4 = stockMap.get(p.id) || 0;
       setSaving(false);
 
       setLines(prev => prev.map(l => {
@@ -558,6 +573,18 @@ export default function StocktakeDetailPage() {
 
   async function handleConfirm() {
     if (!header || !validateSave()) return;
+
+    // Cảnh báo nếu có nhiều dòng tự động điền chưa sửa số
+    const zeroDiffAutoCount = lines.filter(l => l.qty_diff === 0 && l._isNew).length;
+    if (zeroDiffAutoCount > 5) {
+      const proceed = await showConfirm({
+        message: `Phát hiện ${zeroDiffAutoCount} mã hàng được điền tự động mà chưa thay đổi số lượng thực tế (chênh lệch = 0).\n\nBạn đã kiểm đếm thực tế cho tất cả các mã này chưa?\nNếu chưa, hãy nhấn "Hủy" để quay lại sửa số lượng.`,
+        confirmLabel: "Đã kiểm đếm xong",
+        danger: true,
+      });
+      if (!proceed) return;
+    }
+
     const ok = await showConfirm({
       message: `Xác nhận chốt phiếu?\n\nHệ thống sẽ:\n1. Sinh giao dịch điều chỉnh (bù trừ)\n2. Lập "Mốc Tồn Đầu" cứng tại ngày ${header.stocktake_date}.\n\nLưu ý: Mọi giao dịch hệ thống của mốc thời gian cũ sẽ được thiết lập lại từ con số của phiếu kiểm kê này.`,
       confirmLabel: "Chốt cứng dữ liệu"
@@ -573,6 +600,88 @@ export default function StocktakeDetailPage() {
   function getProductSku(pId: string) {
     return products.find(x => x.id === pId)?.sku || "";
   }
+
+  // --- Missing SKUs ---
+  const missingSkus = useMemo(() => {
+    if (systemStockMap.size === 0) return [];
+    const existingProductIds = new Set(lines.map(l => l.product_id));
+    return products
+      .filter(p => {
+        const sysQty = systemStockMap.get(p.id) || 0;
+        return sysQty > 0 && !existingProductIds.has(p.id);
+      })
+      .map(p => ({ ...p, systemQty: systemStockMap.get(p.id) || 0 }))
+      .sort((a, b) => b.systemQty - a.systemQty);
+  }, [lines, products, systemStockMap]);
+
+  function addMissingSku(product: Product, sysQty: number) {
+    const logic = applyDiffLogic({ system_qty_before: sysQty } as StocktakeLine, sysQty);
+    setLines(prev => [...prev, {
+      id: "NEW_" + Date.now() + "_" + Math.random(),
+      product_id: product.id, customer_id: product.customer_id,
+      product_name_snapshot: product.name, product_spec_snapshot: product.spec,
+      unit_price_snapshot: product.unit_price || 0,
+      system_qty_before: sysQty, actual_qty_after: sysQty,
+      qty_diff: 0, diff_percent: 0, is_large_diff: false, diff_reason: "",
+      _newQtyInput: String(sysQty), _isNew: true,
+    }]);
+    setActiveTab("checklist");
+    showToast(`Đã bổ sung ${product.sku} vào phiếu`, "success");
+  }
+
+  async function fillAllSystemStock() {
+    if (!header) return;
+    const ok = await showConfirm({
+      message: "Hệ thống sẽ bổ sung TẤT CẢ mã hàng có tồn kho vào phiếu.\n\n⚠️ Số lượng thực tế sẽ được điền MẶC ĐỊNH = Tồn máy.\nBạn CẦN sửa lại số lượng thực tế sau khi đếm!\n\nTiếp tục?",
+      confirmLabel: "Điền tồn máy"
+    });
+    if (!ok) return;
+    setLoadingStock(true);
+    try {
+      let stockMap = systemStockMap;
+      if (stockMap.size === 0) {
+        stockMap = await fetchSystemStock(header.stocktake_date);
+        setSystemStockMap(stockMap);
+      }
+      const existingProductIds = new Set(lines.map(l => l.product_id));
+      const newLines: StocktakeLine[] = [];
+      for (const p of products) {
+        if (existingProductIds.has(p.id)) continue;
+        const sysQty = stockMap.get(p.id) || 0;
+        if (sysQty <= 0) continue;
+        newLines.push({
+          id: "NEW_" + Date.now() + "_" + Math.random(),
+          product_id: p.id, customer_id: p.customer_id,
+          product_name_snapshot: p.name, product_spec_snapshot: p.spec,
+          unit_price_snapshot: p.unit_price || 0,
+          system_qty_before: sysQty, actual_qty_after: sysQty,
+          qty_diff: 0, diff_percent: 0, is_large_diff: false, diff_reason: "",
+          _newQtyInput: String(sysQty), _isNew: true,
+        });
+      }
+      setLines(prev => [...prev, ...newLines]);
+      showToast(`Đã bổ sung ${newLines.length} mã hàng vào phiếu!`, "success");
+    } catch (err: any) { showToast("Lỗi: " + err.message, "error"); }
+    finally { setLoadingStock(false); }
+  }
+
+  async function loadMissingSkus() {
+    if (systemStockMap.size > 0 || !header) return;
+    setLoadingStock(true);
+    try {
+      const stockMap = await fetchSystemStock(header.stocktake_date);
+      setSystemStockMap(stockMap);
+    } catch (err: any) { showToast("Lỗi tải tồn kho: " + err.message, "error"); }
+    finally { setLoadingStock(false); }
+  }
+
+  // --- Summary stats ---
+  const summaryStats = useMemo(() => {
+    const diffLines = lines.filter(l => l.qty_diff !== 0);
+    const totalPlus = lines.filter(l => l.qty_diff > 0).reduce((s, l) => s + l.qty_diff, 0);
+    const totalMinus = lines.filter(l => l.qty_diff < 0).reduce((s, l) => s + l.qty_diff, 0);
+    return { total: lines.length, diffCount: diffLines.length, totalPlus, totalMinus };
+  }, [lines]);
 
   const enrichedLines = useMemo(() => {
     return lines.map(l => ({
@@ -689,7 +798,11 @@ export default function StocktakeDetailPage() {
         </div>
         <div className="flex items-center gap-3">
           {canEditDraft && (
-            <button onClick={() => handleConfirm()} disabled={saving} className="btn h-12 px-8 bg-indigo-600 hover:bg-indigo-700 text-white border-none shadow-xl shadow-indigo-100 font-black text-sm uppercase tracking-widest transform transition active:scale-95">🚀 Chốt phiếu</button>
+            <>
+              <button onClick={fillAllSystemStock} disabled={saving || loadingStock} className="btn h-12 px-6 bg-amber-500 hover:bg-amber-600 text-white border-none shadow-xl shadow-amber-100 font-black text-xs uppercase tracking-widest transform transition active:scale-95">{loadingStock ? "⏳ Đang tải..." : "📋 Tự động điền tồn máy"}</button>
+              <button onClick={() => handleSaveLinesAndApply(false)} disabled={saving} className="btn h-12 px-6 bg-slate-700 hover:bg-slate-800 text-white border-none shadow-xl shadow-slate-100 font-black text-xs uppercase tracking-widest transform transition active:scale-95">💾 Lưu nháp</button>
+              <button onClick={() => handleConfirm()} disabled={saving} className="btn h-12 px-8 bg-indigo-600 hover:bg-indigo-700 text-white border-none shadow-xl shadow-indigo-100 font-black text-sm uppercase tracking-widest transform transition active:scale-95">🚀 Chốt phiếu</button>
+            </>
           )}
           {canEditConfirmed && (
             <button onClick={() => handleSaveLinesAndApply()} disabled={saving || !editReason.trim()} className="btn h-12 px-8 bg-red-600 hover:bg-red-700 text-white border-none shadow-xl shadow-red-100 font-black text-sm uppercase tracking-widest transform transition active:scale-95">⚠️ Lưu thay đổi</button>
@@ -718,8 +831,37 @@ export default function StocktakeDetailPage() {
           </div>
         </div>
 
+        {/* Summary Cards */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tổng dòng kiểm</div>
+            <div className="text-2xl font-black text-indigo-600">{fmtNum(summaryStats.total)}</div>
+          </div>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Dòng có lệch</div>
+            <div className="text-2xl font-black text-amber-500">{fmtNum(summaryStats.diffCount)}</div>
+          </div>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tổng lệch dương</div>
+            <div className="text-2xl font-black text-emerald-500">+{fmtNum(summaryStats.totalPlus)}</div>
+          </div>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tổng lệch âm</div>
+            <div className="text-2xl font-black text-red-500">{fmtNum(summaryStats.totalMinus)}</div>
+          </div>
+        </div>
+
+        {/* Tab Bar */}
+        <div className="flex items-center gap-1 mb-6 bg-white rounded-2xl p-1.5 border border-slate-200 shadow-sm w-fit">
+          <button onClick={() => setActiveTab("checklist")} className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === "checklist" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-50"}`}>📋 Phiếu kiểm ({lines.length})</button>
+          <button onClick={() => { setActiveTab("missing"); loadMissingSkus(); }} className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === "missing" ? "bg-red-500 text-white shadow-lg" : "text-slate-400 hover:bg-slate-50"}`}>⚠️ Mã hàng bị sót {missingSkus.length > 0 ? `(${missingSkus.length})` : ""}</button>
+        </div>
+
+        {/* Tab: Checklist */}
+        {activeTab === "checklist" && (
+          <>
         <div className="bg-white rounded-[2rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden" ref={containerRef}>
-          <div ref={parentRef} className="h-[calc(100vh-420px)] overflow-auto scrollbar-hide relative">
+          <div ref={parentRef} className="h-[calc(100vh-520px)] overflow-auto scrollbar-hide relative">
             <table className="w-full text-sm border-separate border-spacing-0 table-fixed">
               <thead>
                 <tr>
@@ -728,7 +870,7 @@ export default function StocktakeDetailPage() {
                   <ThCell label="Sản phẩm / SKU" colKey="sku" sortable colType="text" w="220" />
                   <ThCell label="Tên hàng" colKey="name" sortable colType="text" w="280" />
                   <ThCell label="Tồn máy" colKey="sysQty" sortable colType="num" align="right" w="130" />
-                  <ThCell label="Tực tế" colKey="actQty" sortable colType="num" align="right" w="140" />
+                  <ThCell label="Thực tế" colKey="actQty" sortable colType="num" align="right" w="140" />
                   <ThCell label="Lệch" colKey="diffQty" sortable colType="num" align="right" w="120" />
                   <ThCell label="Ghi chú" colKey="reason" sortable colType="text" w="220" />
                   {canEdit && <th className="w-20 p-4 border-b border-slate-100 font-black text-[10px] text-slate-400 uppercase text-center sticky top-0 bg-white z-20">Xóa</th>}
@@ -739,13 +881,13 @@ export default function StocktakeDetailPage() {
                   const l = finalFiltered[v.index];
                   const isSystemHidden = !isAdmin && !isConfirmed;
                   return (
-                    <tr key={l.id} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: `${v.size}px`, transform: `translateY(${v.start}px)` }} className="hover:bg-slate-50 transition-colors bg-white flex items-center border-b border-slate-50">
+                    <tr key={l.id} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: `${v.size}px`, transform: `translateY(${v.start}px)` }} className={`hover:bg-slate-50 transition-colors flex items-center border-b border-slate-50 ${v.index % 2 === 0 ? "bg-white" : "bg-slate-50/50"}`}>
                       <td className="w-16 text-center font-black text-slate-300 text-xs italic">{v.index + 1}</td>
                       <td className="w-[180px] px-4 font-black text-[11px] uppercase text-slate-900 truncate">{getCustomerLabel(l.customer_id)}</td>
                       <td className="w-[220px] px-4">
                         {canEdit ? (
                           <input list={"dl-" + v.index} value={l._searchQuery ?? getProductSku(l.product_id)} onChange={e => handleProductSearchChange(l.id, e.target.value)} className="input input-xs h-9 w-full bg-slate-50 border-none font-black uppercase text-xs focus:bg-white" />
-                        ) : <span className="font-black text-slate-900 font-mono tracking-tighter uppercase">{getProductSku(l.product_id)}</span>}
+                        ) : <span className="font-black text-slate-900 tracking-tighter uppercase">{getProductSku(l.product_id)}</span>}
                         <datalist id={"dl-" + v.index}>{products.map(p => <option key={p.id} value={`${p.sku} - ${p.name}`} />)}</datalist>
                       </td>
                       <td className="w-[280px] px-4 truncate font-bold text-slate-700 text-xs uppercase">{l.product_name_snapshot}</td>
@@ -774,12 +916,67 @@ export default function StocktakeDetailPage() {
               </tbody>
             </table>
           </div>
-          {finalFiltered.length === 0 && <div className="py-32 text-center text-slate-300 font-black text-xs uppercase tracking-widest">Không có dữ liệu khống chế</div>}
+          {finalFiltered.length === 0 && <div className="py-32 text-center text-slate-300 font-black text-xs uppercase tracking-widest">Không có dữ liệu</div>}
         </div>
 
         {canEdit && (
-          <div className="mt-8 flex justify-end">
-            <button onClick={addEmptyLine} className="btn h-14 px-10 bg-black text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-800 shadow-2xl shadow-slate-300 transition-all active:scale-95">+ Thêm dòng mới</button>
+          <div className="mt-6 flex justify-end">
+            <button onClick={addEmptyLine} className="btn h-14 px-10 bg-black text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-800 shadow-2xl shadow-slate-300 transition-all active:scale-95">+ Thêm dòng mới (F2)</button>
+          </div>
+        )}
+          </>
+        )}
+
+        {/* Tab: Missing SKUs */}
+        {activeTab === "missing" && (
+          <div className="bg-white rounded-[2rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden">
+            {loadingStock ? (
+              <div className="py-32 text-center text-slate-400 font-black text-xs uppercase tracking-widest animate-pulse">Đang tải tồn kho hệ thống...</div>
+            ) : missingSkus.length === 0 ? (
+              <div className="py-32 text-center">
+                <div className="text-4xl mb-4">✅</div>
+                <div className="text-slate-400 font-black text-sm uppercase tracking-widest">Tất cả mã hàng đã được kiểm kê</div>
+                <div className="text-slate-300 text-xs mt-2">Không phát hiện mã hàng bị sót</div>
+              </div>
+            ) : (
+              <>
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                  <div>
+                    <div className="font-black text-red-500 text-sm uppercase tracking-widest">⚠️ Phát hiện {missingSkus.length} mã hàng có tồn kho nhưng chưa có trong phiếu</div>
+                    <div className="text-slate-400 text-xs mt-1">Nhấn "Bổ sung" để thêm vào phiếu kiểm kê, hoặc nhấn nút bên phải để bổ sung tất cả.</div>
+                  </div>
+                  {canEdit && <button onClick={fillAllSystemStock} disabled={loadingStock} className="btn h-10 px-6 bg-red-500 hover:bg-red-600 text-white font-black text-xs uppercase tracking-widest transition-all active:scale-95">Bổ sung tất cả ({missingSkus.length})</button>}
+                </div>
+                <div className="max-h-[calc(100vh-520px)] overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-white z-10">
+                      <tr className="border-b-2 border-slate-200">
+                        <th className="p-4 text-left font-black text-[10px] text-slate-400 uppercase tracking-widest">Mã hàng</th>
+                        <th className="p-4 text-left font-black text-[10px] text-slate-400 uppercase tracking-widest">Tên hàng</th>
+                        <th className="p-4 text-left font-black text-[10px] text-slate-400 uppercase tracking-widest">Khách hàng</th>
+                        <th className="p-4 text-right font-black text-[10px] text-slate-400 uppercase tracking-widest">Tồn máy</th>
+                        {canEdit && <th className="p-4 text-center font-black text-[10px] text-slate-400 uppercase tracking-widest w-32">Thao tác</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {missingSkus.map((p, idx) => (
+                        <tr key={p.id} className={`border-b border-slate-50 hover:bg-red-50/30 transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"} ${p.systemQty > 100 ? "border-l-4 border-l-red-400" : ""}`}>
+                          <td className="p-4 font-black text-slate-900 uppercase tracking-wider text-xs">{p.sku}</td>
+                          <td className="p-4 font-medium text-slate-700 text-xs uppercase">{p.name}</td>
+                          <td className="p-4 font-medium text-slate-500 text-xs">{getCustomerLabel(p.customer_id)}</td>
+                          <td className="p-4 text-right font-black text-red-500 text-base">{fmtNum(p.systemQty)}</td>
+                          {canEdit && (
+                            <td className="p-4 text-center">
+                              <button onClick={() => addMissingSku(p, p.systemQty)} className="btn btn-sm bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest px-4 transition-all active:scale-95">+ Bổ sung</button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
