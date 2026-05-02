@@ -8,6 +8,7 @@ import { LoadingPage } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
 import { formatDateVN, formatDateTimeVN, getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
+import { fetchAllRows } from "@/lib/supabase-fetch-all";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -702,39 +703,55 @@ export default function InventoryOutboundPage() {
     setAdjOpen(true);
   }
 
-  /* ---- data loading ---- */
+  /* ---- data loading (with pagination & stale-fetch guard) ---- */
+  const fetchIdRef = useRef(0);
+
   async function load() {
     setError("");
     setLoading(true);
+    const thisFetchId = ++fetchIdRef.current; // Guard against stale data when switching months rapidly
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return window.location.href = "/login";
 
       const { data: p, error: e1 } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle();
       if (e1) throw e1;
+      if (thisFetchId !== fetchIdRef.current) return; // Stale guard
       setProfile(p as Profile);
 
-      const [rP, rC, rT, rA] = await Promise.all([
+      // Products & Customers (these tables are small, no pagination needed)
+      const [rP, rC] = await Promise.all([
         supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null).order("sku"),
         supabase.from("customers").select("id, code, name, parent_customer_id").is("deleted_at", null).order("code"),
-        // Performance fix: chỉ load tháng hiện tại thay vì toàn bộ lịch sử
-        supabase.from("inventory_transactions").select("*").eq("tx_type", "out").is("deleted_at", null)
-          .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd)
-          .order("tx_date", { ascending: false }),
-        supabase.from("inventory_transactions").select("*").in("tx_type", ["adjust_in", "adjust_out"]).not("adjusted_from_transaction_id", "is", null).is("deleted_at", null)
-          .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd)
       ]);
       if (rP.error) throw rP.error;
+      if (thisFetchId !== fetchIdRef.current) return; // Stale guard
+
+      // Transactions & Adjustments: use fetchAllRows to bypass 1000-row limit
+      const [txRows, adjTxRows] = await Promise.all([
+        fetchAllRows(
+          supabase.from("inventory_transactions").select("*").eq("tx_type", "out").is("deleted_at", null)
+            .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd)
+            .order("tx_date", { ascending: false })
+        ),
+        fetchAllRows(
+          supabase.from("inventory_transactions").select("*").in("tx_type", ["adjust_in", "adjust_out"]).not("adjusted_from_transaction_id", "is", null).is("deleted_at", null)
+            .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd)
+        ),
+      ]);
+      if (thisFetchId !== fetchIdRef.current) return; // Stale guard
+
       setProducts(rP.data || []);
       const allCust = (rC.data || []) as (Customer & { parent_customer_id: string | null })[];
       setAllCustomers(allCust);
       setCustomers(allCust.filter(c => !c.parent_customer_id)); // Chỉ hiện Công ty Mẹ ở filter toolbar
-      setRows(rT.data || []);
-      setAdjRows(rA.data || []);
+      setRows(txRows);
+      setAdjRows(adjTxRows);
     } catch (err: any) {
+      if (thisFetchId !== fetchIdRef.current) return; // Don't show error for cancelled fetches
       setError(err?.message ?? "Có lỗi xảy ra");
     } finally {
-      setLoading(false);
+      if (thisFetchId === fetchIdRef.current) setLoading(false);
     }
   }
 
