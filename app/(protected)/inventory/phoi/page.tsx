@@ -8,6 +8,7 @@ import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
+import { fetchAllRows } from "@/lib/supabase-fetch-all";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -294,6 +295,17 @@ export default function PhoiPage() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [mounted, setMounted] = useState(false);
+
+  // Month Navigator state (same pattern as Inbound/Outbound)
+  const [filterDateStart, setFilterDateStart] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  });
+  const [filterDateEnd, setFilterDateEnd] = useState(() => {
+    const now = new Date();
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
+  });
 
   /* ---- multi-line create form state ---- */
   const [showCreate, setShowCreate] = useState(false);
@@ -670,37 +682,55 @@ export default function PhoiPage() {
     setAdjOpen(true);
   }
 
-  /* ---- data loading ---- */
+  /* ---- data loading (with pagination & stale-fetch guard) ---- */
+  const fetchIdRef = useRef(0);
+
   async function load() {
     setError("");
     setLoading(true);
+    const thisFetchId = ++fetchIdRef.current;
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return window.location.href = "/login";
 
       const { data: p, error: e1 } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle();
       if (e1) throw e1;
+      if (thisFetchId !== fetchIdRef.current) return;
       setProfile(p as Profile);
 
-      const [rP, rC, rT, rA] = await Promise.all([
+      const [rP, rC] = await Promise.all([
         supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null).order("sku"),
         supabase.from("customers").select("id, code, name").is("deleted_at", null).order("code"),
-        supabase.from("phoi_transactions").select("*").eq("tx_type", "in").is("deleted_at", null).order("tx_date", { ascending: false }),
-        supabase.from("phoi_transactions").select("*").in("tx_type", ["adjust_in", "adjust_out"]).not("adjusted_from_transaction_id", "is", null).is("deleted_at", null)
       ]);
       if (rP.error) throw rP.error;
+      if (thisFetchId !== fetchIdRef.current) return;
+
+      const [txRows, adjTxRows] = await Promise.all([
+        fetchAllRows(
+          supabase.from("phoi_transactions").select("*").eq("tx_type", "in").is("deleted_at", null)
+            .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd)
+            .order("tx_date", { ascending: false })
+        ),
+        fetchAllRows(
+          supabase.from("phoi_transactions").select("*").in("tx_type", ["adjust_in", "adjust_out"]).not("adjusted_from_transaction_id", "is", null).is("deleted_at", null)
+            .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd)
+        ),
+      ]);
+      if (thisFetchId !== fetchIdRef.current) return;
+
       setProducts(rP.data || []);
       setCustomers(rC.data || []);
-      setRows(rT.data || []);
-      setAdjRows(rA.data || []);
+      setRows(txRows);
+      setAdjRows(adjTxRows);
     } catch (err: any) {
+      if (thisFetchId !== fetchIdRef.current) return;
       setError(err?.message ?? "Có lỗi xảy ra");
     } finally {
-      setLoading(false);
+      if (thisFetchId === fetchIdRef.current) setLoading(false);
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [filterDateStart, filterDateEnd]); // eslint-disable-line
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
@@ -1046,6 +1076,24 @@ export default function PhoiPage() {
             <div className="flex-1 min-w-[200px] relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
               <input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã hàng, tên hàng..." className="w-full h-11 bg-white border-slate-300 border rounded-xl pl-10 pr-4 font-bold text-slate-700 focus:bg-white transition-all outline-none" />
+            </div>
+            {/* MONTH NAVIGATOR */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, background: "white", border: "1px solid #e2e8f0", borderRadius: 10, padding: "4px 10px" }}>
+              <button className="btn btn-ghost btn-sm" style={{ padding: "2px 8px", fontSize: 16 }} onClick={() => {
+                const d = new Date(filterDateStart); d.setMonth(d.getMonth()-1);
+                const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,"0");
+                const last = new Date(y, d.getMonth()+1, 0).getDate();
+                setFilterDateStart(`${y}-${m}-01`); setFilterDateEnd(`${y}-${m}-${String(last).padStart(2,"0")}`);
+              }}>‹</button>
+              <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+                {new Date(filterDateStart).toLocaleDateString("vi-VN", { month: "long", year: "numeric" }).replace("th\u00e1ng", "Th\u00e1ng").replace("n\u0103m", "N\u0103m")}
+              </span>
+              <button className="btn btn-ghost btn-sm" style={{ padding: "2px 8px", fontSize: 16 }} onClick={() => {
+                const d = new Date(filterDateStart); d.setMonth(d.getMonth()+1);
+                const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,"0");
+                const last = new Date(y, d.getMonth()+1, 0).getDate();
+                setFilterDateStart(`${y}-${m}-01`); setFilterDateEnd(`${y}-${m}-${String(last).padStart(2,"0")}`);
+              }}>›</button>
             </div>
             <input type="date" value={qDate} onChange={e => setQDate(e.target.value)} className="h-11 bg-white border-slate-300 border rounded-xl px-4 font-bold text-slate-700 transition-all outline-none" />
             <select value={qCustomer} onChange={e => setQCustomer(e.target.value)} className="h-11 bg-white border-slate-300 border rounded-xl px-4 font-bold text-slate-700 transition-all outline-none">
