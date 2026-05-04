@@ -1038,7 +1038,7 @@ export default function InventoryOutboundPage() {
                                 updateLine(l.key, "productId", p.id);
                                 updateLine(l.key, "productSearch", `${p.sku} - ${p.name}`);
                                 updateLine(l.key, "showSuggestions", false);
-                                if (!l.unitCost && p.unit_price) updateLine(l.key, "unitCost", String(p.unit_price));
+                                if (p.unit_price != null) updateLine(l.key, "unitCost", String(p.unit_price));
                               }}>
                                 <div style={{ fontWeight: 700 }}>{p.sku} - {p.name}</div>
                                 <div style={{ fontSize: 11, color: "#64748b" }}>KH: {c ? `${c.code} - ${c.name}` : "---"}</div>
