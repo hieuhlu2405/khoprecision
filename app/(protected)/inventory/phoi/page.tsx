@@ -1001,7 +1001,7 @@ export default function PhoiPage() {
                                   key={ps.id}
                                   onMouseDown={e => {
                                     e.preventDefault();
-                                    const label = `${ps.sku} - ${ps.name}`;
+                                    const label = `${ps.sku} - ${ps.name}${ps.spec ? ` (${ps.spec})` : ""}`;
                                     updateLine(l.key, "productId", ps.id);
                                     updateLine(l.key, "productSearch", label);
                                     updateLine(l.key, "showSuggestions", false);
@@ -1012,7 +1012,7 @@ export default function PhoiPage() {
                                     <span className="text-xs font-black text-slate-900">{ps.sku}</span>
                                     <span className="text-[10px] font-black text-slate-400">{customerLabel(ps.customer_id)}</span>
                                   </div>
-                                  <span className="text-[11px] text-slate-600 font-medium truncate">{ps.name}</span>
+                                  <span className="text-[11px] text-slate-600 font-medium truncate">{ps.name} {ps.spec && <span style={{ fontWeight: 400, color: "#94a3b8" }}>({ps.spec})</span>}</span>
                                 </button>
                               ))}
                             </div>
@@ -1258,7 +1258,7 @@ export default function PhoiPage() {
                             key={ps.id}
                             onMouseDown={e => { 
                                 e.preventDefault();
-                                const label = `${ps.sku} - ${ps.name}`;
+                                const label = `${ps.sku} - ${ps.name}${ps.spec ? ` (${ps.spec})` : ""}`;
                                 setEProductId(ps.id); 
                                 setEProductSearch(label); 
                                 setEShowSuggestions(false); 
@@ -1269,7 +1269,7 @@ export default function PhoiPage() {
                               <span className="text-xs font-bold text-slate-900">{ps.sku}</span>
                               <span className="text-[10px] text-slate-400 font-bold">{customerLabel(ps.customer_id)}</span>
                             </div>
-                            <span className="text-[11px] text-slate-500 font-medium truncate">{ps.name}</span>
+                            <span className="text-[11px] text-slate-500 font-medium truncate">{ps.name} {ps.spec && <span style={{ fontWeight: 400, color: "#94a3b8" }}>({ps.spec})</span>}</span>
                           </button>
                         ))}
                       </div>

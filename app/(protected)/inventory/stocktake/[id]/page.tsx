@@ -480,14 +480,24 @@ export default function StocktakeDetailPage() {
       showToast("Bạn phải nhập [Lý do sửa sau chốt] khi sửa phiếu đã chốt!", "error");
       return false;
     }
+
+    const seen = new Set<string>();
     for (const l of lines) {
       if (!l.product_id) {
         showToast("Có dòng chưa chọn mã hàng.", "error");
         return false;
       }
+      const key = `${l.product_id}-${l.customer_id || ""}`;
+      if (seen.has(key)) {
+        const sku = products.find(p => p.id === l.product_id)?.sku || "N/A";
+        showToast(`Mã hàng ${sku} bị nhập trùng trong phiếu. Vui lòng gộp dòng hoặc xóa bớt.`, "error");
+        return false;
+      }
+      seen.add(key);
     }
     return true;
   }
+
 
   async function handleSaveLinesAndApply(isConfirmingOverride = false) {
     if (!header || !validateSave()) return;

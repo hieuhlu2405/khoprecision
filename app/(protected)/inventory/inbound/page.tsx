@@ -981,11 +981,11 @@ export default function InventoryInboundPage() {
                               <div key={p.id} className="p-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100" onMouseDown={(e) => {
                                 e.preventDefault();
                                 updateLine(l.key, "productId", p.id);
-                                updateLine(l.key, "productSearch", `${p.sku} - ${p.name}`);
+                                updateLine(l.key, "productSearch", `${p.sku} - ${p.name}${p.spec ? ` (${p.spec})` : ""}`);
                                 updateLine(l.key, "showSuggestions", false);
                                 if (p.unit_price != null) updateLine(l.key, "unitCost", String(p.unit_price));
                               }}>
-                                <div style={{ fontWeight: 700 }}>{p.sku} - {p.name}</div>
+                                <div style={{ fontWeight: 700 }}>{p.sku} - {p.name} {p.spec && <span style={{ fontWeight: 400, color: "#64748b" }}>({p.spec})</span>}</div>
                                 <div style={{ fontSize: 11, color: "#64748b" }}>KH: {c ? `${c.code} - ${c.name}` : "---"}</div>
                               </div>
                             );
