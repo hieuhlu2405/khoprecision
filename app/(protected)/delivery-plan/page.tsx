@@ -1329,7 +1329,7 @@ export default function DeliveryPlanPage() {
                         key={row.id}
                         data-index={virtualRow.index}
                         ref={rowVirtualizer.measureElement}
-                        className={`hover:bg-brand/5 hover:z-30 group transition-colors odd:bg-white even:bg-slate-50/20 ${isSelected ? 'bg-indigo-50/40 !odd:bg-indigo-50/40 !even:bg-indigo-50/40' : ''}`}
+                        className={`hover:bg-brand/5 hover:z-[45] group transition-colors odd:bg-white even:bg-slate-50/20 ${isSelected ? 'bg-indigo-50/40 !odd:bg-indigo-50/40 !even:bg-indigo-50/40' : ''}`}
                         style={{
                           position: 'absolute',
                           top: 0,
@@ -1441,8 +1441,8 @@ export default function DeliveryPlanPage() {
                                       <span className="bg-white text-amber-500 px-1 font-black text-[14px] animate-pulse">⚡</span>
                                       <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-tighter whitespace-nowrap">SỬA ĐỔI</span>
                                     </div>
-                                    {/* Tooltip cao cấp tự thiết kế - hiển thị ngược lên trên */}
-                                    <div className="absolute bottom-full mb-1.5 hidden group-hover/tooltip:flex flex-col bg-slate-900/95 backdrop-blur-md text-white text-[11px] p-2.5 rounded-xl shadow-xl border border-slate-700/50 min-w-[160px] z-[100] text-left pointer-events-none">
+                                    {/* Tooltip cao cấp tự thiết kế - hiển thị hướng xuống dưới */}
+                                    <div className="absolute top-full mt-1.5 hidden group-hover/tooltip:flex flex-col bg-slate-900/95 backdrop-blur-md text-white text-[11px] p-2.5 rounded-xl shadow-xl border border-slate-700/50 min-w-[160px] z-[100] text-left pointer-events-none">
                                       <div className="font-bold text-amber-400 text-[10px] tracking-wider uppercase mb-1 flex items-center gap-1">
                                         <span>⚡</span> THAY ĐỔI GẦN ĐÂY
                                       </div>
