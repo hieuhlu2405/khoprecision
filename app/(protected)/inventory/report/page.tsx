@@ -242,6 +242,44 @@ export default function InventoryReportPage() {
   const bounds = useMemo(() => computeSnapshotBounds(qStart, qEnd, openings), [qStart, qEnd, openings]);
 
   const [colFilters, setColFilters] = useState<Record<string, ColFilter>>({});
+
+  /* ---- History Modal State ---- */
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [historyProduct, setHistoryProduct] = useState<{ id: string; sku: string; name: string; spec: string | null } | null>(null);
+  const [historyCustomerLabel, setHistoryCustomerLabel] = useState("");
+  const [historyStartDate, setHistoryStartDate] = useState(qStart);
+  const [historyEndDate, setHistoryEndDate] = useState(qEnd);
+
+  async function fetchHistory(productId: string, start: string, end: string) {
+    setHistoryLoading(true);
+    try {
+      const { data, error } = await supabase.from("inventory_transactions").select("*")
+        .eq("product_id", productId)
+        .gte("tx_date", start)
+        .lte("tx_date", end)
+        .is("deleted_at", null)
+        .order("tx_date", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setHistoryData(data || []);
+    } catch (err: any) {
+      showToast("Lỗi tải lịch sử: " + err.message, "error");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  function openHistory(product: Product, custLabel: string) {
+    setHistoryProduct(product);
+    setHistoryCustomerLabel(custLabel);
+    setHistoryStartDate(qStart);
+    setHistoryEndDate(qEnd);
+    setHistoryModalOpen(true);
+    fetchHistory(product.id, qStart, qEnd);
+  }
+
   const [sortCol, setSortCol] = useState<SortableCol | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [openPopup, setOpenPopup] = useState<string | null>(null);
@@ -701,7 +739,7 @@ export default function InventoryReportPage() {
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
       <motion.div 
-        className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
+        className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
         initial="hidden"
         animate="show"
         variants={{
@@ -720,20 +758,6 @@ export default function InventoryReportPage() {
             </div>
             <div className="stat-card-label text-slate-500 font-medium text-xs mb-1">Tổng lượng tồn</div>
             <div className="text-3xl font-black text-slate-900 tracking-tight group-hover:text-amber-600 transition-colors">{fmtNum(totals.qty)}</div>
-          </div>
-        </motion.div>
-
-        <motion.div variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
-          <div className="stat-card border-none bg-white/70 backdrop-blur-md shadow-sm border border-slate-200/50 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-500 rounded-2xl p-6">
-            <div className="flex justify-between items-start mb-3">
-              <div className="p-2 bg-emerald-100/80 rounded-lg text-emerald-600">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              </div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Giá trị</span>
-            </div>
-            <div className="stat-card-label text-slate-500 font-medium text-xs mb-1">Tổng giá trị (VNĐ)</div>
-            <div className="text-3xl font-black text-slate-900 tracking-tighter group-hover:text-emerald-600 transition-colors">{fmtNum(totals.val)}</div>
           </div>
         </motion.div>
 
@@ -811,7 +835,7 @@ export default function InventoryReportPage() {
 
       <div className="data-table-wrap !rounded-xl shadow-sm border border-slate-200 overflow-auto" style={{ maxHeight: "calc(100vh - 350px)" }}>
         {loading ? <LoadingInline text="Đang tính toán số liệu..." /> : (
-          <table className="data-table !border-separate !border-spacing-0" style={{ minWidth: 1200 }}>
+          <table className="data-table !border-separate !border-spacing-0" style={{ minWidth: 1000 }}>
             <thead>
               <tr>
                 <ThCell label="Khách hàng" colKey="customer" sortable isNum={false} w="220px" />
@@ -822,13 +846,14 @@ export default function InventoryReportPage() {
                 <ThCell label="Nhập" colKey="inbound_qty" sortable isNum align="right" w="100px" />
                 <ThCell label="Xuất" colKey="outbound_qty" sortable isNum align="right" w="100px" />
                 <ThCell label="Tồn hiện tại" colKey="current_qty" sortable isNum align="right" w="110px" extra={{ background: "#fef08a", color: "#000000" }} />
-                <ThCell label="Đơn giá" colKey="unit_price" sortable isNum align="right" w="110px" />
-                <ThCell label="Giá trị tồn" colKey="inventory_value" sortable isNum align="right" w="130px" extra={{ background: "transparent", color: "var(--color-success)" }} />
+                <th style={{ textAlign: "center", padding: "12px 10px", position: "sticky", top: 0, zIndex: 60, width: "80px", minWidth: "80px", background: "transparent", borderBottom: "1px solid var(--slate-200)" }} className="glass-header">
+                  <span className="text-slate-900 font-bold text-[10px] uppercase tracking-wider">Thao tác</span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {displayData.length === 0 ? (
-                <tr><td colSpan={10} className="py-20 text-center opacity-40 italic">Không có dữ liệu khớp bộ lọc.</td></tr>
+                <tr><td colSpan={9} className="py-20 text-center opacity-40 italic">Không có dữ liệu khớp bộ lọc.</td></tr>
               ) : displayData.map((r, i) => {
                 const isZero = r.current_qty <= 0;
                 const isLow = r.current_qty > 0 && r.current_qty < 5;
@@ -842,9 +867,9 @@ export default function InventoryReportPage() {
                     <td className="text-right text-green-600 font-medium text-[15px]">+{fmtNum(r.inbound_qty)}</td>
                     <td className="text-right text-red-500 font-medium text-[15px]">-{fmtNum(r.outbound_qty)}</td>
                     <td className="text-right font-bold text-[15px]" style={{ backgroundColor: isZero ? "#fecaca" : isLow ? "#fde047" : "#fef08a", color: isZero ? "#991b1b" : "#000000" }}>{fmtNum(r.current_qty)}</td>
-                    <td className="text-right font-medium text-[15px]" style={{ color: "#64748b" }}>{fmtNum(r.product.unit_price)}</td>
-                    <td className="text-right font-bold text-[15px] text-green-700 bg-green-50/30">{fmtNum(r.inventory_value)}</td>
-
+                    <td className="text-center">
+                      <button onClick={() => openHistory(r.product, customerLabel(r.customer_id))} className="w-8 h-8 mx-auto rounded-lg hover:bg-slate-200 text-slate-500 hover:text-indigo-600 transition-colors flex items-center justify-center" title="Xem chi tiết lịch sử">👁️</button>
+                    </td>
                   </tr>
                 );
               })}
@@ -862,7 +887,6 @@ export default function InventoryReportPage() {
                 <td className="text-right p-5 border-l border-slate-100/50 text-red-500 font-black">-{fmtNum(totals.srcOut)}</td>
                 <td className="text-right p-5 border-l border-slate-100/50 text-amber-600 font-black text-lg bg-amber-50/30">{fmtNum(totals.qty)}</td>
                 <td className="border-l border-slate-100/50"></td>
-                <td className="text-right p-5 border-l border-slate-100/50 text-emerald-600 font-black text-xl bg-emerald-50/30 font-mono">{fmtNum(totals.val)}</td>
               </tr>
             </tfoot>
           </table>
@@ -935,6 +959,84 @@ export default function InventoryReportPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* ---- History Modal ---- */}
+      {historyModalOpen && historyProduct && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setHistoryModalOpen(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-[800px] w-full flex flex-col" style={{ maxHeight: "85vh" }} onClick={e => e.stopPropagation()}>
+            <div className="p-6 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center text-xl">👁️</div>
+                <div>
+                  <h2 className="font-black text-lg text-slate-900 uppercase tracking-tight">{historyProduct.sku} - {historyProduct.name}</h2>
+                  <p className="text-xs text-indigo-600 font-bold tracking-widest uppercase">
+                    {historyCustomerLabel || "Khách chung"} {historyProduct.spec ? `| ${historyProduct.spec}` : ""}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setHistoryModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-black p-2 bg-white rounded-lg transition-colors">✕</button>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex gap-4 items-end shrink-0">
+              <div>
+                <label className="filter-label text-slate-500 font-bold uppercase text-[9px] mb-1.5 block tracking-widest">Từ ngày</label>
+                <input type="date" value={historyStartDate} onChange={e => setHistoryStartDate(e.target.value)} className="input border-slate-200/60 bg-white/50 focus:bg-white transition-all rounded-lg h-10 w-40 font-bold" />
+              </div>
+              <div>
+                <label className="filter-label text-slate-500 font-bold uppercase text-[9px] mb-1.5 block tracking-widest">Đến ngày</label>
+                <input type="date" value={historyEndDate} onChange={e => setHistoryEndDate(e.target.value)} className="input border-slate-200/60 bg-white/50 focus:bg-white transition-all rounded-lg h-10 w-40 font-bold" />
+              </div>
+              <button
+                onClick={() => fetchHistory(historyProduct.id, historyStartDate, historyEndDate)}
+                className="btn h-10 px-6 bg-indigo-600 text-white font-black text-[11px] uppercase tracking-widest hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-colors"
+              >Lọc</button>
+            </div>
+
+            <div className="overflow-auto bg-white flex-1 p-0 relative">
+              {historyLoading ? (
+                <div className="py-20 text-center text-slate-400 font-bold text-xs uppercase tracking-widest animate-pulse">Đang tải lịch sử...</div>
+              ) : historyData.length === 0 ? (
+                <div className="py-20 text-center text-slate-400 font-bold text-xs uppercase tracking-widest">Không có giao dịch nào trong khoảng thời gian này</div>
+              ) : (
+                <table className="w-full text-sm text-left data-table">
+                  <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-32">Ngày</th>
+                      <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-32">Loại</th>
+                      <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right w-24">Số lượng</th>
+                      <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {historyData.map(tx => {
+                      let typeLabel = "";
+                      let typeColor = "";
+                      let qtySign = "";
+                      if (tx.tx_type === "in") { typeLabel = "Nhập kho"; typeColor = "text-blue-600 bg-blue-50"; qtySign = "+"; }
+                      else if (tx.tx_type === "out") { typeLabel = "Xuất kho"; typeColor = "text-red-600 bg-red-50"; qtySign = "-"; }
+                      else if (tx.tx_type === "adjust_in") { typeLabel = "Điều chỉnh tăng"; typeColor = "text-emerald-600 bg-emerald-50"; qtySign = "+"; }
+                      else if (tx.tx_type === "adjust_out") { typeLabel = "Điều chỉnh giảm"; typeColor = "text-orange-600 bg-orange-50"; qtySign = "-"; }
+
+                      return (
+                        <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-6 py-4 font-bold text-slate-700 whitespace-nowrap">{formatToVietnameseDate(tx.tx_date)}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${typeColor}`}>{typeLabel}</span>
+                          </td>
+                          <td className={`px-6 py-4 font-black text-right text-base ${qtySign === '+' ? 'text-blue-600' : 'text-red-500'}`}>
+                            {qtySign}{fmtNum(tx.qty)}
+                          </td>
+                          <td className="px-6 py-4 font-black text-black text-sm italic">{tx.note || "-"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
