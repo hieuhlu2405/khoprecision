@@ -1431,12 +1431,34 @@ export default function DeliveryPlanPage() {
                               <div className="relative group/cell w-full h-full">
                                 {isRecentUpdate && (
                                   <div
-                                    className="absolute -top-4 -right-2 flex flex-col items-end z-40 group/tooltip pointer-events-auto cursor-help"
-                                    title={`KẾ HOẠCH CŨ: ${plan?.prev_planned_qty || 0}\nKẾ HOẠCH MỚI: ${plan?.planned_qty || 0}\nCẬP NHẬT: ${new Date(plan!.qty_updated_at!).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`}
+                                    className="absolute -top-4 -right-2 flex flex-col items-end z-50 group/tooltip pointer-events-auto cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      showToast(`Kế hoạch cũ: ${plan?.prev_planned_qty || 0} ➔ Mới: ${plan?.planned_qty || 0} (Lúc ${new Date(plan!.qty_updated_at!).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`, "info");
+                                    }}
                                   >
                                     <div className="flex items-center bg-amber-500 text-white rounded-md shadow-lg shadow-amber-200 border border-amber-400 overflow-hidden transform group-hover/tooltip:scale-110 transition-transform">
                                       <span className="bg-white text-amber-500 px-1 font-black text-[14px] animate-pulse">⚡</span>
                                       <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-tighter whitespace-nowrap">SỬA ĐỔI</span>
+                                    </div>
+                                    {/* Tooltip cao cấp tự thiết kế */}
+                                    <div className="absolute top-full mt-1.5 hidden group-hover/tooltip:flex flex-col bg-slate-900/95 backdrop-blur-md text-white text-[11px] p-2.5 rounded-xl shadow-xl border border-slate-700/50 min-w-[160px] z-[100] text-left pointer-events-none">
+                                      <div className="font-bold text-amber-400 text-[10px] tracking-wider uppercase mb-1 flex items-center gap-1">
+                                        <span>⚡</span> THAY ĐỔI GẦN ĐÂY
+                                      </div>
+                                      <div className="border-b border-slate-700/50 my-1"></div>
+                                      <div className="flex justify-between gap-2 py-0.5">
+                                        <span className="text-slate-400">Kế hoạch cũ:</span>
+                                        <span className="font-bold text-amber-300">{plan?.prev_planned_qty || 0}</span>
+                                      </div>
+                                      <div className="flex justify-between gap-2 py-0.5">
+                                        <span className="text-slate-400">Kế hoạch mới:</span>
+                                        <span className="font-bold text-emerald-400">{plan?.planned_qty || 0}</span>
+                                      </div>
+                                      <div className="flex justify-between gap-2 py-0.5">
+                                        <span className="text-slate-400">Thời gian:</span>
+                                        <span className="font-bold text-slate-300">{new Date(plan!.qty_updated_at!).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                                      </div>
                                     </div>
                                   </div>
                                 )}
