@@ -344,13 +344,14 @@ export default function ShortageReportPage() {
         style={{
           width: width ? `${width}px` : w, minWidth: width ? `${width}px` : w,
           textAlign: align, left: sticky ? 0 : undefined,
-          zIndex: sticky ? 51 : 50,
+          zIndex: sticky ? 110 : 100,
           background: isToday ? "rgba(254,242,242,0.97)" : "rgba(255,255,255,0.97)",
           backdropFilter: "blur(8px)", borderBottom: "2px solid #f1f5f9",
           flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center", boxSizing: "border-box",
-          position: "relative"
+          position: "sticky",
+          top: 0
         }}
-        className={`py-3 px-3 sticky top-0 group select-none transition-colors ${sticky ? "shadow-[4px_0_12px_rgba(0,0,0,0.04)]" : ""} ${isToday ? "text-red-600" : "text-slate-700"}`}
+        className={`py-3 px-3 group select-none transition-colors ${sticky ? "shadow-[4px_0_12px_rgba(0,0,0,0.04)]" : ""} ${isToday ? "text-red-600" : "text-slate-700"}`}
       >
         <div className={`flex items-center gap-1.5 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
           {extra ? extra : <span className="font-black text-[10px] uppercase tracking-widest">{label}</span>}
