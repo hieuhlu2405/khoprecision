@@ -915,7 +915,7 @@ export default function DeliveryPlanPage() {
           customerName: cust?.name || '-',
           sku: p.sku,
           productName: p.name + (p.spec ? ` (${p.spec})` : ''),
-          plannedQty: plan.planned_qty || 0,
+          plannedQty: (plan.planned_qty || 0) + (plan.backlog_qty || 0),
         };
       })
       .sort((a, b) => a.customerName.localeCompare(b.customerName) || a.sku.localeCompare(b.sku));
@@ -956,13 +956,19 @@ export default function DeliveryPlanPage() {
 
         const existing = plans.find(x => x.product_id === product_id && x.plan_date === plan_date && String(x.delivery_customer_id || "null") === (delivery_id || "null"));
 
-        const newQtyRaw = editData.qty !== undefined ? editData.qty : (existing?.planned_qty ?? "0");
+        const backlogQty = Number(existing?.backlog_qty || 0);
+        let qty = 0;
+        if (editData.qty !== undefined) {
+          const enteredQty = Number(editData.qty);
+          qty = Math.max(0, enteredQty - backlogQty);
+        } else {
+          qty = Number(existing?.planned_qty ?? 0);
+        }
+        if (isNaN(qty) || qty < 0) return;
+
         const pastKey = `${product_id}_${delivery_id || "null"}`;
         const newNote = editData.note !== undefined ? editData.note : (existing?.note ?? pastNotesMap.get(pastKey)?.note ?? null);
         const newNote2 = editData.note2 !== undefined ? editData.note2 : (existing?.note_2 ?? pastNotesMap.get(pastKey)?.note_2 ?? null);
-
-        const qty = Number(newQtyRaw);
-        if (isNaN(qty) || qty < 0) return;
 
         const p = products.find(x => x.id === product_id);
         if (!p) return;
@@ -1637,13 +1643,13 @@ export default function DeliveryPlanPage() {
                         {days.map(d => {
                           const plan = plans.find(x => x.product_id === p.id && x.plan_date === d && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
                           const editData = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${d}`];
-                          const val = editData?.qty !== undefined ? editData.qty : (plan?.planned_qty?.toString() || "");
+                          const actualQty = plan?.actual_qty || 0;
+                          const plannedQty = (plan?.planned_qty || 0) + (plan?.backlog_qty || 0);
+                          const val = editData?.qty !== undefined ? editData.qty : (plannedQty > 0 ? plannedQty.toString() : "");
                           const isChanged = editData?.qty !== undefined || editData?.note !== undefined;
                           const itdr = getVNTimeStr() === d;
                           const isDone = plan?.is_completed;
                           const hasNote = !!(editData?.note ?? plan?.note);
-                          const actualQty = plan?.actual_qty || 0;
-                          const plannedQty = plan?.planned_qty || 0;
                           const progressPct = plannedQty > 0 ? Math.min(100, Math.round((actualQty / plannedQty) * 100)) : 0;
                           const hasPartialShipment = actualQty > 0 && !isDone;
                           const colW = colWidths[d] || 100;
