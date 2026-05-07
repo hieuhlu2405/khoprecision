@@ -183,6 +183,9 @@ export default function DeliveryPlanPage() {
   const [saving, setSaving] = useState(false);
   const [edits, setEdits] = useState<Record<string, { qty?: string; note?: string; note2?: string }>>({});
 
+  // Ghi chú kế thừa từ quá khứ (30 ngày gần nhất)
+  const [pastNotesMap, setPastNotesMap] = useState<Map<string, { note: string | null; note_2: string | null; plan_date: string }>>(new Map());
+
   // Filtering
   const [onlyScheduled, setOnlyScheduled] = useState(false);
 
@@ -269,6 +272,31 @@ export default function DeliveryPlanPage() {
         .is("deleted_at", null);
 
       if (!error) setPlans(planData || []);
+
+      // Tải ghi chú kế thừa 30 ngày qua (Performance: giới hạn scan window)
+      const thirtyDaysAgo = new Date(new Date(startDate).getTime() - 30 * 24 * 60 * 60 * 1000)
+        .toISOString().split('T')[0];
+      const { data: pastNotesData } = await supabase
+        .from("delivery_plans")
+        .select("product_id, customer_id, delivery_customer_id, note, note_2, plan_date")
+        .gte("plan_date", thirtyDaysAgo)
+        .lt("plan_date", startDate)
+        .is("deleted_at", null)
+        .order("plan_date", { ascending: false });
+
+      // Hash Map O(N): chỉ giữ ghi chú gần nhất cho mỗi sản phẩm + khách hàng
+      const tempMap = new Map<string, { note: string | null; note_2: string | null; plan_date: string }>();
+      if (pastNotesData) {
+        for (const item of pastNotesData) {
+          const hasAnyNote = (item.note && item.note.trim() !== "") || (item.note_2 && item.note_2.trim() !== "");
+          if (!hasAnyNote) continue;
+          const key = `${item.product_id}_${item.delivery_customer_id || "null"}`;
+          if (!tempMap.has(key)) {
+            tempMap.set(key, { note: item.note, note_2: item.note_2, plan_date: item.plan_date });
+          }
+        }
+      }
+      setPastNotesMap(tempMap);
     } catch (err: any) {
       console.error(err);
       showToast(err.message, "error");
@@ -851,8 +879,9 @@ export default function DeliveryPlanPage() {
         const existing = plans.find(x => x.product_id === product_id && x.plan_date === plan_date && String(x.delivery_customer_id || "null") === (delivery_id || "null"));
 
         const newQtyRaw = editData.qty !== undefined ? editData.qty : (existing?.planned_qty ?? "0");
-        const newNote = editData.note !== undefined ? editData.note : (existing?.note ?? null);
-        const newNote2 = editData.note2 !== undefined ? editData.note2 : (existing?.note_2 ?? null);
+        const pastKey = `${product_id}_${delivery_id || "null"}`;
+        const newNote = editData.note !== undefined ? editData.note : (existing?.note ?? pastNotesMap.get(pastKey)?.note ?? null);
+        const newNote2 = editData.note2 !== undefined ? editData.note2 : (existing?.note_2 ?? pastNotesMap.get(pastKey)?.note_2 ?? null);
 
         const qty = Number(newQtyRaw);
         if (isNaN(qty) || qty < 0) return;
@@ -1365,7 +1394,8 @@ export default function DeliveryPlanPage() {
                           {(() => {
                             const today = days[0];
                             const plan = plans.find(x => x.product_id === p.id && x.plan_date === today && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
-                            const noteVal = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note ?? plan?.note ?? "";
+                            const pastNoteKey = `${p.id}_${row.deliveryCustomerId || "null"}`;
+                            const noteVal = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note ?? plan?.note ?? pastNotesMap.get(pastNoteKey)?.note ?? "";
                             const disabled = !canEditDate(today);
                             return (
                               <input
@@ -1383,7 +1413,8 @@ export default function DeliveryPlanPage() {
                           {(() => {
                             const today = days[0];
                             const plan = plans.find(x => x.product_id === p.id && x.plan_date === today && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
-                            const note2Val = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note2 ?? plan?.note_2 ?? "";
+                            const pastNote2Key = `${p.id}_${row.deliveryCustomerId || "null"}`;
+                            const note2Val = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note2 ?? plan?.note_2 ?? pastNotesMap.get(pastNote2Key)?.note_2 ?? "";
                             const disabled = !canEditDate(today);
                             return (
                               <input
@@ -1506,9 +1537,7 @@ export default function DeliveryPlanPage() {
                                     {plan?.backlog_source === 'edit' ? 'SỬa' : 'NỢ'}
                                   </div>
                                 )}
-                                {hasNote && (
-                                  <div className="absolute top-0 right-0 w-2 h-2 bg-indigo-500 rounded-bl-full shadow-sm z-20" title={editData?.note ?? plan?.note ?? ""} />
-                                )}
+
                                 {isDone && (
                                   <div className="absolute top-1 right-1 flex items-center gap-1.5 z-20">
                                     {profile?.role === 'admin' && (
