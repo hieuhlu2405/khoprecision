@@ -100,6 +100,7 @@ export default function ShortageReportPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [stockMap, setStockMap] = useState<Record<string, number>>({});
+  const [pastNotesMap, setPastNotesMap] = useState<Map<string, { note: string; note2: string }>>(new Map());
 
   const days = useMemo(() => getNext7Days(), []);
   const [onlyShortage, setOnlyShortage] = useState(true);
@@ -145,6 +146,52 @@ export default function ShortageReportPage() {
         .from("delivery_plans").select("*")
         .gte("plan_date", startDate).lte("plan_date", endDate).is("deleted_at", null);
       setPlans(planData || []);
+
+      // Tải ghi chú kế thừa 30 ngày qua (Giới hạn scan window để tối ưu hiệu năng)
+      const thirtyDaysAgo = new Date(new Date(startDate).getTime() - 30 * 24 * 60 * 60 * 1000)
+        .toISOString().split('T')[0];
+      const { data: pastNotesData } = await supabase
+        .from("delivery_plans")
+        .select("product_id, delivery_customer_id, note, note_2, plan_date")
+        .gte("plan_date", thirtyDaysAgo)
+        .lt("plan_date", startDate)
+        .is("deleted_at", null)
+        .order("plan_date", { ascending: false });
+
+      const tempMap = new Map<string, { note: string; note2: string }>();
+      if (pastNotesData) {
+        const productLatestDateMap = new Map<string, string>();
+        const productNotesMap = new Map<string, { notes1: string[]; notes2: string[] }>();
+
+        for (const item of pastNotesData) {
+          const hasAnyNote = (item.note && item.note.trim() !== "") || (item.note_2 && item.note_2.trim() !== "");
+          if (!hasAnyNote) continue;
+
+          const latestDate = productLatestDateMap.get(item.product_id);
+          if (!latestDate) {
+            // Ngày gần nhất có ghi chú cho sản phẩm này
+            productLatestDateMap.set(item.product_id, item.plan_date);
+            productNotesMap.set(item.product_id, {
+              notes1: item.note ? [item.note] : [],
+              notes2: item.note_2 ? [item.note_2] : []
+            });
+          } else if (latestDate === item.plan_date) {
+            // Gom các ghi chú của các Vendor khác nhau trong cùng ngày gần nhất đó
+            const existing = productNotesMap.get(item.product_id)!;
+            if (item.note) existing.notes1.push(item.note);
+            if (item.note_2) existing.notes2.push(item.note_2);
+          }
+        }
+
+        // Nối các ghi chú bằng " | " để hiển thị gọn gàng trên 1 dòng của sản phẩm
+        for (const [prodId, data] of productNotesMap.entries()) {
+          tempMap.set(prodId, {
+            note: data.notes1.join(" | "),
+            note2: data.notes2.join(" | ")
+          });
+        }
+      }
+      setPastNotesMap(tempMap);
 
       // FETCH CURRENT STOCK (RPC)
       const currD = getVNTimeNow();
@@ -202,8 +249,18 @@ export default function ShortageReportPage() {
         dailyPlan.push(qty);
         dailyShortage.push(shortageToday);
         
-        const combinedNote1 = dayPlans.map(x => x.note).filter(Boolean).join(" | ");
-        const combinedNote2 = dayPlans.map(x => x.note_2).filter(Boolean).join(" | ");
+        let combinedNote1 = dayPlans.map(x => x.note).filter(Boolean).join(" | ");
+        let combinedNote2 = dayPlans.map(x => x.note_2).filter(Boolean).join(" | ");
+
+        // Kế thừa ghi chú cho ngày đầu tiên (Hôm nay) nếu trống ghi chú mới
+        if (d === days[0]) {
+          if (!combinedNote1 || combinedNote1.trim() === "") {
+            combinedNote1 = pastNotesMap.get(p.id)?.note || "";
+          }
+          if (!combinedNote2 || combinedNote2.trim() === "") {
+            combinedNote2 = pastNotesMap.get(p.id)?.note2 || "";
+          }
+        }
         dailyNotes.push({ note: combinedNote1, note2: combinedNote2 });
 
         if (shortageToday > 0) hasShortage = true;
@@ -252,7 +309,7 @@ export default function ShortageReportPage() {
       list.sort((a, b) => (a.hasShortage && !b.hasShortage ? -1 : !a.hasShortage && b.hasShortage ? 1 : b.maxShortage - a.maxShortage));
     }
     return list;
-  }, [products, customers, plans, stockMap, days, onlyShortage, filterCustomer, colFilters, sortCol, sortDir]);
+  }, [products, customers, plans, stockMap, days, onlyShortage, filterCustomer, colFilters, sortCol, sortDir, pastNotesMap]);
 
   // KPI Calculations
   const totalShortage = useMemo(() => reportData.filter(r => r.hasShortage).length, [reportData]);
