@@ -348,8 +348,7 @@ export default function ShortageReportPage() {
           background: isToday ? "rgba(254,242,242,0.97)" : "rgba(255,255,255,0.97)",
           backdropFilter: "blur(8px)", borderBottom: "2px solid #f1f5f9",
           flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center", boxSizing: "border-box",
-          position: "sticky",
-          top: 0
+          position: sticky ? "sticky" : "relative"
         }}
         className={`py-3 px-3 group select-none transition-colors ${sticky ? "shadow-[4px_0_12px_rgba(0,0,0,0.04)]" : ""} ${isToday ? "text-red-600" : "text-slate-700"}`}
       >
@@ -441,7 +440,7 @@ export default function ShortageReportPage() {
       <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-slate-200 shadow-xl shadow-slate-200/30 overflow-hidden">
         <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 260px)" }}>
           <table className="w-full text-xs !border-separate !border-spacing-0" style={{ tableLayout: "fixed", minWidth: (colWidths["sku"] || 200) + (colWidths["name"] || 300) + (colWidths["customer"] || 130) + (colWidths["note1"] || 150) + (colWidths["note2"] || 150) + (colWidths["stock"] || 120) + days.reduce((s, d) => s + (colWidths[d] || 110), 0) + (colWidths["max_shortage"] || 100) }}>
-            <thead>
+            <thead className="sticky top-0 z-[100] bg-white">
               <tr style={{ display: "flex", width: "100%" }}>
                 <ThCell label="Mã hàng" colKey="sku" sortable sticky w="200px" />
                 <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="300px" />
