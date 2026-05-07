@@ -162,7 +162,10 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
   );
 }
 
-function DateColFilterPopup({ filter, onChange, onClose, dateStr }: { filter: ColFilter | null; onChange: (f: ColFilter | null) => void; onClose: () => void; dateStr: string }) {
+function DateColFilterPopup({ filter, onChange, onClose, dateStr, uncompletedCount, canClose, onOpenCloseModal }: {
+  filter: ColFilter | null; onChange: (f: ColFilter | null) => void; onClose: () => void; dateStr: string;
+  uncompletedCount: number; canClose: boolean; onOpenCloseModal: (d: string) => void;
+}) {
   const active = filter?.value === "true";
   const formattedDate = (() => {
     try {
@@ -172,7 +175,7 @@ function DateColFilterPopup({ filter, onChange, onClose, dateStr }: { filter: Co
   })();
 
   return (
-    <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xl min-w-[240px] backdrop-blur-xl bg-white/90" onClick={e => e.stopPropagation()}>
+    <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xl min-w-[250px] backdrop-blur-xl bg-white/90" onClick={e => e.stopPropagation()}>
       <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1">
         <span>📅</span> Lọc ngày {formattedDate}
       </div>
@@ -190,6 +193,25 @@ function DateColFilterPopup({ filter, onChange, onClose, dateStr }: { filter: Co
           Lọc số khác 0 (Có kế hoạch)
         </label>
       </div>
+
+      {canClose && uncompletedCount > 0 && (
+        <div className="mt-1 mb-4 pt-3 border-t border-dashed border-amber-200/60">
+          <div className="text-[9px] font-black uppercase tracking-widest text-amber-600 mb-2">⚡ HÀNH ĐỘNG</div>
+          <button
+            onClick={() => { onClose(); onOpenCloseModal(dateStr); }}
+            className="group w-full py-2.5 px-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 active:scale-95 text-white rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all shadow-lg shadow-orange-200/50"
+          >
+            <span className="font-black text-[10px] tracking-wider flex items-center gap-1.5 uppercase">
+              <span className="inline-block transition-transform duration-300 group-hover:-translate-x-1.5">🚚</span>
+              CHỐT NỢ HÀNG NGÀY
+            </span>
+            <span className="text-[8px] font-bold text-amber-100/90 italic">
+              {uncompletedCount} đơn chờ chốt
+            </span>
+          </button>
+        </div>
+      )}
+
       <div className="flex gap-2 justify-end">
         <button onClick={() => { onChange(null); onClose(); }} className="btn btn-ghost btn-xs text-[10px] uppercase font-bold text-slate-400 hover:text-slate-600">Xóa lọc</button>
         <button onClick={onClose} className="btn btn-primary btn-xs text-[10px] uppercase font-bold px-4">Đóng</button>
@@ -232,6 +254,7 @@ export default function DeliveryPlanPage() {
   const [openPopup, setOpenPopup] = useState<string | null>(null);
 
   // RỦI RO #8: Tự động xóa bộ lọc ngày cũ khi chuyển tuần để tránh trắng bảng
+  // + Chốt chặn #6: Tự đóng Modal chốt nợ khi chuyển tuần
   useEffect(() => {
     setColFilters(prev => {
       const cleaned: Record<string, ColFilter> = {};
@@ -242,6 +265,7 @@ export default function DeliveryPlanPage() {
       });
       return Object.keys(cleaned).length === Object.keys(prev).length ? prev : cleaned;
     });
+    setCloseBacklogDay(null);
   }, [days]);
 
   // Auto Outbound State
@@ -269,6 +293,11 @@ export default function DeliveryPlanPage() {
   const [activeTab, setActiveTab] = useState<'plan' | 'history'>('plan');
   const [shipmentHistory, setShipmentHistory] = useState<ShipmentLog[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  // === CHỐT NỢ HÀNG NGÀY STATE ===
+  const [closeBacklogDay, setCloseBacklogDay] = useState<string | null>(null);
+  const [modalSortCol, setModalSortCol] = useState<'customer' | 'sku'>('customer');
+  const [modalSortDir, setModalSortDir] = useState<'asc' | 'desc'>('asc');
 
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -1003,6 +1032,72 @@ export default function DeliveryPlanPage() {
     }
   };
 
+  // === CHỐT NỢ HÀNG NGÀY: Mở Modal chi tiết ===
+  const handleOpenCloseBacklogModal = (dateStr: string) => {
+    // Chốt chặn #1: Chặn mở Modal khi có edits chưa lưu
+    if (Object.keys(edits).length > 0) {
+      showToast("Vui lòng nhấn 'LƯU KẾ HOẠCH' hoặc 'Hủy thay đổi' trước khi thực hiện chốt nợ!", "warning");
+      return;
+    }
+    setModalSortCol('customer');
+    setModalSortDir('asc');
+    setCloseBacklogDay(dateStr);
+  };
+
+  // === CHỐT NỢ HÀNG NGÀY: Xác nhận & ghi DB ===
+  const handleConfirmCloseBacklog = async () => {
+    if (!closeBacklogDay) return;
+
+    const uncompleted = plans.filter(p =>
+      p.plan_date === closeBacklogDay &&
+      !p.is_completed &&
+      (p.actual_qty || 0) === 0 &&
+      ((p.planned_qty || 0) + (p.backlog_qty || 0)) > 0
+    );
+
+    if (uncompleted.length === 0) {
+      showToast("Không có kế hoạch nào cần chốt nợ cho ngày này.", "info");
+      setCloseBacklogDay(null);
+      return;
+    }
+
+    const [y, m, d] = closeBacklogDay.split("-");
+    const formattedDate = `${d}/${m}`;
+
+    const confirmOk = await showConfirm({
+      message: `Bạn có muốn xác nhận chốt nợ? Hệ thống sẽ tiến hành đóng chốt ngày ${formattedDate}.\n\nXin lưu ý: Thao tác này là KHÔNG THỂ HOÀN TÁC! Hãy xác nhận và thông báo với bộ phận Kinh Doanh trước khi thực hiện thao tác này.`,
+      confirmLabel: "ĐỒNG Ý CHỐT NỢ",
+      cancelLabel: "HỦY",
+      danger: true
+    });
+
+    if (!confirmOk) return;
+
+    setSaving(true);
+    try {
+      const ids = uncompleted.map(p => p.id);
+      const { error } = await supabase
+        .from("delivery_plans")
+        .update({
+          is_completed: true,
+          updated_at: new Date().toISOString(),
+          updated_by: profile?.id
+        })
+        .in("id", ids);
+
+      if (error) throw error;
+
+      const totalQty = uncompleted.reduce((sum, p) => sum + ((p.planned_qty || 0) + (p.backlog_qty || 0)), 0);
+      showToast(`Đã chốt nợ thành công ngày ${formattedDate}! ${uncompleted.length} đơn, tổng ${totalQty.toLocaleString()} PCS gối sang ngày tiếp theo.`, "success");
+      setCloseBacklogDay(null);
+      loadData();
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const displayProducts = useMemo(() => {
     let list = products.slice();
 
@@ -1244,6 +1339,9 @@ export default function DeliveryPlanPage() {
                 onChange={f => setColFilters(prev => { const n = { ...prev }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
                 onClose={() => setOpenPopup(null)}
                 dateStr={colKey}
+                uncompletedCount={plans.filter(p => p.plan_date === colKey && !p.is_completed && (p.actual_qty || 0) === 0 && ((p.planned_qty || 0) + (p.backlog_qty || 0)) > 0).length}
+                canClose={canEdit && colKey <= todayVN}
+                onOpenCloseModal={handleOpenCloseBacklogModal}
               />
             ) : (
               <TextFilterPopup
@@ -2079,6 +2177,116 @@ export default function DeliveryPlanPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* === MODAL CHỐT NỢ HÀNG NGÀY === */}
+      {closeBacklogDay && (() => {
+        const pendingPlans = plans.filter(p =>
+          p.plan_date === closeBacklogDay &&
+          !p.is_completed &&
+          (p.actual_qty || 0) === 0 &&
+          ((p.planned_qty || 0) + (p.backlog_qty || 0)) > 0
+        );
+        const pendingItems = pendingPlans.map(p => {
+          const prod = products.find(x => x.id === p.product_id);
+          const cust = customers.find(x => x.id === (p.customer_id || prod?.customer_id));
+          return {
+            id: p.id,
+            customerCode: cust?.code || "N/A",
+            sku: prod?.sku || "N/A",
+            qty: (p.planned_qty || 0) + (p.backlog_qty || 0)
+          };
+        }).sort((a, b) => {
+          const valA = modalSortCol === 'customer' ? a.customerCode : a.sku;
+          const valB = modalSortCol === 'customer' ? b.customerCode : b.sku;
+          const cmp = valA.localeCompare(valB, 'vi', { sensitivity: 'base' });
+          return modalSortDir === 'asc' ? cmp : -cmp;
+        });
+        const totalQty = pendingItems.reduce((s, x) => s + x.qty, 0);
+        const [y, m, d] = closeBacklogDay.split("-");
+        const fmtDate = `${d}/${m}`;
+        const toggleSort = (col: 'customer' | 'sku') => {
+          if (modalSortCol === col) setModalSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+          else { setModalSortCol(col); setModalSortDir('asc'); }
+        };
+
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => !saving && setCloseBacklogDay(null)}>
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" />
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white">
+                <div className="text-xs font-black uppercase tracking-widest opacity-80">🚚 Chốt Nợ Hàng Ngày</div>
+                <div className="text-lg font-black mt-1">Ngày {fmtDate} — {pendingItems.length} đơn chờ chốt</div>
+                <div className="text-xs font-bold opacity-80 mt-0.5">Tổng lượng gối nợ: {totalQty.toLocaleString()} PCS</div>
+              </div>
+
+              {/* Table */}
+              {pendingItems.length === 0 ? (
+                <div className="px-6 py-12 text-center text-slate-400 font-bold italic text-sm">
+                  Không có đơn nào cần chốt nợ cho ngày này.
+                </div>
+              ) : (
+                <div className="max-h-[350px] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-slate-50 z-10">
+                      <tr className="border-b border-slate-200">
+                        <th className="px-6 py-3 text-left">
+                          <button onClick={() => toggleSort('customer')} className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">
+                            Mã KH
+                            <span className="text-xs">{modalSortCol === 'customer' ? (modalSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                          </button>
+                        </th>
+                        <th className="px-4 py-3 text-left">
+                          <button onClick={() => toggleSort('sku')} className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">
+                            Mã hàng
+                            <span className="text-xs">{modalSortCol === 'sku' ? (modalSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                          </button>
+                        </th>
+                        <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Số lượng</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {pendingItems.map((item, idx) => (
+                        <tr key={item.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-amber-50/40 transition-colors`}>
+                          <td className="px-6 py-2.5 font-black text-xs text-slate-700">{item.customerCode}</td>
+                          <td className="px-4 py-2.5 font-bold text-xs text-slate-600">{item.sku}</td>
+                          <td className="px-4 py-2.5 font-black text-xs text-right text-slate-900">{item.qty.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="sticky bottom-0 bg-amber-50 border-t-2 border-amber-200">
+                      <tr>
+                        <td colSpan={2} className="px-6 py-2.5 font-black text-xs text-amber-800 uppercase tracking-wider">Tổng cộng</td>
+                        <td className="px-4 py-2.5 font-black text-xs text-right text-amber-900">{totalQty.toLocaleString()}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setCloseBacklogDay(null)}
+                  disabled={saving}
+                  className="btn btn-ghost btn-sm text-xs font-bold uppercase tracking-wider"
+                >
+                  Hủy
+                </button>
+                {pendingItems.length > 0 && (
+                  <button
+                    onClick={handleConfirmCloseBacklog}
+                    disabled={saving}
+                    className="btn btn-sm px-6 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black text-xs uppercase tracking-wider border-none shadow-lg shadow-orange-200/50 disabled:opacity-50"
+                  >
+                    {saving ? "ĐANG XỬ LÝ..." : "XÁC NHẬN CHỐT NỢ"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <style jsx global>{`
         @keyframes pulse-subtle {
