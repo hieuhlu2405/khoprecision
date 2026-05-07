@@ -162,6 +162,42 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
   );
 }
 
+function DateColFilterPopup({ filter, onChange, onClose, dateStr }: { filter: ColFilter | null; onChange: (f: ColFilter | null) => void; onClose: () => void; dateStr: string }) {
+  const active = filter?.value === "true";
+  const formattedDate = (() => {
+    try {
+      const [y, m, d] = dateStr.split("-");
+      return `${d}/${m}`;
+    } catch { return dateStr; }
+  })();
+
+  return (
+    <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xl min-w-[240px] backdrop-blur-xl bg-white/90" onClick={e => e.stopPropagation()}>
+      <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1">
+        <span>📅</span> Lọc ngày {formattedDate}
+      </div>
+      <div className="flex items-center gap-3 mb-4 py-2 border-y border-slate-100">
+        <input
+          type="checkbox"
+          id={`non-zero-filter-${dateStr}`}
+          checked={active}
+          onChange={e => {
+            onChange(e.target.checked ? { mode: "equals", value: "true" } : null);
+          }}
+          className="checkbox checkbox-primary checkbox-sm rounded-md"
+        />
+        <label htmlFor={`non-zero-filter-${dateStr}`} className="text-xs font-black text-slate-800 cursor-pointer select-none">
+          Lọc số khác 0 (Có kế hoạch)
+        </label>
+      </div>
+      <div className="flex gap-2 justify-end">
+        <button onClick={() => { onChange(null); onClose(); }} className="btn btn-ghost btn-xs text-[10px] uppercase font-bold text-slate-400 hover:text-slate-600">Xóa lọc</button>
+        <button onClick={onClose} className="btn btn-primary btn-xs text-[10px] uppercase font-bold px-4">Đóng</button>
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Main Page Component                                                 */
 /* ------------------------------------------------------------------ */
@@ -194,6 +230,19 @@ export default function DeliveryPlanPage() {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [openPopup, setOpenPopup] = useState<string | null>(null);
+
+  // RỦI RO #8: Tự động xóa bộ lọc ngày cũ khi chuyển tuần để tránh trắng bảng
+  useEffect(() => {
+    setColFilters(prev => {
+      const cleaned: Record<string, ColFilter> = {};
+      Object.entries(prev).forEach(([key, val]) => {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+          cleaned[key] = val;
+        }
+      });
+      return Object.keys(cleaned).length === Object.keys(prev).length ? prev : cleaned;
+    });
+  }, [days]);
 
   // Auto Outbound State
   const [loadingOutbound, setLoadingOutbound] = useState(false);
@@ -970,19 +1019,43 @@ export default function DeliveryPlanPage() {
 
     Object.entries(colFilters).forEach(([key, f]) => {
       if (!f.value) return;
-      const v = f.value.toLowerCase();
-      list = list.filter(p => {
-        let target = "";
-        if (key === "sku") target = p.sku;
-        else if (key === "name") target = p.name;
-        else if (key === "customer") {
-          const c = customers.find(x => x.id === p.customer_id);
-          target = c ? `${c.code} ${c.name}` : "";
-        }
+      const isDateKey = /^\d{4}-\d{2}-\d{2}$/.test(key);
 
-        if (f.mode === "contains") return target.toLowerCase().includes(v);
-        return target.toLowerCase() === v;
-      });
+      if (isDateKey) {
+        if (f.value === "true") {
+          // RỦI RO #4: Tối ưu hiệu năng Set O(1) thay vì loop O(N×M)
+          // RỦI RO #7: Tính gộp cả nợ cũ (backlog) để không ẩn mất dòng nợ
+          const activeProductIds = new Set(
+            plans
+              .filter(pl => pl.plan_date === key && ((pl.planned_qty || 0) + (pl.backlog_qty || 0)) > 0)
+              .map(pl => pl.product_id)
+          );
+          list = list.filter(p => {
+            const hasPlan = activeProductIds.has(p.id);
+            // RỦI RO #9: Check có edit bất kỳ (key tồn tại) thay vì check giá trị
+            const hasEdit = Object.keys(edits).some(k => {
+              const pts = k.split("_");
+              return pts[0] === p.id && pts[2] === key;
+            });
+            return hasPlan || hasEdit;
+          });
+        }
+      } else {
+        // Giữ nguyên 100% logic lọc Text cũ cho SKU/Name/Customer
+        const v = f.value.toLowerCase();
+        list = list.filter(p => {
+          let target = "";
+          if (key === "sku") target = p.sku;
+          else if (key === "name") target = p.name;
+          else if (key === "customer") {
+            const c = customers.find(x => x.id === p.customer_id);
+            target = c ? `${c.code} ${c.name}` : "";
+          }
+
+          if (f.mode === "contains") return target.toLowerCase().includes(v);
+          return target.toLowerCase() === v;
+        });
+      }
     });
 
     if (sortCol && sortDir) {
@@ -1011,8 +1084,11 @@ export default function DeliveryPlanPage() {
     const rows: { id: string; p: Product; deliveryCustomerId: string | null; vendorName?: string }[] = [];
 
     list.forEach(p => {
+      // Build danh sách dòng tạm (Mẹ + Vendor)
+      const tempRows: { id: string; p: Product; deliveryCustomerId: string | null; vendorName?: string }[] = [];
+
       // Dòng mặc định cho Công ty Mẹ
-      rows.push({
+      tempRows.push({
         id: `${p.id}_null`,
         p,
         deliveryCustomerId: null
@@ -1044,16 +1120,38 @@ export default function DeliveryPlanPage() {
       });
 
       vendorRowsForProduct.forEach(({ vId, cv }) => {
-        rows.push({
+        tempRows.push({
           id: `${p.id}_${vId}`,
           p,
           deliveryCustomerId: vId,
           vendorName: cv.name
         });
       });
+
+      // LỌC DÒNG CHI TIẾT: Nếu có bộ lọc ngày hoạt động, ẩn dòng Mẹ/Vendor có lượng = 0
+      let filteredRows = tempRows;
+      Object.entries(colFilters).forEach(([key, f]) => {
+        const isDateKey = /^\d{4}-\d{2}-\d{2}$/.test(key);
+        if (isDateKey && f.value === "true") {
+          filteredRows = filteredRows.filter(row => {
+            const plan = plans.find(pl =>
+              pl.product_id === p.id &&
+              pl.plan_date === key &&
+              (row.deliveryCustomerId ? pl.delivery_customer_id === row.deliveryCustomerId : pl.delivery_customer_id === null)
+            );
+            // RỦI RO #7: Tính gộp cả nợ cũ (backlog)
+            const dbQty = (plan?.planned_qty || 0) + (plan?.backlog_qty || 0);
+            // RỦI RO #9: Giữ dòng nếu người dùng đang chạm vào (có edit bất kỳ)
+            const editKey = `${p.id}_${row.deliveryCustomerId || "null"}_${key}`;
+            const hasActiveEdit = edits[editKey] !== undefined;
+            return dbQty > 0 || hasActiveEdit;
+          });
+        }
+      });
+      rows.push(...filteredRows);
     });
     return rows;
-  }, [displayProducts, plans, customers]);
+  }, [displayProducts, plans, customers, colFilters, edits]);
 
   const rowVirtualizer = useVirtualizer({
     count: tableRows.length,
@@ -1114,7 +1212,7 @@ export default function DeliveryPlanPage() {
       >
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
           {extra ? extra : <span className="text-black font-black text-xs uppercase tracking-wider">{label}</span>}
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className={`flex items-center gap-0.5 transition-opacity ${active ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
             {sortable && (
               <button
                 onClick={(e) => { e.stopPropagation(); toggleSort(colKey); }}
@@ -1140,11 +1238,20 @@ export default function DeliveryPlanPage() {
         />
         {popupOpen && (
           <div className="absolute top-[calc(100%+8px)] left-0 z-50 animate-in fade-in slide-in-from-top-2 duration-200 shadow-2xl rounded-xl overflow-hidden" onClick={e => e.stopPropagation()}>
-            <TextFilterPopup
-              filter={colFilters[colKey] as TextFilter}
-              onChange={f => setColFilters(prev => { const n = { ...prev }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
-              onClose={() => setOpenPopup(null)}
-            />
+            {/^\d{4}-\d{2}-\d{2}$/.test(colKey) ? (
+              <DateColFilterPopup
+                filter={colFilters[colKey]}
+                onChange={f => setColFilters(prev => { const n = { ...prev }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
+                onClose={() => setOpenPopup(null)}
+                dateStr={colKey}
+              />
+            ) : (
+              <TextFilterPopup
+                filter={colFilters[colKey] as TextFilter}
+                onChange={f => setColFilters(prev => { const n = { ...prev }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
+                onClose={() => setOpenPopup(null)}
+              />
+            )}
           </div>
         )}
       </th>
@@ -1336,6 +1443,7 @@ export default function DeliveryPlanPage() {
                     <tr><td colSpan={10} className="py-32 text-center text-slate-300 font-bold italic">Không tìm thấy dữ liệu khớp bộ lọc.</td></tr>
                   ) : rowVirtualizer.getVirtualItems().map((virtualRow) => {
                     const row = tableRows[virtualRow.index];
+                    if (!row) return null; // RỦI RO #1: CHỐT CHẶN AN TOÀN CHỐNG SẬP TRẮNG TRANG
                     const p = row.p;
                     const c = row.deliveryCustomerId ? customers.find(x => x.id === row.deliveryCustomerId) : customers.find(x => x.id === p.customer_id);
                     const isParentRow = row.deliveryCustomerId === null;
