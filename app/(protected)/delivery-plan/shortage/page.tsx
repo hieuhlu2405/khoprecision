@@ -62,6 +62,44 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
   );
 }
 
+function DayFilterPopup({ dateStr, filter, onChange, onClose }: { dateStr: string; filter: TextFilter | null; onChange: (f: TextFilter | null) => void; onClose: () => void }) {
+  const active = !!filter;
+  const formattedDate = (() => {
+    try {
+      const [y, m, d] = dateStr.split("-");
+      return `${d}/${m}`;
+    } catch {
+      return dateStr;
+    }
+  })();
+
+  return (
+    <div className="p-4 bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200 shadow-2xl min-w-[240px]" onClick={e => e.stopPropagation()}>
+      <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1">
+        <span>📅</span> Lọc ngày {formattedDate}
+      </div>
+      <div className="flex items-center gap-3 mb-4 py-2 border-y border-slate-100">
+        <input
+          type="checkbox"
+          id={`shortage-filter-${dateStr}`}
+          checked={active}
+          onChange={e => {
+            onChange(e.target.checked ? { mode: "equals", value: "true" } : null);
+          }}
+          className="w-4 h-4 rounded accent-red-600 cursor-pointer"
+        />
+        <label htmlFor={`shortage-filter-${dateStr}`} className="text-xs font-bold text-slate-800 cursor-pointer select-none">
+          Chỉ hiện mã thiếu ngày này
+        </label>
+      </div>
+      <div className="flex justify-end gap-2">
+        <button onClick={() => { onChange(null); onClose(); }} className="btn btn-ghost btn-xs uppercase text-[10px] font-bold">Xóa</button>
+        <button onClick={() => onClose()} className="btn btn-primary btn-xs uppercase text-[10px] font-bold px-4">Đóng</button>
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* KPI Card                                                            */
 /* ------------------------------------------------------------------ */
@@ -277,6 +315,14 @@ export default function ShortageReportPage() {
 
     // Column filters
     Object.entries(colFilters).forEach(([key, f]) => {
+      // 1. Rẽ nhánh xử lý Lọc ngày tối ưu & phòng thủ
+      const dayIdx = days.indexOf(key);
+      if (dayIdx !== -1) {
+        list = list.filter(r => (r.dailyShortage[dayIdx] || 0) > 0);
+        return;
+      }
+
+      // 2. Các cột lọc văn bản (sku, name, customer)
       const v = f.value.toLowerCase();
       list = list.filter(r => {
         if (key === "sku") return r.p.sku.toLowerCase().includes(v);
@@ -367,7 +413,7 @@ export default function ShortageReportPage() {
             )}
             {!isNum && (
               <button onClick={() => setOpenPopup(popupOpen ? null : colKey)}
-                className={`p-0.5 rounded transition-all ${active ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-indigo-500 hover:bg-slate-100"}`}>
+                className={`p-0.5 rounded transition-all ${active ? (days.includes(colKey) ? "bg-red-600 text-white" : "bg-indigo-600 text-white") : "text-slate-400 hover:text-indigo-500 hover:bg-slate-100"}`}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
               </button>
             )}
@@ -376,9 +422,15 @@ export default function ShortageReportPage() {
         <div onMouseDown={startResizing} className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-400 transition-colors z-20" />
         {popupOpen && (
           <div className="absolute top-[calc(100%+8px)] left-0 z-[200]" onClick={e => e.stopPropagation()}>
-            <TextFilterPopup filter={colFilters[colKey] || null}
-              onChange={f => setColFilters(p => { const n = { ...p }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
-              onClose={() => setOpenPopup(null)} />
+            {days.includes(colKey) ? (
+              <DayFilterPopup dateStr={colKey} filter={colFilters[colKey] || null}
+                onChange={f => setColFilters(p => { const n = { ...p }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
+                onClose={() => setOpenPopup(null)} />
+            ) : (
+              <TextFilterPopup filter={colFilters[colKey] || null}
+                onChange={f => setColFilters(p => { const n = { ...p }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
+                onClose={() => setOpenPopup(null)} />
+            )}
           </div>
         )}
       </th>
