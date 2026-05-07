@@ -420,7 +420,6 @@ export default function ShortageReportPage() {
             <span className={`text-[10px] font-black uppercase tracking-widest ${onlyShortage ? "text-red-600" : "text-slate-400"}`}>CHỈ MÃ THIẾU</span>
           </label>
           <button onClick={() => loadData()} className="btn btn-secondary btn-sm">↻ Làm mới</button>
-          <button onClick={() => window.print()} className="btn btn-secondary btn-sm">🖨️ In PDF</button>
         </div>
       </div>
 
