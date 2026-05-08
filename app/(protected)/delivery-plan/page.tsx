@@ -1681,7 +1681,9 @@ export default function DeliveryPlanPage() {
                                     }}
                                   >
                                     <div className="flex items-center justify-center bg-amber-500 text-white w-5 h-5 rounded-full shadow-md shadow-amber-200/50 border border-amber-400 transform group-hover/tooltip:scale-110 transition-transform">
-                                      <span className="font-black text-[11px] animate-pulse leading-none">⚡</span>
+                                      <svg className="w-3 h-3 text-white animate-pulse" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                                      </svg>
                                     </div>
                                     {/* Tooltip cao cấp tự thiết kế - hiển thị hướng xuống dưới */}
                                     <div className="absolute top-full mt-1.5 hidden group-hover/tooltip:flex flex-col bg-slate-900/95 backdrop-blur-md text-white text-[11px] p-2.5 rounded-xl shadow-xl border border-slate-700/50 min-w-[160px] z-[100] text-left pointer-events-none">
