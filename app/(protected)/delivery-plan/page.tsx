@@ -1680,9 +1680,8 @@ export default function DeliveryPlanPage() {
                                       showToast(`Kế hoạch cũ: ${plan?.prev_planned_qty || 0} ➔ Mới: ${plan?.planned_qty || 0} (Lúc ${new Date(plan!.qty_updated_at!).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`, "info");
                                     }}
                                   >
-                                    <div className="flex items-center bg-amber-500 text-white rounded-md shadow-lg shadow-amber-200 border border-amber-400 overflow-hidden transform group-hover/tooltip:scale-110 transition-transform">
-                                      <span className="bg-white text-amber-500 px-1 font-black text-[14px] animate-pulse">⚡</span>
-                                      <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-tighter whitespace-nowrap">SỬA ĐỔI</span>
+                                    <div className="flex items-center justify-center bg-amber-500 text-white w-5 h-5 rounded-full shadow-md shadow-amber-200/50 border border-amber-400 transform group-hover/tooltip:scale-110 transition-transform">
+                                      <span className="font-black text-[11px] animate-pulse leading-none">⚡</span>
                                     </div>
                                     {/* Tooltip cao cấp tự thiết kế - hiển thị hướng xuống dưới */}
                                     <div className="absolute top-full mt-1.5 hidden group-hover/tooltip:flex flex-col bg-slate-900/95 backdrop-blur-md text-white text-[11px] p-2.5 rounded-xl shadow-xl border border-slate-700/50 min-w-[160px] z-[100] text-left pointer-events-none">
