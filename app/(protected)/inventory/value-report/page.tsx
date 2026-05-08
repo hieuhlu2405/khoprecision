@@ -855,6 +855,7 @@ export default function InventoryValueReportPage() {
   const [openings, setOpenings] = useState<OpeningBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [lastTxMap, setLastTxMap] = useState<Record<string, string>>({});
 
   /* ---- Filters & State ---- */
   const today = getTodayVNStr();
@@ -980,6 +981,17 @@ export default function InventoryValueReportPage() {
       setProducts((rP.data ?? []) as Product[]);
       setCustomers((rC.data ?? []) as Customer[]);
 
+      // Nạp dữ liệu ngày giao dịch cuối cùng thông qua RPC bảo mật
+      const { data: lastTxData, error: eTx } = await supabase.rpc("inventory_get_last_tx_dates");
+      if (signal.aborted) return;
+      if (eTx) throw eTx;
+
+      const txMap: Record<string, string> = {};
+      (lastTxData ?? []).forEach((row: any) => {
+        txMap[row.out_product_id] = row.out_last_tx_date;
+      });
+      setLastTxMap(txMap);
+
       const maxD = Math.max(new Date(qEnd).getTime(), new Date(p1End).getTime(), new Date(p2End).getTime());
       const maxEnd = new Date(maxD).toLocaleDateString('sv-SE');
       const { data: openData, error: eO } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", maxEnd + "T23:59:59.999Z").is("deleted_at", null);
@@ -1051,14 +1063,15 @@ export default function InventoryValueReportPage() {
       .slice(-12);
   }, [openings]);
 
-  const productData = useMemo(() => {
+  // 1. Dữ liệu gốc sau khi áp dụng bộ lọc tìm kiếm và tồn kho cơ bản
+  const rawProductData = useMemo(() => {
     const rows = stockRowsFromRpc;
-    
+
     const groupedRows = new Map<string, any>();
     for (const r of rows) {
       const p = productMap.get(r.product_id);
       if (!p) continue;
-      
+
       if (!groupedRows.has(r.product_id)) {
         groupedRows.set(r.product_id, {
           product_id: r.product_id,
@@ -1083,17 +1096,17 @@ export default function InventoryValueReportPage() {
     for (const g of mergedArray) {
       const p = productMap.get(g.product_id);
       if (!p) continue;
-      
+
       if (qCustomer && p.customer_id !== qCustomer) continue;
-      
+
       if (debouncedQProd) {
         const s = debouncedQProd.toLowerCase();
         if (!p.sku.toLowerCase().includes(s) && !p.name.toLowerCase().includes(s)) continue;
       }
-      
+
       const curQty = g.current_qty;
       if (onlyInStock && curQty <= 0) continue;
-      
+
       const qOp = g.opening_qty;
       const qIn = g.inbound_qty;
       const qOut = g.outbound_qty;
@@ -1110,8 +1123,31 @@ export default function InventoryValueReportPage() {
       });
     }
 
-    // Sort by value to calculate ABC 80/20 concentration
-    const sorted = [...results].sort((a,b) => b.inventory_value - a.inventory_value);
+    return results;
+  }, [stockRowsFromRpc, productMap, qCustomer, debouncedQProd, onlyInStock]);
+
+  // 2. Danh sách hàng thực tế tồn đọng quá 30 ngày kể từ giao dịch cuối (Tính toán độc lập, an toàn)
+  const deadStockProducts = useMemo(() => {
+    if (loading) return []; // Chốt chặn tối ưu hiệu năng khi trang đang tải
+    return rawProductData.filter(r => {
+      if (r.current_qty <= 0) return false;
+      const lastTx = lastTxMap[r.product.id];
+      if (!lastTx || typeof lastTx !== "string" || lastTx.length < 10) return true; // Có tồn nhưng không có giao dịch -> Tồn đọng
+
+      const d1 = new Date((qEnd || "").slice(0, 10) || new Date().toISOString().slice(0, 10));
+      const d2 = new Date(lastTx.slice(0, 10));
+      const diffTime = d1.getTime() - d2.getTime();
+      if (isNaN(diffTime)) return true;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      return diffDays > 30;
+    });
+  }, [rawProductData, lastTxMap, qEnd, loading]);
+
+  // 3. Dữ liệu thành phẩm sau khi áp dụng Lọc thông minh (Hiển thị trực tiếp lên bảng)
+  const productData = useMemo(() => {
+    // Phục vụ tính toán ABC
+    const sorted = [...rawProductData].sort((a,b) => b.inventory_value - a.inventory_value);
     const totalVal = sorted.reduce((acc, r) => acc + r.inventory_value, 0);
     let runningSum = 0;
     const abcSet = new Set<string>();
@@ -1121,18 +1157,17 @@ export default function InventoryValueReportPage() {
       if (runningSum > totalVal * 0.8) break;
     }
 
-    // Apply Smart Insight Filters
-    let final = results;
+    let final = rawProductData;
     if (activeInsightFilter === "capital") {
       final = final.filter(r => abcSet.has(`${r.product.id}_${r.customer_id || ""}`));
     } else if (activeInsightFilter === "dead") {
-      final = final.filter(r => r.inbound_qty === 0 && r.outbound_qty === 0 && r.current_qty > 0);
+      final = deadStockProducts;
     } else if (activeInsightFilter === "no_price") {
       final = final.filter(r => r.current_qty > 0 && (r.product.unit_price || 0) === 0);
     }
 
     return final;
-  }, [reportMode, stockRowsFromRpc, productMap, openings, qCustomer, debouncedQProd, onlyInStock, qEnd, bounds, activeInsightFilter]);
+  }, [rawProductData, activeInsightFilter, deadStockProducts]);
 
   const overallTotals = useMemo(() => {
     let tVal = 0, tQty = 0, productsWithStock = 0;
@@ -1530,7 +1565,7 @@ export default function InventoryValueReportPage() {
             <StatCardV2 label="Tổng giá trị tồn kho" value={overallTotals.totalValue} unit="VNĐ" color="crimson" icon="💰" />
             <StatCardV2 label="Tổng số lượng tồn" value={overallTotals.totalQty} color="var(--slate-400)" icon="📦" />
             <StatCardV2 label="Số mã còn tồn" value={overallTotals.productCount} color="var(--brand)" icon="🏷️" />
-            <StatCardV2 label="Số mã hàng đọng" value={(stockRowsFromRpc || []).filter(r => Number(r.inbound_qty) === 0 && Number(r.outbound_qty) === 0 && Number(r.current_qty) > 0).length} color="var(--slate-500)" icon="🧊" />
+            <StatCardV2 label="Số mã hàng đọng" value={deadStockProducts.length} color="var(--slate-500)" icon="🧊" />
           </>
         ) : (
           <>
@@ -1653,7 +1688,7 @@ export default function InventoryValueReportPage() {
               />
               <InsightCard 
                 icon="🧊" title="Hàng tồn đọng" subtitle="Không giao dịch > 30 ngày" 
-                value={`${(stockRowsFromRpc || []).filter(r => Number(r.inbound_qty) === 0 && Number(r.outbound_qty) === 0 && Number(r.current_qty) > 0).length} mã`}
+                value={`${deadStockProducts.length} mã`}
                 active={activeInsightFilter === "dead"}
                 color="orange"
                 onClick={() => setActiveInsightFilter(f => f === "dead" ? null : "dead")}
