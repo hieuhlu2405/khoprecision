@@ -26,7 +26,9 @@ BEGIN
   WITH p1_tx AS (
     SELECT 
       COALESCE(SUM(qty * unit_cost), 0) as rev,
-      COALESCE(SUM(qty), 0) as qty
+      COALESCE(SUM(qty), 0) as qty,
+      -- Đếm số ngày độc nhất thực tế phát sinh xuất kho
+      COALESCE(COUNT(DISTINCT tx_date), 0) as active_days
     FROM inventory_transactions
     WHERE tx_type = 'out' AND deleted_at IS NULL
       AND tx_date >= p1_start AND tx_date <= p1_end
@@ -34,9 +36,24 @@ BEGIN
   p2_tx AS (
     SELECT 
       COALESCE(SUM(qty * unit_cost), 0) as rev,
-      COALESCE(SUM(qty), 0) as qty
+      COALESCE(SUM(qty), 0) as qty,
+      COALESCE(COUNT(DISTINCT tx_date), 0) as active_days
     FROM inventory_transactions
     WHERE tx_type = 'out' AND deleted_at IS NULL
+      AND tx_date >= p2_start AND tx_date <= p2_end
+  ),
+  p1_ship_tx AS (
+    -- Doanh thu thực tế đi theo chuyến xe của Kỳ 1
+    SELECT COALESCE(SUM(qty * unit_cost), 0) as rev
+    FROM inventory_transactions
+    WHERE tx_type = 'out' AND deleted_at IS NULL AND shipment_id IS NOT NULL
+      AND tx_date >= p1_start AND tx_date <= p1_end
+  ),
+  p2_ship_tx AS (
+    -- Doanh thu thực tế đi theo chuyến xe của Kỳ 2
+    SELECT COALESCE(SUM(qty * unit_cost), 0) as rev
+    FROM inventory_transactions
+    WHERE tx_type = 'out' AND deleted_at IS NULL AND shipment_id IS NOT NULL
       AND tx_date >= p2_start AND tx_date <= p2_end
   ),
   p1_ship AS (
@@ -50,12 +67,15 @@ BEGIN
   SELECT jsonb_build_object(
     'p1_revenue', (SELECT rev FROM p1_tx),
     'p2_revenue', (SELECT rev FROM p2_tx),
+    'p1_shipment_revenue', (SELECT rev FROM p1_ship_tx),
+    'p2_shipment_revenue', (SELECT rev FROM p2_ship_tx),
     'p1_qty', (SELECT qty FROM p1_tx),
     'p2_qty', (SELECT qty FROM p2_tx),
     'p1_shipments', (SELECT count FROM p1_ship),
     'p2_shipments', (SELECT count FROM p2_ship),
-    'p1_days', (p1_end - p1_start + 1),
-    'p2_days', (p2_end - p2_start + 1)
+    -- Đếm ngày hoạt động thực tế (tối thiểu là 1)
+    'p1_days', GREATEST(1, (SELECT active_days FROM p1_tx)),
+    'p2_days', GREATEST(1, (SELECT active_days FROM p2_tx))
   ) INTO v_kpis;
 
   -- 2. Thống kê theo Khách hàng (Parent Level)

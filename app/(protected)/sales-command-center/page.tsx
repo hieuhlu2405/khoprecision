@@ -13,7 +13,7 @@ import { getVNTimeNow, getTodayVNStr } from "@/lib/date-utils";
 type SellingEntity = { id: string; code: string; header_text: string | null };
 type Customer = { id: string; code: string; name: string; parent_customer_id: string | null; selling_entity_id: string | null };
 type Product = { id: string; sku: string; name: string; customer_id: string | null; unit_price: number | null };
-type OutboundTx = { id: string; product_id: string; customer_id: string | null; tx_date: string; qty: number; unit_cost: number | null };
+type OutboundTx = { id: string; product_id: string; customer_id: string | null; tx_date: string; qty: number; unit_cost: number | null; shipment_id: string | null };
 type ShipmentLog = { id: string; shipment_date: string };
 
 type ColFilter = { value: string; type: "contains" | "eq" | "gt" | "lt" };
@@ -245,8 +245,8 @@ export default function SalesCommandCenterPage() {
       const range = getMonthRange(monthOffset);
       const prevRange = getMonthRange(monthOffset - 1);
       
-      const { data: nowTx } = await supabase.from("inventory_transactions").select("id, product_id, customer_id, tx_date, qty, unit_cost").eq("tx_type", "out").is("deleted_at", null).gte("tx_date", range.start).lte("tx_date", range.end);
-      const { data: pTx } = await supabase.from("inventory_transactions").select("id, product_id, customer_id, tx_date, qty, unit_cost").eq("tx_type", "out").is("deleted_at", null).gte("tx_date", prevRange.start).lte("tx_date", prevRange.end);
+      const { data: nowTx } = await supabase.from("inventory_transactions").select("id, product_id, customer_id, tx_date, qty, unit_cost, shipment_id").eq("tx_type", "out").is("deleted_at", null).gte("tx_date", range.start).lte("tx_date", range.end);
+      const { data: pTx } = await supabase.from("inventory_transactions").select("id, product_id, customer_id, tx_date, qty, unit_cost, shipment_id").eq("tx_type", "out").is("deleted_at", null).gte("tx_date", prevRange.start).lte("tx_date", prevRange.end);
       const { data: ships } = await supabase.from("shipment_logs").select("id, shipment_date").is("deleted_at", null).gte("shipment_date", prevRange.start).lte("shipment_date", range.end);
       const { data: ents } = await supabase.from("selling_entities").select("*");
       const { data: custs } = await supabase.from("customers").select("*").is("deleted_at", null);
@@ -300,9 +300,14 @@ export default function SalesCommandCenterPage() {
     const weekShip = shipments.filter(s => s.shipment_date >= wStart && s.shipment_date <= end).length;
     const prevWeekShip = shipments.filter(s => s.shipment_date >= pwStart && s.shipment_date <= pwEnd).length;
 
-    const daysPassed = isThisMonth ? Math.max(1, getVNTimeNow().getDate()) : new Date(end).getDate();
+    // Đếm số ngày thực tế phát sinh đơn xuất kho (bỏ qua các ngày nghỉ lễ, Tết, Chủ Nhật không phát sinh đơn)
+    const uniqueActiveDays = new Set(outboundTx.map(t => t.tx_date)).size;
+    const daysPassed = Math.max(1, uniqueActiveDays);
     const dailyBurn = monthRev / daysPassed;
-    const avgShipVal = monthShip > 0 ? monthRev / monthShip : 0;
+
+    // Chỉ tính tổng giá trị hàng hóa thực tế được chở đi bằng chuyến xe nhà (có gắn shipment_id)
+    const shipmentRev = outboundTx.filter(t => t.shipment_id != null).reduce((s, t) => s + (t.qty * (t.unit_cost || 0)), 0);
+    const avgShipVal = monthShip > 0 ? shipmentRev / monthShip : 0;
 
     return {
       monthRev, monthRevTrend: prevMonthRev > 0 ? ((monthRev - prevMonthRev)/prevMonthRev*100) : 0,
@@ -538,7 +543,7 @@ export default function SalesCommandCenterPage() {
                        {[
                          { label: "Biến động Doanh thu", val: compareData.kpis.p1_revenue - compareData.kpis.p2_revenue, p1: compareData.kpis.p1_revenue, p2: compareData.kpis.p2_revenue, type: "vnd" },
                          { label: "Tăng trưởng Net", val: ((compareData.kpis.p1_revenue - compareData.kpis.p2_revenue) / (compareData.kpis.p2_revenue || 1)) * 100, type: "pct" },
-                         { label: "Biến động AOV (Giá trị TB)", val: (compareData.kpis.p1_revenue / (compareData.kpis.p1_shipments || 1)) - (compareData.kpis.p2_revenue / (compareData.kpis.p2_shipments || 1)), type: "vnd" },
+                         { label: "Biến động AOV (Giá trị TB)", val: (compareData.kpis.p1_shipment_revenue / (compareData.kpis.p1_shipments || 1)) - (compareData.kpis.p2_shipment_revenue / (compareData.kpis.p2_shipments || 1)), type: "vnd" },
                          { label: "Biến động Tốc độ/Ngày", val: (compareData.kpis.p1_revenue / compareData.kpis.p1_days) - (compareData.kpis.p2_revenue / compareData.kpis.p2_days), type: "vnd" }
                        ].map((k, i) => (
                          <div key={i} className="bg-slate-50 rounded-2xl p-6 border border-slate-100 flex flex-col gap-1">
