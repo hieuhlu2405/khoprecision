@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { getVNTimeNow, getTodayVNStr } from "@/lib/date-utils";
 import { useUI } from "@/app/context/UIContext";
 import { fetchAllRows } from "@/lib/supabase-fetch-all";
+import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 
 /* -----------------------------------------------------------------------
    Types Definitions
@@ -28,16 +29,6 @@ type ChartPoint = {
   displayDate: string;
   inboundValue: number;
   outboundValue: number;
-};
-
-type RecentActivity = {
-  id: string;
-  tx_date: string;
-  product_name: string;
-  product_spec: string;
-  tx_type: string;
-  qty: number;
-  customer_name: string;
 };
 
 /* -----------------------------------------------------------------------
@@ -67,6 +58,63 @@ const quickLinks = [
   { href: "/products", icon: "🏷️", color: "#2487C8", label: "Mã hàng", desc: "Quản lý danh mục hàng" },
 ];
 
+/* -----------------------------------------------------------------------
+   Timezone-agnostic Date Helpers (Prevents offset shift errors)
+   ----------------------------------------------------------------------- */
+function dayAfterStr(dStr: string): string {
+  const parts = dStr.split("-");
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  
+  const x = new Date(Date.UTC(year, month, day));
+  x.setUTCDate(x.getUTCDate() + 1);
+  
+  const yStr = x.getUTCFullYear();
+  const mStr = String(x.getUTCMonth() + 1).padStart(2, "0");
+  const dOut = String(x.getUTCDate()).padStart(2, "0");
+  return `${yStr}-${mStr}-${dOut}`;
+}
+
+function getDaysAgo(dStr: string, days: number): string {
+  const parts = dStr.split("-");
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  
+  const x = new Date(Date.UTC(year, month, day));
+  x.setUTCDate(x.getUTCDate() - days);
+  
+  const yStr = x.getUTCFullYear();
+  const mStr = String(x.getUTCMonth() + 1).padStart(2, "0");
+  const dOut = String(x.getUTCDate()).padStart(2, "0");
+  return `${yStr}-${mStr}-${dOut}`;
+}
+
+// Converts a UTC ISO string from the database to Vietnam Local (GMT+7) date string
+function toVNDateStr(isoStr: string): string {
+  const d = new Date(isoStr);
+  const vnTime = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+  const y = vnTime.getUTCFullYear();
+  const m = String(vnTime.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(vnTime.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// Compact currency abbreviation format for Y-axis (e.g. 400.3M, 1.2B)
+function formatAbbreviated(val: number): string {
+  if (val >= 1e9) {
+    return (val / 1e9).toFixed(1) + "B";
+  }
+  if (val >= 1e6) {
+    return (val / 1e6).toFixed(1) + "M";
+  }
+  if (val >= 1e3) {
+    return (val / 1e3).toFixed(0) + "K";
+  }
+  return String(Math.round(val));
+}
+
 export default function AppHome() {
   const { showToast } = useUI();
 
@@ -74,8 +122,6 @@ export default function AppHome() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
-  const [deliveryProgress, setDeliveryProgress] = useState<{ completed: number; total: number } | null>(null);
   
   // Hydration & Loading States
   const [loading, setLoading] = useState(true);
@@ -90,7 +136,7 @@ export default function AppHome() {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Client-only greeting logic to completely prevent Next.js SSR Hydration Mismatch
+    // Client-only greeting logic to completely prevent Next.js SSR Hydration Mismatch
     const h = new Date().getHours();
     if (h < 12) setGreeting("Chào buổi sáng");
     else if (h < 18) setGreeting("Chào buổi chiều");
@@ -98,7 +144,7 @@ export default function AppHome() {
 
     (async () => {
       try {
-        // 2. Auth Session Guard
+        // Auth Session Guard
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           if (isMounted) {
@@ -111,42 +157,35 @@ export default function AppHome() {
           setUserName(user.user_metadata?.full_name || "bạn");
         }
 
-        // 3. Precise Vietnam timezone date boundary calculations
-        const todayVN = getVNTimeNow();
-        const monthStartStr = `${todayVN.getFullYear()}-${String(todayVN.getMonth() + 1).padStart(2, "0")}-01`;
+        // Vietnam timezone dates calculations
+        const todayStr = getTodayVNStr();
+        const parts = todayStr.split("-");
+        const monthStartStr = `${parts[0]}-${parts[1]}-01`; // First day of the current month (e.g. "2026-05-01")
+        const lookback30Str = getDaysAgo(todayStr, 30);
+        const lookback14Str = getDaysAgo(todayStr, 14);
 
-        // Next month start to prevent month-end leakage
-        const nextMonthDate = new Date(todayVN.getFullYear(), todayVN.getMonth() + 1, 1);
-        const nextMonthStartStr = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
+        // Calculate dynamic transaction fetch boundary to always cover the whole calendar month and chart
+        const queryStartDate = monthStartStr < lookback14Str ? monthStartStr : lookback14Str;
 
-        // 30 days ago limit for Dead Stock calculation logic accuracy
-        const date30Ago = new Date(todayVN.getTime() - 30 * 24 * 60 * 60 * 1000);
-        const date30AgoStr = `${date30Ago.getFullYear()}-${String(date30Ago.getMonth() + 1).padStart(2, "0")}-${String(date30Ago.getDate()).padStart(2, "0")}`;
-
-        // 4. Parallel requests with Promise.allSettled for high availability
+        // Parallel requests using Promise.allSettled and fetchAllRows for stable data loading
         const [
           profileRes,
           productsRes,
-          customersRes,
+          openingsRes,
           txsRes,
-          reportRes,
-          deliveryRes
+          lastTxDatesRes
         ] = await Promise.allSettled([
           supabase.from("profiles").select("full_name, role, department").eq("id", user.id).maybeSingle(),
           fetchAllRows(supabase.from("products").select("id, unit_price, sku, name, spec").is("deleted_at", null)),
-          fetchAllRows(supabase.from("customers").select("id, name, code").is("deleted_at", null)),
+          // FIXED: select only period_month to avoid querying non-existent column inventory_value
+          fetchAllRows(supabase.from("inventory_opening_balances").select("period_month").is("deleted_at", null).lte("period_month", todayStr + "T23:59:59.999Z")),
           fetchAllRows(
             supabase.from("inventory_transactions")
-              .select("id, tx_date, product_id, customer_id, tx_type, qty, unit_cost, adjusted_from_transaction_id")
+              .select("id, tx_date, product_id, customer_id, tx_type, qty, unit_cost, adjusted_from_transaction_id, deleted_at")
               .is("deleted_at", null)
-              .gte("tx_date", date30AgoStr)
+              .gte("tx_date", queryStartDate)
           ),
-          supabase.rpc("inventory_calculate_report_v2", {
-            p_baseline_date: monthStartStr,
-            p_movements_start_date: monthStartStr,
-            p_movements_end_date: nextMonthStartStr
-          }),
-          supabase.from("delivery_plans").select("status, plan_qty").eq("plan_date", getTodayVNStr()).is("deleted_at", null)
+          supabase.rpc("inventory_get_last_tx_dates")
         ]);
 
         if (!isMounted) return;
@@ -160,23 +199,82 @@ export default function AppHome() {
           }
         }
 
-        // General warning feedback if crucial warehouse queries fail due to network
-        if (productsRes.status === "rejected" || txsRes.status === "rejected" || reportRes.status === "rejected") {
-          showToast("Lỗi kết nối máy chủ kho, số liệu có thể hiển thị thiếu", "error");
+        // General warning feedback if crucial warehouse queries fail due to network or schema changes
+        if (productsRes.status === "rejected" || openingsRes.status === "rejected" || lastTxDatesRes.status === "rejected") {
+          showToast("Lỗi kết nối máy chủ kho, số liệu hiển thị có thể bị sai lệch", "error");
         }
 
         // Fallback structures if database tables are temporarily inaccessible
         const productsList = productsRes.status === "fulfilled" ? productsRes.value : [];
-        const customersList = customersRes.status === "fulfilled" ? customersRes.value : [];
+        const openingsList = openingsRes.status === "fulfilled" ? openingsRes.value : [];
         const txsList = txsRes.status === "fulfilled" ? txsRes.value : [];
-        const reportRows = reportRes.status === "fulfilled" ? (reportRes.value.data || []) : [];
-        const deliveriesList = deliveryRes.status === "fulfilled" ? (deliveryRes.value.data || []) : [];
+        const lastTxDatesList = lastTxDatesRes.status === "fulfilled" ? (lastTxDatesRes.value.data || []) : [];
 
-        // Build Product and Customer indexing maps for O(1) lightning lookup performance
+        // Build Product lookup map for O(1) pricing lookup performance
         const productMap = new Map(productsList.map(p => [p.id, p]));
-        const customerMap = new Map(customersList.map(c => [c.id, c]));
 
-        // Match exact original transaction references for adjustment calculation logic (aligns with calc.ts)
+        // Calculate exact bounds matching the value report page
+        const bounds = computeSnapshotBounds(lookback30Str, todayStr, openingsList);
+
+        // Call the official Postgres RPC calculate report using the computed bounds
+        const reportRes = await supabase.rpc("inventory_calculate_report_v2", {
+          p_baseline_date: bounds.S || lookback30Str,
+          p_movements_start_date: bounds.effectiveStart,
+          p_movements_end_date: dayAfterStr(todayStr)
+        });
+
+        if (!isMounted) return;
+
+        const reportRows = reportRes.data || [];
+
+        // Build O(1) last transaction dates lookup map
+        const lastTxMap = new Map();
+        for (const row of lastTxDatesList) {
+          lastTxMap.set(row.out_product_id, row.out_last_tx_date);
+        }
+
+        let totalCurrentValue = 0;
+        let totalDeadValue = 0;
+
+        // 1. Compute exact Current Stock (Card 1) and Dead Stock (Card 4) from RPC to match Value Report 100%
+        for (const r of reportRows) {
+          const product = productMap.get(r.product_id);
+          const unitPrice = product?.unit_price ?? 0;
+          const currentVal = Number(r.current_qty) * unitPrice;
+
+          // Align totals calculation exactly with 'overallTotals' in value-report/page.tsx
+          totalCurrentValue += currentVal;
+
+          // Dead stock logic: if current qty is > 0 and (last outbound transaction is > 30 days ago or doesn't exist)
+          if (Number(r.current_qty) > 0) {
+            const lastTx = lastTxMap.get(r.product_id);
+            if (!lastTx || typeof lastTx !== "string" || lastTx.length < 10) {
+              totalDeadValue += currentVal;
+            } else {
+              // Force UTC parsing for precise distance calculation
+              const d1 = new Date(todayStr + "T00:00:00Z");
+              const d2 = new Date(lastTx.slice(0, 10) + "T00:00:00Z");
+              const diffTime = d1.getTime() - d2.getTime();
+              
+              if (isNaN(diffTime)) {
+                totalDeadValue += currentVal;
+              } else {
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (diffDays > 30) {
+                  totalDeadValue += currentVal;
+                }
+              }
+            }
+          }
+        }
+
+        // =======================================================================
+        // 2. Compute exact Inbound/Outbound Month (Card 2 & 3) from transaction list
+        // =======================================================================
+        let totalInboundValue = 0;
+        let totalOutboundValue = 0;
+
+        // Build original transactions map to resolve adjustments correctly
         const originalsMap = new Map();
         for (const t of txsList) {
           if (t.tx_type === "in" || t.tx_type === "out") {
@@ -184,52 +282,33 @@ export default function AppHome() {
           }
         }
 
-        const effectiveTxs = txsList.map(t => {
-          if (t.tx_type === "adjust_in" || t.tx_type === "adjust_out") {
-            const orig = t.adjusted_from_transaction_id ? originalsMap.get(t.adjusted_from_transaction_id) : null;
-            if (orig) {
-              const effect = t.tx_type === "adjust_in" ? Number(t.qty) : -Number(t.qty);
-              return { ...t, eff_type: orig.tx_type as string, eff_qty: effect };
-            }
-            return { ...t, eff_type: "unknown", eff_qty: 0 };
-          }
-          return { ...t, eff_type: t.tx_type as string, eff_qty: Number(t.qty) };
-        });
+        // Sum transaction amounts for the current calendar month only, utilizing toVNDateStr for GMT+7 bounds
+        for (const t of txsList) {
+          const txDateKey = toVNDateStr(t.tx_date);
+          const isCurrentMonth = txDateKey >= monthStartStr && txDateKey <= todayStr;
 
-        // ==========================================
-        // 5. CALCULATE KPIs (CARDS 1, 2, 3, 4)
-        // ==========================================
-        const activeProductIdsIn30Days = new Set<string>();
-        for (const t of effectiveTxs) {
-          if (t.tx_date >= date30AgoStr) {
-            activeProductIdsIn30Days.add(t.product_id);
-          }
-        }
-
-        let totalCurrentValue = 0;
-        let totalDeadValue = 0;
-        let totalInboundValue = 0;
-        let totalOutboundValue = 0;
-
-        // Process RPC rows to compute current stock values dynamically
-        for (const r of reportRows) {
-          const product = productMap.get(r.product_id);
+          const product = productMap.get(t.product_id);
           const unitPrice = product?.unit_price ?? 0;
-          const currentVal = Number(r.current_qty) * unitPrice;
-          const inboundVal = Number(r.inbound_qty) * unitPrice;
-          const outboundVal = Number(r.outbound_qty) * unitPrice;
+          const finalPrice = Number(t.unit_cost) || unitPrice;
 
-          if (Number(r.current_qty) > 0) {
-            totalCurrentValue += currentVal;
-
-            // If product has had 0 activity in the last 30 days, count as dead stock
-            if (!activeProductIdsIn30Days.has(r.product_id)) {
-              totalDeadValue += currentVal;
+          if (t.tx_type === "in" || t.tx_type === "out") {
+            const val = Number(t.qty) * finalPrice;
+            if (isCurrentMonth) {
+              if (t.tx_type === "in") totalInboundValue += val;
+              else totalOutboundValue += val;
+            }
+          } else if (t.tx_type === "adjust_in" || t.tx_type === "adjust_out") {
+            const orig = t.adjusted_from_transaction_id ? originalsMap.get(t.adjusted_from_transaction_id) : null;
+            // Only resolve adjustment if the parent exists and was not deleted (to avoid soft deleted reference bugs)
+            if (orig && !orig.deleted_at) {
+              const effect = t.tx_type === "adjust_in" ? Number(t.qty) : -Number(t.qty);
+              const val = effect * finalPrice;
+              if (isCurrentMonth) {
+                if (orig.tx_type === "in") totalInboundValue += val;
+                else if (orig.tx_type === "out") totalOutboundValue += val;
+              }
             }
           }
-
-          totalInboundValue += inboundVal;
-          totalOutboundValue += outboundVal;
         }
 
         setStats({
@@ -239,11 +318,12 @@ export default function AppHome() {
           totalDeadValue,
         });
 
-        // ==========================================
-        // 6. CONTINUOUS 14-DAY MOUNTAIN CHART PRE-POPULATION
-        // ==========================================
+        // =======================================================================
+        // 3. CONTINUOUS 14-DAY MOUNTAIN CHART DATA (Aligned to Vietnam timezone)
+        // =======================================================================
         const tempChartPoints: ChartPoint[] = [];
         const dateToPointMap = new Map<string, ChartPoint>();
+        const todayVN = getVNTimeNow();
 
         for (let i = 13; i >= 0; i--) {
           const d = new Date(todayVN.getTime() - i * 24 * 60 * 60 * 1000);
@@ -260,70 +340,35 @@ export default function AppHome() {
           dateToPointMap.set(dateStr, point);
         }
 
-        // Accumulate transaction values into chronological date points
-        for (const t of effectiveTxs) {
-          const dateKey = t.tx_date.slice(0, 10);
+        // Accumulate values onto the 14-day history chart using GMT+7 localized date strings
+        for (const t of txsList) {
+          const dateKey = toVNDateStr(t.tx_date);
           const point = dateToPointMap.get(dateKey);
           if (point) {
             const product = productMap.get(t.product_id);
             const unitPrice = product?.unit_price ?? 0;
             const finalPrice = Number(t.unit_cost) || unitPrice;
-            const val = t.eff_qty * finalPrice;
 
-            if (t.eff_type === "in") {
-              point.inboundValue += val;
-            } else if (t.eff_type === "out") {
-              point.outboundValue += val;
+            if (t.tx_type === "in" || t.tx_type === "out") {
+              const val = Number(t.qty) * finalPrice;
+              if (t.tx_type === "in") point.inboundValue += val;
+              else point.outboundValue += val;
+            } else if (t.tx_type === "adjust_in" || t.tx_type === "adjust_out") {
+              const orig = t.adjusted_from_transaction_id ? originalsMap.get(t.adjusted_from_transaction_id) : null;
+              if (orig && !orig.deleted_at) {
+                const effect = t.tx_type === "adjust_in" ? Number(t.qty) : -Number(t.qty);
+                const val = effect * finalPrice;
+                if (orig.tx_type === "in") point.inboundValue += val;
+                else if (orig.tx_type === "out") point.outboundValue += val;
+              }
             }
           }
         }
 
         setChartData(tempChartPoints);
 
-        // ==========================================
-        // 7. POPULATE RECENT WAREHOUSE ACTIVITIES (MAX 5)
-        // ==========================================
-        const rawActivities = effectiveTxs
-          .filter(t => t.eff_type === "in" || t.eff_type === "out")
-          .sort((a, b) => b.tx_date.localeCompare(a.tx_date))
-          .slice(0, 5);
-
-        const processedActivities: RecentActivity[] = rawActivities.map(t => {
-          const product = productMap.get(t.product_id);
-          const customer = t.customer_id ? customerMap.get(t.customer_id) : null;
-          return {
-            id: t.id,
-            tx_date: t.tx_date,
-            product_name: product?.name || "Sản phẩm không rõ",
-            product_spec: product?.spec || "",
-            tx_type: t.eff_type,
-            qty: t.eff_qty,
-            customer_name: customer ? (customer.name || customer.code) : "Khách hàng nội bộ",
-          };
-        });
-
-        setRecentActivities(processedActivities);
-
-        // ==========================================
-        // 8. POPULATE DAILY DELIVERY PROGRESS STATUS
-        // ==========================================
-        let completedCount = 0;
-        let totalCount = 0;
-
-        for (const d of deliveriesList) {
-          totalCount += Number(d.plan_qty);
-          if (d.status === "done" || d.status === "completed") {
-            completedCount += Number(d.plan_qty);
-          }
-        }
-
-        setDeliveryProgress({
-          completed: completedCount,
-          total: totalCount,
-        });
-
       } catch (err) {
-        console.error("Dashboard calculation sequence failure:", err);
+        console.error("Dashboard synchronization chain failed:", err);
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -339,7 +384,7 @@ export default function AppHome() {
   const roleLabel = profile ? (ROLE_LABELS[profile.role] ?? profile.role) : "";
   const deptLabel = profile ? (DEPT_LABELS[profile.department] ?? profile.department) : "";
 
-  // Dynamic values formatting VND standards
+  // Standard VND formatter for Tooltip details
   const formatVND = (val: number) => {
     return new Intl.NumberFormat("vi-VN").format(Math.round(val)) + " đ";
   };
@@ -359,7 +404,7 @@ export default function AppHome() {
 
   const maxVal = Math.max(
     ...chartData.map(d => Math.max(d.inboundValue, d.outboundValue)),
-    100000000 // Safeguard against divide-by-zero division failures
+    100000000 // Safeguard boundary division by zero
   );
 
   const getCoordinates = (index: number, val: number) => {
@@ -376,7 +421,7 @@ export default function AppHome() {
   let outboundAreaD = "";
 
   if (chartData.length > 0) {
-    // Generate Inbound Mountain Curves
+    // Inbound
     chartData.forEach((point, idx) => {
       const { x, y } = getCoordinates(idx, point.inboundValue);
       if (idx === 0) {
@@ -391,7 +436,7 @@ export default function AppHome() {
       }
     });
 
-    // Generate Outbound Mountain Curves
+    // Outbound
     chartData.forEach((point, idx) => {
       const { x, y } = getCoordinates(idx, point.outboundValue);
       if (idx === 0) {
@@ -399,7 +444,7 @@ export default function AppHome() {
         outboundAreaD += `M ${x} ${paddingTop + drawableH} L ${x} ${y}`;
       } else {
         outboundPathD += ` L ${x} ${y}`;
-        outboundAreaD += ` L ${x} ${y}`;
+        outboundAreaD += `M ${x} ${paddingTop + drawableH} L ${x} ${y}`;
       }
       if (idx === chartData.length - 1) {
         outboundAreaD += ` L ${x} ${paddingTop + drawableH} Z`;
@@ -407,7 +452,6 @@ export default function AppHome() {
     });
   }
 
-  // Handle Interactive Mouse Hover Coordinates
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
     if (!chartContainerRef.current || chartData.length === 0) return;
 
@@ -419,12 +463,10 @@ export default function AppHome() {
     let targetIdx = Math.round((relativeX / drawableW) * (totalPoints - 1));
     targetIdx = Math.max(0, Math.min(totalPoints - 1, targetIdx));
 
-    // Throttled update: only change states when the cursor moves to a different date slot
     if (targetIdx !== hoverIdx) {
       setHoverIdx(targetIdx);
       const coord = getCoordinates(targetIdx, Math.max(chartData[targetIdx].inboundValue, chartData[targetIdx].outboundValue));
       
-      // Compute responsive tooltip floating coordinate placement bounds
       const tooltipX = coord.x + 15 > chartW - 200 ? coord.x - 215 : coord.x + 15;
       const tooltipY = Math.min(Math.max(coord.y - 40, paddingTop), chartH - 120);
       setTooltipPos({ x: tooltipX, y: tooltipY });
@@ -432,9 +474,100 @@ export default function AppHome() {
   };
 
   return (
-    <div style={{ fontFamily: "inherit", maxWidth: 1100, margin: "0 auto", padding: "0 20px" }}>
+    <div style={{ fontFamily: "inherit", width: "100%", padding: "0 24px", boxSizing: "border-box" }}>
       
-      {/* ── Welcome Header Block (No Hydration Shifting) ── */}
+      {/* Dynamic CSS styles injected to handle hardware accelerated transitions on card hover and money color shifts */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .kpi-card {
+          background: white;
+          border-radius: 14px;
+          padding: 24px;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 4px 12px rgba(0,0,0,.04);
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          min-height: 140px;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          cursor: pointer;
+        }
+        .money-text {
+          font-size: 22px;
+          font-weight: 800;
+          color: #0f172a;
+          letter-spacing: -0.02em;
+          line-height: 1;
+          transition: color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          margin-top: 4px;
+        }
+        
+        /* Card 1: Inventory (Blue) Hover */
+        .kpi-card-1 { border-left: 5px solid #2487C8; }
+        .kpi-card-1:hover {
+          background-color: rgba(36, 135, 200, 0.03) !important;
+          border-color: #2487C8 !important;
+          transform: translateY(-2px);
+          box-shadow: 0 10px 20px rgba(36, 135, 200, 0.08) !important;
+        }
+        .kpi-card-1:hover .money-text {
+          color: #2487C8 !important;
+        }
+
+        /* Card 2: Inbound (Green) Hover */
+        .kpi-card-2 { border-left: 5px solid #10b981; }
+        .kpi-card-2:hover {
+          background-color: rgba(16, 185, 129, 0.03) !important;
+          border-color: #10b981 !important;
+          transform: translateY(-2px);
+          box-shadow: 0 10px 20px rgba(16, 185, 129, 0.08) !important;
+        }
+        .kpi-card-2:hover .money-text {
+          color: #10b981 !important;
+        }
+
+        /* Card 3: Outbound (Purple) Hover */
+        .kpi-card-3 { border-left: 5px solid #8b5cf6; }
+        .kpi-card-3:hover {
+          background-color: rgba(139, 92, 246, 0.03) !important;
+          border-color: #8b5cf6 !important;
+          transform: translateY(-2px);
+          box-shadow: 0 10px 20px rgba(139, 92, 246, 0.08) !important;
+        }
+        .kpi-card-3:hover .money-text {
+          color: #8b5cf6 !important;
+        }
+
+        /* Card 4: Dead Stock (Red) Hover */
+        .kpi-card-4 { border-left: 5px solid #f43f5e; }
+        .kpi-card-4:hover {
+          background-color: rgba(244, 63, 94, 0.03) !important;
+          border-color: #f43f5e !important;
+          transform: translateY(-2px);
+          box-shadow: 0 10px 20px rgba(244, 63, 94, 0.08) !important;
+        }
+        .kpi-card-4:hover .money-text {
+          color: #f43f5e !important;
+        }
+
+        .quick-link-card {
+          background: white;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 16px 18px;
+          cursor: pointer;
+          transition: all 0.2s ease-in-out;
+          display: flex;
+          align-items: flex-start;
+          text-decoration: none;
+        }
+        .quick-link-card:hover {
+          border-color: #2487C8;
+          box-shadow: 0 4px 16px rgba(36,135,200,0.12);
+          transform: translateY(-2px);
+        }
+      `}} />
+
+      {/* ── Welcome Header Block (Aligned closer to Sidebar) ── */}
       <div style={{
         background: `linear-gradient(135deg, #0d4f7c 0%, #2487C8 100%)`,
         borderRadius: 14, padding: "28px 32px", marginBottom: 28, color: "white",
@@ -459,39 +592,38 @@ export default function AppHome() {
         </div>
       </div>
 
-      {/* ── KPIs Card Blocks ── */}
+      {/* ── KPIs Card Blocks (4 cards with matching sidebar SVG outline icons) ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20, marginBottom: 28 }}>
         
-        {/* Card 1: Current Inventory Value */}
-        <div style={{
-          background: "white", borderRadius: 14, padding: "24px",
-          border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,.04)",
-          borderLeft: "5px solid #2487C8", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 140
-        }}>
+        {/* Card 1: Current Inventory Value (Matches 'value' sidebar icon) */}
+        <div className="kpi-card kpi-card-1">
           <div>
-            <div style={{ width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, background: "#2487C815", fontSize: 22 }}>
-              📦
+            <div style={{ width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "#2487C812" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2487C8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2v20"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", lineHeight: 1 }}>
+            <div className="money-text">
               {loading ? <span style={{ color: "#cbd5e1" }}>—— đ</span> : formatVND(stats?.totalCurrentValue ?? 0)}
             </div>
           </div>
           <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700, marginTop: 12, letterSpacing: "0.03em", textTransform: "uppercase" }}>
-            Tổng giá trị tồn kho hiện tại
+            Giá trị tồn kho hiện tại
           </div>
         </div>
 
-        {/* Card 2: Monthly Inbound Value */}
-        <div style={{
-          background: "white", borderRadius: 14, padding: "24px",
-          border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,.04)",
-          borderLeft: "5px solid #10b981", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 140
-        }}>
+        {/* Card 2: Monthly Inbound Value (Matches 'inbound' sidebar icon) */}
+        <div className="kpi-card kpi-card-2">
           <div>
-            <div style={{ width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, background: "#10b98115", fontSize: 22 }}>
-              📥
+            <div style={{ width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "#10b98112" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" x2="12" y1="15" y2="3"/>
+              </svg>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", lineHeight: 1 }}>
+            <div className="money-text">
               {loading ? <span style={{ color: "#cbd5e1" }}>—— đ</span> : formatVND(stats?.totalInboundMonth ?? 0)}
             </div>
           </div>
@@ -500,17 +632,17 @@ export default function AppHome() {
           </div>
         </div>
 
-        {/* Card 3: Monthly Outbound Value */}
-        <div style={{
-          background: "white", borderRadius: 14, padding: "24px",
-          border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,.04)",
-          borderLeft: "5px solid #8b5cf6", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 140
-        }}>
+        {/* Card 3: Monthly Outbound Value (Matches 'outbound' sidebar icon) */}
+        <div className="kpi-card kpi-card-3">
           <div>
-            <div style={{ width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, background: "#8b5cf615", fontSize: 22 }}>
-              🚚
+            <div style={{ width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "#8b5cf612" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" x2="12" y1="3" y2="15"/>
+              </svg>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", lineHeight: 1 }}>
+            <div className="money-text">
               {loading ? <span style={{ color: "#cbd5e1" }}>—— đ</span> : formatVND(stats?.totalOutboundMonth ?? 0)}
             </div>
           </div>
@@ -519,22 +651,21 @@ export default function AppHome() {
           </div>
         </div>
 
-        {/* Card 4: Dead Stock Value */}
-        <div style={{
-          background: "white", borderRadius: 14, padding: "24px",
-          border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,.04)",
-          borderLeft: "5px solid #f43f5e", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 140
-        }}>
+        {/* Card 4: Dead Stock Value (Matches 'aging' clock sidebar icon as requested) */}
+        <div className="kpi-card kpi-card-4">
           <div>
-            <div style={{ width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, background: "#f43f5e15", fontSize: 22 }}>
-              ⚠️
+            <div style={{ width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "#f43f5e12" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", lineHeight: 1 }}>
+            <div className="money-text">
               {loading ? <span style={{ color: "#cbd5e1" }}>—— đ</span> : formatVND(stats?.totalDeadValue ?? 0)}
             </div>
           </div>
           <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700, marginTop: 12, letterSpacing: "0.03em", textTransform: "uppercase" }}>
-            Tổng giá trị hàng tồn đọng
+            Giá trị hàng tồn đọng
           </div>
         </div>
 
@@ -573,26 +704,25 @@ export default function AppHome() {
               onMouseLeave={() => setHoverIdx(null)}
             >
               <defs>
-                {/* Emerald Jade Gradient under Inbound line */}
                 <linearGradient id="inboundGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#10b981" stopOpacity="0.18" />
                   <stop offset="100%" stopColor="#10b981" stopOpacity="0.00" />
                 </linearGradient>
-                {/* Amethyst Purple Gradient under Outbound line */}
                 <linearGradient id="outboundGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.18" />
                   <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.00" />
                 </linearGradient>
               </defs>
 
-              {/* Horizontal grid lines */}
+              {/* Horizontal grid lines with abbreviated format values */}
               {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
                 const y = paddingTop + ratio * drawableH;
+                const gridVal = ratio === 1 ? 0 : ratio === 0 ? maxVal : maxVal * (1 - ratio);
                 return (
                   <g key={i}>
                     <line x1={paddingLeft} y1={y} x2={chartW - paddingRight} y2={y} stroke="#f1f5f9" strokeWidth="1" />
                     <text x={paddingLeft - 10} y={y + 4} textAnchor="end" fill="#94a3b8" fontSize="10" fontWeight="600">
-                      {ratio === 1 ? "0" : ratio === 0 ? formatVND(maxVal) : formatVND(maxVal * (1 - ratio))}
+                      {ratio === 1 ? "0" : formatAbbreviated(gridVal)}
                     </text>
                   </g>
                 );
@@ -605,7 +735,7 @@ export default function AppHome() {
               <path d={outboundAreaD} fill="url(#outboundGradient)" />
               <path d={outboundPathD} fill="none" stroke="#8b5cf6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
-              {/* Trục hoành X labels (Only render skipped odd positions to avoid overlap crash on narrow views) */}
+              {/* Trục hoành X labels */}
               {chartData.map((point, idx) => {
                 const { x } = getCoordinates(idx, 0);
                 if (idx % 2 === 0 || idx === chartData.length - 1) {
@@ -618,10 +748,9 @@ export default function AppHome() {
                 return null;
               })}
 
-              {/* Dynamic Interactive Mouse Tracker Guideline & Highlight Nodes */}
+              {/* Dynamic Guideline & Highlight Nodes */}
               {hoverIdx !== null && (
                 <g>
-                  {/* Vertical dashed guideline */}
                   <line
                     x1={getCoordinates(hoverIdx, 0).x}
                     y1={paddingTop}
@@ -631,7 +760,6 @@ export default function AppHome() {
                     strokeWidth="1.5"
                     strokeDasharray="4 4"
                   />
-                  {/* Glowing node for Inbound on hover */}
                   <circle
                     cx={getCoordinates(hoverIdx, chartData[hoverIdx].inboundValue).x}
                     cy={getCoordinates(hoverIdx, chartData[hoverIdx].inboundValue).y}
@@ -641,7 +769,6 @@ export default function AppHome() {
                     strokeWidth="2"
                     style={{ filter: "drop-shadow(0px 2px 4px rgba(16,185,129,0.4))" }}
                   />
-                  {/* Glowing node for Outbound on hover */}
                   <circle
                     cx={getCoordinates(hoverIdx, chartData[hoverIdx].outboundValue).x}
                     cy={getCoordinates(hoverIdx, chartData[hoverIdx].outboundValue).y}
@@ -682,132 +809,10 @@ export default function AppHome() {
         )}
       </div>
 
-      {/* ── Recent Activity & Daily Progress ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20, marginBottom: 28 }}>
-        
-        {/* Delivery Progress Bar Panel */}
-        <div style={{ background: "white", borderRadius: 14, border: "1px solid #e2e8f0", padding: "24px", boxShadow: "0 4px 12px rgba(0,0,0,.04)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <div>
-            <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Tiến Độ Giao Hàng Hôm Nay</h3>
-            <p style={{ margin: "0 0 20px", fontSize: 12, color: "#64748b" }}>Tỷ lệ hoàn thành khối lượng kế hoạch ngày</p>
-            
-            {loading ? (
-              <div style={{ height: 20, background: "#f1f5f9", borderRadius: 10, animation: "pulse 1.5s infinite" }} />
-            ) : deliveryProgress && deliveryProgress.total > 0 ? (
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-                  <span style={{ fontSize: 28, fontWeight: 800, color: "#8b5cf6", letterSpacing: "-0.02em" }}>
-                    {Math.round((deliveryProgress.completed / deliveryProgress.total) * 100)}%
-                  </span>
-                  <span style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>
-                    Đã giao: {new Intl.NumberFormat("vi-VN").format(deliveryProgress.completed)} / {new Intl.NumberFormat("vi-VN").format(deliveryProgress.total)} Pcs
-                  </span>
-                </div>
-                
-                {/* Customized Gradient Progress Bar */}
-                <div style={{ width: "100%", height: 12, background: "#f1f5f9", borderRadius: 6, overflow: "hidden" }}>
-                  <div style={{
-                    width: `${Math.min(100, (deliveryProgress.completed / deliveryProgress.total) * 100)}%`,
-                    height: "100%",
-                    background: "linear-gradient(90deg, #8b5cf6 0%, #a78bfa 100%)",
-                    borderRadius: 6,
-                    transition: "width 0.5s ease"
-                  }} />
-                </div>
-              </div>
-            ) : (
-              <div style={{ padding: "16px", background: "#f8fafc", borderRadius: 8, textAlign: "center" }}>
-                <span style={{ color: "#64748b", fontSize: 13, fontWeight: 500 }}>Chưa phát sinh kế hoạch giao hàng nào cho ngày hôm nay</span>
-              </div>
-            )}
-          </div>
-          
-          <div style={{ marginTop: 20, borderTop: "1px solid #f1f5f9", paddingTop: 16, display: "flex", justifyContent: "space-between", fontSize: 12, color: "#64748b", fontWeight: 500 }}>
-            <span>Đồng bộ: Real-time</span>
-            <span>Múi giờ: Việt Nam (GMT+7)</span>
-          </div>
-        </div>
-
-        {/* Recent Warehouse Activities table panel */}
-        <div style={{ background: "white", borderRadius: 14, border: "1px solid #e2e8f0", padding: "24px", boxShadow: "0 4px 12px rgba(0,0,0,.04)" }}>
-          <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Nhật Ký Vận Hành Mới Nhất</h3>
-          <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>5 biến động kho thành phẩm gần đây nhất</p>
-
-          {loading ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {[1, 2, 3].map(i => (
-                <div key={i} style={{ height: 40, background: "#f1f5f9", borderRadius: 6, animation: "pulse 1.5s infinite" }} />
-              ))}
-            </div>
-          ) : recentActivities.length > 0 ? (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid #f1f5f9", textAlign: "left" }}>
-                    <th style={{ padding: "8px 0", color: "#64748b", fontWeight: 600 }}>Chi tiết sản phẩm</th>
-                    <th style={{ padding: "8px 0", color: "#64748b", fontWeight: 600 }}>Phân loại</th>
-                    <th style={{ padding: "8px 0", color: "#64748b", fontWeight: 600, textAlign: "right" }}>Số lượng</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentActivities.map((act) => (
-                    <tr key={act.id} style={{ borderBottom: "1px solid #f8fafc" }}>
-                      <td style={{ padding: "10px 0" }}>
-                        <div style={{ fontWeight: 700, color: "#1e293b" }}>{act.product_name}</div>
-                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{act.product_spec} · {act.customer_name}</div>
-                      </td>
-                      <td style={{ padding: "10px 0" }}>
-                        <span style={{
-                          padding: "3px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700,
-                          background: act.tx_type === "in" ? "#10b98115" : "#8b5cf615",
-                          color: act.tx_type === "in" ? "#10b981" : "#8b5cf6",
-                          textTransform: "uppercase"
-                        }}>
-                          {act.tx_type === "in" ? "Nhập" : "Xuất"}
-                        </span>
-                      </td>
-                      <td style={{ padding: "10px 0", textAlign: "right", fontWeight: 700, color: "#0f172a" }}>
-                        {new Intl.NumberFormat("vi-VN").format(act.qty)} Pcs
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div style={{ padding: "20px", background: "#f8fafc", borderRadius: 8, textAlign: "center" }}>
-              <span style={{ color: "#64748b", fontSize: 13, fontWeight: 500 }}>Chưa phát sinh giao dịch nào trong 30 ngày qua</span>
-            </div>
-          )}
-        </div>
-
-      </div>
-
       {/* ── Quick Links ── */}
       <div style={{ marginBottom: 40 }}>
         <h2 style={{ margin: "0 0 14px", fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Truy cập nhanh</h2>
         
-        {/* Style tag injected directly to handle elegant CSS :hover transitions (zero JS overhead) */}
-        <style dangerouslySetInnerHTML={{__html: `
-          .quick-link-card {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 16px 18px;
-            cursor: pointer;
-            transition: all 0.2s ease-in-out;
-            display: flex;
-            align-items: flex-start;
-            gap: 12;
-            text-decoration: none;
-          }
-          .quick-link-card:hover {
-            border-color: #2487C8;
-            box-shadow: 0 4px 16px rgba(36,135,200,0.12);
-            transform: translateY(-2px);
-          }
-        `}} />
-
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
           {quickLinks.map(link => (
             <Link key={link.href} href={link.href} className="quick-link-card">
