@@ -1332,6 +1332,12 @@ export default function InventoryValueReportPage() {
     return c ? `${c.code} - ${c.name}` : cId;
   }
 
+  function customerCodeLabel(cId: string | null) {
+    if (!cId) return "N/A";
+    const c = customerMap.get(cId);
+    return c ? c.code : cId;
+  }
+
   /* ---- Column filter/sort for Customer Summary ---- */
   function textValCust(r: CustRow, col: string): string { return col === "customer" ? customerLabel(r.customer_id) : ""; }
   function numValCust(r: CustRow & { p1_pct?: number; p2_pct?: number }, col: string): number {
@@ -1787,7 +1793,7 @@ export default function InventoryValueReportPage() {
                 <BarChart 
                   title={`Top 10 khách hàng theo giá trị tồn kho${activeInsightFilter ? ` (${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"})` : ""}`} 
                   isRiskHeatmap 
-                  data={baseCustomerSummary.slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), value: c.value }))} 
+                  data={baseCustomerSummary.slice(0, 10).map(c => ({ label: customerCodeLabel(c.customer_id), value: c.value }))} 
                 />
               </div>
               <div className="page-section" style={{ gridColumn: "span 2", padding: 24 }}>
