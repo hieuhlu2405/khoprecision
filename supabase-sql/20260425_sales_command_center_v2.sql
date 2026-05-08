@@ -16,7 +16,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_result jsonb;
-  v_kpis jsonb;
+  var_kpis_json jsonb;
   v_customer_stats jsonb;
   v_product_stats jsonb;
   v_entity_stats jsonb;
@@ -76,7 +76,7 @@ BEGIN
     -- Đếm ngày hoạt động thực tế (tối thiểu là 1)
     'p1_days', GREATEST(1, (SELECT active_days FROM p1_tx)),
     'p2_days', GREATEST(1, (SELECT active_days FROM p2_tx))
-  ) INTO v_kpis;
+  ) INTO var_kpis_json;
 
   -- 2. Thống kê theo Khách hàng (Parent Level)
   WITH cust_p1 AS (
@@ -197,7 +197,7 @@ BEGIN
   ) d;
 
   RETURN jsonb_build_object(
-    'kpis', v_kpis,
+    'kpis', var_kpis_json,
     'customer_report', v_customer_stats,
     'product_report', v_product_stats,
     'entity_report', v_entity_stats,
