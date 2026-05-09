@@ -131,6 +131,30 @@ export default function AppHome() {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const chartContainerRef = useRef<SVGSVGElement | null>(null);
+  const [chartW, setChartW] = useState(760);
+
+  // Dynamic Chart Width stretching to 100% of parent container to resolve right margin squeeze
+  useEffect(() => {
+    if (loading) return;
+    
+    const handleResize = () => {
+      if (chartContainerRef.current) {
+        const parentW = chartContainerRef.current.parentElement?.getBoundingClientRect().width;
+        if (parentW) {
+          setChartW(Math.max(760, parentW));
+        }
+      }
+    };
+
+    // Run after a small timeout to let the DOM settle and hide the loader
+    const timer = setTimeout(handleResize, 100);
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [loading]);
 
   useEffect(() => {
     let isMounted = true;
@@ -391,7 +415,6 @@ export default function AppHome() {
   // ==========================================
   // SVG AREA MOUNTAIN GRAPHICS CALCULATIONS
   // ==========================================
-  const chartW = 760;
   const chartH = 260;
   const paddingLeft = 70;
   const paddingTop = 30;
