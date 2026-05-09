@@ -55,7 +55,6 @@ const quickLinks = [
   { href: "/inventory/report", icon: "📦", color: "#2487C8", label: "Tồn kho", desc: "Xem tồn kho thành phẩm" },
   { href: "/inventory/stocktake", icon: "🔍", color: "#0d9488", label: "Kiểm kê", desc: "Tạo phiếu kiểm kê kho" },
   { href: "/inventory/phoi", icon: "🧱", color: "#475569", label: "Nhập phôi", desc: "Ghi nhận phôi nguyên vật liệu" },
-  { href: "/products", icon: "🏷️", color: "#2487C8", label: "Mã hàng", desc: "Quản lý danh mục hàng" },
 ];
 
 /* -----------------------------------------------------------------------
