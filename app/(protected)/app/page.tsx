@@ -163,8 +163,8 @@ export default function AppHome() {
         const lookback30Str = getDaysAgo(todayStr, 30);
         const lookback14Str = getDaysAgo(todayStr, 14);
 
-        // Calculate dynamic transaction fetch boundary to always cover the whole calendar month and chart
-        const queryStartDate = monthStartStr < lookback14Str ? monthStartStr : lookback14Str;
+        // Calculate dynamic transaction fetch boundary to always cover the whole calendar month and chart (30-day lookback)
+        const queryStartDate = monthStartStr < lookback30Str ? monthStartStr : lookback30Str;
 
         // Parallel requests using Promise.allSettled and fetchAllRows for stable data loading
         const [
@@ -318,13 +318,13 @@ export default function AppHome() {
         });
 
         // =======================================================================
-        // 3. CONTINUOUS 14-DAY MOUNTAIN CHART DATA (Aligned to Vietnam timezone)
+        // 3. CONTINUOUS 30-DAY MOUNTAIN CHART DATA (Aligned to Vietnam timezone)
         // =======================================================================
         const tempChartPoints: ChartPoint[] = [];
         const dateToPointMap = new Map<string, ChartPoint>();
         const todayVN = getVNTimeNow();
 
-        for (let i = 13; i >= 0; i--) {
+        for (let i = 29; i >= 0; i--) {
           const d = new Date(todayVN.getTime() - i * 24 * 60 * 60 * 1000);
           const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
           const displayDate = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -339,7 +339,7 @@ export default function AppHome() {
           dateToPointMap.set(dateStr, point);
         }
 
-        // Accumulate values onto the 14-day history chart using GMT+7 localized date strings
+        // Accumulate values onto the 30-day history chart using GMT+7 localized date strings
         for (const t of txsList) {
           const dateKey = toVNDateStr(t.tx_date);
           const point = dateToPointMap.get(dateKey);
@@ -674,8 +674,8 @@ export default function AppHome() {
       <div style={{ background: "white", borderRadius: 14, border: "1px solid #e2e8f0", padding: "24px", marginBottom: 28, boxShadow: "0 4px 12px rgba(0,0,0,.04)", position: "relative" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Biến Động Nhập Xuất 14 Ngày</h3>
-            <p style={{ margin: "4px 0 0", fontSize: 12, color: "#64748b" }}>Báo cáo giá trị dòng tiền vận chuyển thực tế</p>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Biến Động Nhập Xuất 30 Ngày</h3>
+            <p style={{ margin: "4px 0 0", fontSize: 12, color: "#64748b" }}>Báo cáo giá trị dòng tiền vận chuyển thực tế 30 ngày qua</p>
           </div>
           <div style={{ display: "flex", gap: 16, fontSize: 12, fontWeight: 600 }}>
             <span style={{ display: "flex", alignItems: "center", gap: 6, color: "#10b981" }}>
@@ -734,10 +734,10 @@ export default function AppHome() {
               <path d={outboundAreaD} fill="url(#outboundGradient)" />
               <path d={outboundPathD} fill="none" stroke="#8b5cf6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
-              {/* Trục hoành X labels */}
+              {/* Trục hoành X labels (spaced every 5 days for 30-day visualization) */}
               {chartData.map((point, idx) => {
                 const { x } = getCoordinates(idx, 0);
-                if (idx % 2 === 0 || idx === chartData.length - 1) {
+                if (idx % 5 === 0 || idx === chartData.length - 1) {
                   return (
                     <text key={idx} x={x} y={chartH - 12} textAnchor="middle" fill="#94a3b8" fontSize="10" fontWeight="600">
                       {point.displayDate}
