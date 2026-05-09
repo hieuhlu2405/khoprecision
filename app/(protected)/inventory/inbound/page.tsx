@@ -906,6 +906,28 @@ export default function InventoryInboundPage() {
     }
   }
 
+  function handleExportExcel() {
+    const data = finalFiltered.map((r, i) => {
+      const unitPrice = products.find(p => p.id === r.product_id)?.unit_price ?? 0;
+      const finalPrice = r.unit_cost != null ? r.unit_cost : unitPrice;
+      const amount = r.finalQty * finalPrice;
+      return {
+        "STT": i + 1,
+        "Ngày": fmtDate(r.tx_date),
+        "Khách hàng": customerLabel(r.customer_id),
+        "Mã hàng": skuFor(r),
+        "Tên hàng": r.product_name_snapshot,
+        "Quy cách": r.product_spec_snapshot || "",
+        "Số lượng": r.finalQty,
+        "Đơn giá": finalPrice,
+        "Thành tiền": amount,
+        "Ghi chú": r.note || "",
+        "Tạo lúc": fmtDatetime(r.created_at)
+      };
+    });
+    exportToExcel(data, "LichSuNhapKho", "Lịch sử nhập kho");
+  }
+
   if (loading && rows.length === 0) return <LoadingPage />;
 
   return (
@@ -921,7 +943,7 @@ export default function InventoryInboundPage() {
               + NHẬP KHO MỚI
             </button>
           )}
-          <button className="btn btn-secondary" onClick={() => exportToExcel(finalFiltered, "LichSuNhapKho")}>
+          <button className="btn btn-secondary" onClick={handleExportExcel}>
              XUẤT EXCEL
           </button>
         </div>
