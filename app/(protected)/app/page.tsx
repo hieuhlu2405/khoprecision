@@ -444,7 +444,7 @@ export default function AppHome() {
         outboundAreaD += `M ${x} ${paddingTop + drawableH} L ${x} ${y}`;
       } else {
         outboundPathD += ` L ${x} ${y}`;
-        outboundAreaD += `M ${x} ${paddingTop + drawableH} L ${x} ${y}`;
+        outboundAreaD += ` L ${x} ${y}`;
       }
       if (idx === chartData.length - 1) {
         outboundAreaD += ` L ${x} ${paddingTop + drawableH} Z`;
