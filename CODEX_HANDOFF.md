@@ -133,11 +133,12 @@ Priority is:
   - Resolved the persistent bug where outbound pre-check incorrectly reported `0` stock due to identical start/end timestamps in RPC calls.
   - Fully routed manual inventory actions (create, edit, adjust, soft-delete) through atomic RPCs.
   - Live testing confirmed manual warehouse transactions function securely and accurately prevent negative stock.
+  - Live testing confirmed that Undo Shipment (canceling a delivery plan) successfully soft-deletes linked inventory transactions (`deleted_at` timestamped in UTC), correctly restoring available stock while preserving audit history.
 
 - Operations pending real-world cycle verification on web UI:
   - Periodic Stocktake confirmation (`confirm_inventory_stocktake`).
   - Monthly balance rollover (`inventory_rollover_opening_balances`).
-  - Advanced delivery flows: partial shipment backlog generation, shipment undo, and shipment merging.
+  - Advanced delivery flows: partial shipment backlog generation and shipment merging.
 
 ## 5. Commands Already Run
 
