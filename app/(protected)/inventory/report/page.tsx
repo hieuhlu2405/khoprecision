@@ -574,57 +574,27 @@ export default function InventoryReportPage() {
 
     setIsRollingOver(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Chưa đăng nhập");
-
       // Dùng reportData (tất cả data không bị ảnh hưởng bởi search/filter)
-      const payloads = reportData.filter(r => r.current_qty !== 0).map(r => ({
-        period_month: rolloverDate,
+      const payloads = reportData.map(r => ({
         product_id: r.product.id,
         customer_id: r.customer_id || null,
         opening_qty: r.current_qty,
         opening_unit_cost: r.product.unit_price,
-        created_by: u.user.id,
-        updated_by: u.user.id
+        is_long_aging: false,
+        long_aging_note: null
       }));
 
-      // Bước 1.5: Kiểm tra xem ngày này đã có dữ liệu chưa
-      const { count: existCount } = await supabase.from("inventory_opening_balances")
-        .select("id", { count: "exact", head: true })
-        .eq("period_month", rolloverDate)
-        .is("deleted_at", null);
+      const { data: rolloverResult, error: rolloverErr } = await supabase.rpc("inventory_rollover_opening_balances", {
+        p_period_month: rolloverDate,
+        p_rows: payloads,
+        p_lock_until: lockPeriod ? qEnd : null
+      });
+      if (rolloverErr) throw rolloverErr;
 
-      if (existCount && existCount > 0) {
-        // Cố gắng xóa (chỉ Admin mới xóa được theo chính sách RLS)
-        const { data: delData, error: delErr } = await supabase.from("inventory_opening_balances")
-          .delete()
-          .eq("period_month", rolloverDate)
-          .select("id");
-          
-        if (delErr) throw delErr;
-        
-        // Nếu không xóa được dòng nào (do RLS chặn)
-        if (!delData || delData.length === 0) {
-          throw new Error("Ngày mục tiêu đã có số liệu tồn kho. Chỉ tài khoản Quản trị cấp cao (Admin) mới có quyền Ghi Đè kết quả chốt tháng.");
-        }
-      }
-
-      // Lệnh delete dự phòng cho chắc chắn (dù đã xóa ở trên)
-      await supabase.from("inventory_opening_balances").delete().eq("period_month", rolloverDate);
-
-      // Bước 2: Insert toàn bộ vào
-      if (payloads.length > 0) {
-        const { error: insErr } = await supabase.from("inventory_opening_balances").insert(payloads);
-        if (insErr) throw insErr;
-      }
-
-      // Bước 3: Khóa Sổ hệ thống (Update Settings)
-      if (lockPeriod) {
-        const { error: lockErr } = await supabase.from("system_settings").update({ inventory_closed_until: qEnd }).eq("id", "default");
-        if (lockErr) throw lockErr;
-      }
-
-      showToast("🎉 Kết chuyển Kế Toán Thành Công! Hệ thống đã được lập mốc mới.", "success");
+      const insertedRows = typeof rolloverResult === "object" && rolloverResult !== null && "inserted_rows" in rolloverResult
+        ? Number((rolloverResult as { inserted_rows?: number }).inserted_rows ?? payloads.length)
+        : payloads.length;
+      showToast(`Kết chuyển thành công. Đã lập ${insertedRows} dòng tồn đầu kỳ an toàn.`, "success");
       setRolloverOpen(false);
       
       // Auto-update Start Date to reflect the new baseline

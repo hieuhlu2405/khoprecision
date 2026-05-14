@@ -560,7 +560,7 @@ export default function DeliveryPlanPage() {
     const unsavedCount = Array.from(selectedPlanIds).filter(pid => {
       const p = plans.find(x => x.id === pid);
       if (!p) return false;
-      return !!edits[`${p.product_id}_${p.plan_date}`];
+      return !!edits[`${p.product_id}_${p.delivery_customer_id || "null"}_${p.plan_date}`];
     }).length;
 
     if (unsavedCount > 0) {
