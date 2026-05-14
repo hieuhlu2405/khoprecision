@@ -50,8 +50,11 @@
 - `CODEX_HANDOFF.md`
 - `supabase-sql/20260514_backend_safety_foundation.sql`
 - `supabase-sql/20260514_backend_safety_foundation_supabase_editor.sql`
+- `supabase-sql/20260514_inventory_transaction_rpcs.sql`
 - `app/(protected)/inventory/report/page.tsx`
 - `app/(protected)/delivery-plan/page.tsx`
+- `app/(protected)/inventory/inbound/page.tsx`
+- `app/(protected)/inventory/outbound/page.tsx`
 
 Current git status before this handoff file was created:
 
@@ -105,8 +108,9 @@ Priority is:
   - vendor delivery point
 
 - Direct frontend writes to inventory transactions still exist in inbound/outbound pages.
-  - Backend trigger should guard them after migration.
-  - Long-term safer path is to move these writes into RPCs.
+  - This was addressed in the next local pass by adding `supabase-sql/20260514_inventory_transaction_rpcs.sql`.
+  - Inbound/outbound pages now call backend RPCs for manual create/edit/adjust/soft-delete instead of writing `inventory_transactions` directly.
+  - This second migration was applied to live Supabase on 2026-05-14.
 
 - Follow-up review in the next session found and patched three migration-side issues:
   - Standalone `adjust_in` / `adjust_out` rows were counted as zero stock effect.
@@ -148,6 +152,10 @@ Priority is:
 - After live migration:
   - Owner confirmed web opens normally.
   - `npm run build` passed.
+- After adding manual inventory transaction RPCs:
+  - `npm run build` passed.
+  - Owner applied `supabase-sql/20260514_inventory_transaction_rpcs.sql` to live Supabase.
+  - `npm run build` passed again after the live RPC migration.
 
 ## 6. Next Steps For A New Codex Session
 

@@ -761,23 +761,21 @@ export default function InventoryInboundPage() {
     if (valid.length === 0) return showToast("Vui lòng nhập ít nhất 1 dòng sản phẩm hợp lệ.", "error");
     setSaving(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      const insertRows = valid.map(l => {
+      const rows = valid.map(l => {
         const p = products.find(x => x.id === l.productId);
         return {
           tx_date: hDate,
           customer_id: p?.customer_id,
           product_id: l.productId,
-          product_name_snapshot: p?.name || "",
-          product_spec_snapshot: p?.spec,
-          tx_type: "in",
           qty: Number(l.qty),
           unit_cost: l.unitCost ? Number(l.unitCost) : null,
-          note: l.note || hNote || null,
-          created_by: u.user?.id
+          note: l.note || hNote || null
         };
       });
-      const { error } = await supabase.from("inventory_transactions").insert(insertRows);
+      const { error } = await supabase.rpc("inventory_create_manual_transactions", {
+        p_tx_type: "in",
+        p_rows: rows
+      });
       if (error) throw error;
       showToast("Đã lưu phiếu nhập kho!", "success");
       setShowCreate(false);
@@ -793,17 +791,15 @@ export default function InventoryInboundPage() {
   async function saveEdit() {
     if (!editing) return;
     try {
-      const p = products.find(x => x.id === eProductId);
-      const { error } = await supabase.from("inventory_transactions").update({
-        tx_date: eDate,
-        product_id: eProductId,
-        product_name_snapshot: p?.name || editing.product_name_snapshot,
-        product_spec_snapshot: p?.spec || editing.product_spec_snapshot,
-        qty: Number(eQty),
-        unit_cost: eCost ? Number(eCost) : null,
-        note: eNote || null,
-        updated_at: new Date().toISOString()
-      }).eq("id", editing.id);
+      const { error } = await supabase.rpc("inventory_update_manual_transaction", {
+        p_transaction_id: editing.id,
+        p_tx_date: eDate,
+        p_product_id: eProductId,
+        p_qty: Number(eQty),
+        p_unit_cost: eCost ? Number(eCost) : null,
+        p_note: eNote || null,
+        p_delivery_customer_id: null
+      });
       if (error) throw error;
       showToast("Đã cập nhật giao dịch!", "success");
       setEditOpen(false);
@@ -821,24 +817,14 @@ export default function InventoryInboundPage() {
     const diff = target - aCurrentBaseQty;
     if (diff === 0) return showToast("Số lượng sau điều chỉnh phải khác số lượng hiện tại.", "info");
 
-    const finalType = diff > 0 ? "adjust_in" : "adjust_out";
-    const finalQty = Math.abs(diff);
-
     try {
-      const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("inventory_transactions").insert([{
-        tx_date: aDate,
-        customer_id: adjBaseTx.customer_id,
-        product_id: adjBaseTx.product_id,
-        product_name_snapshot: adjBaseTx.product_name_snapshot,
-        product_spec_snapshot: adjBaseTx.product_spec_snapshot,
-        tx_type: finalType,
-        qty: finalQty,
-        unit_cost: aCost ? Number(aCost) : (adjBaseTx.unit_cost || null),
-        note: aNote,
-        adjusted_from_transaction_id: adjBaseTx.id,
-        created_by: u.user?.id
-      }]);
+      const { error } = await supabase.rpc("inventory_adjust_manual_transaction", {
+        p_transaction_id: adjBaseTx.id,
+        p_target_qty: target,
+        p_tx_date: aDate,
+        p_unit_cost: aCost ? Number(aCost) : (adjBaseTx.unit_cost || null),
+        p_note: aNote
+      });
       if (error) throw error;
       showToast("Đã lưu giao dịch điều chỉnh!", "success");
       setAdjOpen(false);
@@ -852,19 +838,12 @@ export default function InventoryInboundPage() {
     const ok = await showConfirm({ message: "Xóa giao dịch này và tất cả các bản điều chỉnh liên quan?", danger: true });
     if (!ok) return;
     try {
-      const now = new Date().toISOString();
-      // 1. Delete main transaction
-      const { error: e1 } = await supabase.from("inventory_transactions").update({ deleted_at: now }).eq("id", id);
-      if (e1) throw e1;
+      const { data, error } = await supabase.rpc("inventory_soft_delete_manual_transactions", {
+        p_transaction_ids: [id]
+      });
+      if (error) throw error;
 
-      // 2. Delete linked adjustments
-      const { data: adjs, error: e2 } = await supabase.from("inventory_transactions")
-        .update({ deleted_at: now })
-        .eq("adjusted_from_transaction_id", id)
-        .select("id");
-      if (e2) throw e2;
-
-      const adjCount = adjs?.length || 0;
+      const adjCount = Number((data as { soft_deleted_adjustment_count?: number } | null)?.soft_deleted_adjustment_count || 0);
       const msg = adjCount > 0 
         ? `Đã xóa 1 giao dịch và ${adjCount} bản điều chỉnh liên quan.`
         : "Đã xóa giao dịch.";
@@ -881,19 +860,12 @@ export default function InventoryInboundPage() {
     const ok = await showConfirm({ message: `Xóa ${ids.length} giao dịch đã chọn và tất cả điều chỉnh liên quan?`, danger: true });
     if (!ok) return;
     try {
-      const now = new Date().toISOString();
-      // 1. Delete main transactions
-      const { error: e1 } = await supabase.from("inventory_transactions").update({ deleted_at: now }).in("id", ids);
-      if (e1) throw e1;
+      const { data, error } = await supabase.rpc("inventory_soft_delete_manual_transactions", {
+        p_transaction_ids: ids
+      });
+      if (error) throw error;
 
-      // 2. Delete linked adjustments
-      const { data: adjs, error: e2 } = await supabase.from("inventory_transactions")
-        .update({ deleted_at: now })
-        .in("adjusted_from_transaction_id", ids)
-        .select("id");
-      if (e2) throw e2;
-
-      const adjCount = adjs?.length || 0;
+      const adjCount = Number((data as { soft_deleted_adjustment_count?: number } | null)?.soft_deleted_adjustment_count || 0);
       const msg = adjCount > 0 
         ? `Đã xóa ${ids.length} giao dịch và ${adjCount} bản điều chỉnh liên quan.`
         : `Đã xóa ${ids.length} giao dịch.`;
