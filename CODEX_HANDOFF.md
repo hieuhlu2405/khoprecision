@@ -138,7 +138,7 @@ Priority is:
 - Operations pending real-world cycle verification on web UI:
   - Periodic Stocktake confirmation (`confirm_inventory_stocktake`).
   - Monthly balance rollover (`inventory_rollover_opening_balances`).
-  - Advanced delivery flows: partial shipment backlog generation and shipment merging.
+  - Advanced delivery flows: partial shipment backlog generation (requires daily manual backlog push/sync action `sync_delivery_backlog`) and shipment merging.
 
 ## 5. Commands Already Run
 
