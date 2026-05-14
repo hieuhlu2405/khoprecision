@@ -51,6 +51,9 @@
 - `supabase-sql/20260514_backend_safety_foundation.sql`
 - `supabase-sql/20260514_backend_safety_foundation_supabase_editor.sql`
 - `supabase-sql/20260514_inventory_transaction_rpcs.sql`
+- `supabase-sql/20260514_fix_inventory_negative_same_day.sql`
+- `supabase-sql/20260514_fix_inventory_delete_with_adjustments.sql`
+- `supabase-sql/20260514_inventory_delivery_rollback_tests.sql`
 - `app/(protected)/inventory/report/page.tsx`
 - `app/(protected)/delivery-plan/page.tsx`
 - `app/(protected)/inventory/inbound/page.tsx`
@@ -156,6 +159,22 @@ Priority is:
   - `npm run build` passed.
   - Owner applied `supabase-sql/20260514_inventory_transaction_rpcs.sql` to live Supabase.
   - `npm run build` passed again after the live RPC migration.
+- Follow-up bug found during live testing:
+  - Owner created inbound 100 pcs for KC 03, then outbound 250 pcs was correctly blocked.
+  - Outbound 100 pcs on the same date was incorrectly blocked as negative stock.
+  - Cause: backend guard checked rows one by one and sorted same-date rows by UUID, so it could calculate outbound before inbound.
+  - Added `supabase-sql/20260514_fix_inventory_negative_same_day.sql` to check stock by daily totals.
+  - This hotfix has not been applied to live Supabase yet.
+- Follow-up bug found during delete testing:
+  - Owner created inbound 200 pcs for KC 03, adjusted down to 100 pcs, outbound 100 pcs, deleted outbound, then tried deleting the inbound row.
+  - Backend blocked delete with negative stock because the linked adjustment row was still live while the base inbound row was being deleted.
+  - Added `supabase-sql/20260514_fix_inventory_delete_with_adjustments.sql`.
+  - This newer hotfix includes the same-day daily-total fix and also soft-deletes linked adjustments when a base transaction is soft-deleted.
+  - Owner applied/tested this newer hotfix on live Supabase and confirmed the delete flow works.
+- Added rollback SQL test suite:
+  - `supabase-sql/20260514_inventory_delivery_rollback_tests.sql`
+  - Tests inventory create/outbound/over-outbound/adjust/delete/atomic rollback, shipment partial backlog, shipment undo, full shipment, over-shipment block, core triggers/RLS/function safety.
+  - It runs inside `BEGIN ... ROLLBACK`, so test data should not be saved if the script reaches the final PASS.
 
 ## 6. Next Steps For A New Codex Session
 

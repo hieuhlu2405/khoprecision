@@ -774,15 +774,14 @@ export default function InventoryOutboundPage() {
     if (!hDate) return showToast("Thiếu ngày xuất.", "error");
     const valid = lines.filter(l => l.productId && l.qty);
     if (valid.length === 0) return showToast("Vui lòng nhập ít nhất 1 dòng sản phẩm hợp lệ.", "error");
-    
+          
     setSaving(true);
     try {
-      // --- BỘ KIỂM TRA TỔNG THỂ (PRE-CHECK) ---
-      // Lấy tồn kho hiện tại của toàn bộ sản phẩm trong phiếu
+      // --- Pre-check stock ---
       const { data: stockData, error: stockErr } = await supabase.rpc("inventory_calculate_report_v2", {
-        p_baseline_date: new Date().toISOString(),
-        p_movements_start_date: new Date().toISOString(),
-        p_movements_end_date: new Date().toISOString()
+        p_baseline_date: getTodayVNStr() + 'T23:59:59.999Z',
+        p_movements_start_date: '1970-01-01',
+        p_movements_end_date: '9999-12-31'
       });
 
       if (stockErr) throw stockErr;
