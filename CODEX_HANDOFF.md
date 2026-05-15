@@ -43,6 +43,11 @@
 - Updated delivery plan UI:
   - Fixed unsaved-edit detection before creating a shipment.
   - It now checks the correct key including `delivery_customer_id`.
+  - Upgraded to support multi-trip shipment merging.
+  - Extended the operational window to 12 hours.
+
+- Updated revenue reporting logic:
+  - Added immutable `unit_cost` snapshot to shipment transactions via `supabase-sql/20260515_fix_shipment_unit_cost.sql` so that historical revenue reports remain accurate even if unit costs change later.
 
 ## 2. Files Modified
 
@@ -58,6 +63,8 @@
 - `app/(protected)/delivery-plan/page.tsx`
 - `app/(protected)/inventory/inbound/page.tsx`
 - `app/(protected)/inventory/outbound/page.tsx`
+- `supabase-sql/20260515_fix_shipment_unit_cost.sql`
+- `app/(protected)/inventory/shared/date-utils.ts`
 
 Current git status before this handoff file was created:
 
@@ -135,6 +142,8 @@ Priority is:
   - Live testing confirmed manual warehouse transactions function securely and accurately prevent negative stock.
   - Live testing confirmed that Undo Shipment (canceling a delivery plan) successfully soft-deletes linked inventory transactions (`deleted_at` timestamped in UTC), correctly restoring available stock while preserving audit history.
   - Live testing confirmed that Merge Shipment successfully aggregates multiple delivery plans into a single unified shipment number, accurately deducting stock across multiple SKUs while applying vehicle transportation costs exactly once.
+  - Apply hotfix `20260515_fix_shipment_unit_cost.sql` to snapshot `unit_cost` and fix revenue reporting. Extended delivery plan operational window.
+  - Cleared `.next` cache and ran production build (`npm run build`). Build succeeded with exit code 0, verifying that all recent feature updates, typing, and UI modifications are fully stable.
 
 - Operations pending real-world cycle verification on web UI:
   - Periodic Stocktake confirmation (`confirm_inventory_stocktake`).
@@ -189,6 +198,9 @@ Priority is:
   - It runs inside `BEGIN ... ROLLBACK`, so test data should not be saved if the script reaches the final PASS.
 - Merged `vercel` branch to `main`:
   - Resolved `0` stock pre-check issue on Vercel production.
+- Cleared `.next` directory manually.
+- `npm run build`
+  - Passed successfully with exit code 0 after integrating revenue snapshot, extended operational window, and UI fixes.
 
 ## 6. Next Steps For A New Codex Session
 
