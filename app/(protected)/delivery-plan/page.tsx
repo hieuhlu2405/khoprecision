@@ -1057,7 +1057,6 @@ export default function DeliveryPlanPage() {
     const uncompleted = plans.filter(p =>
       p.plan_date === closeBacklogDay &&
       !p.is_completed &&
-      (p.actual_qty || 0) === 0 &&
       ((p.planned_qty || 0) + (p.backlog_qty || 0)) > 0
     );
 
