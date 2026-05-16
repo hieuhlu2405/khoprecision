@@ -2055,7 +2055,7 @@ export default function DeliveryPlanPage() {
                                     </div>
                                     <div>
                                       <div className={`text-[11px] font-black uppercase tracking-tight transition-colors ${selectedMergeShipmentId === null ? 'text-indigo-700' : 'text-slate-700'}`}>
-                                        Tạo chuyến mới tinh
+                                        Tạo chuyến mới
                                       </div>
                                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
                                         (Hệ thống sẽ tính cước tài xế mới)
