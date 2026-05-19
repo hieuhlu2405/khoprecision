@@ -142,7 +142,10 @@ Priority is:
   - Live testing confirmed manual warehouse transactions function securely and accurately prevent negative stock.
   - Live testing confirmed that Undo Shipment (canceling a delivery plan) successfully soft-deletes linked inventory transactions (`deleted_at` timestamped in UTC), correctly restoring available stock while preserving audit history.
   - Live testing confirmed that Merge Shipment successfully aggregates multiple delivery plans into a single unified shipment number, accurately deducting stock across multiple SKUs while applying vehicle transportation costs exactly once.
-  - Apply hotfix `20260515_fix_shipment_unit_cost.sql` to snapshot `unit_cost` and fix revenue reporting. Extended delivery plan operational window.
+  - Apply hotfix `20260515_fix_shipment_unit_cost.sql` to snapshot `unit_cost` and fix revenue reporting.
+  - Refactored Merge Shipment UI to explicitly list all shipments within a 12-hour window, providing a safe, card-based UI to prevent accidental wrong-trip merges.
+  - Fixed a frontend bug where the daily 'close backlog' operation failed to capture and push backlog for partial shipments (`actual_qty > 0`).
+  - Provided a one-off SQL script to retroactively backfill `driver_cost` and `assistant_cost` for internal shipments created before May 15, 2026.
   - Cleared `.next` cache and ran production build (`npm run build`). Build succeeded with exit code 0, verifying that all recent feature updates, typing, and UI modifications are fully stable.
 
 - Operations pending real-world cycle verification on web UI:

@@ -1161,32 +1161,14 @@ export default function PhoiPage() {
                         <td style={{ ...tdStyle, width: colWidths["sku"] || 140, fontWeight: 800, color: "#000000", fontSize: "16px" }}>{skuFor(r)}</td>
                         <td style={{ ...tdStyle, width: colWidths["name"] || 250, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", fontSize: "15px", color: "#6b7280" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
                         <td style={{ ...tdStyle, width: colWidths["spec"] || 160, color: "#000000", fontSize: "15px", fontWeight: 400, textTransform: "uppercase" }}>{r.product_spec_snapshot}</td>
-                        <td style={{ ...tdStyle, width: colWidths["qty"] || 100, textAlign: "right" }} className="group relative">
-                           <div className="flex flex-col items-end cursor-help">
+                        <td style={{ ...tdStyle, width: colWidths["qty"] || 100, textAlign: "right" }}>
+                           <div 
+                             className={`flex flex-col items-end ${hasAdjs ? "cursor-help" : ""}`}
+                             title={hasAdjs ? "LỊCH SỬ ĐIỀU CHỈNH PHÔI:\n" + (r.adjs || []).map((a: any) => `${fmtDate(a.tx_date)} | ${a.tx_type === 'adjust_in' ? 'Tăng (+)' : 'Giảm (-)'}${fmtNum(a.qty)} | ${a.note}`).join('\n') : undefined}
+                           >
                              <span style={{ fontWeight: 800, fontSize: 16, color: "#000000" }}>{fmtNum(finalQty)}</span>
                              {hasAdjs && <span style={{ fontSize: 10, color: adjTotal >= 0 ? "green" : "red", fontWeight: 900 }}>(Gốc: {fmtNum(originalQty)})</span>}
                            </div>
-                           {/* Floating Tooltip Detail */}
-                           {hasAdjs && (
-                             <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-[100] w-[320px]">
-                               <div className="bg-white/90 backdrop-blur-md border border-slate-200 shadow-2xl rounded-xl p-3 text-left">
-                                 <div className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest border-b border-slate-100 pb-1">Lịch sử điều chỉnh phôi</div>
-                                 <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-                                   {r.adjs?.map((a: any) => (
-                                     <div key={a.id} className="flex justify-between items-start gap-3">
-                                       <div className="flex flex-col">
-                                         <span className="text-[10px] text-slate-500 font-bold">{fmtDate(a.tx_date)}</span>
-                                         <span className="text-[11px] text-black font-black leading-tight">{a.note}</span>
-                                       </div>
-                                       <div className={`text-[11px] font-black ${a.tx_type === 'adjust_in' ? 'text-green-600' : 'text-red-600'}`}>
-                                         {a.tx_type === 'adjust_in' ? '+' : '-'}{fmtNum(a.qty)}
-                                       </div>
-                                     </div>
-                                   ))}
-                                 </div>
-                               </div>
-                             </div>
-                           )}
                         </td>
                         {/* Unit Cost Cell Hidden */}
                         <td className="table-note-black" style={{ ...tdStyle, width: colWidths["note"] || 200, overflow: "hidden", textOverflow: "ellipsis" }} title={r.note || ""}>{r.note || ""}</td>
