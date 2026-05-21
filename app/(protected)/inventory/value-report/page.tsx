@@ -10,7 +10,7 @@ import { formatToVietnameseDate, computeSnapshotBounds, applySamePeriodLastYearD
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
-import { fetchAllRpcRows, type InventoryReportRpcRow } from "@/lib/supabase-fetch-all";
+import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -1004,7 +1004,7 @@ export default function InventoryValueReportPage() {
       if (reportMode === "current") {
         const lookback30 = getDaysAgo(qEnd, 30);
         const b = computeSnapshotBounds(lookback30, qEnd, ops);
-        const rpcData = await fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
+        const rpcData = await fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
           p_baseline_date: b.S || lookback30,
           p_movements_start_date: b.effectiveStart,
           p_movements_end_date: dayAfterStr(qEnd),
@@ -1017,12 +1017,12 @@ export default function InventoryValueReportPage() {
         const b2 = computeSnapshotBounds(getDaysAgo(p2End, 30), p2End, ops);
         
         const [res1, res2] = await Promise.all([
-          fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
+          fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
             p_baseline_date: b1.S || getDaysAgo(p1End, 30),
             p_movements_start_date: b1.effectiveStart,
             p_movements_end_date: dayAfterStr(p1End),
           })),
-          fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
+          fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
             p_baseline_date: b2.S || getDaysAgo(p2End, 30),
             p_movements_start_date: b2.effectiveStart,
             p_movements_end_date: dayAfterStr(p2End),
@@ -1202,19 +1202,20 @@ export default function InventoryValueReportPage() {
     // Convert P1 rows to a lookup map
     const m1 = new Map<string, number>();
     for (const r of rpcRowsP1) {
-      m1.set(`${r.product_id}_${r.customer_id || ""}`, Number(r.current_qty));
+      m1.set(r.product_id, Number(r.current_qty));
     }
 
-    // Identify all unique Product+Customer pairs across both periods
+    // Identify all unique products across both periods
     const allKeys = new Set<string>();
-    rpcRowsP1.forEach(r => allKeys.add(`${r.product_id}_${r.customer_id || ""}`));
-    rpcRowsP2.forEach(r => allKeys.add(`${r.product_id}_${r.customer_id || ""}`));
+    rpcRowsP1.forEach(r => allKeys.add(r.product_id));
+    rpcRowsP2.forEach(r => allKeys.add(r.product_id));
 
     const results: CompareProdRow[] = [];
     for (const key of allKeys) {
-      const [pid, cid] = key.split("_");
+      const pid = key;
       const p = productMap.get(pid);
       if (!p) continue;
+      const cid = p.customer_id;
       
       // Basic Filters
       if (qCustomer && p.customer_id !== qCustomer) continue;
@@ -1224,7 +1225,7 @@ export default function InventoryValueReportPage() {
       }
 
       const qty1 = m1.get(key) || 0;
-      const r2 = rpcRowsP2.find(r => `${r.product_id}_${r.customer_id || ""}` === key);
+      const r2 = rpcRowsP2.find(r => r.product_id === key);
       const qty2 = r2 ? Number(r2.current_qty) : 0;
 
       if (onlyInStock && qty1 <= 0 && qty2 <= 0) continue;

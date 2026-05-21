@@ -8,7 +8,7 @@ import { useUI } from "@/app/context/UIContext";
 import { motion } from "framer-motion";
 import { LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { getTodayVNStr } from "@/lib/date-utils";
-import { fetchAllRpcRows, type InventoryReportRpcRow } from "@/lib/supabase-fetch-all";
+import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -290,12 +290,12 @@ export default function InventoryComparisonPage() {
       const b1 = computeSnapshotBounds(p1Start, p1End, ops);
       const b2 = computeSnapshotBounds(p2Start, p2End, ops);
       const [t1, t2, t1tx, t2tx] = await Promise.all([
-        fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
+        fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
           p_baseline_date: b1.S || p1Start,
           p_movements_start_date: b1.effectiveStart,
           p_movements_end_date: dayAfter(p1End),
         })),
-        fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
+        fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
           p_baseline_date: b2.S || p2Start,
           p_movements_start_date: b2.effectiveStart,
           p_movements_end_date: dayAfter(p2End),
@@ -321,15 +321,17 @@ export default function InventoryComparisonPage() {
   const productRows = useMemo(() => {
     const m1 = new Map<string, { in: number; out: number; pid: string; cid: string | null }>();
     for (const r of rpcData1) { 
-      const key = `${r.product_id}_${r.customer_id || ""}`;
-      const e = m1.get(key) || { in: 0, out: 0, pid: r.product_id, cid: r.customer_id }; 
+      const key = r.product_id;
+      const p = products.find(x => x.id === r.product_id);
+      const e = m1.get(key) || { in: 0, out: 0, pid: r.product_id, cid: p?.customer_id || null };
       e.in += Number(r.inbound_qty); e.out += Number(r.outbound_qty); 
       m1.set(key, e); 
     }
     const m2 = new Map<string, { in: number; out: number; pid: string; cid: string | null }>();
     for (const r of rpcData2) { 
-      const key = `${r.product_id}_${r.customer_id || ""}`;
-      const e = m2.get(key) || { in: 0, out: 0, pid: r.product_id, cid: r.customer_id }; 
+      const key = r.product_id;
+      const p = products.find(x => x.id === r.product_id);
+      const e = m2.get(key) || { in: 0, out: 0, pid: r.product_id, cid: p?.customer_id || null };
       e.in += Number(r.inbound_qty); e.out += Number(r.outbound_qty); 
       m2.set(key, e); 
     }

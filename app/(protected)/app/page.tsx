@@ -5,7 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { getVNTimeNow, getTodayVNStr } from "@/lib/date-utils";
 import { useUI } from "@/app/context/UIContext";
-import { fetchAllRows, fetchAllRpcRows, type InventoryReportRpcRow } from "@/lib/supabase-fetch-all";
+import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 
 /* -----------------------------------------------------------------------
@@ -240,7 +240,7 @@ export default function AppHome() {
         const bounds = computeSnapshotBounds(lookback30Str, todayStr, openingsList);
 
         // Call the official Postgres RPC calculate report using the computed bounds
-        const reportRows = await fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
+        const reportRows = await fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
           p_baseline_date: bounds.S || lookback30Str,
           p_movements_start_date: bounds.effectiveStart,
           p_movements_end_date: dayAfterStr(todayStr)

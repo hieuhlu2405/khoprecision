@@ -21,6 +21,7 @@ const args = {
   p_movements_start_date: process.argv[3] || "2026-05-01",
   p_movements_end_date: process.argv[4] || "2026-05-04",
 };
+const rpcName = process.argv[5] || "inventory_calculate_product_stock_v1";
 
 async function fetchAllRpcRows(queryBuilder) {
   const batch = 1000;
@@ -43,9 +44,9 @@ async function fetchAllRpcRows(queryBuilder) {
 }
 
 async function run() {
-  console.log("Testing inventory_calculate_report_v2 with args:", args);
+  console.log(`Testing ${rpcName} with args:`, args);
 
-  const normal = await supabase.rpc("inventory_calculate_report_v2", args, {
+  const normal = await supabase.rpc(rpcName, args, {
     count: "exact",
   });
   if (normal.error) throw normal.error;
@@ -54,7 +55,7 @@ async function run() {
   console.log("Exact count:", normal.count);
 
   const allRows = await fetchAllRpcRows(
-    supabase.rpc("inventory_calculate_report_v2", args)
+    supabase.rpc(rpcName, args)
   );
 
   const productCount = new Set(allRows.map((row) => row.product_id)).size;

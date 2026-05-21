@@ -44,6 +44,14 @@ export type InventoryReportRpcRow = {
   current_qty: number | string;
 };
 
+export type ProductStockRpcRow = {
+  product_id: string;
+  opening_qty: number | string;
+  inbound_qty: number | string;
+  outbound_qty: number | string;
+  current_qty: number | string;
+};
+
 type SupabasePagedQuery<T> = {
   range: (from: number, to: number) => PromiseLike<{
     data: T[] | null;

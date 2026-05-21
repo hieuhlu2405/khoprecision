@@ -8,7 +8,7 @@ import { LoadingPage } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
 import { formatDateVN, formatDateTimeVN, getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
-import { fetchAllRows, fetchAllRpcRows, type InventoryReportRpcRow } from "@/lib/supabase-fetch-all";
+import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -778,7 +778,7 @@ export default function InventoryOutboundPage() {
     setSaving(true);
     try {
       // --- Pre-check stock ---
-      const stockData = await fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
+      const stockData = await fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
         p_baseline_date: getTodayVNStr() + 'T23:59:59.999Z',
         p_movements_start_date: '1970-01-01',
         p_movements_end_date: '9999-12-31'

@@ -8,7 +8,7 @@ import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
-import { fetchAllRpcRows, type InventoryReportRpcRow } from "@/lib/supabase-fetch-all";
+import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 
 type Profile = {
   id: string;
@@ -318,7 +318,7 @@ export default function StocktakeDetailPage() {
     endPlus1.setDate(endPlus1.getDate() + 1);
     const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
 
-    const data = await fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
+    const data = await fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
       p_baseline_date: baselineDate,
       p_movements_start_date: bounds.effectiveStart,
       p_movements_end_date: nextD,
@@ -422,7 +422,7 @@ export default function StocktakeDetailPage() {
         return {
           ...l,
           product_id: p.id,
-          customer_id: p.customer_id,
+          customer_id: null,
           product_name_snapshot: p.name,
           product_spec_snapshot: p.spec,
           unit_price_snapshot: p.unit_price || 0,
@@ -486,7 +486,7 @@ export default function StocktakeDetailPage() {
         showToast("Có dòng chưa chọn mã hàng.", "error");
         return false;
       }
-      const key = `${l.product_id}-${l.customer_id || ""}`;
+      const key = l.product_id;
       if (seen.has(key)) {
         const sku = products.find(p => p.id === l.product_id)?.sku || "N/A";
         showToast(`Mã hàng ${sku} bị nhập trùng trong phiếu. Vui lòng gộp dòng hoặc xóa bớt.`, "error");
@@ -528,9 +528,8 @@ export default function StocktakeDetailPage() {
         // --- SỬ DỤNG ATOMIC RPC (PHƯƠNG PHÁP MỚI) ---
         // Gọi hàm xử lý tập trung dưới Database để đảm bảo an toàn tuyệt đối, 
         // không bị rác dữ liệu nếu một bước nào đó thất bại (Atomic Transaction).
-        const { error: rpcErr } = await supabase.rpc("confirm_inventory_stocktake", {
+        const { error: rpcErr } = await supabase.rpc("confirm_inventory_stocktake_product_level", {
           p_header_id: header.id,
-          p_user_id: me?.id,
           p_stocktake_date: header.stocktake_date.slice(0, 10),
           p_lines: lines, // Đẩy nguyên mảng lines vào, Database sẽ tự xử
           p_edit_reason: editReason // Nếu có lý do sửa sau khi chốt
@@ -550,7 +549,7 @@ export default function StocktakeDetailPage() {
 
         const inserts = lines.map(l => ({
           stocktake_id: header.id,
-          customer_id: l.customer_id,
+          customer_id: null,
           product_id: l.product_id,
           product_name_snapshot: l.product_name_snapshot,
           product_spec_snapshot: l.product_spec_snapshot,
@@ -627,7 +626,7 @@ export default function StocktakeDetailPage() {
     const logic = applyDiffLogic({ system_qty_before: sysQty } as StocktakeLine, sysQty);
     setLines(prev => [...prev, {
       id: "NEW_" + Date.now() + "_" + Math.random(),
-      product_id: product.id, customer_id: product.customer_id,
+      product_id: product.id, customer_id: null,
       product_name_snapshot: product.name, product_spec_snapshot: product.spec,
       unit_price_snapshot: product.unit_price || 0,
       system_qty_before: sysQty, actual_qty_after: sysQty,
@@ -660,7 +659,7 @@ export default function StocktakeDetailPage() {
         if (sysQty <= 0) continue;
         newLines.push({
           id: "NEW_" + Date.now() + "_" + Math.random(),
-          product_id: p.id, customer_id: p.customer_id,
+          product_id: p.id, customer_id: null,
           product_name_snapshot: p.name, product_spec_snapshot: p.spec,
           unit_price_snapshot: p.unit_price || 0,
           system_qty_before: sysQty, actual_qty_after: sysQty,

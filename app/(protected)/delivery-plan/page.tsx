@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 import { formatDateVN, formatDateTimeVN, getTodayVNStr, getVNTimeNow } from "@/lib/date-utils";
 import { exportToExcel, readExcel, exportWithTemplate, exportDeliveryDraftExcel } from "@/lib/excel-utils";
-import { fetchAllRpcRows, type InventoryReportRpcRow } from "@/lib/supabase-fetch-all";
+import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -442,7 +442,7 @@ export default function DeliveryPlanPage() {
       endPlus1.setDate(endPlus1.getDate() + 1);
       const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
 
-      const stockRows = await fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
+      const stockRows = await fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
         p_baseline_date: baselineDate,
         p_movements_start_date: computedBounds.effectiveStart,
         p_movements_end_date: nextD,
@@ -584,7 +584,7 @@ export default function DeliveryPlanPage() {
       const endPlus1 = new Date(qEnd);
       endPlus1.setDate(endPlus1.getDate() + 1);
       const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
-      const stockRows = await fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
+      const stockRows = await fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
         p_baseline_date: baselineDate,
         p_movements_start_date: computedBounds.effectiveStart,
         p_movements_end_date: nextD,
@@ -686,7 +686,7 @@ export default function DeliveryPlanPage() {
     try {
       // --- BỘ KIỂM TRA TỔNG THỂ (PRE-CHECK) ---
       // Lấy tồn kho hiện tại
-      const stockData = await fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
+      const stockData = await fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
         p_baseline_date: new Date().toISOString(),
         p_movements_start_date: new Date().toISOString(),
         p_movements_end_date: new Date().toISOString()

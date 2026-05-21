@@ -10,7 +10,7 @@ import { exportToExcel } from "@/lib/excel-utils";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { fetchAllRpcRows, type InventoryReportRpcRow } from "@/lib/supabase-fetch-all";
+import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -343,7 +343,7 @@ export default function InventoryReportPage() {
       endPlus1.setDate(endPlus1.getDate() + 1);
       const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
 
-      const stockRows = await fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
+      const stockRows = await fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
         p_baseline_date: baselineDate,
         p_movements_start_date: computedBounds.effectiveStart,
         p_movements_end_date: nextD,
@@ -619,7 +619,7 @@ export default function InventoryReportPage() {
       const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
       const baselineDate = bounds.S || qStart;
       
-      const data = await fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
+      const data = await fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
         p_baseline_date: baselineDate,
         p_movements_start_date: bounds.effectiveStart,
         p_movements_end_date: nextD,
@@ -630,7 +630,7 @@ export default function InventoryReportPage() {
       
       let diffCount = 0;
       reportData.forEach(r => {
-        const dbRow = (data as any[])?.find(d => d.product_id === r.product.id && (d.customer_id === r.customer_id || (!d.customer_id && !r.customer_id)));
+        const dbRow = data?.find(d => d.product_id === r.product.id);
         if (!dbRow) {
            console.warn(`[Thiếu dữ liệu] JS có mã này nhưng DB không trả về!`, r);
            diffCount++;
