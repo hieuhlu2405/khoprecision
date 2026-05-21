@@ -8,6 +8,7 @@ import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
+import { fetchAllRows } from "@/lib/supabase-fetch-all";
 
 type Profile = {
   id: string;
@@ -269,24 +270,32 @@ export default function StocktakeDetailPage() {
       setIsAdminOrManager(isMngr);
       setIsAdmin((isAd === true) || role === "admin");
 
-      const [rH, rL, rP, rC] = await Promise.all([
-        supabase.from("inventory_stocktakes").select("*").eq("id", stkId).single(),
-        supabase.from("inventory_stocktake_lines").select("*").eq("stocktake_id", stkId).is("deleted_at", null).order("created_at", { ascending: true }),
-        supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null),
-        supabase.from("customers").select("id, code, name").is("deleted_at", null)
-      ]);
-
+      // Header luôn trả 1 dòng → giữ nguyên
+      const rH = await supabase.from("inventory_stocktakes").select("*").eq("id", stkId).single();
       if (rH.error) throw rH.error;
       setHeader(rH.data as Stocktake);
 
-      const DB_lines = (rL.data || []).map((dbLine: any) => ({
+      // 3 bảng còn lại có thể vượt 1000 dòng → dùng fetchAllRows
+      const [allLines, allProducts, allCustomers] = await Promise.all([
+        fetchAllRows(
+          supabase.from("inventory_stocktake_lines").select("*").eq("stocktake_id", stkId).is("deleted_at", null).order("created_at", { ascending: true })
+        ),
+        fetchAllRows(
+          supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null)
+        ),
+        fetchAllRows(
+          supabase.from("customers").select("id, code, name").is("deleted_at", null)
+        ),
+      ]);
+
+      const DB_lines = allLines.map((dbLine: any) => ({
         ...dbLine,
         _newQtyInput: String(dbLine.actual_qty_after)
       }));
       setLines(DB_lines);
 
-      setProducts(rP.data || []);
-      setCustomers(rC.data || []);
+      setProducts(allProducts);
+      setCustomers(allCustomers);
 
       if (rH.data.post_confirm_edit_reason) {
         setEditReason(rH.data.post_confirm_edit_reason);
