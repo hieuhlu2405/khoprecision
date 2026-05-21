@@ -146,6 +146,8 @@ Priority is:
   - Refactored Merge Shipment UI to explicitly list all shipments within a 12-hour window, providing a safe, card-based UI to prevent accidental wrong-trip merges.
   - Fixed a frontend bug where the daily 'close backlog' operation failed to capture and push backlog for partial shipments (`actual_qty > 0`).
   - Provided a one-off SQL script to retroactively backfill `driver_cost` and `assistant_cost` for internal shipments created before May 15, 2026.
+  - Provided SQL script `20260518_fix_backlog_notes.sql` to carry over existing notes during backlog sync instead of hardcoding 'Backlog tu ngay...'.
+  - Fixed a UI bug in inventory inbound/outbound/phoi where the adjustment tooltip was clipped by the table's scroll area by converting it to a native browser tooltip, and conditionally showing the `cursor-help` icon only when adjustments exist.
   - Cleared `.next` cache and ran production build (`npm run build`). Build succeeded with exit code 0, verifying that all recent feature updates, typing, and UI modifications are fully stable.
 
 - Operations pending real-world cycle verification on web UI:

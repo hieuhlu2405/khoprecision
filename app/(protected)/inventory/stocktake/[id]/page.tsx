@@ -758,8 +758,8 @@ export default function StocktakeDetailPage() {
     const active = !!colFilters[colKey];
     const isSort = sortCol === colKey;
     return (
-      <th style={{ width: w ? parseInt(w) : 150 }} className="p-4 border-b border-slate-100 sticky top-0 bg-white/90 backdrop-blur-md z-20">
-        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : ""}`}>
+      <th style={{ width: w ? parseInt(w) : 150 }} className="p-4 shrink-0 text-left">
+        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : ""}`}>
           <span className="font-black text-[10px] text-slate-400 uppercase tracking-widest">{label}</span>
           <button onClick={() => setOpenPopupId(openPopupId === colKey ? null : colKey)} className={`p-1 rounded ${active ? "bg-indigo-600 text-white" : "text-slate-300 hover:bg-slate-100"}`}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
@@ -872,10 +872,10 @@ export default function StocktakeDetailPage() {
           <>
         <div className="bg-white rounded-[2rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden" ref={containerRef}>
           <div ref={parentRef} className="h-[calc(100vh-520px)] overflow-auto scrollbar-hide relative">
-            <table className="w-full text-sm border-separate border-spacing-0 table-fixed">
-              <thead>
-                <tr>
-                  <th className="w-16 p-4 border-b border-slate-100 font-black text-[10px] text-slate-400 uppercase text-center sticky top-0 bg-white z-20">STT</th>
+            <table className="w-full text-sm block min-w-max">
+              <thead className="block sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
+                <tr className="flex items-center w-full">
+                  <th className="w-16 shrink-0 p-4 font-black text-[10px] text-slate-400 uppercase text-center">STT</th>
                   <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="180" />
                   <ThCell label="Sản phẩm / SKU" colKey="sku" sortable colType="text" w="220" />
                   <ThCell label="Tên hàng" colKey="name" sortable colType="text" w="280" />
@@ -883,10 +883,10 @@ export default function StocktakeDetailPage() {
                   <ThCell label="Thực tế" colKey="actQty" sortable colType="num" align="right" w="140" />
                   <ThCell label="Lệch" colKey="diffQty" sortable colType="num" align="right" w="120" />
                   <ThCell label="Ghi chú" colKey="reason" sortable colType="text" w="220" />
-                  {canEdit && <th className="w-20 p-4 border-b border-slate-100 font-black text-[10px] text-slate-400 uppercase text-center sticky top-0 bg-white z-20">Xóa</th>}
+                  {canEdit && <th className="w-20 shrink-0 p-4 font-black text-[10px] text-slate-400 uppercase text-center">Xóa</th>}
                 </tr>
               </thead>
-              <tbody style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }}>
+              <tbody style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }} className="block w-full">
                 {rowVirtualizer.getVirtualItems().map(v => {
                   const l = finalFiltered[v.index];
                   const isSystemHidden = !isAdmin && !isConfirmed;
