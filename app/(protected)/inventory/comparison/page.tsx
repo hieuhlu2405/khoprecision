@@ -8,6 +8,7 @@ import { useUI } from "@/app/context/UIContext";
 import { motion } from "framer-motion";
 import { LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { getTodayVNStr } from "@/lib/date-utils";
+import { fetchAllRpcRows, type InventoryReportRpcRow } from "@/lib/supabase-fetch-all";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -289,21 +290,21 @@ export default function InventoryComparisonPage() {
       const b1 = computeSnapshotBounds(p1Start, p1End, ops);
       const b2 = computeSnapshotBounds(p2Start, p2End, ops);
       const [t1, t2, t1tx, t2tx] = await Promise.all([
-        supabase.rpc("inventory_calculate_report_v2", {
+        fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
           p_baseline_date: b1.S || p1Start,
           p_movements_start_date: b1.effectiveStart,
           p_movements_end_date: dayAfter(p1End),
-        }),
-        supabase.rpc("inventory_calculate_report_v2", {
+        })),
+        fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
           p_baseline_date: b2.S || p2Start,
           p_movements_start_date: b2.effectiveStart,
           p_movements_end_date: dayAfter(p2End),
-        }),
+        })),
         supabase.from("inventory_transactions").select("*").gte("tx_date", b1.effectiveStart).lt("tx_date", dayAfter(p1End)).is("deleted_at", null),
         supabase.from("inventory_transactions").select("*").gte("tx_date", b2.effectiveStart).lt("tx_date", dayAfter(p2End)).is("deleted_at", null),
       ]);
-      setRpcData1((t1.data ?? []) as any[]);
-      setRpcData2((t2.data ?? []) as any[]);
+      setRpcData1((t1 ?? []) as any[]);
+      setRpcData2((t2 ?? []) as any[]);
       setTxs1((t1tx.data ?? []) as InventoryTx[]);
       setTxs2((t2tx.data ?? []) as InventoryTx[]);
     } catch (err: unknown) { setError((err as Error)?.message ?? "Có lỗi xảy ra"); } finally { setLoading(false); }

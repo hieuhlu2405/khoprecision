@@ -6,6 +6,7 @@ import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 import { getVNTimeNow } from "@/lib/date-utils";
+import { fetchAllRpcRows, type InventoryReportRpcRow } from "@/lib/supabase-fetch-all";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -243,11 +244,11 @@ export default function ShortageReportPage() {
       endPlus1.setDate(endPlus1.getDate() + 1);
       const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
 
-      const { data: stockRows } = await supabase.rpc("inventory_calculate_report_v2", {
+      const stockRows = await fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
         p_baseline_date: baselineDate,
         p_movements_start_date: computedBounds.effectiveStart,
         p_movements_end_date: nextD,
-      });
+      }));
 
       if (stockRows) {
         const smap: Record<string, number> = {};

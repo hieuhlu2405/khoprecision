@@ -10,6 +10,7 @@ import { useDebounce } from "@/app/hooks/useDebounce";
 import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { fetchAllRpcRows, type InventoryReportRpcRow } from "@/lib/supabase-fetch-all";
 
 
 /* ------------------------------------------------------------------ */
@@ -829,32 +830,29 @@ export default function InventoryAgingReportPage() {
         // Dùng DB RPC thay vì JS buildStockRows — tránh sai số string-comparison timezone
         const computedBounds = computeSnapshotBounds(qStart, qEnd, ops);
         const baselineDate = computedBounds.S || qStart;
-        const { data: rpcData, error: eRpc } = await supabase.rpc("inventory_calculate_report_v2", {
+        const rpcData = await fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
           p_baseline_date: baselineDate,
           p_movements_start_date: computedBounds.effectiveStart,
           p_movements_end_date: dayAfter(qEnd),
-        });
-        if (eRpc) throw eRpc;
+        }));
         setStockRowsRpc(rpcData ?? []);
       } else {
         const b1 = computeSnapshotBounds(p1Start, p1End, ops);
         const b2 = computeSnapshotBounds(p2Start, p2End, ops);
         const [t1, t2] = await Promise.all([
-          supabase.rpc("inventory_calculate_report_v2", {
+          fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
             p_baseline_date: b1.S || p1Start,
             p_movements_start_date: b1.effectiveStart,
             p_movements_end_date: dayAfter(p1End),
-          }),
-          supabase.rpc("inventory_calculate_report_v2", {
+          })),
+          fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
             p_baseline_date: b2.S || p2Start,
             p_movements_start_date: b2.effectiveStart,
             p_movements_end_date: dayAfter(p2End),
-          }),
+          })),
         ]);
-        if (t1.error) throw t1.error;
-        if (t2.error) throw t2.error;
-        setRpcData1((t1.data ?? []) as any[]);
-        setRpcData2((t2.data ?? []) as any[]);
+        setRpcData1((t1 ?? []) as any[]);
+        setRpcData2((t2 ?? []) as any[]);
       }
     } catch (err: unknown) {
       setError((err as Error)?.message ?? "Có lỗi xảy ra");

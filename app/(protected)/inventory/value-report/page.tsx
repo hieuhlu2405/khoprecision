@@ -10,6 +10,7 @@ import { formatToVietnameseDate, computeSnapshotBounds, applySamePeriodLastYearD
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
+import { fetchAllRpcRows, type InventoryReportRpcRow } from "@/lib/supabase-fetch-all";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -1003,13 +1004,12 @@ export default function InventoryValueReportPage() {
       if (reportMode === "current") {
         const lookback30 = getDaysAgo(qEnd, 30);
         const b = computeSnapshotBounds(lookback30, qEnd, ops);
-        const { data: rpcData, error: eRpc } = await supabase.rpc("inventory_calculate_report_v2", {
+        const rpcData = await fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
           p_baseline_date: b.S || lookback30,
           p_movements_start_date: b.effectiveStart,
           p_movements_end_date: dayAfterStr(qEnd),
-        });
+        }));
         if (signal.aborted) return;
-        if (eRpc) throw eRpc;
         setStockRowsFromRpc(rpcData ?? []);
       } else {
         // Comparison mode: Call RPC twice
@@ -1017,22 +1017,20 @@ export default function InventoryValueReportPage() {
         const b2 = computeSnapshotBounds(getDaysAgo(p2End, 30), p2End, ops);
         
         const [res1, res2] = await Promise.all([
-          supabase.rpc("inventory_calculate_report_v2", {
+          fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
             p_baseline_date: b1.S || getDaysAgo(p1End, 30),
             p_movements_start_date: b1.effectiveStart,
             p_movements_end_date: dayAfterStr(p1End),
-          }),
-          supabase.rpc("inventory_calculate_report_v2", {
+          })),
+          fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
             p_baseline_date: b2.S || getDaysAgo(p2End, 30),
             p_movements_start_date: b2.effectiveStart,
             p_movements_end_date: dayAfterStr(p2End),
-          })
+          }))
         ]);
         if (signal.aborted) return;
-        if (res1.error) throw res1.error;
-        if (res2.error) throw res2.error;
-        setRpcRowsP1(res1.data ?? []);
-        setRpcRowsP2(res2.data ?? []);
+        setRpcRowsP1(res1 ?? []);
+        setRpcRowsP2(res2 ?? []);
       }
     } catch (err: any) { 
       if (err.name === 'AbortError') return;

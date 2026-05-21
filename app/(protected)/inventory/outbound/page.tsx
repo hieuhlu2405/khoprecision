@@ -8,7 +8,7 @@ import { LoadingPage } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
 import { formatDateVN, formatDateTimeVN, getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
-import { fetchAllRows } from "@/lib/supabase-fetch-all";
+import { fetchAllRows, fetchAllRpcRows, type InventoryReportRpcRow } from "@/lib/supabase-fetch-all";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -778,13 +778,11 @@ export default function InventoryOutboundPage() {
     setSaving(true);
     try {
       // --- Pre-check stock ---
-      const { data: stockData, error: stockErr } = await supabase.rpc("inventory_calculate_report_v2", {
+      const stockData = await fetchAllRpcRows<InventoryReportRpcRow>(supabase.rpc("inventory_calculate_report_v2", {
         p_baseline_date: getTodayVNStr() + 'T23:59:59.999Z',
         p_movements_start_date: '1970-01-01',
         p_movements_end_date: '9999-12-31'
-      });
-
-      if (stockErr) throw stockErr;
+      }));
 
       const stockMap: Record<string, number> = {};
       (stockData || []).forEach((s: any) => {
