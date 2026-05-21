@@ -1,0 +1,247 @@
+BEGIN;
+
+CREATE OR REPLACE FUNCTION public.confirm_inventory_stocktake_product_level(
+  p_header_id uuid,
+  p_stocktake_date date,
+  p_lines jsonb,
+  p_edit_reason text DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_now timestamptz := now();
+  v_line jsonb;
+  v_product_id uuid;
+  v_actual_qty numeric;
+  v_system_qty numeric;
+  v_qty_diff numeric;
+  v_diff_percent numeric;
+  v_product record;
+  v_day_after text := (p_stocktake_date + 1)::text;
+BEGIN
+  IF v_user_id IS NULL OR NOT public.is_manager() THEN
+    RAISE EXCEPTION 'Ban khong co quyen chot kiem ke.';
+  END IF;
+
+  IF p_header_id IS NULL OR p_stocktake_date IS NULL THEN
+    RAISE EXCEPTION 'Thieu thong tin phieu kiem ke.';
+  END IF;
+
+  IF p_lines IS NULL OR jsonb_typeof(p_lines) <> 'array' OR jsonb_array_length(p_lines) = 0 THEN
+    RAISE EXCEPTION 'Du lieu dong kiem ke khong hop le.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_to_recordset(p_lines) AS x(product_id uuid)
+    WHERE x.product_id IS NOT NULL
+    GROUP BY x.product_id
+    HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'Mot ma hang chi duoc xuat hien mot dong trong phieu kiem ke.';
+  END IF;
+
+  PERFORM set_config('app.inventory_batch_replace', 'on', true);
+
+  UPDATE public.inventory_stocktakes
+  SET status = 'confirmed',
+      confirmed_at = v_now,
+      confirmed_by = v_user_id,
+      post_confirm_edit_reason = p_edit_reason,
+      post_confirm_edited_at = CASE WHEN status = 'confirmed' THEN v_now ELSE post_confirm_edited_at END,
+      post_confirm_edited_by = CASE WHEN status = 'confirmed' THEN v_user_id ELSE post_confirm_edited_by END,
+      updated_at = v_now,
+      updated_by = v_user_id
+  WHERE id = p_header_id
+    AND deleted_at IS NULL;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Khong tim thay phieu kiem ke.';
+  END IF;
+
+  UPDATE public.inventory_stocktake_lines
+  SET deleted_at = v_now,
+      deleted_by = v_user_id,
+      updated_at = v_now,
+      updated_by = v_user_id
+  WHERE stocktake_id = p_header_id
+    AND deleted_at IS NULL;
+
+  UPDATE public.inventory_transactions
+  SET deleted_at = v_now,
+      deleted_by = v_user_id,
+      updated_at = v_now,
+      updated_by = v_user_id
+  WHERE stocktake_id = p_header_id
+    AND deleted_at IS NULL;
+
+  UPDATE public.inventory_opening_balances
+  SET deleted_at = v_now,
+      deleted_by = v_user_id,
+      updated_at = v_now,
+      updated_by = v_user_id
+  WHERE source_stocktake_id = p_header_id
+    AND deleted_at IS NULL;
+
+  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
+  LOOP
+    v_product_id := NULLIF(v_line->>'product_id', '')::uuid;
+    v_actual_qty := COALESCE(NULLIF(v_line->>'actual_qty_after', '')::numeric, 0);
+
+    IF v_product_id IS NULL THEN
+      RAISE EXCEPTION 'Dong kiem ke bi thieu ma hang.';
+    END IF;
+
+    IF v_actual_qty < 0 THEN
+      RAISE EXCEPTION 'So dem thuc te khong duoc am.';
+    END IF;
+
+    PERFORM public.inventory_lock_product(v_product_id);
+
+    SELECT id, sku, name, spec, unit_price
+    INTO v_product
+    FROM public.products
+    WHERE id = v_product_id
+      AND deleted_at IS NULL;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Khong tim thay ma hang trong phieu kiem ke.';
+    END IF;
+
+    SELECT COALESCE(s.current_qty, 0)
+    INTO v_system_qty
+    FROM public.inventory_calculate_product_stock_v1(
+      p_stocktake_date::text,
+      p_stocktake_date::text,
+      v_day_after
+    ) s
+    WHERE s.product_id = v_product_id;
+
+    v_system_qty := COALESCE(v_system_qty, 0);
+    v_qty_diff := v_actual_qty - v_system_qty;
+    v_diff_percent := CASE
+      WHEN v_system_qty = 0 THEN CASE WHEN v_actual_qty = 0 THEN 0 ELSE 100 END
+      ELSE abs(v_qty_diff) / abs(v_system_qty) * 100
+    END;
+
+    IF v_system_qty > 0
+       AND v_actual_qty = 0
+       AND COALESCE(NULLIF(v_line->>'diff_reason', ''), '') = ''
+    THEN
+      RAISE EXCEPTION 'Ma hang % co ton may > 0 nhung dem thuc te = 0. Bat buoc nhap ly do.', v_product.sku;
+    END IF;
+
+    INSERT INTO public.inventory_stocktake_lines (
+      stocktake_id,
+      product_id,
+      customer_id,
+      product_name_snapshot,
+      product_spec_snapshot,
+      unit_price_snapshot,
+      system_qty_before,
+      actual_qty_after,
+      qty_diff,
+      diff_percent,
+      is_large_diff,
+      diff_reason,
+      created_by,
+      updated_by
+    ) VALUES (
+      p_header_id,
+      v_product_id,
+      NULL,
+      v_product.name,
+      v_product.spec,
+      v_product.unit_price,
+      v_system_qty,
+      v_actual_qty,
+      v_qty_diff,
+      v_diff_percent,
+      v_diff_percent > 10,
+      v_line->>'diff_reason',
+      v_user_id,
+      v_user_id
+    );
+
+    IF v_qty_diff <> 0 THEN
+      INSERT INTO public.inventory_transactions (
+        tx_date,
+        tx_type,
+        product_id,
+        customer_id,
+        qty,
+        unit_cost,
+        product_name_snapshot,
+        product_spec_snapshot,
+        note,
+        stocktake_id,
+        created_by,
+        updated_by
+      ) VALUES (
+        p_stocktake_date,
+        CASE WHEN v_qty_diff > 0 THEN 'adjust_in' ELSE 'adjust_out' END,
+        v_product_id,
+        NULL,
+        abs(v_qty_diff),
+        v_product.unit_price,
+        v_product.name,
+        v_product.spec,
+        'Dieu chinh kiem ke theo ma hang phieu #' || left(p_header_id::text, 8) || COALESCE(' (Sua: ' || p_edit_reason || ')', ''),
+        p_header_id,
+        v_user_id,
+        v_user_id
+      );
+    END IF;
+
+    UPDATE public.inventory_opening_balances
+    SET deleted_at = v_now,
+        deleted_by = v_user_id,
+        updated_at = v_now,
+        updated_by = v_user_id
+    WHERE product_id = v_product_id
+      AND period_month = p_stocktake_date
+      AND deleted_at IS NULL;
+
+    INSERT INTO public.inventory_opening_balances (
+      period_month,
+      product_id,
+      customer_id,
+      opening_qty,
+      opening_unit_cost,
+      source_stocktake_id,
+      created_by,
+      updated_by
+    ) VALUES (
+      p_stocktake_date,
+      v_product_id,
+      NULL,
+      v_actual_qty,
+      v_product.unit_price,
+      p_header_id,
+      v_user_id,
+      v_user_id
+    );
+  END LOOP;
+
+  PERFORM set_config('app.inventory_batch_replace', 'off', true);
+
+  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
+  LOOP
+    v_product_id := NULLIF(v_line->>'product_id', '')::uuid;
+    PERFORM public.inventory_assert_no_negative_product_after(v_product_id, p_stocktake_date);
+  END LOOP;
+EXCEPTION WHEN OTHERS THEN
+  PERFORM set_config('app.inventory_batch_replace', 'off', true);
+  RAISE;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.confirm_inventory_stocktake_product_level(uuid, date, jsonb, text) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
+
+COMMIT;

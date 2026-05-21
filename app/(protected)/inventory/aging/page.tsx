@@ -10,6 +10,7 @@ import { useDebounce } from "@/app/hooks/useDebounce";
 import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 
 
 /* ------------------------------------------------------------------ */
@@ -829,32 +830,29 @@ export default function InventoryAgingReportPage() {
         // Dùng DB RPC thay vì JS buildStockRows — tránh sai số string-comparison timezone
         const computedBounds = computeSnapshotBounds(qStart, qEnd, ops);
         const baselineDate = computedBounds.S || qStart;
-        const { data: rpcData, error: eRpc } = await supabase.rpc("inventory_calculate_report_v2", {
+        const rpcData = await fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
           p_baseline_date: baselineDate,
           p_movements_start_date: computedBounds.effectiveStart,
           p_movements_end_date: dayAfter(qEnd),
-        });
-        if (eRpc) throw eRpc;
+        }));
         setStockRowsRpc(rpcData ?? []);
       } else {
         const b1 = computeSnapshotBounds(p1Start, p1End, ops);
         const b2 = computeSnapshotBounds(p2Start, p2End, ops);
         const [t1, t2] = await Promise.all([
-          supabase.rpc("inventory_calculate_report_v2", {
+          fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
             p_baseline_date: b1.S || p1Start,
             p_movements_start_date: b1.effectiveStart,
             p_movements_end_date: dayAfter(p1End),
-          }),
-          supabase.rpc("inventory_calculate_report_v2", {
+          })),
+          fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
             p_baseline_date: b2.S || p2Start,
             p_movements_start_date: b2.effectiveStart,
             p_movements_end_date: dayAfter(p2End),
-          }),
+          })),
         ]);
-        if (t1.error) throw t1.error;
-        if (t2.error) throw t2.error;
-        setRpcData1((t1.data ?? []) as any[]);
-        setRpcData2((t2.data ?? []) as any[]);
+        setRpcData1((t1 ?? []) as any[]);
+        setRpcData2((t2 ?? []) as any[]);
       }
     } catch (err: unknown) {
       setError((err as Error)?.message ?? "Có lỗi xảy ra");
@@ -881,7 +879,7 @@ export default function InventoryAgingReportPage() {
       for (const s of openings) {
         if (s.deleted_at) continue;
         if (s.period_month > baselineBoundary) continue;
-        const key = `${s.product_id}_${s.customer_id || ""}`;
+        const key = s.product_id;
         const existing = agingMap.get(key);
         if (!existing || s.period_month > existing.period_month) {
           agingMap.set(key, { is_long_aging: !!s.is_long_aging, long_aging_note: s.long_aging_note || null, period_month: s.period_month });
@@ -891,12 +889,12 @@ export default function InventoryAgingReportPage() {
       for (const r of stockRowsRpc) {
         const p = productMap.get(r.product_id);
         if (!p) continue;
-        const key = `${r.product_id}_${r.customer_id || ""}`;
+        const key = r.product_id;
         const agingInfo = agingMap.get(key);
         const curQty = Number(r.current_qty);
         results.push({
           product: p,
-          customer_id: r.customer_id,
+          customer_id: p.customer_id,
           opening_qty: Number(r.opening_qty),
           inbound_qty: Number(r.inbound_qty),
           outbound_qty: Number(r.outbound_qty),
@@ -1019,7 +1017,7 @@ export default function InventoryAgingReportPage() {
     
     for (const s of openings) {
       if (s.deleted_at) continue;
-      const key = `${s.product_id}_${s.customer_id || ""}`;
+      const key = s.product_id;
       if (s.period_month <= baselineBoundary1) {
         const ex1 = agingMap1.get(key);
         if (!ex1 || s.period_month > ex1.period_month) agingMap1.set(key, { is_long_aging: !!s.is_long_aging, note: s.long_aging_note || null, period_month: s.period_month });
@@ -1032,8 +1030,8 @@ export default function InventoryAgingReportPage() {
 
     const map1 = new Map<string, any>();
     const map2 = new Map<string, any>();
-    for (const r of rpcData1) map1.set(`${r.product_id}_${r.customer_id || ""}`, r);
-    for (const r of rpcData2) map2.set(`${r.product_id}_${r.customer_id || ""}`, r);
+    for (const r of rpcData1) map1.set(r.product_id, r);
+    for (const r of rpcData2) map2.set(r.product_id, r);
 
     const allKeys = new Set([...map1.keys(), ...map2.keys()]);
     const results: CompareAgingRow[] = [];
@@ -1042,7 +1040,7 @@ export default function InventoryAgingReportPage() {
       const r1 = map1.get(key);
       const r2 = map2.get(key);
       const pid = r1 ? r1.product_id : r2.product_id;
-      const cid = r1 ? r1.customer_id : r2.customer_id;
+      const cid = productMap.get(pid)?.customer_id ?? null;
       
       const product = productMap.get(pid);
       if (!product) continue;

@@ -1,39 +1,75 @@
-const fs = require('fs');
-const { createClient } = require('@supabase/supabase-js');
+const fs = require("fs");
+const { createClient } = require("@supabase/supabase-js");
 
-// 1. Read .env.local
-const envContent = fs.readFileSync('.env.local', 'utf-8');
+const envContent = fs.readFileSync(".env.local", "utf-8");
 const env = {};
-envContent.split('\n').forEach(line => {
-  const [key, ...vals] = line.split('=');
+
+envContent.split(/\r?\n/).forEach((line) => {
+  const [key, ...vals] = line.split("=");
   if (key && vals.length > 0) {
-    env[key.trim()] = vals.join('=').trim().replace(/['"]/g, '');
+    env[key.trim()] = vals.join("=").trim().replace(/['"]/g, "");
   }
 });
 
-const url = env['NEXT_PUBLIC_SUPABASE_URL'];
-const key = env['NEXT_PUBLIC_SUPABASE_ANON_KEY'];
+const supabase = createClient(
+  env.NEXT_PUBLIC_SUPABASE_URL,
+  env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
-if (!url || !key) {
-  console.log("Missing Supabase env vars");
-  process.exit(1);
+const args = {
+  p_baseline_date: process.argv[2] || "2026-05-01",
+  p_movements_start_date: process.argv[3] || "2026-05-01",
+  p_movements_end_date: process.argv[4] || "2026-05-04",
+};
+const rpcName = process.argv[5] || "inventory_calculate_product_stock_v1";
+
+async function fetchAllRpcRows(queryBuilder) {
+  const batch = 1000;
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await queryBuilder.range(from, from + batch - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    rows.push(...data);
+    console.log(`Page ${from}-${from + batch - 1}: ${data.length} rows`);
+
+    if (data.length < batch) break;
+    from += batch;
+  }
+
+  return rows;
 }
 
-const supabase = createClient(url, key);
-
 async function run() {
-  console.log("Calling RPC...");
-  const { data, error } = await supabase.rpc('inventory_calculate_report_v2', {
-    p_baseline_date: '2026-03-01',
-    p_movements_start_date: '2026-03-01',
-    p_movements_end_date: '2026-04-01'
+  console.log(`Testing ${rpcName} with args:`, args);
+
+  const normal = await supabase.rpc(rpcName, args, {
+    count: "exact",
   });
-  
-  if (error) {
-    console.log("RPC ERROR:", JSON.stringify(error, null, 2));
+  if (normal.error) throw normal.error;
+
+  console.log("Default rows:", normal.data.length);
+  console.log("Exact count:", normal.count);
+
+  const allRows = await fetchAllRpcRows(
+    supabase.rpc(rpcName, args)
+  );
+
+  const productCount = new Set(allRows.map((row) => row.product_id)).size;
+  console.log("Paged rows:", allRows.length);
+  console.log("Distinct products:", productCount);
+
+  if (normal.data.length < allRows.length) {
+    console.log("RESULT: default call is missing rows.");
   } else {
-    console.log("RPC SUCCESS:", data?.length, "rows returned");
+    console.log("RESULT: default call did not miss rows for this date range.");
   }
 }
 
-run();
+run().catch((err) => {
+  console.error("ERROR:", err.message || err);
+  process.exit(1);
+});

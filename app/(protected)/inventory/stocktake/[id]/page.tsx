@@ -8,6 +8,7 @@ import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
+import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 
 type Profile = {
   id: string;
@@ -317,13 +318,11 @@ export default function StocktakeDetailPage() {
     endPlus1.setDate(endPlus1.getDate() + 1);
     const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
 
-    const { data, error } = await supabase.rpc("inventory_calculate_report_v2", {
+    const data = await fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
       p_baseline_date: baselineDate,
       p_movements_start_date: bounds.effectiveStart,
       p_movements_end_date: nextD,
-    });
-
-    if (error) throw error;
+    }));
 
     // Gộp theo product_id (bỏ customer_id dimension) — giống report page
     const map = new Map<string, number>();
@@ -423,7 +422,7 @@ export default function StocktakeDetailPage() {
         return {
           ...l,
           product_id: p.id,
-          customer_id: p.customer_id,
+          customer_id: null,
           product_name_snapshot: p.name,
           product_spec_snapshot: p.spec,
           unit_price_snapshot: p.unit_price || 0,
@@ -487,7 +486,7 @@ export default function StocktakeDetailPage() {
         showToast("Có dòng chưa chọn mã hàng.", "error");
         return false;
       }
-      const key = `${l.product_id}-${l.customer_id || ""}`;
+      const key = l.product_id;
       if (seen.has(key)) {
         const sku = products.find(p => p.id === l.product_id)?.sku || "N/A";
         showToast(`Mã hàng ${sku} bị nhập trùng trong phiếu. Vui lòng gộp dòng hoặc xóa bớt.`, "error");
@@ -529,9 +528,8 @@ export default function StocktakeDetailPage() {
         // --- SỬ DỤNG ATOMIC RPC (PHƯƠNG PHÁP MỚI) ---
         // Gọi hàm xử lý tập trung dưới Database để đảm bảo an toàn tuyệt đối, 
         // không bị rác dữ liệu nếu một bước nào đó thất bại (Atomic Transaction).
-        const { error: rpcErr } = await supabase.rpc("confirm_inventory_stocktake", {
+        const { error: rpcErr } = await supabase.rpc("confirm_inventory_stocktake_product_level", {
           p_header_id: header.id,
-          p_user_id: me?.id,
           p_stocktake_date: header.stocktake_date.slice(0, 10),
           p_lines: lines, // Đẩy nguyên mảng lines vào, Database sẽ tự xử
           p_edit_reason: editReason // Nếu có lý do sửa sau khi chốt
@@ -551,7 +549,7 @@ export default function StocktakeDetailPage() {
 
         const inserts = lines.map(l => ({
           stocktake_id: header.id,
-          customer_id: l.customer_id,
+          customer_id: null,
           product_id: l.product_id,
           product_name_snapshot: l.product_name_snapshot,
           product_spec_snapshot: l.product_spec_snapshot,
@@ -628,7 +626,7 @@ export default function StocktakeDetailPage() {
     const logic = applyDiffLogic({ system_qty_before: sysQty } as StocktakeLine, sysQty);
     setLines(prev => [...prev, {
       id: "NEW_" + Date.now() + "_" + Math.random(),
-      product_id: product.id, customer_id: product.customer_id,
+      product_id: product.id, customer_id: null,
       product_name_snapshot: product.name, product_spec_snapshot: product.spec,
       unit_price_snapshot: product.unit_price || 0,
       system_qty_before: sysQty, actual_qty_after: sysQty,
@@ -661,7 +659,7 @@ export default function StocktakeDetailPage() {
         if (sysQty <= 0) continue;
         newLines.push({
           id: "NEW_" + Date.now() + "_" + Math.random(),
-          product_id: p.id, customer_id: p.customer_id,
+          product_id: p.id, customer_id: null,
           product_name_snapshot: p.name, product_spec_snapshot: p.spec,
           unit_price_snapshot: p.unit_price || 0,
           system_qty_before: sysQty, actual_qty_after: sysQty,
@@ -870,70 +868,70 @@ export default function StocktakeDetailPage() {
         {/* Tab: Checklist */}
         {activeTab === "checklist" && (
           <>
-        <div className="bg-white rounded-[2rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden" ref={containerRef}>
-          <div ref={parentRef} className="h-[calc(100vh-520px)] overflow-auto scrollbar-hide relative">
-            <table className="w-full text-sm block min-w-max">
-              <thead className="block sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
-                <tr className="flex items-center w-full">
-                  <th className="w-16 shrink-0 p-4 font-black text-[10px] text-slate-400 uppercase text-center">STT</th>
-                  <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="180" />
-                  <ThCell label="Sản phẩm / SKU" colKey="sku" sortable colType="text" w="220" />
-                  <ThCell label="Tên hàng" colKey="name" sortable colType="text" w="280" />
-                  <ThCell label="Tồn máy" colKey="sysQty" sortable colType="num" align="right" w="130" />
-                  <ThCell label="Thực tế" colKey="actQty" sortable colType="num" align="right" w="140" />
-                  <ThCell label="Lệch" colKey="diffQty" sortable colType="num" align="right" w="120" />
-                  <ThCell label="Ghi chú" colKey="reason" sortable colType="text" w="220" />
-                  {canEdit && <th className="w-20 shrink-0 p-4 font-black text-[10px] text-slate-400 uppercase text-center">Xóa</th>}
-                </tr>
-              </thead>
-              <tbody style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }} className="block w-full">
-                {rowVirtualizer.getVirtualItems().map(v => {
-                  const l = finalFiltered[v.index];
-                  const isSystemHidden = !isAdmin && !isConfirmed;
-                  return (
-                    <tr key={l.id} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: `${v.size}px`, transform: `translateY(${v.start}px)` }} className={`hover:bg-slate-50 transition-colors flex items-center border-b border-slate-50 ${v.index % 2 === 0 ? "bg-white" : "bg-slate-50/50"}`}>
-                      <td className="w-16 text-center font-black text-slate-300 text-xs italic">{v.index + 1}</td>
-                      <td className="w-[180px] px-4 font-black text-[11px] uppercase text-slate-900 truncate">{getCustomerLabel(l.customer_id)}</td>
-                      <td className="w-[220px] px-4">
-                        {canEdit ? (
-                          <input list={"dl-" + v.index} value={l._searchQuery ?? getProductSku(l.product_id)} onChange={e => handleProductSearchChange(l.id, e.target.value)} className="input input-xs h-9 w-full bg-slate-50 border-none font-black uppercase text-xs focus:bg-white" />
-                        ) : <span className="font-black text-slate-900 tracking-tighter uppercase">{getProductSku(l.product_id)}</span>}
-                        <datalist id={"dl-" + v.index}>{products.map(p => <option key={p.id} value={`${p.sku} - ${p.name}`} />)}</datalist>
-                      </td>
-                      <td className="w-[280px] px-4 truncate font-bold text-slate-700 text-xs uppercase">{l.product_name_snapshot}</td>
-                      <td className="w-[130px] px-4 text-right">
-                        {isSystemHidden ? <span className="text-[10px] font-black text-slate-200 italic tracking-tighter">ẨN</span> : <span className="font-black text-slate-400">{fmtNum(l.system_qty_before)}</span>}
-                      </td>
-                      <td className="w-[140px] px-4 text-right">
-                        {canEdit ? (
-                          <input type="text" value={l._newQtyInput ?? l.actual_qty_after} onChange={e => handleActualQtyChange(l.id, e.target.value)} className="input input-xs h-10 w-full text-right bg-indigo-50 border-none font-black text-indigo-700 text-base focus:ring-2 focus:ring-indigo-300" />
-                        ) : <span className="font-black text-indigo-600 text-base">{fmtNum(l.actual_qty_after)}</span>}
-                      </td>
-                      <td className={`w-[120px] px-4 text-right font-black text-sm ${l.qty_diff > 0 ? "text-emerald-500" : l.qty_diff < 0 ? "text-red-500" : "text-slate-300"}`}>
-                        {isSystemHidden ? "---" : (l.qty_diff > 0 ? "+" : "") + fmtNum(l.qty_diff)}
-                      </td>
-                      <td className="w-[220px] px-4">
-                        {canEdit ? <input value={l.diff_reason || ""} onChange={e => handleDiffReasonChange(l.id, e.target.value)} className="input input-xs h-9 w-full bg-slate-50 border-none text-[11px] font-bold" /> : <span className="text-xs font-bold text-slate-500">{l.diff_reason || "-"}</span>}
-                      </td>
-                      {canEdit && (
-                        <td className="w-20 text-center">
-                          <button onClick={() => removeLine(l.id)} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-red-50 text-slate-200 hover:text-red-500 transition-all font-black text-xs">✕</button>
-                        </td>
-                      )}
+            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden" ref={containerRef}>
+              <div ref={parentRef} className="h-[calc(100vh-520px)] overflow-auto scrollbar-hide relative">
+                <table className="w-full text-sm block min-w-max">
+                  <thead className="block sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
+                    <tr className="flex items-center w-full">
+                      <th className="w-16 shrink-0 p-4 font-black text-[10px] text-slate-400 uppercase text-center">STT</th>
+                      <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="180" />
+                      <ThCell label="Sản phẩm / SKU" colKey="sku" sortable colType="text" w="220" />
+                      <ThCell label="Tên hàng" colKey="name" sortable colType="text" w="280" />
+                      <ThCell label="Tồn máy" colKey="sysQty" sortable colType="num" align="right" w="130" />
+                      <ThCell label="Thực tế" colKey="actQty" sortable colType="num" align="right" w="140" />
+                      <ThCell label="Lệch" colKey="diffQty" sortable colType="num" align="right" w="120" />
+                      <ThCell label="Ghi chú" colKey="reason" sortable colType="text" w="220" />
+                      {canEdit && <th className="w-20 shrink-0 p-4 font-black text-[10px] text-slate-400 uppercase text-center">Xóa</th>}
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-          {finalFiltered.length === 0 && <div className="py-32 text-center text-slate-300 font-black text-xs uppercase tracking-widest">Không có dữ liệu</div>}
-        </div>
+                  </thead>
+                  <tbody style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }} className="block w-full">
+                    {rowVirtualizer.getVirtualItems().map(v => {
+                      const l = finalFiltered[v.index];
+                      const isSystemHidden = !isAdmin && !isConfirmed;
+                      return (
+                        <tr key={l.id} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: `${v.size}px`, transform: `translateY(${v.start}px)` }} className={`hover:bg-slate-50 transition-colors flex items-center border-b border-slate-50 ${v.index % 2 === 0 ? "bg-white" : "bg-slate-50/50"}`}>
+                          <td className="w-16 text-center font-black text-slate-300 text-xs italic">{v.index + 1}</td>
+                          <td className="w-[180px] px-4 font-black text-[11px] uppercase text-slate-900 truncate">{getCustomerLabel(l.customer_id)}</td>
+                          <td className="w-[220px] px-4">
+                            {canEdit ? (
+                              <input list={"dl-" + v.index} value={l._searchQuery ?? getProductSku(l.product_id)} onChange={e => handleProductSearchChange(l.id, e.target.value)} className="input input-xs h-9 w-full bg-slate-50 border-none font-black uppercase text-xs focus:bg-white" />
+                            ) : <span className="font-black text-slate-900 tracking-tighter uppercase">{getProductSku(l.product_id)}</span>}
+                            <datalist id={"dl-" + v.index}>{products.map(p => <option key={p.id} value={`${p.sku} - ${p.name}`} />)}</datalist>
+                          </td>
+                          <td className="w-[280px] px-4 truncate font-bold text-slate-700 text-xs uppercase">{l.product_name_snapshot}</td>
+                          <td className="w-[130px] px-4 text-right">
+                            {isSystemHidden ? <span className="text-[10px] font-black text-slate-200 italic tracking-tighter">ẨN</span> : <span className="font-black text-slate-400">{fmtNum(l.system_qty_before)}</span>}
+                          </td>
+                          <td className="w-[140px] px-4 text-right">
+                            {canEdit ? (
+                              <input type="text" value={l._newQtyInput ?? l.actual_qty_after} onChange={e => handleActualQtyChange(l.id, e.target.value)} className="input input-xs h-10 w-full text-right bg-indigo-50 border-none font-black text-indigo-700 text-base focus:ring-2 focus:ring-indigo-300" />
+                            ) : <span className="font-black text-indigo-600 text-base">{fmtNum(l.actual_qty_after)}</span>}
+                          </td>
+                          <td className={`w-[120px] px-4 text-right font-black text-sm ${l.qty_diff > 0 ? "text-emerald-500" : l.qty_diff < 0 ? "text-red-500" : "text-slate-300"}`}>
+                            {isSystemHidden ? "---" : (l.qty_diff > 0 ? "+" : "") + fmtNum(l.qty_diff)}
+                          </td>
+                          <td className="w-[220px] px-4">
+                            {canEdit ? <input value={l.diff_reason || ""} onChange={e => handleDiffReasonChange(l.id, e.target.value)} className="input input-xs h-9 w-full bg-slate-50 border-none text-[11px] font-bold" /> : <span className="text-xs font-bold text-slate-500">{l.diff_reason || "-"}</span>}
+                          </td>
+                          {canEdit && (
+                            <td className="w-20 text-center">
+                              <button onClick={() => removeLine(l.id)} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-red-50 text-slate-200 hover:text-red-500 transition-all font-black text-xs">✕</button>
+                            </td>
+                          )}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {finalFiltered.length === 0 && <div className="py-32 text-center text-slate-300 font-black text-xs uppercase tracking-widest">Không có dữ liệu</div>}
+            </div>
 
-        {canEdit && (
-          <div className="mt-6 flex justify-end">
-            <button onClick={addEmptyLine} className="btn h-14 px-10 bg-black text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-800 shadow-2xl shadow-slate-300 transition-all active:scale-95">+ Thêm dòng mới (F2)</button>
-          </div>
-        )}
+            {canEdit && (
+              <div className="mt-6 flex justify-end">
+                <button onClick={addEmptyLine} className="btn h-14 px-10 bg-black text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-800 shadow-2xl shadow-slate-300 transition-all active:scale-95">+ Thêm dòng mới (F2)</button>
+              </div>
+            )}
           </>
         )}
 
