@@ -58,6 +58,42 @@ Truoc khi them feature moi vao phan kho/giao hang/bao cao, AI phai kiem tra:
 
 Neu co bat ky cau tra loi nao la "co nguy co", phai xu ly backend truoc roi moi build tiep.
 
+## Quy Dinh Van Hanh SQL
+
+1. Khong chay SQL cu neu chua duoc xac nhan
+   - File SQL cu chi de tham khao lich su.
+   - Neu can sua database, tao file SQL moi theo ngay hien tai.
+   - Khong copy chay file cu chi vi thay co function/cot can dung.
+
+2. Moi lan va database phai tao file SQL moi
+   - Dat ten dang `supabase-sql/YYYYMMDD_mo_ta_ngan.sql`.
+   - Khong sua truc tiep file SQL da tung chay live, tru khi chu du an yeu cau ro.
+   - Neu can hotfix tiep trong cung ngay, tao file moi co hau to ro, vi du `_fix_...` hoac `_zz_...`.
+
+3. SQL dan vao Supabase SQL Editor nen de 1 dong
+   - Tranh loi comment `--` nuot phan SQL phia sau.
+   - Tranh Supabase Editor hieu sai khi paste block dai.
+   - Truoc khi gui cho chu du an, phai check file khong co hard delete nguy hiem.
+
+4. Moi file SQL moi phai duoc ghi vao handoff
+   - Ghi ro da chay live chua.
+   - Ghi ro sua loi gi.
+   - Ghi ro can test ca nao tren web sau khi chay.
+
+5. Khong cleanup SQL cu khi dang lam feature
+   - Don SQL cu la task rieng.
+   - Khong tron cleanup voi sua logic nghiep vu.
+   - Neu cleanup, uu tien them README/ghi chu thay vi xoa file.
+
+6. Neu co nhieu function trung ten
+   - Tin file moi nhat co ghi trong handoff.
+   - Truoc khi viet de function, phai doc ban moi nhat dang lien quan.
+   - Neu co the, hoi/kiem tra live DB truoc khi chay.
+
+7. Truoc khi chay SQL phai soi lenh nguy hiem
+   - Bao dong do neu co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`.
+   - Neu co `DROP TRIGGER` hoac `CREATE OR REPLACE FUNCTION`, phai noi ro: no khong xoa du lieu, chi thay cach database xu ly.
+
 ## Cach Lam Viec An Toan
 
 1. Doc code va tim rui ro.
