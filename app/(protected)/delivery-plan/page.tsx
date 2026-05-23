@@ -1660,7 +1660,7 @@ export default function DeliveryPlanPage() {
                           const progressPct = plannedQty > 0 ? Math.min(100, Math.round((actualQty / plannedQty) * 100)) : 0;
                           const hasPartialShipment = actualQty > 0 && !isDone;
                           const colW = colWidths[d] || 100;
-                          const disabled = !canEditDate(d) || isDone;
+                          const disabled = !canEditDate(d);
 
                           // Check if modified in the last 4 hours
                           const isRecentUpdate = (() => {
