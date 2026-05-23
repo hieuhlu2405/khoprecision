@@ -1655,12 +1655,12 @@ export default function DeliveryPlanPage() {
                           const val = editData?.qty !== undefined ? editData.qty : (plannedQty > 0 ? plannedQty.toString() : "");
                           const isChanged = editData?.qty !== undefined || editData?.note !== undefined || editData?.note2 !== undefined;
                           const itdr = getVNTimeStr() === d;
-                          const isDone = plan?.is_completed;
+                          const isDone = plannedQty > 0 && !!plan?.is_completed;
                           const hasNote = !!(editData?.note ?? plan?.note);
                           const progressPct = plannedQty > 0 ? Math.min(100, Math.round((actualQty / plannedQty) * 100)) : 0;
                           const hasPartialShipment = actualQty > 0 && !isDone;
                           const colW = colWidths[d] || 100;
-                          const disabled = !canEditDate(d) || isDone;
+                          const disabled = !canEditDate(d);
 
                           // Check if modified in the last 4 hours
                           const isRecentUpdate = (() => {
