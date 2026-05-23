@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 import { formatDateVN, formatDateTimeVN, getTodayVNStr, getVNTimeNow } from "@/lib/date-utils";
 import { exportToExcel, readExcel, exportWithTemplate, exportDeliveryDraftExcel } from "@/lib/excel-utils";
-import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
+import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -329,50 +329,58 @@ export default function DeliveryPlanPage() {
       const { data: pData } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).single();
       setProfile(pData as Profile);
 
-      const [rP, rC, rE, rV] = await Promise.all([
-        supabase.from("products").select("id, sku, name, spec, uom, sap_code, external_sku, customer_id").is("deleted_at", null),
-        supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id").is("deleted_at", null),
-        supabase.from("selling_entities").select("id, code, name, address, tax_code, phone").is("deleted_at", null),
-        supabase.from("vehicles").select("*").eq("is_active", true).order("license_plate"),
+      const [allProducts, allCustomers, allEntities, allVehicles] = await Promise.all([
+        fetchAllRows(supabase.from("products").select("id, sku, name, spec, uom, sap_code, external_sku, customer_id").is("deleted_at", null)),
+        fetchAllRows(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id").is("deleted_at", null)),
+        fetchAllRows(supabase.from("selling_entities").select("id, code, name, address, tax_code, phone").is("deleted_at", null)),
+        fetchAllRows(supabase.from("vehicles").select("*").eq("is_active", true).order("license_plate")),
       ]);
-      setProducts(rP.data || []);
-      setCustomers(rC.data || []);
-      setEntities(rE.data || []);
-      setVehicles(rV.data || []);
+      setProducts(allProducts);
+      setCustomers(allCustomers);
+      setEntities(allEntities);
+      setVehicles(allVehicles);
 
       const startDate = days[0];
       const endDate = days[6];
 
-      const { data: planData, error } = await supabase
-        .from("delivery_plans")
-        .select("*")
-        .gte("plan_date", startDate)
-        .lte("plan_date", endDate)
-        .is("deleted_at", null);
-
-      if (!error) setPlans(planData || []);
+      const planData = await fetchAllRows<Plan>(
+        supabase
+          .from("delivery_plans")
+          .select("*")
+          .gte("plan_date", startDate)
+          .lte("plan_date", endDate)
+          .is("deleted_at", null)
+      );
+      setPlans(planData);
 
       // Tải ghi chú kế thừa 30 ngày qua (Performance: giới hạn scan window)
       const thirtyDaysAgo = new Date(new Date(startDate).getTime() - 30 * 24 * 60 * 60 * 1000)
         .toISOString().split('T')[0];
-      const { data: pastNotesData } = await supabase
-        .from("delivery_plans")
-        .select("product_id, customer_id, delivery_customer_id, note, note_2, plan_date")
-        .gte("plan_date", thirtyDaysAgo)
-        .lt("plan_date", startDate)
-        .is("deleted_at", null)
-        .order("plan_date", { ascending: false });
+      const pastNotesData = await fetchAllRows<{ id: string; product_id: string; customer_id: string | null; delivery_customer_id: string | null; note: string | null; note_2: string | null; plan_date: string }>(
+        supabase
+          .from("delivery_plans")
+          .select("id, product_id, customer_id, delivery_customer_id, note, note_2, plan_date")
+          .gte("plan_date", thirtyDaysAgo)
+          .lt("plan_date", startDate)
+          .is("deleted_at", null)
+          .order("plan_date", { ascending: false })
+      );
 
-      // Hash Map O(N): chỉ giữ ghi chú gần nhất cho mỗi sản phẩm + khách hàng
+      // Hash Map O(N): giữ ghi chú gần nhất riêng cho từng cột lưu ý.
       const tempMap = new Map<string, { note: string | null; note_2: string | null; plan_date: string }>();
-      if (pastNotesData) {
-        for (const item of pastNotesData) {
-          const hasAnyNote = (item.note && item.note.trim() !== "") || (item.note_2 && item.note_2.trim() !== "");
-          if (!hasAnyNote) continue;
-          const key = `${item.product_id}_${item.delivery_customer_id || "null"}`;
-          if (!tempMap.has(key)) {
-            tempMap.set(key, { note: item.note, note_2: item.note_2, plan_date: item.plan_date });
-          }
+      for (const item of pastNotesData) {
+        const note = item.note && item.note.trim() !== "" ? item.note : null;
+        const note2 = item.note_2 && item.note_2.trim() !== "" ? item.note_2 : null;
+        if (!note && !note2) continue;
+        const key = `${item.product_id}_${item.delivery_customer_id || "null"}`;
+        const existing = tempMap.get(key) ?? { note: null, note_2: null, plan_date: item.plan_date };
+        const next = {
+          note: existing.note ?? note,
+          note_2: existing.note_2 ?? note2,
+          plan_date: existing.plan_date,
+        };
+        if (!tempMap.has(key) || next.note !== existing.note || next.note_2 !== existing.note_2) {
+          tempMap.set(key, next);
         }
       }
       setPastNotesMap(tempMap);
@@ -501,6 +509,7 @@ export default function DeliveryPlanPage() {
         p_note: noteStr
       });
       if (error) throw error;
+
       showToast("Tạo phiếu xuất kho thành công!", "success");
 
       exportOutboundExcel();
@@ -941,8 +950,7 @@ export default function DeliveryPlanPage() {
     if (!canEdit || Object.keys(edits).length === 0) return;
     setSaving(true);
     try {
-      const upserts: any[] = [];
-      const { data: u } = await supabase.auth.getUser();
+      const saveEdits: any[] = [];
 
       Object.entries(edits).forEach(([key, editData]) => {
         const pts = key.split("_");
@@ -966,38 +974,39 @@ export default function DeliveryPlanPage() {
         if (isNaN(qty) || qty < 0) return;
 
         const pastKey = `${product_id}_${delivery_id || "null"}`;
-        const newNote = editData.note !== undefined ? editData.note : (existing?.note ?? pastNotesMap.get(pastKey)?.note ?? null);
-        const newNote2 = editData.note2 !== undefined ? editData.note2 : (existing?.note_2 ?? pastNotesMap.get(pastKey)?.note_2 ?? null);
+        const inheritedNote = pastNotesMap.get(pastKey)?.note ?? null;
+        const inheritedNote2 = pastNotesMap.get(pastKey)?.note_2 ?? null;
+        const previousNote = existing?.note ?? inheritedNote;
+        const previousNote2 = existing?.note_2 ?? inheritedNote2;
+        const newNote = editData.note !== undefined ? editData.note : previousNote;
+        const newNote2 = editData.note2 !== undefined ? editData.note2 : previousNote2;
 
         const p = products.find(x => x.id === product_id);
         if (!p) return;
 
-        upserts.push({
+        saveEdits.push({
           id: existing?.id ?? crypto.randomUUID(), // Luôn cung cấp id để tránh PostgREST gửi NULL
           plan_date,
           product_id,
-          customer_id: p.customer_id,
           delivery_customer_id: delivery_id,
           planned_qty: qty,
           note: newNote,
           note_2: newNote2,
-          created_at: (existing as any)?.created_at ?? new Date().toISOString(),
-          created_by: (existing as any)?.created_by ?? u.user?.id,
-          updated_at: new Date().toISOString(),
-          updated_by: u.user?.id,
+          note_changed: editData.note !== undefined,
+          note_2_changed: editData.note2 !== undefined,
         });
       });
 
-      if (upserts.length === 0) {
+      if (saveEdits.length === 0) {
         showToast("Không có thay đổi nào hợp lệ", "warning");
         setSaving(false);
         return;
       }
 
-      // Upsert dựa trên Primary Key (id) — luôn được cung cấp ở dòng 864
-      const { error } = await supabase.from("delivery_plans").upsert(upserts);
+      const { error } = await supabase.rpc("save_delivery_plan_edits_v1", { p_edits: saveEdits });
 
       if (error) throw error;
+
       showToast("Đã lưu kế hoạch & lưu ý thành công!", "success");
       setEdits({});
       loadData();
@@ -1644,7 +1653,7 @@ export default function DeliveryPlanPage() {
                           const actualQty = plan?.actual_qty || 0;
                           const plannedQty = (plan?.planned_qty || 0) + (plan?.backlog_qty || 0);
                           const val = editData?.qty !== undefined ? editData.qty : (plannedQty > 0 ? plannedQty.toString() : "");
-                          const isChanged = editData?.qty !== undefined || editData?.note !== undefined;
+                          const isChanged = editData?.qty !== undefined || editData?.note !== undefined || editData?.note2 !== undefined;
                           const itdr = getVNTimeStr() === d;
                           const isDone = plan?.is_completed;
                           const hasNote = !!(editData?.note ?? plan?.note);
