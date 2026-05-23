@@ -96,3 +96,13 @@ Chua kiem tra duoc:
   - da xuat 60/100, sua len 120: dong chua xong;
   - bam luu ke hoach khong tu tao backlog ngay mai;
   - sua tang roi kho xuat tiep duoc.
+
+Cap nhat hotfix sau test:
+
+- Them `supabase-sql/20260524_zz_fix_zero_target_completion.sql`.
+- Ly do: khi huy no thuan, dong co `planned_qty = 0`, `backlog_qty = 0`, `actual_qty = 0` khong duoc tinh la da xuat du `0/0`.
+- Sua them UI de chi hien da xong khi tong can giao > 0.
+- Chu du an da test live OK:
+  - huy no thuan: o trang;
+  - huy no nhung ngay do co ke hoach goc: van hien so luong goc;
+  - dong xuat du that van hien da xong.
