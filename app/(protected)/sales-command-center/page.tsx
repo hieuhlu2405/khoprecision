@@ -218,12 +218,7 @@ export default function SalesCommandCenterPage() {
   const [compareData, setCompareData] = useState<any>(null);
   const [compareFilter, setCompareFilter] = useState<"all" | "growth" | "drop">("all");
 
-  const [entities, setEntities] = useState<SellingEntity[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [outboundTx, setOutboundTx] = useState<OutboundTx[]>([]);
-  const [prevMonthTx, setPrevMonthTx] = useState<OutboundTx[]>([]);
-  const [shipments, setShipments] = useState<ShipmentLog[]>([]);
+  const [salesData, setSalesData] = useState<any>(null);
 
   // Table Controls
   const [showActiveOnly, setShowActiveOnly] = useState(true);
@@ -244,16 +239,17 @@ export default function SalesCommandCenterPage() {
     try {
       const range = getMonthRange(monthOffset);
       const prevRange = getMonthRange(monthOffset - 1);
-      
-      const { data: nowTx } = await supabase.from("inventory_transactions").select("id, product_id, customer_id, tx_date, qty, unit_cost, shipment_id").eq("tx_type", "out").is("deleted_at", null).gte("tx_date", range.start).lte("tx_date", range.end);
-      const { data: pTx } = await supabase.from("inventory_transactions").select("id, product_id, customer_id, tx_date, qty, unit_cost, shipment_id").eq("tx_type", "out").is("deleted_at", null).gte("tx_date", prevRange.start).lte("tx_date", prevRange.end);
-      const { data: ships } = await supabase.from("shipment_logs").select("id, shipment_date").is("deleted_at", null).gte("shipment_date", prevRange.start).lte("shipment_date", range.end);
-      const { data: ents } = await supabase.from("selling_entities").select("*");
-      const { data: custs } = await supabase.from("customers").select("*").is("deleted_at", null);
-      const { data: prods } = await supabase.from("products").select("*").is("deleted_at", null);
+      const today = getTodayVNStr();
+      const reportEnd = monthOffset === 0 && today < range.end ? today : range.end;
 
-      setEntities(ents || []); setCustomers(custs || []); setProducts(prods || []);
-      setOutboundTx(nowTx || []); setPrevMonthTx(pTx || []); setShipments(ships || []);
+      const { data, error } = await supabase.rpc("sales_command_center_report_v2", {
+        p1_start: range.start,
+        p1_end: reportEnd,
+        p2_start: prevRange.start,
+        p2_end: prevRange.end
+      });
+      if (error) throw error;
+      setSalesData(data);
     } catch (err: any) { showToast(err.message, "error"); }
     finally { setLoading(false); }
   }, [monthOffset, showToast]);
@@ -280,33 +276,23 @@ export default function SalesCommandCenterPage() {
 
   // Calculations for 6 Cards
   const stats = useMemo(() => {
-    const today = getTodayVNStr();
-    const isThisMonth = monthOffset === 0;
-    const end = (isThisMonth && today < getMonthRange(0).end) ? today : getMonthRange(monthOffset).end;
+    const k = salesData?.kpis || {};
+    const monthRev = Number(k.p1_revenue || 0);
+    const prevMonthRev = Number(k.p2_revenue || 0);
     
-    const monthRev = outboundTx.reduce((s, t) => s + (t.qty * (t.unit_cost || 0)), 0);
-    const prevMonthRev = prevMonthTx.reduce((s, t) => s + (t.qty * (t.unit_cost || 0)), 0);
-    
-    const d = new Date(end); d.setDate(d.getDate() - 6); const wStart = d.toLocaleDateString("sv-SE");
-    const d2 = new Date(wStart); d2.setDate(d2.getDate() - 7); const pwStart = d2.toLocaleDateString("sv-SE");
-    const d2e = new Date(wStart); d2e.setDate(d2e.getDate() - 1); const pwEnd = d2e.toLocaleDateString("sv-SE");
-
-    const pool = [...prevMonthTx, ...outboundTx];
-    const weekRev = pool.filter(t => t.tx_date >= wStart && t.tx_date <= end).reduce((s, t) => s + (t.qty * (t.unit_cost || 0)), 0);
-    const prevWeekRev = pool.filter(t => t.tx_date >= pwStart && t.tx_date <= pwEnd).reduce((s, t) => s + (t.qty * (t.unit_cost || 0)), 0);
-
-    const monthShip = shipments.filter(s => s.shipment_date >= getMonthRange(monthOffset).start && s.shipment_date <= getMonthRange(monthOffset).end).length;
-    const prevMonthShip = shipments.filter(s => s.shipment_date >= getMonthRange(monthOffset-1).start && s.shipment_date <= getMonthRange(monthOffset-1).end).length;
-    const weekShip = shipments.filter(s => s.shipment_date >= wStart && s.shipment_date <= end).length;
-    const prevWeekShip = shipments.filter(s => s.shipment_date >= pwStart && s.shipment_date <= pwEnd).length;
+    const weekRev = Number(k.p1_week_revenue || 0);
+    const prevWeekRev = Number(k.p1_previous_week_revenue || 0);
+    const monthShip = Number(k.p1_shipments || 0);
+    const prevMonthShip = Number(k.p2_shipments || 0);
+    const weekShip = Number(k.p1_week_shipments || 0);
+    const prevWeekShip = Number(k.p1_previous_week_shipments || 0);
 
     // Đếm số ngày thực tế phát sinh đơn xuất kho (bỏ qua các ngày nghỉ lễ, Tết, Chủ Nhật không phát sinh đơn)
-    const uniqueActiveDays = new Set(outboundTx.map(t => t.tx_date)).size;
-    const daysPassed = Math.max(1, uniqueActiveDays);
+    const daysPassed = Math.max(1, Number(k.p1_days || 1));
     const dailyBurn = monthRev / daysPassed;
 
     // Chỉ tính tổng giá trị hàng hóa thực tế được chở đi bằng chuyến xe nhà (có gắn shipment_id)
-    const shipmentRev = outboundTx.filter(t => t.shipment_id != null).reduce((s, t) => s + (t.qty * (t.unit_cost || 0)), 0);
+    const shipmentRev = Number(k.p1_shipment_revenue || 0);
     const avgShipVal = monthShip > 0 ? shipmentRev / monthShip : 0;
 
     return {
@@ -316,29 +302,22 @@ export default function SalesCommandCenterPage() {
       weekShip, weekShipTrend: prevWeekShip > 0 ? ((weekShip - prevWeekShip)/prevWeekShip*100) : 0,
       dailyBurn, avgShipVal
     };
-  }, [outboundTx, prevMonthTx, shipments, monthOffset]);
+  }, [salesData]);
 
   // Handle Tables & Lists
   const customerList = useMemo(() => {
     // 1. Lọc ra danh sách các khách hàng cha (gốc)
-    const roots = customers.filter(c => !c.parent_customer_id);
+    let list = ((salesData?.customer_report || []) as any[]).map(r => ({
+      id: r.id,
+      code: r.code,
+      name: r.name,
+      revenue: Number(r.p1_revenue || 0),
+      selling_entity_id: r.selling_entity_id
+    }));
     
     // 2. Tạo map doanh thu
-    const revMap: Record<string, number> = {};
-    outboundTx.forEach(t => {
-      const c = customers.find(x => x.id === t.customer_id);
-      const parentId = c?.parent_customer_id || t.customer_id || "unknown";
-      revMap[parentId] = (revMap[parentId] || 0) + (t.qty * (t.unit_cost || 0));
-    });
 
     // 3. Xây dựng danh sách cuối cùng từ danh mục khách hàng cha
-    let list = roots.map(p => ({
-      id: p.id,
-      code: p.code,
-      name: p.name,
-      revenue: revMap[p.id] || 0,
-      selling_entity_id: p.selling_entity_id
-    }));
 
     // 4. Lọc theo trạng thái lọc "Chỉ hiện khách phát sinh DT"
     if (showActiveOnly) {
@@ -353,19 +332,14 @@ export default function SalesCommandCenterPage() {
     }
     
     return list;
-  }, [outboundTx, customers, sortCol, sortDir, showActiveOnly]);
+  }, [salesData, sortCol, sortDir, showActiveOnly]);
 
   const productReport = useMemo(() => {
-    const map: Record<string, any> = {};
-    outboundTx.forEach(t => {
-      if (!map[t.product_id]) {
-        const p = products.find(x => x.id === t.product_id);
-        map[t.product_id] = { id: t.product_id, sku: p?.sku || "N/A", name: p?.name || "Unknown", rev: 0 };
-      }
-      map[t.product_id].rev += (t.qty * (t.unit_cost || 0));
-    });
-    return Object.values(map).sort((a,b) => b.rev - a.rev).slice(0, 10);
-  }, [outboundTx, products]);
+    return ((salesData?.product_report || []) as any[])
+      .map(p => ({ id: p.id, sku: p.sku || "N/A", name: p.name || "Unknown", rev: Number(p.p1_revenue || 0) }))
+      .sort((a,b) => b.rev - a.rev)
+      .slice(0, 10);
+  }, [salesData]);
 
   const UIColors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
 
