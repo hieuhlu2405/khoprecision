@@ -1,108 +1,78 @@
 # Handoff Du An
 
-## Nguyen tac lam viec
+## Nguyen tac
 
 - Luon tra loi ngan gon bang tieng Viet.
-- Chu du an khong doc code truc tiep, nen moi rui ro phai noi bang ngon ngu de hieu.
-- Uu tien backend truoc giao dien: khong sap web, khong mat du lieu, khong sai so lieu kho/giao hang.
+- Chu du an khong doc code truc tiep, nen rui ro phai noi bang ngon ngu de hieu.
+- Uu tien backend va du lieu truoc giao dien.
 - Khong tu y commit/push neu chu du an chua yeu cau.
+- Khong chay SQL cu neu chua xac nhan. Muon va DB thi tao file SQL moi theo ngay va ghi vao handoff.
 
 ## Trang thai hien tai
 
-- Backend an toan kho da duoc lam nhieu phan:
-  - Chan xoa thang du lieu quan trong.
-  - Chan am kho o database.
-  - Chuyen cac thao tac kho quan trong sang goi xu ly backend.
-  - Huy phieu giao hang/xuat kho theo kieu danh dau huy, khong xoa lich su.
-  - Gop chuyen giao hang va tru kho da test tren web.
-  - Bao cao doanh thu da luu gia von tai thoi diem xuat de tranh sai so lieu cu.
-- Build web gan nhat da pass bang `npm run build`.
-- Lint van fail do nhieu loi cu trong repo. Chua phai uu tien so voi an toan du lieu.
+- Tinh nang sua ke hoach sau khi da xuat da hoan tat.
+- Da merge vao `main` va da push len GitHub.
+- Build gan nhat `npm run build` da pass.
+- Chu du an da test live/previews OK cac ca chinh.
 
-## Viec da ap dung/da test
+## Viec vua hoan thanh
 
-- Migration nen mong an toan backend da ap dung live Supabase ngay 2026-05-14.
-- Manual nhap/xuat/dieu chinh/xoa mem kho da chay qua backend RPC.
-- Hotfix cung ngay nhap va xuat da duoc xu ly.
-- Xoa mem phieu kho co dieu chinh kem theo da duoc test live va hoat dong.
-- Merge shipment da test live: gop nhieu don, tru kho nhieu ma hang, chi tinh chi phi xe mot lan.
-- Undo shipment da test live: tra lai ton kho va giu lich su.
-- Da deploy production sau khi merge nhanh `vercel` vao `main`.
+- Cho phep sua tang/giam so luong ke hoach ngay ca khi dong da xuat xong.
+- Backend tu tinh lai `is_completed` khi `planned_qty`, `backlog_qty`, hoac `actual_qty` doi.
+- Bam luu ke hoach khong tu sinh backlog sang ngay mai.
+- O nhap so luong khong con bi khoa chi vi dong da xong.
+- Va loi huy no thuan bi hien sai `0/0 da xuat du`.
 
-## Viec can kiem chung tren web that
+## File lien quan
 
-- Chot kiem ke dinh ky.
-- Rollover ton dau ky thang moi.
-- Backlog khi giao thieu, huy giao, gop giao.
+- `app/(protected)/delivery-plan/page.tsx`
+- `supabase-sql/20260524_unlock_completed_delivery_plan.sql`
+- `supabase-sql/20260524_zz_fix_zero_target_completion.sql`
+- `AGENTS.md`
 
-## Ke hoach moi da gop tu `PLAN_UPDATE_DELIVERY_WORKFLOW.md`
+## SQL da chay live
 
-Muc tieu: cho phep sua tang/giam so luong ke hoach ngay ca khi kho da xuat xong.
+- `supabase-sql/20260524_unlock_completed_delivery_plan.sql`
+- `supabase-sql/20260524_zz_fix_zero_target_completion.sql`
 
-Rui ro can tranh:
+Luu y:
 
-- Neu tang so luong sau khi da xuat, kho phai thay lai la "chua xong" de xuat tiep.
-- Neu giam so luong thap hon so da xuat, he thong phai tu tinh lai la "da xong".
-- Neu huy no/backlog, trang thai cung phai tu cap nhat.
-- Neu chi lam o giao dien ma backend khong tu tinh, co the sai so lieu va nhan vien thao tac nham.
+- Hai file SQL tren da de 1 dong de dan vao Supabase SQL Editor.
+- Khong co hard delete du lieu nghiep vu.
+- `DROP TRIGGER` trong SQL chi de tao lai trigger, khong xoa du lieu.
 
-Can lam:
+## Cac ca da test OK
 
-1. Sua giao dien `app/(protected)/delivery-plan/page.tsx`
-   - Mo khoa o nhap so luong ke hoach khi dong da xuat xong.
-   - Sau khi sua, dong phai hien trang thai cho luu.
+- Da xuat 100/100, sua ke hoach len 200: dong quay ve chua xong.
+- Da xuat 100/100, sua ke hoach xuong 50: dong van xong.
+- Da xuat 60/100, sua len 120: dong van chua xong.
+- Bam luu ke hoach khong tu tao backlog ngay mai.
+- Sua tang roi kho xuat tiep duoc.
+- Chot no dong chua xuat gi: sinh no ngay mai dung.
+- Huy no thuan: o trang.
+- Huy no nhung ngay do co ke hoach goc: van hien so luong goc.
+- Dong xuat du that van hien da xong.
 
-2. Tao migration `supabase-sql/20260520_unlock_completed_plan.sql`
-   - Cap nhat ham `trig_fn_delivery_plan_awareness`.
-   - Database tu tinh lai `is_completed` khi `planned_qty` hoac `backlog_qty` thay doi.
+## Viec can theo doi tiep
 
-3. Test tren web
-   - Da xuat 100, sua ke hoach thanh 200: phai quay ve chua xong.
-   - Da xuat 100, sua ke hoach thanh 50: phai giu/tru ve da xong.
-   - Huy backlog: trang thai phai tu tinh lai dung.
+1. Theo doi production 1-2 ngay voi luong that:
+   - sua ke hoach sau khi da xuat;
+   - chot no cuoi ngay;
+   - huy no;
+   - xuat tiep sau khi sua tang.
 
-## Viec nen lam tiep
+2. Neu phat sinh loi o chot no/huy no:
+   - moi can can nhac dua chot no/huy no vao RPC rieng.
+   - hien tai chua can lam.
 
-1. Lam nho dung ke hoach mo khoa sua so luong sau khi da xuat.
-2. Chay `npm run build`.
-3. Test 3 ca tren web that.
-4. Neu 3 ca pass, moi lam tiep backlog/rollover/kiem ke.
+3. Cleanup SQL cu:
+   - chua can lam ngay.
+   - repo van van hanh duoc.
+   - rui ro chinh neu khong cleanup la AI/dev sau nay doc nham file cu, da giam bang quy dinh moi trong `AGENTS.md`.
 
-## Cap nhat 2026-05-23
+## Khong nen lam ngay
 
-Da xu ly phan mo khoa sua ke hoach da xuat:
+- Khong cleanup SQL cu trong luc dang theo doi tinh nang moi.
+- Khong sua tiep luong chot no/huy no neu production dang on.
+- Khong claim an toan 100% neu chua co them log/test production sau vai ngay.
 
-- Tao migration `supabase-sql/20260524_unlock_completed_delivery_plan.sql`.
-- Migration nay:
-  - tao/cap nhat trigger `trig_fn_delivery_plan_awareness`;
-  - database tu tinh lai `is_completed` khi `planned_qty`, `backlog_qty`, hoac `actual_qty` doi;
-  - giu lai `prev_planned_qty` va `qty_updated_at` khi doi so luong ke hoach;
-  - cap nhat `save_delivery_plan_edits_v1` de bam luu ke hoach khong tu sinh backlog sang ngay mai.
-- Sua `app/(protected)/delivery-plan/page.tsx`:
-  - o nhap so luong khong con bi khoa chi vi dong da `is_completed`;
-  - van bi khoa neu nguoi dung khong co quyen hoac ngay khong duoc sua.
-
-Da kiem tra:
-
-- Kiem tra text migration: dollar quote can bang, co `BEGIN/COMMIT`, khong co hard delete du lieu nghiep vu.
-- `npm run build` da pass.
-
-Chua kiem tra duoc:
-
-- May local khong co `psql` va Supabase CLI, nen chua dry-run SQL tren database local.
-- Can ap dung migration len Supabase roi test web that:
-  - da xuat 100/100, sua len 200: dong phai thanh chua xong;
-  - da xuat 100/100, sua xuong 50: dong van xong;
-  - da xuat 60/100, sua len 120: dong chua xong;
-  - bam luu ke hoach khong tu tao backlog ngay mai;
-  - sua tang roi kho xuat tiep duoc.
-
-Cap nhat hotfix sau test:
-
-- Them `supabase-sql/20260524_zz_fix_zero_target_completion.sql`.
-- Ly do: khi huy no thuan, dong co `planned_qty = 0`, `backlog_qty = 0`, `actual_qty = 0` khong duoc tinh la da xuat du `0/0`.
-- Sua them UI de chi hien da xong khi tong can giao > 0.
-- Chu du an da test live OK:
-  - huy no thuan: o trang;
-  - huy no nhung ngay do co ke hoach goc: van hien so luong goc;
-  - dong xuat du that van hien da xong.
