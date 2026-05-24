@@ -20,20 +20,17 @@
 - Da dieu tra loi Sales Command Center hien doanh thu thap/sai so voi Dashboard.
 - Nguyen nhan theo code: trang Sales tu query truc tiep `inventory_transactions`, co nguy co bi gioi han dong; chi tinh `tx_type = out`; bo qua dieu chinh; giao dich cu thieu `unit_cost` bi tinh 0.
 - Da tao SQL moi: `supabase-sql/20260524_fix_sales_command_center_metrics.sql`.
-- SQL moi chua chay live.
+- SQL moi da chay live va chu du an da test Sales Command Center OK tren web.
 - SQL moi dung `CREATE OR REPLACE FUNCTION public.sales_command_center_report_v2(...)`: khong xoa du lieu, chi thay cach database tinh bao cao.
 - SQL moi khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`.
 - Da sua `app/(protected)/sales-command-center/page.tsx` de trang tong quan Sales dung RPC tong hop, khong tu keo giao dich tho ve frontend nua.
 - Build moi nhat `npm run build` da pass sau khi sua Sales.
 
-Can chay live:
+Da test live:
 
-- Dan 1 dong SQL trong `supabase-sql/20260524_fix_sales_command_center_metrics.sql` vao Supabase SQL Editor.
-- Sau khi chay SQL, test web:
-  - Sales Command Center doanh thu thang 5 phai gan/khop Dashboard gia tri xuat kho thang 5.
-  - Top khach hang, top ma hang, donut khach hang khong con bi thieu doanh thu.
-  - Tab doi chieu ky van chay va dung so theo RPC moi.
-  - Neu co chenh lech voi Dashboard, can so tiep phan dieu chinh va giao dich thieu gia.
+- Chu du an xac nhan tat ca so lieu Sales Command Center da on sau khi chay SQL va push `main`.
+- Vercel main da nhan commit `e2a144c Fix sales command center metrics`.
+- Khong can lam tiep neu khong phat sinh chenhlech moi.
 
 ## Viec vua hoan thanh
 
@@ -52,6 +49,7 @@ Can chay live:
 
 ## SQL da chay live
 
+- `supabase-sql/20260524_fix_sales_command_center_metrics.sql`
 - `supabase-sql/20260524_unlock_completed_delivery_plan.sql`
 - `supabase-sql/20260524_zz_fix_zero_target_completion.sql`
 
