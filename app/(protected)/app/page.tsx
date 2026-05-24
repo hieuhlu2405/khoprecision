@@ -303,9 +303,15 @@ export default function AppHome() {
           }
         }
 
-        // Sum transaction amounts for the current calendar month only, utilizing toVNDateStr for GMT+7 bounds
+        const getReportingDateKey = (t: any) => {
+          const orig = t.adjusted_from_transaction_id ? originalsMap.get(t.adjusted_from_transaction_id) : null;
+          return toVNDateStr(orig?.tx_date || t.tx_date);
+        };
+
+        // Sum transaction amounts for the current calendar month.
+        // Adjustments belong to the original transaction date, not the date the correction was entered.
         for (const t of txsList) {
-          const txDateKey = toVNDateStr(t.tx_date);
+          const txDateKey = getReportingDateKey(t);
           const isCurrentMonth = txDateKey >= monthStartStr && txDateKey <= todayStr;
 
           const product = productMap.get(t.product_id);
@@ -363,7 +369,7 @@ export default function AppHome() {
 
         // Accumulate values onto the 30-day history chart using GMT+7 localized date strings
         for (const t of txsList) {
-          const dateKey = toVNDateStr(t.tx_date);
+          const dateKey = getReportingDateKey(t);
           const point = dateToPointMap.get(dateKey);
           if (point) {
             const product = productMap.get(t.product_id);
