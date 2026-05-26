@@ -14,20 +14,24 @@
 - Da merge vao `main` va da push len GitHub.
 - Build gan nhat `npm run build` da pass.
 - Chu du an da test live/previews OK cac ca chinh.
+- Bug `Luu y 1` / `Luu y 2` trong Ke hoach giao hang da fix, SQL da chay live, code da push `main`.
 
 ## Cap nhat 2026-05-26 - Fix Luu y ke hoach giao hang bi keo lai noi dung cu
 
 - Da dieu tra va sua bug `Luu y 1` / `Luu y 2` bi tu lay lai noi dung cu sau khi nguoi dung xoa trang va bam luu.
 - Nguyen nhan theo code: logic ke thua ghi chu dang bo qua chuoi rong, nen khong hieu rang o trong la gia tri moi nhat da duoc chu dong luu.
 - Da tao SQL moi: `supabase-sql/20260526_fix_delivery_plan_empty_notes.sql`.
-- SQL moi chua chay live.
+- SQL moi da chay live theo xac nhan cua chu du an.
 - SQL moi them `note_edited_at`, `note_2_edited_at` de phan biet `chua co ghi chu` voi `da co y xoa ghi chu`.
 - SQL moi dung `CREATE OR REPLACE FUNCTION public.delivery_plan_latest_note_before(...)` va `CREATE OR REPLACE FUNCTION public.save_delivery_plan_edits_v1(...)`: khong xoa du lieu, chi doi cach database luu/doc ghi chu.
 - SQL moi khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`.
 - Da sua `app/(protected)/delivery-plan/page.tsx` de frontend coi o trong la gia tri hop le neu dong do co dau vet da sua.
+- Da push len `main` commit `e399e70 Fix delivery plan empty notes`; Vercel se tu deploy theo main.
+- Build `npm run build` da pass sau khi sua.
+- `npm run lint` van fail do nhieu loi cu toan repo, khong phai loi moi cua task nay.
 - Voi nhung dong da xoa trang truoc khi chay SQL moi, can xoa/luu lai mot lan sau khi deploy de tao dau vet `da co y xoa`.
 
-Can test sau khi chay SQL live:
+Can test tren web sau khi Vercel deploy xong:
 
 - Xoa trang `Luu y 1`, bam luu, refresh, sang ngay sau van phai trong.
 - Xoa trang `Luu y 2`, bam luu, refresh, sang ngay sau van phai trong.
@@ -72,6 +76,7 @@ Da test live:
 - `supabase-sql/20260524_fix_sales_command_center_metrics.sql`
 - `supabase-sql/20260524_unlock_completed_delivery_plan.sql`
 - `supabase-sql/20260524_zz_fix_zero_target_completion.sql`
+- `supabase-sql/20260526_fix_delivery_plan_empty_notes.sql`
 
 Luu y:
 
