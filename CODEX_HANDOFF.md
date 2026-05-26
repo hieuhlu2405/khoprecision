@@ -15,6 +15,26 @@
 - Build gan nhat `npm run build` da pass.
 - Chu du an da test live/previews OK cac ca chinh.
 
+## Cap nhat 2026-05-26 - Fix Luu y ke hoach giao hang bi keo lai noi dung cu
+
+- Da dieu tra va sua bug `Luu y 1` / `Luu y 2` bi tu lay lai noi dung cu sau khi nguoi dung xoa trang va bam luu.
+- Nguyen nhan theo code: logic ke thua ghi chu dang bo qua chuoi rong, nen khong hieu rang o trong la gia tri moi nhat da duoc chu dong luu.
+- Da tao SQL moi: `supabase-sql/20260526_fix_delivery_plan_empty_notes.sql`.
+- SQL moi chua chay live.
+- SQL moi them `note_edited_at`, `note_2_edited_at` de phan biet `chua co ghi chu` voi `da co y xoa ghi chu`.
+- SQL moi dung `CREATE OR REPLACE FUNCTION public.delivery_plan_latest_note_before(...)` va `CREATE OR REPLACE FUNCTION public.save_delivery_plan_edits_v1(...)`: khong xoa du lieu, chi doi cach database luu/doc ghi chu.
+- SQL moi khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`.
+- Da sua `app/(protected)/delivery-plan/page.tsx` de frontend coi o trong la gia tri hop le neu dong do co dau vet da sua.
+- Voi nhung dong da xoa trang truoc khi chay SQL moi, can xoa/luu lai mot lan sau khi deploy de tao dau vet `da co y xoa`.
+
+Can test sau khi chay SQL live:
+
+- Xoa trang `Luu y 1`, bam luu, refresh, sang ngay sau van phai trong.
+- Xoa trang `Luu y 2`, bam luu, refresh, sang ngay sau van phai trong.
+- Xoa `Luu y 2` nhung giu `Luu y 1`: hai o khong anh huong nhau.
+- Nhap lai ghi chu moi sau khi da xoa: ngay sau phai lay ghi chu moi.
+- Dong chua tung nhap ghi chu van duoc ke thua ghi chu cu nhu truoc.
+
 ## Cap nhat 2026-05-24 - Sales Command Center
 
 - Da dieu tra loi Sales Command Center hien doanh thu thap/sai so voi Dashboard.
