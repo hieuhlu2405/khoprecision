@@ -1322,11 +1322,13 @@ export default function DeliveryPlanPage() {
       >
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
           {extra ? extra : <span className="text-black font-black text-xs uppercase tracking-wider">{label}</span>}
-          <div className={`flex items-center gap-0.5 transition-opacity ${active ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+          <div className={`delivery-th-actions flex items-center gap-1 transition-opacity ${active ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
             {sortable && (
               <button
                 onClick={(e) => { e.stopPropagation(); toggleSort(colKey); }}
-                className={`p-1 rounded bg-white shadow-sm border border-slate-200 transition-all ${isSortTarget ? "text-indigo-600 scale-110" : "text-slate-400 hover:text-indigo-500"}`}
+                title={`Sắp xếp ${label}`}
+                aria-label={`Sắp xếp ${label}`}
+                className={`delivery-th-action-btn p-1 rounded bg-white shadow-sm border border-slate-200 transition-all ${isSortTarget ? "text-indigo-600 scale-110" : "text-slate-400 hover:text-indigo-500"}`}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                   {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6" /> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6" /> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3" />}
@@ -1335,7 +1337,9 @@ export default function DeliveryPlanPage() {
             )}
             <button
               onClick={(e) => { e.stopPropagation(); setOpenPopup(popupOpen ? null : colKey); }}
-              className={`p-1 rounded transition-all border ${active ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-400 border-slate-200 hover:text-indigo-500"}`}
+              title={`Lọc ${label}`}
+              aria-label={`Lọc ${label}`}
+              className={`delivery-th-action-btn p-1 rounded transition-all border ${active ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-400 border-slate-200 hover:text-indigo-500"}`}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
             </button>
@@ -1491,13 +1495,38 @@ export default function DeliveryPlanPage() {
         </div>
       </div>
 
+      <div className="delivery-mobile-filter-strip">
+        <button
+          type="button"
+          onClick={() => setOnlyScheduled(prev => !prev)}
+          className={onlyScheduled ? "active" : ""}
+        >
+          {onlyScheduled ? "Đang lọc mã có lịch" : "Chỉ mã có lịch"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setAnchorDate(todayVN);
+            setColFilters(prev => ({ ...prev, [todayVN]: { mode: "equals", value: "true" } }));
+          }}
+          className={colFilters[todayVN]?.value === "true" ? "active" : ""}
+        >
+          Lọc hôm nay còn giao
+        </button>
+        {activeFilterCount > 0 && (
+          <button type="button" onClick={() => setColFilters({})}>
+            Xóa lọc ({activeFilterCount})
+          </button>
+        )}
+      </div>
+
       <div className="page-content">
         {activeTab === 'plan' ? (
           <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden flex flex-col">
             <div
               ref={parentRef}
               className="data-table-wrap overflow-auto flex-1"
-              style={{ maxHeight: "calc(100vh - 260px)", position: 'relative' }}
+              style={{ maxHeight: "calc(100dvh - 260px)", position: 'relative' }}
             >
               <table className="text-sm !border-separate !border-spacing-0 table-fixed" style={{ width: TABLE_MIN_WIDTH, minWidth: TABLE_MIN_WIDTH }}>
                 <thead className="sticky top-0 z-[60]">

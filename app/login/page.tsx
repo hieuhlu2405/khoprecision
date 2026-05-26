@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 768px)");
+    const media = window.matchMedia("(max-width: 900px), (pointer: coarse) and (max-height: 500px)");
     const apply = () => setIsMobile(media.matches);
     apply();
     media.addEventListener("change", apply);

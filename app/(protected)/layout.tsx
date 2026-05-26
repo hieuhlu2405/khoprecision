@@ -140,7 +140,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   }, []);
 
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 768px)");
+    const media = window.matchMedia("(max-width: 900px), (pointer: coarse) and (max-height: 500px)");
     const apply = () => setIsMobile(media.matches);
     apply();
     media.addEventListener("change", apply);

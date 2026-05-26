@@ -973,12 +973,12 @@ export default function InventoryOutboundPage() {
       </header>
 
       {showCreate && (
-        <div className="card shadow-lg" style={{ marginBottom: 24, background: "white", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div className="card shadow-lg entry-create-panel" style={{ marginBottom: 24, background: "white", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0" }}>
+          <div className="entry-create-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
              <h2 style={{ fontSize: 18, fontWeight: 700 }}>Tạo phiếu xuất mới</h2>
              <button onClick={handleCancelCreate} className="btn-icon">✕</button>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 20, marginBottom: 16 }}>
+          <div className="entry-header-grid" style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 20, marginBottom: 16 }}>
             <label style={{ display: "grid", gap: 6 }}>
               Ngày xuất *
               <input type="date" value={hDate} onChange={e => setHDate(e.target.value)} className="input" />
@@ -988,7 +988,7 @@ export default function InventoryOutboundPage() {
               <input type="text" value={hNote} onChange={e => setHNote(e.target.value)} className="input" placeholder="Ví dụ: Xuất cho đơn hàng #..." />
             </label>
           </div>
-          <table style={{ width: "100%", marginBottom: 16 }}>
+          <table className="entry-lines-table" style={{ width: "100%", marginBottom: 16 }}>
             <thead>
               <tr style={{ textAlign: "left" }}>
                 <th style={{ padding: "8px 0" }}>Sản phẩm / Khách hàng *</th>
@@ -1000,9 +1000,9 @@ export default function InventoryOutboundPage() {
               </tr>
             </thead>
             <tbody>
-              {lines.map((l) => (
+              {lines.map((l, idx) => (
                 <tr key={l.key}>
-                   <td style={{ padding: "4px 4px 4px 0", position: "relative" }}>
+                   <td data-label="Sản phẩm / Khách hàng" data-row-number={idx + 1} style={{ padding: "4px 4px 4px 0", position: "relative" }}>
                       <input 
                         className="input w-full"
                         placeholder="Tìm mã hàng, tên hàng..."
@@ -1016,7 +1016,7 @@ export default function InventoryOutboundPage() {
                         onBlur={() => setTimeout(() => updateLine(l.key, "showSuggestions", false), 200)}
                       />
                       {l.showSuggestions && (
-                        <div className="suggestions-box shadow-xl" style={{ position: "absolute", zIndex: 100, background: "white", border: "1px solid #e2e8f0", width: "100%", maxHeight: 200, overflowY: "auto", borderRadius: 8, top: "100%" }}>
+                        <div className="suggestions-box entry-suggestions shadow-xl" style={{ position: "absolute", zIndex: 100, background: "white", border: "1px solid #e2e8f0", width: "100%", maxHeight: 200, overflowY: "auto", borderRadius: 8, top: "100%" }}>
                           {products.filter(p => {
                             const s = (l.productSearch || "").toLowerCase();
                             const c = customers.find(x => x.id === p.customer_id);
@@ -1039,9 +1039,9 @@ export default function InventoryOutboundPage() {
                         </div>
                       )}
                    </td>
-                    <td style={{ padding: "4px" }}><input type="number" className="input text-center" value={l.qty} onChange={e => updateLine(l.key, "qty", e.target.value)} /></td>
-                   <td style={{ padding: "4px" }}><input type="number" className="input text-right" value={l.unitCost} onChange={e => updateLine(l.key, "unitCost", e.target.value)} placeholder="Mặc định" /></td>
-                   <td style={{ padding: "4px" }}>
+                   <td data-label="Số lượng" style={{ padding: "4px" }}><input type="number" inputMode="decimal" className="input text-center" value={l.qty} onChange={e => updateLine(l.key, "qty", e.target.value)} /></td>
+                   <td data-label="Đơn giá" style={{ padding: "4px" }}><input type="number" inputMode="decimal" className="input text-right" value={l.unitCost} onChange={e => updateLine(l.key, "unitCost", e.target.value)} placeholder="Mặc định" /></td>
+                   <td data-label="Điểm giao" style={{ padding: "4px" }}>
                      {/* Dropdown điểm giao: chỉ hiện nếu sản phẩm được chọn và công ty mẹ có vendor con */}
                      {(() => {
                        const prod = products.find(p => p.id === l.productId);
@@ -1055,17 +1055,17 @@ export default function InventoryOutboundPage() {
                        );
                      })()}
                    </td>
-                   <td style={{ padding: "4px" }}><input type="text" className="input" value={l.note} onChange={e => updateLine(l.key, "note", e.target.value)} /></td>
-                   <td style={{ padding: "4px", textAlign: "center" }}>
+                   <td data-label="Ghi chú riêng" style={{ padding: "4px" }}><input type="text" className="input" value={l.note} onChange={e => updateLine(l.key, "note", e.target.value)} /></td>
+                   <td className="entry-remove-cell" style={{ padding: "4px", textAlign: "center" }}>
                       <button onClick={() => removeLine(l.key)} className="text-red-500 hover:scale-110 transition-transform">✕</button>
                    </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <div className="entry-form-actions" style={{ display: "flex", justifyContent: "space-between" }}>
              <button onClick={addLine} className="btn btn-secondary btn-sm" style={{ fontWeight: 700 }}>+ THÊM DÒNG (F2)</button>
-             <div style={{ display: "flex", gap: 12 }}>
+             <div className="entry-form-actions" style={{ display: "flex", gap: 12 }}>
                 <button onClick={handleCancelCreate} className="btn btn-ghost" disabled={saving}>HỦY</button>
                 <button onClick={saveMulti} className="btn btn-primary" disabled={saving}>
                    {saving ? "ĐANG LƯU..." : "💾 LƯU PHIẾU XUẤT"}

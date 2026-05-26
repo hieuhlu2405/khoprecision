@@ -937,8 +937,8 @@ export default function PhoiPage() {
 
         {/* MULTI-LINE CREATE FORM */}
         {showCreate && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
+          <div className="entry-create-panel rounded-2xl border border-slate-200 bg-white p-6 shadow-xl animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="entry-create-header flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
               <div className="flex items-center gap-3">
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 font-black text-sm">F2</span>
                 <h3 className="text-lg font-black text-slate-800 uppercase">Tạo phiếu nhập phôi mới</h3>
@@ -946,7 +946,7 @@ export default function PhoiPage() {
               <button onClick={handleCancelCreate} className="text-slate-400 hover:text-slate-600 font-bold p-1">✕</button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="entry-header-grid grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Ngày lập phiếu</label>
                 <input type="date" value={hDate} onChange={e => setHDate(e.target.value)} className="w-full h-12 bg-white border-slate-300 border rounded-xl px-4 font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none" />
@@ -958,7 +958,7 @@ export default function PhoiPage() {
             </div>
 
             <div className="rounded-xl border border-slate-100 bg-slate-50/30 overflow-visible">
-              <table className="w-full text-left border-collapse" style={{ minWidth: 800 }}>
+              <table className="entry-lines-table w-full text-left border-collapse" style={{ minWidth: 800 }}>
                 <thead>
                   <tr className="text-[11px] font-black uppercase text-slate-400 tracking-widest">
                     <th className="px-4 py-3 w-12 text-center">#</th>
@@ -980,8 +980,8 @@ export default function PhoiPage() {
                     })();
                     return (
                       <tr key={l.key} className="group hover:bg-white transition-colors">
-                        <td className="px-4 py-3 text-center text-xs font-bold text-slate-400">{idx + 1}</td>
-                        <td className="px-4 py-3 relative">
+                        <td data-row-number={idx + 1} className="px-4 py-3 text-center text-xs font-bold text-slate-400">{idx + 1}</td>
+                        <td data-label="Sản phẩm / Phôi" className="px-4 py-3 relative">
                           <input 
                             value={l.productSearch || ""}
                             onChange={e => {
@@ -995,7 +995,7 @@ export default function PhoiPage() {
                             className="w-full h-10 bg-white border-slate-300 border rounded-lg px-3 font-bold text-slate-700 focus:outline-none"
                           />
                           {l.showSuggestions && lSugs.length > 0 && (
-                            <div className="absolute left-0 top-full z-[200] w-full min-w-[300px] mt-1 bg-white border border-slate-200 shadow-2xl rounded-xl overflow-y-auto max-h-[200px] py-1 animate-in fade-in zoom-in-95 duration-100">
+                            <div className="entry-suggestions absolute left-0 top-full z-[200] w-full min-w-[300px] mt-1 bg-white border border-slate-200 shadow-2xl rounded-xl overflow-y-auto max-h-[200px] py-1 animate-in fade-in zoom-in-95 duration-100">
                               {lSugs.map(ps => (
                                   <button
                                   key={ps.id}
@@ -1023,23 +1023,23 @@ export default function PhoiPage() {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td data-label="Số lượng" className="px-4 py-3">
                           <input 
-                            type="number" value={l.qty} 
+                            type="number" inputMode="decimal" value={l.qty} 
                             onChange={e => updateLine(l.key, "qty", e.target.value)}
                             placeholder="0"
                             className="w-full h-10 bg-white border-slate-300 border rounded-lg px-3 font-black text-slate-900 focus:outline-none text-right placeholder:text-slate-300"
                           />
                         </td>
                         {/* Unit Cost Hidden */}
-                        <td className="px-4 py-3">
+                        <td data-label="Ghi chú riêng" className="px-4 py-3">
                           <input 
                             value={l.note} onChange={e => updateLine(l.key, "note", e.target.value)}
                             placeholder="..."
                             className="w-full h-10 bg-white border-slate-300 border rounded-lg px-3 text-slate-700 focus:outline-none italic text-sm"
                           />
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="entry-remove-cell px-4 py-3 text-center">
                           <button onClick={() => removeLine(l.key)} className="text-slate-300 hover:text-red-500 transition-colors">✕</button>
                         </td>
                       </tr>
@@ -1049,7 +1049,7 @@ export default function PhoiPage() {
               </table>
             </div>
 
-            <div className="flex items-center justify-between mt-6">
+            <div className="entry-form-actions flex items-center justify-between mt-6">
               <button 
                 onClick={addLine}
                 className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-black text-xs uppercase tracking-widest px-4 py-2 rounded-lg hover:bg-indigo-50 transition-all"
@@ -1057,7 +1057,7 @@ export default function PhoiPage() {
                 <span className="text-lg">+</span> Thêm dòng (F2)
               </button>
               
-              <div className="flex gap-3">
+              <div className="entry-form-actions flex gap-3">
                 <button onClick={handleCancelCreate} className="btn btn-secondary h-12 px-8">Hủy bỏ</button>
                 <button 
                   onClick={saveMulti} disabled={saving}
