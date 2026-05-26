@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -13,13 +13,19 @@ export const metadata: Metadata = {
   description: "Hệ thống quản lý kho nội bộ — Công ty Cổ phần Precision Packaging.",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={inter.variable}>
+    <html lang="vi" suppressHydrationWarning className={inter.variable}>
       <body
         suppressHydrationWarning
         className={`${inter.className} antialiased`}

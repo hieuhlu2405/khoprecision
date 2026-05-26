@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
@@ -9,6 +9,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<{ text: string; isError: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 768px)");
+    const apply = () => setIsMobile(media.matches);
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,20 +47,21 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      minHeight: "100vh",
+      minHeight: "100dvh",
       display: "flex",
+      flexDirection: isMobile ? "column" : "row",
       background: "#f0f7fd",
       fontFamily: "'Segoe UI', Arial, sans-serif",
     }}>
       {/* ── Left panel — Branding ── */}
       <div style={{
-        flex: "0 0 45%",
+        flex: isMobile ? "0 0 auto" : "0 0 45%",
         background: `linear-gradient(145deg, #0d4f7c 0%, var(--brand) 60%, #4dbae8 100%)`,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "48px 40px",
+        padding: isMobile ? "28px 20px 24px" : "48px 40px",
         position: "relative",
         overflow: "hidden",
       }}>
@@ -62,9 +72,9 @@ export default function LoginPage() {
         {/* Original Logo Image */}
         <div style={{
           background: "white",
-          borderRadius: 20,
-          padding: "24px",
-          marginBottom: 36,
+          borderRadius: isMobile ? 14 : 20,
+          padding: isMobile ? "14px" : "24px",
+          marginBottom: isMobile ? 16 : 36,
           boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
           display: "flex",
           alignItems: "center",
@@ -74,7 +84,7 @@ export default function LoginPage() {
             src="/logo.jpg"
             alt="Precision Packaging Logo"
             style={{
-              maxWidth: "280px",
+              maxWidth: isMobile ? "180px" : "280px",
               height: "auto",
               display: "block",
             }}
@@ -82,10 +92,10 @@ export default function LoginPage() {
         </div>
 
         <div style={{ color: "white", textAlign: "center", position: "relative", zIndex: 1 }}>
-          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 10, letterSpacing: "-0.02em" }}>
+          <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, marginBottom: 10, letterSpacing: 0 }}>
             Công ty Cổ phần Precision Packaging
           </div>
-          <div style={{ fontSize: 14, opacity: 0.85, lineHeight: 1.6, maxWidth: 300, margin: "0 auto" }}>
+          <div style={{ fontSize: isMobile ? 13 : 14, opacity: 0.85, lineHeight: 1.6, maxWidth: 300, margin: "0 auto" }}>
             Hệ thống chỉ sử dụng trong nội bộ công ty
           </div>
         </div>
@@ -102,12 +112,12 @@ export default function LoginPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "40px 32px",
+        padding: isMobile ? "28px 20px 32px" : "40px 32px",
       }}>
         <div style={{ width: "100%", maxWidth: 400 }}>
           {/* Header */}
-          <div style={{ marginBottom: 36 }}>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: "#0f172a", margin: "0 0 8px", letterSpacing: "-0.03em" }}>
+          <div style={{ marginBottom: isMobile ? 24 : 36 }}>
+            <h1 style={{ fontSize: isMobile ? 24 : 28, fontWeight: 800, color: "#0f172a", margin: "0 0 8px", letterSpacing: 0 }}>
               {mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
             </h1>
             <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>
@@ -136,7 +146,7 @@ export default function LoginPage() {
                     width: "100%", boxSizing: "border-box",
                     padding: "12px 12px 12px 38px",
                     border: "1.5px solid #e2e8f0",
-                    borderRadius: 10, fontSize: 14, outline: "none",
+                    borderRadius: 10, fontSize: isMobile ? 16 : 14, outline: "none",
                     background: "white",
                     transition: "border-color 0.2s",
                   }}
@@ -163,7 +173,7 @@ export default function LoginPage() {
                     width: "100%", boxSizing: "border-box",
                     padding: "12px 12px 12px 38px",
                     border: "1.5px solid #e2e8f0",
-                    borderRadius: 10, fontSize: 14, outline: "none",
+                    borderRadius: 10, fontSize: isMobile ? 16 : 14, outline: "none",
                     background: "white",
                     transition: "border-color 0.2s",
                   }}
@@ -197,7 +207,7 @@ export default function LoginPage() {
                 color: "white",
                 border: "none",
                 borderRadius: 10,
-                fontSize: 15,
+                fontSize: isMobile ? 16 : 15,
                 fontWeight: 700,
                 cursor: loading ? "not-allowed" : "pointer",
                 display: "flex",

@@ -58,6 +58,42 @@ Truoc khi them feature moi vao phan kho/giao hang/bao cao, AI phai kiem tra:
 
 Neu co bat ky cau tra loi nao la "co nguy co", phai xu ly backend truoc roi moi build tiep.
 
+## Quy Dinh UI/UX Da Thiet Bi
+
+Moi thay doi UI/UX phai dam bao web dung duoc tren desktop, macOS, tablet va dien thoai. Khong chi test tren man hinh may tinh dang dung.
+
+1. Definition of Done cho UI/UX
+   - Sua UI/UX chi duoc coi la xong khi `npm run build` pass.
+   - Phai kiem tra it nhat cac kich thuoc: 390px, 430px, 768px, 1366px.
+   - Voi man hinh nghiep vu quan trong, phai test thao tac that: loc, tim, mo phieu, sua, luu, huy, chot neu co.
+   - Neu chua test duoc bang browser/screenshot, phai noi ro: "Chua test mobile bang browser/screenshot."
+
+2. Khong tao layout de vo tren mobile
+   - Khong them `width`, `min-width`, `w-[...]`, hoac `minWidth` co dinh neu chua co ly do ro.
+   - Neu bat buoc dung bang rong, phai co vung cuon ngang ro rang va khong lam cuon ngang ca trang.
+   - Khong dung `100vh` cho layout/modal neu co the dung `100dvh` hoac fallback phu hop cho mobile.
+   - Khong tao modal width co dinh 500px/600px ma thieu mobile fallback.
+
+3. Bang, form, modal phai thao tac duoc tren dien thoai
+   - Bang du lieu dai phai co chien luoc mobile: cuon ngang co kiem soat, sticky cot quan trong, hoac doi sang card/list neu phu hop.
+   - Modal tren dien thoai phai vua man hinh, co the cuon, va nut Luu/Huy/Chot khong bi che.
+   - Input, select, button phai du lon de bam; han che input nho hon 16px tren mobile de tranh iPhone tu zoom.
+   - Khong de text tran, nut vo dong xau, filter che noi dung, sticky header/sidebar lam mat vung bam.
+
+4. Nut nghiep vu phai an toan khi bam
+   - Cac nut Luu, Huy, Chot, Xoa, Xuat kho, Chot kiem ke phai de thay, du lon, va khong dat qua sat nhau tren mobile.
+   - Neu thao tac co rui ro mat du lieu/sai so lieu, phai co confirm ro rang bang ngon ngu de hieu.
+   - Khong chi dua vao giao dien dep; phai dam bao nhan vien khong de bam nham.
+
+5. Uu tien component responsive dung chung
+   - Khi sua hoac tao UI moi, uu tien dung/tao component dung chung nhu responsive table wrapper, responsive modal, toolbar, filter panel.
+   - Khong moi page tu viet mot kieu layout rieng neu co the tai su dung pattern chung.
+   - Khi them pattern UI moi, phai nghi cach no hien thi tren mobile truoc khi nhan la hoan tat.
+
+6. Safari/iPhone la ca bat buoc can de y
+   - Kiem tra rieng cac loi thuong gap tren iPhone: chieu cao man hinh, input date, modal, sticky header, scroll ngang/doc.
+   - Neu khong co thiet bi that, phai test bang viewport mobile va ghi ro gioi han kiem tra.
+
 ## Quy Dinh Van Hanh SQL
 
 1. Khong chay SQL cu neu chua duoc xac nhan

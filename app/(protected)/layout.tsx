@@ -127,6 +127,8 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   const [isAdmin, setIsAdmin] = useState(false);
   const [err, setErr] = useState("");
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const pathname = usePathname();
   const menu = useMemo(() => (profile ? buildMenu(profile, isAdmin) : []), [profile, isAdmin]);
@@ -136,12 +138,33 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     const stored = localStorage.getItem("sidebar-collapsed");
     if (stored === "true") setCollapsed(true);
   }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 768px)");
+    const apply = () => setIsMobile(media.matches);
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) setMobileMenuOpen(false);
+  }, [isMobile, pathname]);
+
   function toggleCollapse() {
     setCollapsed((prev) => {
       const next = !prev;
       localStorage.setItem("sidebar-collapsed", String(next));
       return next;
     });
+  }
+
+  function handleSidebarToggle() {
+    if (isMobile) {
+      setMobileMenuOpen(false);
+      return;
+    }
+    toggleCollapse();
   }
 
   useEffect(() => {
@@ -177,7 +200,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   }
 
   if (err) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: 24 }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100dvh", padding: 24 }}>
       <div style={{ maxWidth: 400, padding: 24, border: "1px solid #fca5a5", borderRadius: 12, background: "#fef2f2", color: "#991b1b", fontSize: 14, lineHeight: 1.6 }}>
         <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 16 }}>⚠ Lỗi xác thực</div>
         {err}
@@ -186,32 +209,104 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   );
 
   if (!profile) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100dvh", flexDirection: "column", gap: 16 }}>
       <div className="spinner" style={{ width: 32, height: 32, borderWidth: 3 }} />
       <div style={{ color: "#64748b", fontSize: 13 }}>Đang tải...</div>
     </div>
   );
 
   const initials = getInitials(profile.full_name);
+  const sidebarCollapsed = isMobile ? false : collapsed;
+  const sidebarWidth = sidebarCollapsed ? 52 : isMobile ? "min(86vw, 300px)" : 230;
 
   return (
     <UIProvider>
-      <div style={{ display: "flex", minHeight: "100vh" }}>
+      <div style={{ display: "flex", minHeight: "100dvh" }}>
+        {isMobile && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 1000,
+              minHeight: 56,
+              padding: "max(10px, env(safe-area-inset-top)) 12px 10px",
+              background: "rgba(255,255,255,0.95)",
+              backdropFilter: "blur(10px)",
+              borderBottom: "1px solid var(--slate-200)",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              boxShadow: "0 4px 16px rgba(15,23,42,0.08)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Mở menu"
+              title="Mở menu"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                border: "1px solid var(--slate-200)",
+                background: "white",
+                color: "var(--slate-900)",
+                fontSize: 20,
+                fontWeight: 900,
+                display: "grid",
+                placeItems: "center",
+                cursor: "pointer",
+              }}
+            >
+              ☰
+            </button>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: "var(--slate-900)", lineHeight: 1.2 }}>
+                Precision Packaging
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--slate-500)", textTransform: "uppercase" }}>
+                {profile.full_name || "Người dùng"}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isMobile && mobileMenuOpen && (
+          <button
+            type="button"
+            aria-label="Đóng menu"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 1100,
+              border: 0,
+              background: "rgba(15,23,42,0.45)",
+              cursor: "pointer",
+            }}
+          />
+        )}
+
         {/* ============================================================
             SIDEBAR
         ============================================================ */}
         <aside
           style={{
-            width: collapsed ? 52 : 230,
-            minWidth: collapsed ? 52 : 230,
+            width: sidebarWidth,
+            minWidth: sidebarWidth,
             background: "var(--sidebar-gradient)",
             display: "flex",
             flexDirection: "column",
-            transition: "width 220ms var(--ease), min-width 220ms var(--ease)",
+            transition: "width 220ms var(--ease), min-width 220ms var(--ease), transform 220ms var(--ease)",
             overflow: "hidden",
-            position: "sticky",
+            position: isMobile ? "fixed" : "sticky",
             top: 0,
-            height: "100vh",
+            left: isMobile ? 0 : undefined,
+            zIndex: isMobile ? 1200 : undefined,
+            height: isMobile ? "100dvh" : "100vh",
+            transform: isMobile && !mobileMenuOpen ? "translateX(-105%)" : "translateX(0)",
             boxShadow: "4px 0 24px rgba(0,0,0,0.15)",
           }}
         >
@@ -220,12 +315,12 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: collapsed ? "center" : "space-between",
-              padding: collapsed ? "16px 0" : "16px 12px 12px",
+              justifyContent: sidebarCollapsed ? "center" : "space-between",
+              padding: sidebarCollapsed ? "16px 0" : "16px 12px 12px",
               borderBottom: "1px solid rgba(255,255,255,0.05)",
             }}
           >
-            {!collapsed && (
+            {!sidebarCollapsed && (
               <div style={{ overflow: "hidden", flex: 1, paddingLeft: 4 }}>
                 <div style={{ 
                   fontWeight: 900, 
@@ -240,8 +335,9 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
               </div>
             )}
             <button
-              onClick={toggleCollapse}
-              title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+              type="button"
+              onClick={handleSidebarToggle}
+              title={isMobile ? "Đóng menu" : sidebarCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
               style={{
                 background: "rgba(255,255,255,0.06)",
                 border: "none",
@@ -258,7 +354,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                 transition: "all 150ms",
               }}
             >
-              {collapsed ? "▶" : "◀"}
+              {isMobile ? "×" : sidebarCollapsed ? "▶" : "◀"}
             </button>
           </div>
 
@@ -273,7 +369,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
           >
             {menu.map((m, idx) => {
               if (m.isHeader) {
-                if (collapsed) return <div key={`h-${idx}`} style={{ height: 16 }} />;
+                if (sidebarCollapsed) return <div key={`h-${idx}`} style={{ height: 16 }} />;
                 return (
                   <div key={`h-${idx}`} className="sidebar-section-label" style={{ marginTop: idx === 0 ? 4 : 20 }}>
                     {m.label}
@@ -288,19 +384,19 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                   key={m.href}
                   href={m.href!}
                   className={`sidebar-nav-link${isActive ? " active" : ""}`}
-                  title={collapsed ? m.label : undefined}
+                  title={sidebarCollapsed ? m.label : undefined}
                   style={{
-                    justifyContent: collapsed ? "center" : "flex-start",
-                    padding: collapsed ? "10px 0" : "8px 12px",
+                    justifyContent: sidebarCollapsed ? "center" : "flex-start",
+                    padding: sidebarCollapsed ? "10px 0" : "8px 12px",
                     margin: "2px 0",
                     position: "relative",
                   }}
                 >
                   <SidebarIcon 
                     type={m.icon} 
-                    className={`${collapsed ? "w-5 h-5" : "w-[18px] h-[18px]"} transition-all ${isActive ? "text-white" : "text-white/60"}`} 
+                    className={`${sidebarCollapsed ? "w-5 h-5" : "w-[18px] h-[18px]"} transition-all ${isActive ? "text-white" : "text-white/60"}`} 
                   />
-                  {!collapsed && (
+                  {!sidebarCollapsed && (
                     <span style={{ 
                       marginLeft: 12, 
                       fontSize: 13, 
@@ -310,7 +406,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                       {m.label}
                     </span>
                   )}
-                  {isActive && !collapsed && (
+                  {isActive && !sidebarCollapsed && (
                     <div style={{ 
                       position: "absolute", 
                       left: -8, 
@@ -329,11 +425,11 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
           {/* User Info + Logout */}
           <div
             style={{
-              padding: collapsed ? "10px 8px" : "16px 12px",
+              padding: sidebarCollapsed ? "10px 8px" : "16px 12px",
               borderTop: "1px solid rgba(255,255,255,0.05)",
             }}
           >
-            {!collapsed && (
+            {!sidebarCollapsed && (
               <div
                 style={{
                   display: "flex",
@@ -383,14 +479,14 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                 fontWeight: 700,
                 cursor: "pointer",
                 transition: "all 150ms",
-                textAlign: collapsed ? "center" : "left",
+                textAlign: sidebarCollapsed ? "center" : "left",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: collapsed ? "center" : "flex-start",
+                justifyContent: sidebarCollapsed ? "center" : "flex-start",
                 gap: 10
               }}
             >
-              {collapsed ? "↩" : (
+              {sidebarCollapsed ? "↩" : (
                 <>
                   <svg style={{ width: 14, height: 14 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -408,10 +504,11 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         <main
           style={{
             flex: 1,
-            padding: 28,
+            padding: isMobile ? "76px 12px 20px" : 28,
             minWidth: 0,
+            width: "100%",
             background: "#f8fafc",
-            minHeight: "100vh",
+            minHeight: "100dvh",
           }}
         >
           {children}

@@ -80,6 +80,7 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  min-height: 100%;
 }
 
 body {
@@ -89,7 +90,15 @@ body {
   font-size: 14px;
   line-height: 1.5;
   margin: 0;
+  min-height: 100%;
   -webkit-font-smoothing: antialiased;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
 }
 
 /* =====================================================================
@@ -275,6 +284,7 @@ select:not([class]):focus {
 /* Ensure inputs and buttons inherit Inter */
 input, select, textarea, button {
   font-family: inherit;
+  max-width: 100%;
 }
 
 .data-table th {
@@ -332,6 +342,8 @@ input, select, textarea, button {
 
 .data-table-wrap {
   overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--table-border);
   border-radius: var(--radius-md);
 }
@@ -981,4 +993,143 @@ main > div {
   border: 1px dashed var(--slate-200);
   border-radius: var(--radius-lg);
   margin: 20px 0;
+}
+
+/* =====================================================================
+   Mobile / Cross-platform Guardrails
+   ===================================================================== */
+
+@media (max-width: 768px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  main h1,
+  .page-header h1,
+  .page-title {
+    font-size: 20px;
+    letter-spacing: 0;
+    line-height: 1.2;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .toolbar,
+  .filter-panel.toolbar,
+  .filter-row,
+  .filter-inputs,
+  .filter-actions-row,
+  .modal-footer {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar > *,
+  .filter-row > *,
+  .filter-inputs > *,
+  .filter-actions-row > * {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .input,
+  .input-field,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  select,
+  textarea {
+    width: 100%;
+    min-width: 0 !important;
+    font-size: 16px;
+  }
+
+  .toolbar .btn,
+  .filter-panel .btn,
+  .modal-footer .btn {
+    width: 100%;
+    min-height: 44px;
+    white-space: normal;
+  }
+
+  .filter-panel,
+  fieldset,
+  .page-section,
+  .chart-card {
+    padding: 16px;
+    border-radius: 8px;
+  }
+
+  .stat-card {
+    min-width: 0;
+  }
+
+  .stats-grid,
+  .charts-grid-2,
+  .charts-grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  .compare-periods,
+  .period-box {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mode-tabs {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .tab-item {
+    flex: 1 0 auto;
+    justify-content: center;
+  }
+
+  .data-table-wrap {
+    border-radius: 8px;
+    overflow-x: auto;
+    overflow-y: auto;
+  }
+
+  .data-table {
+    font-size: 12px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 8px 10px;
+  }
+
+  .modal-overlay {
+    place-items: end stretch;
+    padding: 8px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    overflow-y: auto;
+  }
+
+  .modal-box {
+    max-width: 100%;
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    border-radius: 12px 12px 0 0;
+    padding: 18px;
+  }
+
+  .modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
 }
