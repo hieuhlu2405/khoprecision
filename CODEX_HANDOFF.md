@@ -13,9 +13,37 @@
 - Vong toi uu responsive/mobile da hoan tat va da merge vao `main`.
 - Da merge vao `main` va da push len GitHub.
 - Build gan nhat `npm run build` da pass.
-- Chu du an da test Vercel preview tren iPhone va xac nhan tam on/kha on.
-- Vercel production se tu deploy theo `main` commit moi nhat `cb70b58 Improve mobile operations UX`.
-- Bug `Luu y 1` / `Luu y 2` trong Ke hoach giao hang da fix, SQL da chay live, code da push `main`.
+- Vercel production da deploy xong theo `main` commit moi nhat `cb70b58 Improve mobile operations UX`.
+- Chu du an da test production OK.
+- Bug `Luu y 1` / `Luu y 2` trong Ke hoach giao hang da fix xong, SQL da chay live, code da push `main`, production da test OK.
+- Dang co thay doi local chua commit/push de chan xoa cung xe: `app/(protected)/vehicles/page.tsx` va `supabase-sql/20260527_block_vehicle_hard_delete.sql`.
+- SQL chan xoa cung xe da chay live theo xac nhan cua chu du an.
+
+## Cap nhat 2026-05-27 - Chan xoa cung xe
+
+- Da doi trang `vehicles`: nut `Xoa` thanh `Ngung dung`.
+- Frontend khong goi `.delete()` voi bang `vehicles` nua.
+- Khi admin bam `Ngung dung`, frontend goi RPC `deactivate_vehicle_v1`, database set `is_active = false`.
+- Xe ngung dung se khong con hien trong chon xe giao hang moi vi trang Ke hoach giao hang dang chi lay `vehicles.is_active = true`.
+- Lich su chuyen cu/bao cao cu van giu xe cu, khong mat du lieu.
+- Da tao SQL moi: `supabase-sql/20260527_block_vehicle_hard_delete.sql`.
+- SQL moi da chay live theo xac nhan cua chu du an.
+- SQL moi them trigger chan `DELETE` tren `public.vehicles`, de neu co code nao goi xoa cung thi database tu choi.
+- SQL moi them RPC `deactivate_vehicle_v1(p_vehicle_id uuid)` va tu kiem tra quyen admin bang `public.is_admin()`.
+- SQL moi co `DROP TRIGGER` va `CREATE OR REPLACE FUNCTION`: khong xoa du lieu, chi thay/tao cach database xu ly.
+- SQL moi khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`.
+- Build local `npm run build` da pass sau khi sua.
+- Chua test mobile bang browser/screenshot cho thay doi nut xe; session nay khong co Playwright/browser tool san sang, chi build va soi code.
+
+Can lam tiep:
+
+- Deploy/push code sau khi chu du an yeu cau.
+- Test web sau khi SQL va code len production:
+  - admin vao Danh sach xe, bam `Ngung dung` mot xe test;
+  - xe chuyen sang `Offline`;
+  - xe do khong con hien trong o chon xe khi tao/chot giao hang moi;
+  - lich su Logistics/bao cao cu van thay chuyen cu;
+  - user khong phai admin khong co nut `Ngung dung`.
 
 ## Cap nhat 2026-05-27 - Responsive/mobile UI foundation
 
@@ -59,13 +87,14 @@ Da test:
 - Chu du an test Vercel preview tren iPhone:
   - man doc kha on;
   - sau vong 2, feedback "tam on".
+- Chu du an test production sau khi Vercel deploy xong: OK.
 - AI da chay `npm run build` pass sau tung cum va sau merge `main`.
 - AI smoke test `/login` bang viewport 844x390:
   - `lang=vi`;
   - khong tran ngang;
   - input 16px.
 
-Can test production sau khi Vercel deploy main:
+Production da test OK sau khi Vercel deploy main:
 
 - iPhone man doc va man ngang:
   - login;
@@ -79,7 +108,6 @@ Rui ro con lai:
 
 - Day la sua UI, rui ro mat du lieu/sai so lieu thap vi khong sua SQL/backend.
 - Rui ro chinh con lai la mot so man hinh bao cao/danh sach dai co the van can toi uu rieng tren mobile.
-- Trang `vehicles` tung duoc soi thay co `.delete()` xoa cung xe; chua dung trong task responsive nay. Neu sau nay sua logic xe, nen tach task an toan du lieu rieng.
 
 ## Cap nhat 2026-05-26 - Fix Luu y ke hoach giao hang bi keo lai noi dung cu
 
@@ -94,9 +122,10 @@ Rui ro con lai:
 - Da push len `main` commit `e399e70 Fix delivery plan empty notes`; Vercel se tu deploy theo main.
 - Build `npm run build` da pass sau khi sua.
 - `npm run lint` van fail do nhieu loi cu toan repo, khong phai loi moi cua task nay.
-- Voi nhung dong da xoa trang truoc khi chay SQL moi, can xoa/luu lai mot lan sau khi deploy de tao dau vet `da co y xoa`.
+- Chu du an da xac nhan bug `Luu y 1` / `Luu y 2` OK tren production sau khi fix.
+- Voi nhung dong da xoa trang truoc khi chay SQL moi, neu con bi keo lai noi dung cu thi xoa/luu lai mot lan de tao dau vet `da co y xoa`.
 
-Can test tren web sau khi Vercel deploy xong:
+Da test OK tren web sau khi Vercel deploy xong:
 
 - Xoa trang `Luu y 1`, bam luu, refresh, sang ngay sau van phai trong.
 - Xoa trang `Luu y 2`, bam luu, refresh, sang ngay sau van phai trong.

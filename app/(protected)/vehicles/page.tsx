@@ -346,16 +346,25 @@ export default function VehiclesPage() {
     }
   }, [editingVehicle, load, showToast]);
 
-  const handleDelete = async (v: Vehicle) => {
-    const ok = await showConfirm({ message: `Xóa xe ${v.license_plate}? Hành động không thể hoàn tác.`, danger: true, confirmLabel: "Xóa" });
+  const handleDeactivate = async (v: Vehicle) => {
+    if (profile?.role !== "admin") {
+      showToast("Chỉ Admin tối cao mới có quyền ngưng dùng xe", "error");
+      return;
+    }
+
+    const ok = await showConfirm({
+      message: `Ngưng dùng xe ${v.license_plate}? Xe sẽ không hiện để chọn giao hàng mới, nhưng lịch sử cũ vẫn được giữ.`,
+      danger: true,
+      confirmLabel: "Ngưng dùng",
+    });
     if (!ok) return;
     try {
-      const { error } = await supabase.from("vehicles").delete().eq("id", v.id);
+      const { error } = await supabase.rpc("deactivate_vehicle_v1", { p_vehicle_id: v.id });
       if (error) throw error;
-      showToast("Đã xóa", "success");
+      showToast("Đã ngưng dùng xe, lịch sử cũ vẫn được giữ", "success");
       await load();
     } catch (err: any) {
-      setError(err?.message ?? "Lỗi khi xóa");
+      setError(err?.message ?? "Lỗi khi ngưng dùng xe");
     }
   };
 
@@ -459,9 +468,11 @@ export default function VehiclesPage() {
                          Sửa
                       </button>
                     )}
-                    <button onClick={() => handleDelete(r)} className="px-6 py-3 bg-red-50 hover:bg-red-600 text-[10px] text-red-600 hover:text-white font-black border border-red-200 rounded-2xl transition-all uppercase tracking-widest active:scale-90 shadow-sm">
-                       Xóa
-                    </button>
+                    {profile?.role === 'admin' && r.is_active && (
+                      <button onClick={() => handleDeactivate(r)} className="px-6 py-3 bg-red-50 hover:bg-red-600 text-[10px] text-red-600 hover:text-white font-black border border-red-200 rounded-2xl transition-all uppercase tracking-widest active:scale-90 shadow-sm">
+                         Ngưng dùng
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
