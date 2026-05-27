@@ -362,6 +362,20 @@ const customStyles = `
   .animate-pulse-glow {
     animation: pulse-glow 2s infinite;
   }
+  .inventory-value-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+  }
+  .inventory-value-chart-full {
+    grid-column: 1 / -1;
+  }
+  @media (max-width: 900px) {
+    .inventory-value-chart-grid {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+  }
 `;
 
 function HistoricalTrendChart({ data }: { data: { label: string; value: number }[] }) {
@@ -757,6 +771,77 @@ function ClusteredBarChart({ data, title, label1, label2, color1 = "#94a3b8", co
           );
         })}
       </svg>
+    </div>
+  );
+}
+
+function ClusteredBarChartSafe({ data, title, label1, label2, color1 = "#94a3b8", color2 = "var(--brand)", minHeight = 240 }: {
+  data: { label: string; val1: number; val2: number }[];
+  title: string;
+  label1: string;
+  label2: string;
+  color1?: string;
+  color2?: string;
+  minHeight?: number;
+}) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  if (!data.length) return <div style={{ padding: "16px 0", color: "#94a3b8", textAlign: "center", fontSize: 13 }}>KhÃ´ng cÃ³ dá»¯ liá»‡u</div>;
+  const maxVal = Math.max(...data.flatMap(d => [d.val1, d.val2]), 1);
+
+  return (
+    <div style={{ position: "relative", width: "100%", minWidth: 0, overflow: "hidden", minHeight }}>
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</div>
+      <div style={{ display: "flex", gap: 16, marginBottom: 12, fontSize: 11, justifyContent: "flex-end", flexWrap: "wrap" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, color: "var(--slate-500)" }}><span style={{ width: 12, height: 4, background: color1, borderRadius: 2 }} />{label1}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, color: "var(--brand)" }}><span style={{ width: 12, height: 4, background: color2, borderRadius: 2 }} />{label2}</span>
+      </div>
+      <div style={{ display: "grid", gap: 16, paddingTop: 8 }}>
+        {data.map((d, i) => {
+          const w1 = Math.max(d.val1 > 0 ? 1 : 0, (d.val1 / maxVal) * 100);
+          const w2 = Math.max(d.val2 > 0 ? 1 : 0, (d.val2 / maxVal) * 100);
+          const diff = d.val2 - d.val1;
+
+          return (
+            <div
+              key={i}
+              onMouseEnter={() => setHoverIdx(i)}
+              onMouseLeave={() => setHoverIdx(null)}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(96px, 140px) minmax(0, 1fr)",
+                gap: 10,
+                alignItems: "center",
+                opacity: hoverIdx === null || hoverIdx === i ? 1 : 0.6,
+                transition: "opacity 0.2s",
+                minWidth: 0,
+              }}
+            >
+              <div style={{ minWidth: 0, textAlign: "right", fontSize: 11, color: "var(--slate-600)", fontWeight: 500 }} title={d.label}>
+                {shortLabel(d.label, 22)}
+              </div>
+              <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0, height: 8, borderRadius: 4, background: "#f1f5f9", overflow: "hidden" }}>
+                    <div style={{ width: `${w1}%`, height: "100%", background: color1, opacity: 0.65, borderRadius: 4 }} />
+                  </div>
+                  <div style={{ flex: "0 0 54px", fontSize: 10, color: "var(--slate-500)", fontWeight: 700 }}>{fmtCompactValue(d.val1)}</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0, height: 8, borderRadius: 4, background: "#f1f5f9", overflow: "hidden" }}>
+                    <div style={{ width: `${w2}%`, height: "100%", background: color2, borderRadius: 4 }} />
+                  </div>
+                  <div style={{ flex: "0 0 54px", fontSize: 10, color: "var(--brand)", fontWeight: 700 }}>{fmtCompactValue(d.val2)}</div>
+                </div>
+                {hoverIdx === i && (
+                  <div style={{ fontSize: 10, color: diff > 0 ? "crimson" : "var(--color-success)", fontWeight: 700, textAlign: "right" }}>
+                    {diff > 0 ? "â†‘" : "â†“"} {fmtCompactValue(Math.abs(diff))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1785,7 +1870,7 @@ export default function InventoryValueReportPage() {
 
           {/* ---- CHARTS SECTION ---- */}
           {(reportMode as string) === "current" ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 24 }}>
+            <div className="inventory-value-chart-grid">
               <div className="page-section" style={{ padding: 24, minWidth: 0, overflow: "hidden" }}>
                 <BarChart 
                   title={`Top 10 mã hàng theo giá trị tồn kho${activeInsightFilter ? ` (${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"})` : ""}`} 
@@ -1800,7 +1885,7 @@ export default function InventoryValueReportPage() {
                   data={baseCustomerSummary.slice(0, 10).map(c => ({ label: customerCodeLabel(c.customer_id), value: c.value }))} 
                 />
               </div>
-              <div className="page-section" style={{ gridColumn: "1 / -1", padding: 24, minWidth: 0, overflow: "hidden" }}>
+              <div className="page-section inventory-value-chart-full" style={{ padding: 24, minWidth: 0, overflow: "hidden" }}>
                 <StackedBarChart 
                   title={`Cơ cấu giá trị tồn kho theo khách hàng (%)${activeInsightFilter ? ` - Đang lọc: ${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"}` : ""}`}
                   totalValue={overallTotals.totalValue} 
@@ -1816,14 +1901,14 @@ export default function InventoryValueReportPage() {
               </div>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 24 }}>
+            <div className="inventory-value-chart-grid">
               <div className="filter-panel" style={{ padding: 20, minWidth: 0, overflow: "hidden" }}>
-                <ClusteredBarChart title="So sánh giá trị tồn mã hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareTopProducts.map(p => ({ label: p.product.sku, val1: p.val1 || 0, val2: p.val2 || 0 }))} />
+                <ClusteredBarChartSafe title="So sánh giá trị tồn mã hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareTopProducts.map(p => ({ label: p.product.sku, val1: p.val1 || 0, val2: p.val2 || 0 }))} />
               </div>
               <div className="filter-panel" style={{ padding: 20, minWidth: 0, overflow: "hidden" }}>
-                <ClusteredBarChart title="So sánh giá trị tồn khách hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareCustomerSummary.sort((a,b) => (b.p2_value || 0) - (a.p2_value || 0)).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), val1: c.p1_value || 0, val2: c.p2_value || 0 }))} />
+                <ClusteredBarChartSafe title="So sánh giá trị tồn khách hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareCustomerSummary.sort((a,b) => (b.p2_value || 0) - (a.p2_value || 0)).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), val1: c.p1_value || 0, val2: c.p2_value || 0 }))} />
               </div>
-              <div className="filter-panel" style={{ gridColumn: "1 / -1", padding: 20, minWidth: 0, overflow: "hidden" }}>
+              <div className="filter-panel inventory-value-chart-full" style={{ padding: 20, minWidth: 0, overflow: "hidden" }}>
                 <CompareStackedBarChart title="Cơ cấu giá trị tồn Kỳ 1 vs Kỳ 2 (%)" label1="Kỳ 1" label2="Kỳ 2" total1={compareTotals.val1} total2={compareTotals.val2} 
                   data1={(() => {
                     const sorted = [...compareCustomerSummary].sort((a,b) => (b.p1_value || 0) - (a.p1_value || 0));
