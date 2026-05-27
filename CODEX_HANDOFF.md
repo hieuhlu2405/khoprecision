@@ -16,8 +16,7 @@
 - Vercel production da deploy xong theo `main` commit moi nhat `cb70b58 Improve mobile operations UX`.
 - Chu du an da test production OK.
 - Bug `Luu y 1` / `Luu y 2` trong Ke hoach giao hang da fix xong, SQL da chay live, code da push `main`, production da test OK.
-- Dang co thay doi local chua commit/push de chan xoa cung xe: `app/(protected)/vehicles/page.tsx` va `supabase-sql/20260527_block_vehicle_hard_delete.sql`.
-- SQL chan xoa cung xe da chay live theo xac nhan cua chu du an.
+- Chan xoa cung xe da xong: SQL da chay live, code da push `main`, production da test OK.
 
 ## Cap nhat 2026-05-27 - Chan xoa cung xe
 
@@ -33,17 +32,16 @@
 - SQL moi co `DROP TRIGGER` va `CREATE OR REPLACE FUNCTION`: khong xoa du lieu, chi thay/tao cach database xu ly.
 - SQL moi khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`.
 - Build local `npm run build` da pass sau khi sua.
+- Da commit/push len `main` commit `8381b8a Block vehicle hard deletes`.
+- Chu du an da test production OK sau khi Vercel deploy.
 - Chua test mobile bang browser/screenshot cho thay doi nut xe; session nay khong co Playwright/browser tool san sang, chi build va soi code.
 
-Can lam tiep:
+Da test OK tren production:
 
-- Deploy/push code sau khi chu du an yeu cau.
-- Test web sau khi SQL va code len production:
-  - admin vao Danh sach xe, bam `Ngung dung` mot xe test;
-  - xe chuyen sang `Offline`;
-  - xe do khong con hien trong o chon xe khi tao/chot giao hang moi;
-  - lich su Logistics/bao cao cu van thay chuyen cu;
-  - user khong phai admin khong co nut `Ngung dung`.
+- Admin vao Danh sach xe, bam `Ngung dung` xe test: OK.
+- Xe chuyen sang `Offline`: OK.
+- Xe ngung dung khong con hien trong o chon xe khi tao/chot giao hang moi: OK.
+- Lich su Logistics/bao cao cu van giu du lieu cu: OK.
 
 ## Cap nhat 2026-05-27 - Responsive/mobile UI foundation
 
