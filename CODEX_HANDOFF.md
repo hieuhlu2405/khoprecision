@@ -10,11 +10,76 @@
 
 ## Trang thai hien tai
 
-- Tinh nang sua ke hoach sau khi da xuat da hoan tat.
+- Vong toi uu responsive/mobile da hoan tat va da merge vao `main`.
 - Da merge vao `main` va da push len GitHub.
 - Build gan nhat `npm run build` da pass.
-- Chu du an da test live/previews OK cac ca chinh.
+- Chu du an da test Vercel preview tren iPhone va xac nhan tam on/kha on.
+- Vercel production se tu deploy theo `main` commit moi nhat `cb70b58 Improve mobile operations UX`.
 - Bug `Luu y 1` / `Luu y 2` trong Ke hoach giao hang da fix, SQL da chay live, code da push `main`.
+
+## Cap nhat 2026-05-27 - Responsive/mobile UI foundation
+
+- Da tao nhanh phu `codex/responsive-ui-mobile`.
+- Da lam 2 commit:
+  - `fcb870c Improve responsive UI foundation`
+  - `cb70b58 Improve mobile operations UX`
+- Da merge fast-forward vao `main` va push len GitHub.
+- Build sau merge tren `main`: `npm run build` pass.
+- Khong sua SQL, khong tao migration, khong dung database.
+- Khong co thay doi backend tinh toan so lieu.
+
+Noi dung da sua:
+
+- Them quy dinh UI/UX da thiet bi vao `AGENTS.md`.
+- Doi `html lang="en"` thanh `lang="vi"` trong `app/layout.tsx`.
+- Them viewport mobile `width=device-width`, `initialScale=1`, `viewportFit=cover`.
+- Them CSS guardrail mobile/cross-platform trong `app/globals.css`.
+- Sua layout protected:
+  - desktop van dung sidebar nhu cu;
+  - mobile/iPhone ngang dung top bar + menu truot;
+  - dung `100dvh` de giam loi chieu cao tren Safari/iPhone.
+- Sua trang login:
+  - mobile layout doc gon hon;
+  - input mobile 16px de tranh iPhone tu zoom;
+  - smoke test iPhone ngang 844x390 khong tran ngang.
+- Sua nhap lieu:
+  - `app/(protected)/inventory/inbound/page.tsx`
+  - `app/(protected)/inventory/outbound/page.tsx`
+  - `app/(protected)/inventory/phoi/page.tsx`
+  - Tren mobile, form tao phieu chuyen thanh dang card theo tung dong, co nhan ro tung o.
+  - O so luong/don gia dung `inputMode="decimal"` de go so tren dien thoai de hon.
+  - Suggestions tren mobile khong con de dang che lung tung vi duoc ep ve trong luong hien tai.
+- Sua `app/(protected)/delivery-plan/page.tsx`:
+  - nut loc/sap xep trong header cot luon hien va to hon tren mobile;
+  - them thanh loc nhanh tren mobile;
+  - bang dung `100dvh` de on hon tren mobile.
+
+Da test:
+
+- Chu du an test Vercel preview tren iPhone:
+  - man doc kha on;
+  - sau vong 2, feedback "tam on".
+- AI da chay `npm run build` pass sau tung cum va sau merge `main`.
+- AI smoke test `/login` bang viewport 844x390:
+  - `lang=vi`;
+  - khong tran ngang;
+  - input 16px.
+
+Can test production sau khi Vercel deploy main:
+
+- iPhone man doc va man ngang:
+  - login;
+  - menu mobile mo/dong;
+  - nhap kho tao thu 1 dong roi huy;
+  - xuat kho tao thu 1 dong roi huy;
+  - nhap phoi tao thu 1 dong roi huy;
+  - ke hoach giao hang loc/cuon ngang/nhap thu so luong hoac luu y neu can.
+
+Rui ro con lai:
+
+- Day la sua UI, rui ro mat du lieu/sai so lieu thap vi khong sua SQL/backend.
+- Rui ro chinh con lai la mot so man hinh bao cao/danh sach dai co the van can toi uu rieng tren mobile.
+- Trang `vehicles` tung duoc soi thay co `.delete()` xoa cung xe; chua dung trong task responsive nay. Neu sau nay sua logic xe, nen tach task an toan du lieu rieng.
 
 ## Cap nhat 2026-05-26 - Fix Luu y ke hoach giao hang bi keo lai noi dung cu
 
