@@ -44,6 +44,12 @@ type ReportRow = {
   inventory_value: number | null;
 };
 
+type HistoryTx = InventoryTx & {
+  qty: number;
+  note: string | null;
+  original_tx_type?: string | null;
+};
+
 /* ------------------------------------------------------------------ */
 /* Column filter types                                                 */
 /* ------------------------------------------------------------------ */
@@ -95,6 +101,33 @@ function numVal(row: ReportRow, col: NumColKey): number {
     case "unit_price": return row.product.unit_price ?? 0;
     case "inventory_value": return row.inventory_value ?? 0;
   }
+}
+
+function getHistoryTxDisplay(tx: HistoryTx) {
+  if (tx.tx_type === "in") {
+    return { typeLabel: "Nhập kho", typeColor: "text-blue-600 bg-blue-50", qtySign: "+" };
+  }
+
+  if (tx.tx_type === "out") {
+    return { typeLabel: "Xuất kho", typeColor: "text-red-600 bg-red-50", qtySign: "-" };
+  }
+
+  if (tx.tx_type === "adjust_in" || tx.tx_type === "adjust_out") {
+    const isIncreaseAdjustment = tx.tx_type === "adjust_in";
+    const rawLabel = isIncreaseAdjustment ? "tăng" : "giảm";
+    const originalLabel = tx.original_tx_type === "out" ? "phiếu xuất" : tx.original_tx_type === "in" ? "phiếu nhập" : "giao dịch";
+
+    let inventoryEffect = isIncreaseAdjustment ? 1 : -1;
+    if (tx.original_tx_type === "out") inventoryEffect *= -1;
+
+    return {
+      typeLabel: `Điều chỉnh ${rawLabel} ${originalLabel}`,
+      typeColor: inventoryEffect >= 0 ? "text-emerald-600 bg-emerald-50" : "text-orange-600 bg-orange-50",
+      qtySign: inventoryEffect >= 0 ? "+" : "-",
+    };
+  }
+
+  return { typeLabel: "Khác", typeColor: "text-slate-600 bg-slate-50", qtySign: "" };
 }
 
 function passesTextFilter(val: string, f: TextFilter): boolean {
@@ -247,7 +280,7 @@ export default function InventoryReportPage() {
   /* ---- History Modal State ---- */
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [historyData, setHistoryData] = useState<HistoryTx[]>([]);
   const [historyProduct, setHistoryProduct] = useState<{ id: string; sku: string; name: string; spec: string | null } | null>(null);
   const [historyCustomerLabel, setHistoryCustomerLabel] = useState("");
   const [historyStartDate, setHistoryStartDate] = useState(qStart);
@@ -264,7 +297,27 @@ export default function InventoryReportPage() {
         .order("tx_date", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
-      setHistoryData(data || []);
+      const rows = (data || []) as HistoryTx[];
+      const knownOriginalTypes = new Map(rows.map(tx => [tx.id, tx.tx_type]));
+      const missingOriginalIds = Array.from(new Set(
+        rows
+          .map(tx => tx.adjusted_from_transaction_id)
+          .filter((id): id is string => !!id && !knownOriginalTypes.has(id))
+      ));
+
+      if (missingOriginalIds.length > 0) {
+        const { data: originalRows, error: originalErr } = await supabase
+          .from("inventory_transactions")
+          .select("id, tx_type")
+          .in("id", missingOriginalIds);
+        if (originalErr) throw originalErr;
+        (originalRows || []).forEach(row => knownOriginalTypes.set(row.id, row.tx_type));
+      }
+
+      setHistoryData(rows.map(tx => ({
+        ...tx,
+        original_tx_type: tx.adjusted_from_transaction_id ? knownOriginalTypes.get(tx.adjusted_from_transaction_id) || null : null,
+      })));
     } catch (err: any) {
       showToast("Lỗi tải lịch sử: " + err.message, "error");
     } finally {
@@ -972,13 +1025,7 @@ export default function InventoryReportPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {historyData.map(tx => {
-                      let typeLabel = "";
-                      let typeColor = "";
-                      let qtySign = "";
-                      if (tx.tx_type === "in") { typeLabel = "Nhập kho"; typeColor = "text-blue-600 bg-blue-50"; qtySign = "+"; }
-                      else if (tx.tx_type === "out") { typeLabel = "Xuất kho"; typeColor = "text-red-600 bg-red-50"; qtySign = "-"; }
-                      else if (tx.tx_type === "adjust_in") { typeLabel = "Điều chỉnh tăng"; typeColor = "text-emerald-600 bg-emerald-50"; qtySign = "+"; }
-                      else if (tx.tx_type === "adjust_out") { typeLabel = "Điều chỉnh giảm"; typeColor = "text-orange-600 bg-orange-50"; qtySign = "-"; }
+                      const { typeLabel, typeColor, qtySign } = getHistoryTxDisplay(tx);
 
                       return (
                         <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
