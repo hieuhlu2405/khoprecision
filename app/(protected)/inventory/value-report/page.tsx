@@ -362,6 +362,20 @@ const customStyles = `
   .animate-pulse-glow {
     animation: pulse-glow 2s infinite;
   }
+  .inventory-value-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+  }
+  .inventory-value-chart-full {
+    grid-column: 1 / -1;
+  }
+  @media (max-width: 900px) {
+    .inventory-value-chart-grid {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+  }
 `;
 
 function HistoricalTrendChart({ data }: { data: { label: string; value: number }[] }) {
@@ -564,6 +578,13 @@ function shortLabel(s: string, max = 14): string {
   return s.length > max ? s.slice(0, max - 1) + "…" : s;
 }
 
+function fmtCompactValue(value: number): string {
+  if (value >= 1e9) return (value / 1e9).toFixed(1) + "B";
+  if (value >= 1e6) return (value / 1e6).toFixed(1) + "M";
+  if (value >= 1e3) return (value / 1e3).toFixed(0) + "K";
+  return fmtNum(value);
+}
+
 function BarChart({ data, title, isRiskHeatmap = false, minHeight = 220 }: {
   data: { label: string; value: number }[];
   title: string;
@@ -575,13 +596,6 @@ function BarChart({ data, title, isRiskHeatmap = false, minHeight = 220 }: {
   if (!data.length) return <div style={{ padding: "16px 0", color: "#94a3b8", textAlign: "center", fontSize: 13 }}>Không có dữ liệu</div>;
   
   const maxVal = Math.max(...data.map(d => d.value), 1);
-  const rowHeight = 36;
-  const marginTop = 30;
-  const marginBottom = 20;
-  const marginLeft = 140;
-  const marginRight = 60;
-  const height = Math.max(minHeight, data.length * rowHeight + marginTop + marginBottom);
-
   const getRiskColor = (idx: number) => {
     if (!isRiskHeatmap) return "var(--brand)";
     const rankColors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
@@ -589,38 +603,44 @@ function BarChart({ data, title, isRiskHeatmap = false, minHeight = 220 }: {
   };
   
   return (
-    <div style={{ position: "relative", width: "100%" }}>
+    <div style={{ position: "relative", width: "100%", minWidth: 0, overflow: "hidden", minHeight }}>
       <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</div>
-      <svg width="100%" height={height} style={{ display: "block", overflow: "visible" }}>
-        <line x1={marginLeft} y1={marginTop} x2={marginLeft} y2={height - marginBottom} stroke="#e2e8f0" strokeWidth={1} />
-        
+      <div style={{ display: "grid", gap: 12, paddingTop: 20 }}>
         {data.map((d, i) => {
-          const y = marginTop + i * rowHeight + rowHeight / 2;
-          const barW = `${Math.max(1, (d.value / maxVal) * 100)}%`;
+          const pct = Math.max(1, (d.value / maxVal) * 100);
           const activeColor = getRiskColor(i);
           
           return (
-            <g 
+            <div
               key={i} 
               onMouseEnter={() => setHoverIdx(i)} 
               onMouseLeave={() => setHoverIdx(null)}
-              style={{ cursor: "pointer", transition: "opacity 0.2s" }}
-              opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.6}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(76px, 132px) minmax(0, 1fr)",
+                gap: 8,
+                alignItems: "center",
+                cursor: "pointer",
+                opacity: hoverIdx === null || hoverIdx === i ? 1 : 0.6,
+                transition: "opacity 0.2s",
+                minWidth: 0,
+              }}
             >
-              <rect x={0} y={marginTop + i * rowHeight} width="100%" height={rowHeight} fill="transparent" />
-              <text x={marginLeft - 8} y={y + 4} textAnchor="end" fontSize={11} fill="var(--slate-600)" fontWeight="500">
+              <div style={{ minWidth: 0, textAlign: "right", fontSize: 11, color: "var(--slate-600)", fontWeight: 500 }} title={d.label}>
                 {shortLabel(d.label, 22)}
-              </text>
-              <svg x={marginLeft} y={y - 10} width={`calc(100% - ${marginLeft + marginRight}px)`} height={20} style={{ overflow: "visible" }}>
-                <rect x={0} y={0} width={barW} height={18} fill={activeColor} rx={4} opacity={0.85} />
-                <text x={barW} dx={8} y={13} fontSize={11} fill="var(--slate-800)" fontWeight="700">
-                  {d.value >= 1e9 ? (d.value / 1e9).toFixed(1) + "B" : d.value >= 1e6 ? (d.value / 1e6).toFixed(1) + "M" : d.value >= 1e3 ? (d.value / 1e3).toFixed(0) + "K" : fmtNum(d.value)}
-                </text>
-              </svg>
-            </g>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <div style={{ flex: "1 1 auto", minWidth: 0, height: 18, borderRadius: 4, background: "#f1f5f9", overflow: "hidden" }}>
+                  <div style={{ width: `${pct}%`, height: "100%", background: activeColor, opacity: 0.85, borderRadius: 4 }} />
+                </div>
+                <div style={{ flex: "0 0 54px", fontSize: 11, color: "var(--slate-800)", fontWeight: 700 }}>
+                  {fmtCompactValue(d.value)}
+                </div>
+              </div>
+            </div>
           );
         })}
-      </svg>
+      </div>
     </div>
   );
 }
@@ -705,12 +725,11 @@ function ClusteredBarChart({ data, title, label1, label2, color1 = "#94a3b8", co
   const marginLeft = 140;
   const marginRight = 60;
   const height = Math.max(minHeight, data.length * rowGroupHeight + marginTop + marginBottom);
-  const gap = 16;
   
   return (
-    <div style={{ position: "relative", width: "100%" }}>
+    <div style={{ position: "relative", width: "100%", minWidth: 0, overflow: "hidden", minHeight: Math.max(minHeight, data.length * rowGroupHeight) }}>
       <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</div>
-      <div style={{ display: "flex", gap: 16, marginBottom: 12, fontSize: 11, position: "absolute", top: 20, right: 10 }}>
+      <div style={{ display: "flex", gap: 16, marginBottom: 12, fontSize: 11, justifyContent: "flex-end", flexWrap: "wrap" }}>
         <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, color: "var(--slate-500)" }}><span style={{ width: 12, height: 4, background: color1, borderRadius: 2 }} />{label1}</span>
         <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, color: "var(--brand)" }}><span style={{ width: 12, height: 4, background: color2, borderRadius: 2 }} />{label2}</span>
       </div>
@@ -752,6 +771,77 @@ function ClusteredBarChart({ data, title, label1, label2, color1 = "#94a3b8", co
           );
         })}
       </svg>
+    </div>
+  );
+}
+
+function ClusteredBarChartSafe({ data, title, label1, label2, color1 = "#94a3b8", color2 = "var(--brand)", minHeight = 240 }: {
+  data: { label: string; val1: number; val2: number }[];
+  title: string;
+  label1: string;
+  label2: string;
+  color1?: string;
+  color2?: string;
+  minHeight?: number;
+}) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  if (!data.length) return <div style={{ padding: "16px 0", color: "#94a3b8", textAlign: "center", fontSize: 13 }}>KhÃ´ng cÃ³ dá»¯ liá»‡u</div>;
+  const maxVal = Math.max(...data.flatMap(d => [d.val1, d.val2]), 1);
+
+  return (
+    <div style={{ position: "relative", width: "100%", minWidth: 0, overflow: "hidden", minHeight }}>
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</div>
+      <div style={{ display: "flex", gap: 16, marginBottom: 12, fontSize: 11, justifyContent: "flex-end", flexWrap: "wrap" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, color: "var(--slate-500)" }}><span style={{ width: 12, height: 4, background: color1, borderRadius: 2 }} />{label1}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, color: "var(--brand)" }}><span style={{ width: 12, height: 4, background: color2, borderRadius: 2 }} />{label2}</span>
+      </div>
+      <div style={{ display: "grid", gap: 16, paddingTop: 8 }}>
+        {data.map((d, i) => {
+          const w1 = Math.max(d.val1 > 0 ? 1 : 0, (d.val1 / maxVal) * 100);
+          const w2 = Math.max(d.val2 > 0 ? 1 : 0, (d.val2 / maxVal) * 100);
+          const diff = d.val2 - d.val1;
+
+          return (
+            <div
+              key={i}
+              onMouseEnter={() => setHoverIdx(i)}
+              onMouseLeave={() => setHoverIdx(null)}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(96px, 140px) minmax(0, 1fr)",
+                gap: 10,
+                alignItems: "center",
+                opacity: hoverIdx === null || hoverIdx === i ? 1 : 0.6,
+                transition: "opacity 0.2s",
+                minWidth: 0,
+              }}
+            >
+              <div style={{ minWidth: 0, textAlign: "right", fontSize: 11, color: "var(--slate-600)", fontWeight: 500 }} title={d.label}>
+                {shortLabel(d.label, 22)}
+              </div>
+              <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0, height: 8, borderRadius: 4, background: "#f1f5f9", overflow: "hidden" }}>
+                    <div style={{ width: `${w1}%`, height: "100%", background: color1, opacity: 0.65, borderRadius: 4 }} />
+                  </div>
+                  <div style={{ flex: "0 0 54px", fontSize: 10, color: "var(--slate-500)", fontWeight: 700 }}>{fmtCompactValue(d.val1)}</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0, height: 8, borderRadius: 4, background: "#f1f5f9", overflow: "hidden" }}>
+                    <div style={{ width: `${w2}%`, height: "100%", background: color2, borderRadius: 4 }} />
+                  </div>
+                  <div style={{ flex: "0 0 54px", fontSize: 10, color: "var(--brand)", fontWeight: 700 }}>{fmtCompactValue(d.val2)}</div>
+                </div>
+                {hoverIdx === i && (
+                  <div style={{ fontSize: 10, color: diff > 0 ? "crimson" : "var(--color-success)", fontWeight: 700, textAlign: "right" }}>
+                    {diff > 0 ? "â†‘" : "â†“"} {fmtCompactValue(Math.abs(diff))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1780,22 +1870,22 @@ export default function InventoryValueReportPage() {
 
           {/* ---- CHARTS SECTION ---- */}
           {(reportMode as string) === "current" ? (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-              <div className="page-section" style={{ padding: 24 }}>
+            <div className="inventory-value-chart-grid">
+              <div className="page-section" style={{ padding: 24, minWidth: 0, overflow: "hidden" }}>
                 <BarChart 
                   title={`Top 10 mã hàng theo giá trị tồn kho${activeInsightFilter ? ` (${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"})` : ""}`} 
                   isRiskHeatmap 
                   data={baseTopProducts.slice(0, 10).map(p => ({ label: p.product.sku, value: p.inventory_value }))} 
                 />
               </div>
-              <div className="page-section" style={{ padding: 24 }}>
+              <div className="page-section" style={{ padding: 24, minWidth: 0, overflow: "hidden" }}>
                 <BarChart 
                   title={`Top 10 khách hàng theo giá trị tồn kho${activeInsightFilter ? ` (${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"})` : ""}`} 
                   isRiskHeatmap 
                   data={baseCustomerSummary.slice(0, 10).map(c => ({ label: customerCodeLabel(c.customer_id), value: c.value }))} 
                 />
               </div>
-              <div className="page-section" style={{ gridColumn: "span 2", padding: 24 }}>
+              <div className="page-section inventory-value-chart-full" style={{ padding: 24, minWidth: 0, overflow: "hidden" }}>
                 <StackedBarChart 
                   title={`Cơ cấu giá trị tồn kho theo khách hàng (%)${activeInsightFilter ? ` - Đang lọc: ${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"}` : ""}`}
                   totalValue={overallTotals.totalValue} 
@@ -1811,14 +1901,14 @@ export default function InventoryValueReportPage() {
               </div>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-              <div className="filter-panel" style={{ padding: 20 }}>
-                <ClusteredBarChart title="So sánh giá trị tồn mã hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareTopProducts.map(p => ({ label: p.product.sku, val1: p.val1 || 0, val2: p.val2 || 0 }))} />
+            <div className="inventory-value-chart-grid">
+              <div className="filter-panel" style={{ padding: 20, minWidth: 0, overflow: "hidden" }}>
+                <ClusteredBarChartSafe title="So sánh giá trị tồn mã hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareTopProducts.map(p => ({ label: p.product.sku, val1: p.val1 || 0, val2: p.val2 || 0 }))} />
               </div>
-              <div className="filter-panel" style={{ padding: 20 }}>
-                <ClusteredBarChart title="So sánh giá trị tồn khách hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareCustomerSummary.sort((a,b) => (b.p2_value || 0) - (a.p2_value || 0)).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), val1: c.p1_value || 0, val2: c.p2_value || 0 }))} />
+              <div className="filter-panel" style={{ padding: 20, minWidth: 0, overflow: "hidden" }}>
+                <ClusteredBarChartSafe title="So sánh giá trị tồn khách hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareCustomerSummary.sort((a,b) => (b.p2_value || 0) - (a.p2_value || 0)).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), val1: c.p1_value || 0, val2: c.p2_value || 0 }))} />
               </div>
-              <div className="filter-panel" style={{ gridColumn: "span 2", padding: 20 }}>
+              <div className="filter-panel inventory-value-chart-full" style={{ padding: 20, minWidth: 0, overflow: "hidden" }}>
                 <CompareStackedBarChart title="Cơ cấu giá trị tồn Kỳ 1 vs Kỳ 2 (%)" label1="Kỳ 1" label2="Kỳ 2" total1={compareTotals.val1} total2={compareTotals.val2} 
                   data1={(() => {
                     const sorted = [...compareCustomerSummary].sort((a,b) => (b.p1_value || 0) - (a.p1_value || 0));

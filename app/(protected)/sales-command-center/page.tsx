@@ -344,18 +344,18 @@ export default function SalesCommandCenterPage() {
   const UIColors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
 
   return (
-    <motion.div className="page-root min-h-screen bg-[#f8fafc]" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+    <motion.div className="page-root min-h-screen bg-[#f8fafc] overflow-x-hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       
       {/* ─── HEADER ─── */}
-      <div className="page-header -mx-6 px-6 py-5 mb-6 flex items-center justify-between border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-[100] shadow-sm">
-        <div className="flex items-center gap-4">
+      <div className="page-header -mx-6 px-6 py-5 mb-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-[100] shadow-sm">
+        <div className="flex items-center gap-4 min-w-0">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl shadow-lg ring-4 ring-indigo-50">🚀</div>
           <div>
             <h1 className="page-title mb-0 text-xl font-black text-slate-800">SALES COMMAND CENTER</h1>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{getMonthRange(monthOffset).label}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm">
             <button onClick={() => setMonthOffset(m => m - 1)} className="p-1 hover:text-indigo-600 font-bold transition-colors">‹</button>
             <span className="text-xs font-black text-slate-700 w-36 text-center uppercase tracking-tighter">{getMonthRange(monthOffset).label}</span>
@@ -376,7 +376,7 @@ export default function SalesCommandCenterPage() {
       </div>
 
       {/* ─── TABS ─── */}
-      <div className="flex gap-1 bg-slate-200/50 p-1 rounded-2xl w-fit mb-8 border border-slate-200/50 shadow-inner">
+      <div className="flex flex-wrap gap-1 bg-slate-200/50 p-1 rounded-2xl w-fit max-w-full mb-8 border border-slate-200/50 shadow-inner">
         <button onClick={() => setActiveTab("overview")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider ${activeTab === "overview" ? "bg-white text-indigo-600 shadow-md scale-105" : "text-slate-500 hover:text-slate-800"}`}>📊 Tổng quan Sales</button>
         <button onClick={() => setActiveTab("customers")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider ${activeTab === "customers" ? "bg-white text-indigo-600 shadow-md scale-105" : "text-slate-500 hover:text-slate-800"}`}>🏢 Báo cáo Khách hàng</button>
         <button onClick={() => setActiveTab("compare")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider ${activeTab === "compare" ? "bg-white text-indigo-600 shadow-md scale-105" : "text-slate-500 hover:text-slate-800"}`}>🔄 Đối chiếu Kỳ</button>
@@ -385,8 +385,8 @@ export default function SalesCommandCenterPage() {
       <AnimatePresence mode="wait">
         {/* TAB: OVERVIEW */}
         {activeTab === "overview" && (
-          <motion.div key="overview" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="grid grid-cols-3 gap-8">
-            <div className="col-span-2 flex flex-col gap-8">
+          <motion.div key="overview" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            <div className="xl:col-span-2 flex flex-col gap-8 min-w-0">
               {/* Top Customers Card */}
               <div className="bg-white rounded-[2rem] border border-slate-200/80 p-8 shadow-xl shadow-slate-200/40 border-t-4 border-t-indigo-500">
                 <div className="flex items-center justify-between mb-8">
@@ -401,14 +401,14 @@ export default function SalesCommandCenterPage() {
               {/* Top Products Card */}
               <div className="bg-white rounded-[2rem] border border-slate-200/80 p-8 shadow-xl shadow-slate-200/40 border-t-4 border-t-emerald-500">
                 <h3 className="font-black text-sm uppercase tracking-[0.2em] text-slate-800 mb-8">Top Doanh thu theo Mã hàng</h3>
-                <div className="grid grid-cols-2 gap-x-12 gap-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-6">
                   {loading ? Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-10 bg-slate-100 rounded-xl animate-pulse" />) :
                     productReport.map((p, i) => <RevenueBar key={p.id} label={p.sku} desc={p.name} value={p.rev} max={productReport[0]?.rev || 1} color={UIColors[i % UIColors.length]} rank={i} unit="VND" />)}
                 </div>
               </div>
             </div>
             {/* Right Side Donut */}
-            <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-8 min-w-0">
               <div className="bg-white rounded-[2rem] border border-slate-200/80 p-6 shadow-xl shadow-slate-200/40 sticky top-28">
                 <h3 className="font-black text-[11px] uppercase tracking-[0.15em] text-slate-500 mb-6 text-center">Cơ cấu Doanh thu Nhóm Khách Hàng</h3>
                 <DonutChart title="TOTAL REVENUE" total={stats.monthRev} data={(() => {
@@ -427,8 +427,8 @@ export default function SalesCommandCenterPage() {
         {activeTab === "customers" && (
           <motion.div key="customers" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}>
             <div className="bg-white rounded-[2rem] border border-slate-200 shadow-2xl overflow-hidden flex flex-col">
-              <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white z-40">
-                <div className="flex items-center gap-6">
+              <div className="px-8 py-6 border-b border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-white z-40">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
                   <h3 className="font-black text-[15px] uppercase tracking-[0.1em] text-slate-900 border-l-4 border-indigo-600 pl-4">Chi tiết báo cáo doanh thu theo khách hàng</h3>
                   <div className="h-8 w-[1px] bg-slate-200" />
                   <button onClick={() => setShowActiveOnly(!showActiveOnly)} className={`px-4 py-2 rounded-xl border text-[11px] font-black uppercase transition-all shadow-sm ${showActiveOnly ? "bg-indigo-600 border-indigo-700 text-white translate-y-[-2px] shadow-indigo-200" : "bg-white border-slate-200 text-slate-400 hover:bg-slate-50"}`}>
@@ -513,7 +513,7 @@ export default function SalesCommandCenterPage() {
                {compareData && (
                  <div className="flex flex-col gap-8">
                     {/* KPI Cards for Comparison */}
-                    <div className="grid grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                        {[
                          { label: "Biến động Doanh thu", val: compareData.kpis.p1_revenue - compareData.kpis.p2_revenue, p1: compareData.kpis.p1_revenue, p2: compareData.kpis.p2_revenue, type: "vnd" },
                          { label: "Tăng trưởng Net", val: ((compareData.kpis.p1_revenue - compareData.kpis.p2_revenue) / (compareData.kpis.p2_revenue || 1)) * 100, type: "pct" },
@@ -534,7 +534,7 @@ export default function SalesCommandCenterPage() {
                     </div>
 
                     {/* Charts Row */}
-                    <div className="grid grid-cols-3 gap-8 pt-6 border-t border-slate-100">
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 pt-6 border-t border-slate-100">
                        {/* Chart 1: Total Comparison */}
                        <div className="flex flex-col gap-4">
                           <h4 className="font-black text-[11px] uppercase text-slate-900 border-l-4 border-black pl-3">Tổng quan Quy mô</h4>
@@ -621,7 +621,8 @@ export default function SalesCommandCenterPage() {
                              ))}
                           </div>
                        </div>
-                       <table className="w-full border-collapse">
+                       <div className="overflow-x-auto custom-scrollbar">
+                       <table className="w-full min-w-[980px] border-collapse">
                           <thead>
                              <tr className="bg-white border-b border-slate-100 italic">
                                 <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 w-[60px]">#</th>
@@ -684,6 +685,7 @@ export default function SalesCommandCenterPage() {
                              })()}
                           </tbody>
                        </table>
+                       </div>
                     </div>
                  </div>
                )}
