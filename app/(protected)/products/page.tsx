@@ -1182,11 +1182,11 @@ export default function ProductsPage() {
 
       {open && (
         <div className="modal-overlay" onClick={() => setOpen(false)}>
-          <div className="modal-box" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-box product-editor-modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">{editing ? "Sửa mã hàng" : "Thêm mã hàng"}</h2>
 
-            <div style={{ display: "grid", gap: 12 }}>
-              <label style={{ display: "grid", gap: 6 }}>
+            <div className="product-editor-form">
+              <label className="product-editor-field">
                 Customer
                 <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className="input">
                   {customers.map((c) => (
@@ -1197,38 +1197,38 @@ export default function ProductsPage() {
                 </select>
               </label>
 
-              <label style={{ display: "grid", gap: 6 }}>
+              <label className="product-editor-field">
                 Mã nội bộ *
                 <input value={sku} onChange={(e) => setSku(e.target.value.toUpperCase())} className="input" placeholder="VD: SP001" />
               </label>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <label style={{ display: "grid", gap: 6 }}>
+              <div className="product-editor-two-col">
+                <label className="product-editor-field">
                   Mã SAP (Tùy chọn)
                   <input value={sapCode} onChange={(e) => setSapCode(e.target.value)} className="input" placeholder="Mã SAP..." />
                 </label>
-                <label style={{ display: "grid", gap: 6 }}>
+                <label className="product-editor-field">
                   Mã hàng NCC (Tùy chọn)
                   <input value={externalSku} onChange={(e) => setExternalSku(e.target.value)} className="input" placeholder="Mã NCC..." />
                 </label>
               </div>
 
-              <label style={{ display: "grid", gap: 6 }}>
+              <label className="product-editor-field">
                 Tên hàng *
                 <input value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder="Nhập tên sản phẩm..." />
               </label>
 
-              <label style={{ display: "grid", gap: 6 }}>
+              <label className="product-editor-field">
                 Kích thước (MM)
                 <input value={spec} onChange={(e) => setSpec(e.target.value)} className="input" placeholder="Vd: 555*447*419" />
               </label>
 
-              <label style={{ display: "grid", gap: 6 }}>
+              <label className="product-editor-field">
                 ĐƠN VỊ TÍNH
                 <input value={uom} onChange={(e) => setUom(e.target.value)} className="input" />
               </label>
 
-              <label style={{ display: "grid", gap: 6 }}>
+              <label className="product-editor-field">
                 Đơn giá
                 <input
                   type="number"

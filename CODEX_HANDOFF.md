@@ -17,6 +17,22 @@
 - Chu du an da test production OK.
 - Bug `Luu y 1` / `Luu y 2` trong Ke hoach giao hang da fix xong, SQL da chay live, code da push `main`, production da test OK.
 - Chan xoa cung xe da xong: SQL da chay live, code da push `main`, production da test OK.
+- Modal `Them ma hang` trang Ma hang da sua, build da pass; sau khi push `main` Vercel se tu deploy.
+
+## Cap nhat 2026-05-27 - Fix modal Them ma hang
+
+- Da sua loi nut/form `Them ma hang` tai trang `app/(protected)/products/page.tsx` bi tran khoi modal.
+- Nguyen nhan theo code: modal single add/edit thieu width an toan theo viewport, input/select va grid 2 cot chua ep `min-width: 0`, nen tren man hinh hep bi tran sang phai.
+- Da them CSS rieng trong `app/globals.css`:
+  - `product-editor-modal`
+  - `product-editor-form`
+  - `product-editor-field`
+  - `product-editor-two-col`
+- Form SAP/NCC se tu xuong 1 cot tren man hinh nho.
+- Khong sua SQL, khong sua backend, khong dung database.
+- Rui ro mat du lieu/sai so lieu: thap, vi chi sua hien thi modal.
+- Build local `npm run build` da pass.
+- Chua test mobile bang browser/screenshot trong session nay.
 
 ## Cap nhat 2026-05-27 - Chan xoa cung xe
 
