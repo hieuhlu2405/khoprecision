@@ -13,12 +13,37 @@
 - Vong toi uu responsive/mobile da hoan tat va da merge vao `main`.
 - Da merge vao `main` va da push len GitHub.
 - Build gan nhat `npm run build` da pass.
-- Vercel production da deploy xong theo `main` commit moi nhat `cb70b58 Improve mobile operations UX`.
+- Fix layout bao cao Gia tri ton kho va Sales tren macOS/Windows da merge vao `main` commit `d687734 Merge macOS report layout fix`; Vercel se tu deploy theo `main`.
 - Chu du an da test production OK.
 - Bug `Luu y 1` / `Luu y 2` trong Ke hoach giao hang da fix xong, SQL da chay live, code da push `main`, production da test OK.
 - Chan xoa cung xe da xong: SQL da chay live, code da push `main`, production da test OK.
 - Modal `Them ma hang` trang Ma hang da sua, build da pass; sau khi push `main` Vercel se tu deploy.
 - Dau +/- trong modal con mat Bao cao ton kho da sua, code da push `main`, production da test OK.
+
+## Cap nhat 2026-05-27 - Fix layout bao cao Gia tri ton kho va Sales tren macOS/Windows
+
+- Da sua 2 trang:
+  - `app/(protected)/inventory/value-report/page.tsx`
+  - `app/(protected)/sales-command-center/page.tsx`
+- Loi ban dau theo anh macOS: bieu do thanh ngang trang Gia tri ton kho bi vuot khoi khung, chay sang card ben canh.
+- Nguyen nhan theo code: mot so bieu do dung SVG long nhau voi `calc(100% - ...)`, tren Safari/macOS de tinh sai chieu rong va gay tran ngang.
+- Vong sua dau giup macOS an toan hon nhung tren Windows nhin lech bo cuc vi 2 chart bi co ve ben trai, ben phai trong qua nhieu.
+- Da can lai:
+  - Desktop Windows/macOS giu 2 cot bieu do deu nhau, full chieu ngang.
+  - Tablet/mobile tu xuong 1 cot de tranh vo layout.
+  - Bieu do thanh ngang chinh dung HTML/CSS co `min-width: 0`, khong de thanh vuot khung.
+  - Bieu do so sanh dung ban ve an toan hon, tranh SVG `calc()` tren Safari/macOS.
+  - Sales Command Center duoc siet responsive: header/tabs/grid/bang tu xuong dong hoac co vung cuon ngang rieng.
+- Khong sua SQL, khong sua backend, khong doi cach tinh so lieu.
+- Rui ro mat du lieu/sai so lieu: thap, vi chi sua hien thi UI.
+- Rui ro thao tac nham: thap hon vi layout bot tran/lech tren Windows/macOS.
+- Build local `npm run build` da pass tren nhanh phu va sau khi merge vao `main`.
+- Da tao nhanh phu `codex/fix-macos-report-layout`, commit:
+  - `b0fdc6b Fix macOS report layout overflow`
+  - `c20341c Balance inventory value charts`
+- Da merge vao `main` bang commit `d687734 Merge macOS report layout fix` va push len GitHub.
+- Chua test duoc trang bao cao sau dang nhap bang browser/screenshot local vi Playwright bi chuyen ve man dang nhap, khong co phien dang nhap tu dong.
+- Chu du an da test nhanh phu tren Windows, feedback layout ban dau chua can doi; sau vong can lai, chu du an yeu cau gop vao `main`.
 
 ## Cap nhat 2026-05-27 - Fix dau dieu chinh trong lich su ton kho
 
