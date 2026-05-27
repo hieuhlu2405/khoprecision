@@ -18,7 +18,7 @@
 - Bug `Luu y 1` / `Luu y 2` trong Ke hoach giao hang da fix xong, SQL da chay live, code da push `main`, production da test OK.
 - Chan xoa cung xe da xong: SQL da chay live, code da push `main`, production da test OK.
 - Modal `Them ma hang` trang Ma hang da sua, build da pass; sau khi push `main` Vercel se tu deploy.
-- Dau +/- trong modal con mat Bao cao ton kho da sua, build da pass; sau khi push `main` Vercel se tu deploy.
+- Dau +/- trong modal con mat Bao cao ton kho da sua, code da push `main`, production da test OK.
 
 ## Cap nhat 2026-05-27 - Fix dau dieu chinh trong lich su ton kho
 
@@ -33,12 +33,15 @@
 - Khong sua SQL, khong sua backend, khong doi cach tinh ton tong.
 - Rui ro mat du lieu/sai so lieu: thap, vi chi sua hien thi chi tiet lich su.
 - Build local `npm run build` da pass.
-- Chua test production sau deploy.
-- Can test sau khi Vercel deploy:
-  - Nhap 100 sua con 80: con mat hien `-20`.
-  - Nhap 100 sua thanh 120: con mat hien `+20`.
-  - Xuat 100 sua con 80: con mat hien `+20`.
-  - Xuat 100 sua thanh 120: con mat hien `-20`.
+- Da commit/push len `main` commit `8b396f5 Fix inventory history adjustment signs`.
+- Chu du an da test production OK sau khi Vercel deploy.
+
+Da test OK tren production:
+
+- Nhap 100 sua con 80: con mat hien `-20`.
+- Nhap 100 sua thanh 120: con mat hien `+20`.
+- Xuat 100 sua con 80: con mat hien `+20`.
+- Xuat 100 sua thanh 120: con mat hien `-20`.
 
 ## Cap nhat 2026-05-27 - Fix modal Them ma hang
 
