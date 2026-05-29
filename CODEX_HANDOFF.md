@@ -20,6 +20,30 @@
 - Modal `Them ma hang` trang Ma hang da sua, build da pass; sau khi push `main` Vercel se tu deploy.
 - Dau +/- trong modal con mat Bao cao ton kho da sua, code da push `main`, production da test OK.
 
+## Cap nhat 2026-05-29 - An ma hang inactive khoi Ke hoach giao hang
+
+- Da kiem tra theo code: inactive ma hang (`products.is_active = false`) khong xoa lich su giao dich kho.
+- Sales Command Center tinh tu `inventory_transactions` va join `products` chi de lay ten/gia fallback, khong loc `products.is_active`, nen so lieu sales cu khong bi mat chi vi inactive ma hang.
+- Trang Xuat kho hien van load ma hang chua xoa (`deleted_at IS NULL`), chua loc `is_active`; lich su xuat kho cu van hien theo `inventory_transactions`.
+- Da sua `app/(protected)/delivery-plan/page.tsx`: trang Ke hoach giao hang chi load ma hang `is_active = true`.
+- Ket qua mong doi: ma inactive khong con hien trong bang Ke hoach giao hang, file nhap ke hoach nhap, va modal chot giao hang dua tren ke hoach.
+- Khong sua SQL, khong xoa du lieu, khong doi cach tinh Sales/xuat kho.
+- Build local `npm run build` da pass.
+- Chua test mobile bang browser/screenshot vi day la thay doi loc du lieu, khong doi layout.
+
+## Cap nhat 2026-05-29 - An ma hang inactive khoi Nhap/Xuat kho/Nhap phoi
+
+- Theo code truoc khi sua, 3 trang `Nhap kho`, `Xuat kho`, `Nhap phoi` dang load ma hang `deleted_at IS NULL` nhung chua loc `is_active`, nen ma inactive van co the hien trong goi y chon ma.
+- Da sua 3 file:
+  - `app/(protected)/inventory/inbound/page.tsx`
+  - `app/(protected)/inventory/outbound/page.tsx`
+  - `app/(protected)/inventory/phoi/page.tsx`
+- Cach sua: van load ca ma inactive de lich su cu con hien SKU/gia fallback, nhung cac o goi y chon ma khi tao/sua phieu chi hien `is_active = true`.
+- Khong sua SQL, khong xoa du lieu, khong doi cach tinh Sales/xuat kho/ton kho.
+- Rui ro mat du lieu/sai so lieu: thap, vi chi chan chon ma inactive cho phieu moi/sua.
+- Build local `npm run build` da pass.
+- Chua test mobile bang browser/screenshot vi day la thay doi loc danh sach goi y, khong doi layout.
+
 ## Cap nhat 2026-05-29 - Fix timeout khi luu/chot phieu kiem ke
 
 - Dang dieu tra loi production theo user: sua so luong phieu kiem ke dau ky roi bam luu/chot bi bao `Loi luu du lieu: canceling statement due to statement timeout`.

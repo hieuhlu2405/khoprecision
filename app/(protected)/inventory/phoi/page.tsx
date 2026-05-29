@@ -21,6 +21,7 @@ type Product = {
   spec: string | null;
   customer_id: string | null;
   unit_price: number | null;
+  is_active: boolean;
 };
 
 type Customer = {
@@ -699,7 +700,7 @@ export default function PhoiPage() {
       setProfile(p as Profile);
 
       const [rP, rC] = await Promise.all([
-        supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null).order("sku"),
+        supabase.from("products").select("id, sku, name, spec, customer_id, unit_price, is_active").is("deleted_at", null).order("sku"),
         supabase.from("customers").select("id, code, name").is("deleted_at", null).order("code"),
       ]);
       if (rP.error) throw rP.error;
@@ -891,6 +892,7 @@ export default function PhoiPage() {
   const eSuggestions = (() => {
     const s = eProductSearch.toLowerCase();
     return products.filter(p => {
+        if (!p.is_active) return false;
         const c = customers.find(x => x.id === p.customer_id);
         return p.sku.toLowerCase().includes(s) || p.name.toLowerCase().includes(s) || (c?.code || "").toLowerCase().includes(s);
     }).slice(0, 50);
@@ -974,6 +976,7 @@ export default function PhoiPage() {
                     const lSugs = (() => {
                       const s = (l.productSearch || "").toLowerCase();
                       return products.filter(p => {
+                        if (!p.is_active) return false;
                         const c = customers.find(x => x.id === p.customer_id);
                         return p.sku.toLowerCase().includes(s) || p.name.toLowerCase().includes(s) || (c?.code || "").toLowerCase().includes(s);
                       }).slice(0, 50);

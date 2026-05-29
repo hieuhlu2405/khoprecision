@@ -332,7 +332,7 @@ export default function DeliveryPlanPage() {
       setProfile(pData as Profile);
 
       const [allProducts, allCustomers, allEntities, allVehicles] = await Promise.all([
-        fetchAllRows(supabase.from("products").select("id, sku, name, spec, uom, sap_code, external_sku, customer_id").is("deleted_at", null)),
+        fetchAllRows(supabase.from("products").select("id, sku, name, spec, uom, sap_code, external_sku, customer_id").is("deleted_at", null).eq("is_active", true)),
         fetchAllRows(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id").is("deleted_at", null)),
         fetchAllRows(supabase.from("selling_entities").select("id, code, name, address, tax_code, phone").is("deleted_at", null)),
         fetchAllRows(supabase.from("vehicles").select("*").eq("is_active", true).order("license_plate")),

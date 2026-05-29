@@ -21,6 +21,7 @@ type Product = {
   spec: string | null;
   customer_id: string | null;
   unit_price: number | null;
+  is_active: boolean;
 };
 
 type Customer = {
@@ -721,7 +722,7 @@ export default function InventoryOutboundPage() {
 
       // Products & Customers (these tables are small, no pagination needed)
       const [rP, rC] = await Promise.all([
-        supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null).order("sku"),
+        supabase.from("products").select("id, sku, name, spec, customer_id, unit_price, is_active").is("deleted_at", null).order("sku"),
         supabase.from("customers").select("id, code, name, parent_customer_id").is("deleted_at", null).order("code"),
       ]);
       if (rP.error) throw rP.error;
@@ -1018,6 +1019,7 @@ export default function InventoryOutboundPage() {
                       {l.showSuggestions && (
                         <div className="suggestions-box entry-suggestions shadow-xl" style={{ position: "absolute", zIndex: 100, background: "white", border: "1px solid #e2e8f0", width: "100%", maxHeight: 200, overflowY: "auto", borderRadius: 8, top: "100%" }}>
                           {products.filter(p => {
+                            if (!p.is_active) return false;
                             const s = (l.productSearch || "").toLowerCase();
                             const c = customers.find(x => x.id === p.customer_id);
                             return p.sku.toLowerCase().includes(s) || p.name.toLowerCase().includes(s) || (c?.code || "").toLowerCase().includes(s);
