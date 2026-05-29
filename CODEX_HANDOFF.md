@@ -20,6 +20,29 @@
 - Modal `Them ma hang` trang Ma hang da sua, build da pass; sau khi push `main` Vercel se tu deploy.
 - Dau +/- trong modal con mat Bao cao ton kho da sua, code da push `main`, production da test OK.
 
+## Cap nhat 2026-05-29 - Fix timeout khi luu/chot phieu kiem ke
+
+- Dang dieu tra loi production theo user: sua so luong phieu kiem ke dau ky roi bam luu/chot bi bao `Loi luu du lieu: canceling statement due to statement timeout`.
+- Nguyen nhan theo code: trang chi tiet kiem ke goi RPC `confirm_inventory_stocktake_product_level`; RPC cu tinh ton kho lai cho tung dong, sau do lai kiem am kho tung ma. Phieu nhieu dong hoac lich su kho dai rat de vuot timeout Supabase.
+- Da tao SQL moi ban day du: `supabase-sql/20260529_fix_stocktake_save_timeout.sql`.
+- Ban day du CHUA chay live vi qua dai, Supabase kho paste.
+- Da tao SQL moi ban ngan 1 dong: `supabase-sql/20260529_fix_stocktake_save_timeout_short.sql`.
+- SQL ban ngan da chay live theo xac nhan cua chu du an.
+- SQL thay `CREATE OR REPLACE FUNCTION public.confirm_inventory_stocktake_product_level(...)`: khong xoa du lieu, chi doi cach database xu ly luu/chot kiem ke.
+- Truoc do da chay live rieng 3 index de loc nhanh dong kiem ke/giao dich/moc ton dau:
+  - `idx_stocktake_lines_live_stocktake`
+  - `idx_inv_ob_live_source_stocktake`
+  - `idx_inv_tx_live_product_date_only`
+- Hai file SQL moi khong co `DELETE FROM`, `DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, `DROP TRIGGER`.
+- SQL ban ngan van soft-delete dong cu cua chinh phieu kiem ke roi ghi lai trong 1 transaction; neu loi giua chung thi database rollback, giam nguy co luu nua chung.
+- Khi kiem am kho sau khi sua phieu dau ky, SQL ban ngan co tinh den cac moc kiem ke sau do; tranh chan sai neu ton kho da duoc reset boi phieu kiem ke moi hon.
+- Build local `npm run build` da pass sau khi them SQL ban dau.
+- Da test live:
+  - Sau khi chay 3 index rieng: van loi timeout.
+  - Sau khi chay SQL ban ngan: chu du an xac nhan da luu duoc phieu.
+  - Chu du an test tiep refresh phieu/ton kho/lien quan va bao OK.
+- Rui ro con lai: thap. Day la sua backend luu kiem ke; khong hard delete, khong cleanup SQL cu, khong doi UI.
+
 ## Cap nhat 2026-05-27 - Fix layout bao cao Gia tri ton kho va Sales tren macOS/Windows
 
 - Da sua 2 trang:
