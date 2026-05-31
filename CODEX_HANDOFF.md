@@ -10,6 +10,7 @@
 
 ## Trang thai hien tai
 
+- Cap nhat 2026-05-31: worktree local dang sach sau khi push `main`; cac fix gan nhat ve timeout kiem ke va an ma hang inactive da duoc ghi trong handoff ben duoi.
 - Vong toi uu responsive/mobile da hoan tat va da merge vao `main`.
 - Da merge vao `main` va da push len GitHub.
 - Build gan nhat `npm run build` da pass.
