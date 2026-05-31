@@ -10,6 +10,9 @@
 
 ## Trang thai hien tai
 
+- Cap nhat 2026-06-01: SQL chi doc `supabase-sql/20260601_audit_product_stock_checkpoint_logic.sql` da chay live va tra ve `No rows returned`, nen KHONG chay/su dung SQL sua function tinh ton. Da loai file fix function khoi bo thay doi de tranh AI/dev sau doc nham.
+- Cap nhat 2026-06-01: SQL `supabase-sql/20260601_allow_negative_stocktake_system_qty.sql` da chay live theo xac nhan cua chu du an. Muc dich: cho phep cot `system_qty_before` cua dong kiem ke am de sua ton am cu, nhung van dam bao `actual_qty_after >= 0`. SQL co `DROP CONSTRAINT` va `ALTER TABLE`, khong xoa du lieu. Sau do chu du an da kiem ke ma am ve 0 va ket chuyen thang 6 thanh cong.
+- Cap nhat 2026-06-01: SQL `supabase-sql/20260601_create_may_inventory_snapshot.sql` da chay live theo xac nhan cua chu du an. Muc dich: tao lai snapshot bao cao ton kho thang 5 dung ky 2026-05-01 -> 2026-05-31, giu ma `180-XK490390-0215` ton cuoi = 0 theo moc sua ton da co. SQL chi INSERT vao bang snapshot lich su, khong sua/xoa giao dich kho hay ton dau ky. Chu du an xac nhan snapshot moi dung va da xoa snapshot sai.
 - Cap nhat 2026-05-31: worktree local dang sach sau khi push `main`; cac fix gan nhat ve timeout kiem ke va an ma hang inactive da duoc ghi trong handoff ben duoi.
 - Vong toi uu responsive/mobile da hoan tat va da merge vao `main`.
 - Da merge vao `main` va da push len GitHub.
@@ -282,6 +285,8 @@ Da test live:
 - `supabase-sql/20260524_unlock_completed_delivery_plan.sql`
 - `supabase-sql/20260524_zz_fix_zero_target_completion.sql`
 - `supabase-sql/20260526_fix_delivery_plan_empty_notes.sql`
+- `supabase-sql/20260601_allow_negative_stocktake_system_qty.sql`
+- `supabase-sql/20260601_create_may_inventory_snapshot.sql`
 
 Luu y:
 
