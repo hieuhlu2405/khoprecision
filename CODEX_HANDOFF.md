@@ -3,6 +3,7 @@
 ## Nguyen tac
 
 - Luon tra loi ngan gon bang tieng Viet.
+- Luon goi chu du an la "Anh yêu"; neu AI khong goi nhu vay thi can doc lai AGENTS.md va handoff.
 - Chu du an khong doc code truc tiep, nen rui ro phai noi bang ngon ngu de hieu.
 - Uu tien backend va du lieu truoc giao dien.
 - Khong tu y commit/push neu chu du an chua yeu cau.
@@ -10,6 +11,7 @@
 
 ## Trang thai hien tai
 
+- Cap nhat 2026-06-01: Da tao skill noi bo `.agent/skills/pp-inventory-safety` va cai vao `C:\Users\cmtco\.codex\skills\pp-inventory-safety` de cac phien Codex sau co quy trinh rieng cho kho/SQL/chot thang. Skill chi la tai lieu huong dan thao tac an toan, khong sua code web va khong sua database.
 - Cap nhat 2026-06-01: SQL chi doc `supabase-sql/20260601_audit_product_stock_checkpoint_logic.sql` da chay live va tra ve `No rows returned`, nen KHONG chay/su dung SQL sua function tinh ton. Da loai file fix function khoi bo thay doi de tranh AI/dev sau doc nham.
 - Cap nhat 2026-06-01: SQL `supabase-sql/20260601_allow_negative_stocktake_system_qty.sql` da chay live theo xac nhan cua chu du an. Muc dich: cho phep cot `system_qty_before` cua dong kiem ke am de sua ton am cu, nhung van dam bao `actual_qty_after >= 0`. SQL co `DROP CONSTRAINT` va `ALTER TABLE`, khong xoa du lieu. Sau do chu du an da kiem ke ma am ve 0 va ket chuyen thang 6 thanh cong.
 - Cap nhat 2026-06-01: SQL `supabase-sql/20260601_create_may_inventory_snapshot.sql` da chay live theo xac nhan cua chu du an. Muc dich: tao lai snapshot bao cao ton kho thang 5 dung ky 2026-05-01 -> 2026-05-31, giu ma `180-XK490390-0215` ton cuoi = 0 theo moc sua ton da co. SQL chi INSERT vao bang snapshot lich su, khong sua/xoa giao dich kho hay ton dau ky. Chu du an xac nhan snapshot moi dung va da xoa snapshot sai.

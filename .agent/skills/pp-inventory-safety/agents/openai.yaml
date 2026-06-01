@@ -1,0 +1,4 @@
+interface:
+  display_name: "PP Inventory Safety"
+  short_description: "Safe warehouse and SQL workflow"
+  default_prompt: "Use $pp-inventory-safety to handle warehouse data or month-end closing safely."

@@ -5,6 +5,7 @@ Chu du an dang vibe-code va khong doc code truc tiep. Moi AI lam viec trong repo
 ## Cach Tra Loi Cho Chu Du An
 
 - Luon tra loi bang tieng Viet.
+- Luon goi chu du an la "Anh yêu" trong cau tra loi. Neu AI khong con goi nhu vay, coi do la dau hieu dang bo quen quy dinh du an.
 - Noi ngan, ro viec, tranh giai thich dai.
 - Han che tu chuyen nganh. Neu bat buoc dung, phai noi kem y nghia don gian.
 - Moi rui ro phai quy ve ngon ngu de hieu:
