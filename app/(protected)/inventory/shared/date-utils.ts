@@ -16,12 +16,39 @@ export function formatToVietnameseDate(d: string | null | undefined): string {
 /**
  * Derives the effective snapshot period given a user-selected range [qStart, qEnd].
  * Finds the latest snapshot S strictly before qEnd.
- * The effective period starts at max(qStart, S + 1 day).
+ * Manual/rollover openings are start-of-day, so movements start on S.
+ * Stocktake openings are end-of-day, so movements start on S + 1 day.
  * Also derives the previous snapshot period bounds for "So với kỳ trước".
  */
-export function computeSnapshotBounds(qStart: string, qEnd: string, openings: { period_month: string }[]) {
+type SnapshotBoundRow = {
+  period_month: string;
+  source_stocktake_id?: string | null;
+  deleted_at?: string | null;
+};
+
+function addDays(dateStr: string, days: number) {
+  const d = new Date(`${dateStr.slice(0, 10)}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+function firstDayOfMonth(dateStr: string) {
+  return `${dateStr.slice(0, 7)}-01`;
+}
+
+function isEndOfDaySnapshot(dateStr: string, openings: SnapshotBoundRow[]) {
+  const rowsOnDate = openings.filter(o => !o.deleted_at && o.period_month.slice(0, 10) === dateStr);
+  return rowsOnDate.length > 0 && rowsOnDate.every(o => !!o.source_stocktake_id);
+}
+
+function movementStartForSnapshot(dateStr: string, openings: SnapshotBoundRow[]) {
+  return isEndOfDaySnapshot(dateStr, openings) ? addDays(dateStr, 1) : dateStr;
+}
+
+export function computeSnapshotBounds(qStart: string, qEnd: string, openings: SnapshotBoundRow[]) {
+  const liveOpenings = openings.filter(o => !o.deleted_at);
   const distinctDates = Array.from(new Set(
-    openings.map(o => o.period_month.slice(0, 10))
+    liveOpenings.map(o => o.period_month.slice(0, 10))
   )).sort();
 
   // Find S: largest snapshot <= qEnd
@@ -43,14 +70,8 @@ export function computeSnapshotBounds(qStart: string, qEnd: string, openings: { 
 
   let effectiveStart = qStart;
   if (S && S >= qStart) {
-    const sDate = new Date(S);
-    if (S < qEnd) {
-      sDate.setDate(sDate.getDate() + 1);
-    }
-    const y = sDate.getFullYear();
-    const m = String(sDate.getMonth() + 1).padStart(2, "0");
-    const d = String(sDate.getDate()).padStart(2, "0");
-    effectiveStart = `${y}-${m}-${d}`;
+    effectiveStart = S < qEnd ? movementStartForSnapshot(S, liveOpenings) : S;
+    if (effectiveStart < qStart) effectiveStart = qStart;
   }
 
   // "So với kỳ trước" dates
@@ -58,14 +79,11 @@ export function computeSnapshotBounds(qStart: string, qEnd: string, openings: { 
   let prevSnapshotQEnd = qStart;
   
   if (S) {
-    prevSnapshotQEnd = S;
+    prevSnapshotQEnd = isEndOfDaySnapshot(S, liveOpenings) ? S : addDays(S, -1);
     if (S_prev) {
-      const spDate = new Date(S_prev);
-      spDate.setDate(spDate.getDate() + 1);
-      prevSnapshotQStart = `${spDate.getFullYear()}-${String(spDate.getMonth() + 1).padStart(2, "0")}-${String(spDate.getDate()).padStart(2, "0")}`;
+      prevSnapshotQStart = movementStartForSnapshot(S_prev, liveOpenings);
     } else {
-      const sDate = new Date(S);
-      prevSnapshotQStart = `${sDate.getFullYear()}-${String(sDate.getMonth() + 1).padStart(2, "0")}-01`;
+      prevSnapshotQStart = firstDayOfMonth(S);
       if (prevSnapshotQStart > prevSnapshotQEnd) prevSnapshotQStart = prevSnapshotQEnd;
     }
   } else {
