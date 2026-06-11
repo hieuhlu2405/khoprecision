@@ -978,8 +978,8 @@ export default function DeliveryPlanPage() {
         const pastKey = `${product_id}_${delivery_id || "null"}`;
         const inheritedNote = pastNotesMap.get(pastKey)?.note ?? null;
         const inheritedNote2 = pastNotesMap.get(pastKey)?.note_2 ?? null;
-        const previousNote = existing?.note_edited_at ? (existing.note ?? "") : (existing?.note ?? inheritedNote);
-        const previousNote2 = existing?.note_2_edited_at ? (existing.note_2 ?? "") : (existing?.note_2 ?? inheritedNote2);
+        const previousNote = existing?.note_edited_at ? (existing.note ?? "") : (inheritedNote ?? existing?.note ?? null);
+        const previousNote2 = existing?.note_2_edited_at ? (existing.note_2 ?? "") : (inheritedNote2 ?? existing?.note_2 ?? null);
         const newNote = editData.note !== undefined ? editData.note : previousNote;
         const newNote2 = editData.note2 !== undefined ? editData.note2 : previousNote2;
 
@@ -1011,7 +1011,7 @@ export default function DeliveryPlanPage() {
 
       showToast("Đã lưu kế hoạch & lưu ý thành công!", "success");
       setEdits({});
-      loadData();
+      await loadData();
     } catch (err: any) {
       console.error(err);
       showToast(err.message, "error");
@@ -1645,7 +1645,7 @@ export default function DeliveryPlanPage() {
                             const today = days[0];
                             const plan = plans.find(x => x.product_id === p.id && x.plan_date === today && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
                             const pastNoteKey = `${p.id}_${row.deliveryCustomerId || "null"}`;
-                            const noteVal = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note ?? (plan?.note_edited_at ? (plan.note ?? "") : (plan?.note ?? pastNotesMap.get(pastNoteKey)?.note)) ?? "";
+                            const noteVal = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note ?? (plan?.note_edited_at ? (plan.note ?? "") : (pastNotesMap.get(pastNoteKey)?.note ?? plan?.note)) ?? "";
                             const disabled = !canEditDate(today);
                             return (
                               <input
@@ -1664,7 +1664,7 @@ export default function DeliveryPlanPage() {
                             const today = days[0];
                             const plan = plans.find(x => x.product_id === p.id && x.plan_date === today && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
                             const pastNote2Key = `${p.id}_${row.deliveryCustomerId || "null"}`;
-                            const note2Val = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note2 ?? (plan?.note_2_edited_at ? (plan.note_2 ?? "") : (plan?.note_2 ?? pastNotesMap.get(pastNote2Key)?.note_2)) ?? "";
+                            const note2Val = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note2 ?? (plan?.note_2_edited_at ? (plan.note_2 ?? "") : (pastNotesMap.get(pastNote2Key)?.note_2 ?? plan?.note_2)) ?? "";
                             const disabled = !canEditDate(today);
                             return (
                               <input

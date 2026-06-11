@@ -6,7 +6,7 @@ import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 import { getVNTimeNow } from "@/lib/date-utils";
-import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
+import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -14,7 +14,8 @@ import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-a
 
 type Product = { id: string; sku: string; name: string; spec: string | null; customer_id: string | null };
 type Customer = { id: string; code: string; name: string; parent_customer_id: string | null };
-type Plan = { id: string; product_id: string; customer_id: string | null; delivery_customer_id?: string | null; plan_date: string; planned_qty: number; actual_qty: number; backlog_qty?: number; note?: string | null; note_2?: string | null };
+type Plan = { id: string; product_id: string; customer_id: string | null; delivery_customer_id?: string | null; plan_date: string; planned_qty: number; actual_qty: number; backlog_qty?: number; note?: string | null; note_2?: string | null; note_edited_at?: string | null; note_2_edited_at?: string | null };
+type PastNote = { id: string; product_id: string; customer_id: string | null; delivery_customer_id: string | null; note: string | null; note_2: string | null; note_edited_at: string | null; note_2_edited_at: string | null; plan_date: string };
 
 type TextFilter = { mode: "contains" | "equals"; value: string };
 type SortDir = "asc" | "desc" | null;
@@ -139,7 +140,7 @@ export default function ShortageReportPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [stockMap, setStockMap] = useState<Record<string, number>>({});
-  const [pastNotesMap, setPastNotesMap] = useState<Map<string, { note: string; note2: string }>>(new Map());
+  const [pastNotesMap, setPastNotesMap] = useState<Map<string, { note: string | null; note_2: string | null; plan_date: string }>>(new Map());
 
   const days = useMemo(() => getNext7Days(), []);
   const [onlyShortage, setOnlyShortage] = useState(true);
@@ -181,53 +182,43 @@ export default function ShortageReportPage() {
 
       const startDate = days[0];
       const endDate = days[6];
-      const { data: planData } = await supabase
-        .from("delivery_plans").select("*")
-        .gte("plan_date", startDate).lte("plan_date", endDate).is("deleted_at", null);
-      setPlans(planData || []);
+      const planData = await fetchAllRows<Plan>(
+        supabase
+          .from("delivery_plans")
+          .select("*")
+          .gte("plan_date", startDate)
+          .lte("plan_date", endDate)
+          .is("deleted_at", null)
+      );
+      setPlans(planData);
 
       // Tải ghi chú kế thừa 30 ngày qua (Giới hạn scan window để tối ưu hiệu năng)
       const thirtyDaysAgo = new Date(new Date(startDate).getTime() - 30 * 24 * 60 * 60 * 1000)
         .toISOString().split('T')[0];
-      const { data: pastNotesData } = await supabase
-        .from("delivery_plans")
-        .select("product_id, delivery_customer_id, note, note_2, plan_date")
-        .gte("plan_date", thirtyDaysAgo)
-        .lt("plan_date", startDate)
-        .is("deleted_at", null)
-        .order("plan_date", { ascending: false });
+      const pastNotesData = await fetchAllRows<PastNote>(
+        supabase
+          .from("delivery_plans")
+          .select("id, product_id, customer_id, delivery_customer_id, note, note_2, note_edited_at, note_2_edited_at, plan_date")
+          .gte("plan_date", thirtyDaysAgo)
+          .lt("plan_date", startDate)
+          .is("deleted_at", null)
+          .order("plan_date", { ascending: false })
+      );
 
-      const tempMap = new Map<string, { note: string; note2: string }>();
-      if (pastNotesData) {
-        const productLatestDateMap = new Map<string, string>();
-        const productNotesMap = new Map<string, { notes1: string[]; notes2: string[] }>();
-
-        for (const item of pastNotesData) {
-          const hasAnyNote = (item.note && item.note.trim() !== "") || (item.note_2 && item.note_2.trim() !== "");
-          if (!hasAnyNote) continue;
-
-          const latestDate = productLatestDateMap.get(item.product_id);
-          if (!latestDate) {
-            // Ngày gần nhất có ghi chú cho sản phẩm này
-            productLatestDateMap.set(item.product_id, item.plan_date);
-            productNotesMap.set(item.product_id, {
-              notes1: item.note ? [item.note] : [],
-              notes2: item.note_2 ? [item.note_2] : []
-            });
-          } else if (latestDate === item.plan_date) {
-            // Gom các ghi chú của các Vendor khác nhau trong cùng ngày gần nhất đó
-            const existing = productNotesMap.get(item.product_id)!;
-            if (item.note) existing.notes1.push(item.note);
-            if (item.note_2) existing.notes2.push(item.note_2);
-          }
-        }
-
-        // Nối các ghi chú bằng " | " để hiển thị gọn gàng trên 1 dòng của sản phẩm
-        for (const [prodId, data] of productNotesMap.entries()) {
-          tempMap.set(prodId, {
-            note: data.notes1.join(" | "),
-            note2: data.notes2.join(" | ")
-          });
+      const tempMap = new Map<string, { note: string | null; note_2: string | null; plan_date: string }>();
+      for (const item of pastNotesData) {
+        const note = item.note_edited_at ? (item.note ?? "") : null;
+        const note2 = item.note_2_edited_at ? (item.note_2 ?? "") : null;
+        if (note === null && note2 === null) continue;
+        const key = `${item.product_id}_${item.delivery_customer_id || "null"}`;
+        const existing = tempMap.get(key) ?? { note: null, note_2: null, plan_date: item.plan_date };
+        const next = {
+          note: existing.note ?? note,
+          note_2: existing.note_2 ?? note2,
+          plan_date: existing.plan_date,
+        };
+        if (!tempMap.has(key) || next.note !== existing.note || next.note_2 !== existing.note_2) {
+          tempMap.set(key, next);
         }
       }
       setPastNotesMap(tempMap);
@@ -288,18 +279,20 @@ export default function ShortageReportPage() {
         dailyPlan.push(qty);
         dailyShortage.push(shortageToday);
         
-        let combinedNote1 = dayPlans.map(x => x.note).filter(Boolean).join(" | ");
-        let combinedNote2 = dayPlans.map(x => x.note_2).filter(Boolean).join(" | ");
-
-        // Kế thừa ghi chú cho ngày đầu tiên (Hôm nay) nếu trống ghi chú mới
-        if (d === days[0]) {
-          if (!combinedNote1 || combinedNote1.trim() === "") {
-            combinedNote1 = pastNotesMap.get(p.id)?.note || "";
-          }
-          if (!combinedNote2 || combinedNote2.trim() === "") {
-            combinedNote2 = pastNotesMap.get(p.id)?.note2 || "";
-          }
-        }
+        const noteParts1 = dayPlans
+          .map(x => {
+            const key = `${x.product_id}_${x.delivery_customer_id || "null"}`;
+            return x.note_edited_at ? (x.note ?? "") : (pastNotesMap.get(key)?.note ?? x.note ?? "");
+          })
+          .filter(x => x.trim() !== "");
+        const noteParts2 = dayPlans
+          .map(x => {
+            const key = `${x.product_id}_${x.delivery_customer_id || "null"}`;
+            return x.note_2_edited_at ? (x.note_2 ?? "") : (pastNotesMap.get(key)?.note_2 ?? x.note_2 ?? "");
+          })
+          .filter(x => x.trim() !== "");
+        const combinedNote1 = Array.from(new Set(noteParts1)).join(" | ");
+        const combinedNote2 = Array.from(new Set(noteParts2)).join(" | ");
         dailyNotes.push({ note: combinedNote1, note2: combinedNote2 });
 
         if (shortageToday > 0) hasShortage = true;
