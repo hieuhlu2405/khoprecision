@@ -55,6 +55,13 @@ type Plan = {
   qty_updated_at?: string | null;
   prev_planned_qty?: number | null;
 };
+type DeliveryNoteState = {
+  note: string | null;
+  note_2: string | null;
+  note_edited_at: string | null;
+  note_2_edited_at: string | null;
+  plan_date: string;
+};
 type ShipmentLog = {
   id: string;
   shipment_no: string;
@@ -122,6 +129,31 @@ function get7DaysFrom(startDateStr: string) {
     dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
   }
   return dates;
+}
+
+function isAfterTimestamp(candidate: string | null | undefined, baseline: string | null | undefined) {
+  if (!candidate) return false;
+  if (!baseline) return true;
+  const candidateTime = Date.parse(candidate);
+  const baselineTime = Date.parse(baseline);
+  if (Number.isNaN(candidateTime)) return false;
+  if (Number.isNaN(baselineTime)) return true;
+  return candidateTime > baselineTime;
+}
+
+function resolveDeliveryNote(
+  planNote: string | null | undefined,
+  planEditedAt: string | null | undefined,
+  inheritedNote: string | null | undefined,
+  inheritedEditedAt: string | null | undefined
+) {
+  if (isAfterTimestamp(inheritedEditedAt, planEditedAt)) {
+    return inheritedNote ?? "";
+  }
+  if (planEditedAt) {
+    return planNote ?? "";
+  }
+  return inheritedNote ?? planNote ?? "";
 }
 
 const TABLE_MIN_WIDTH = 1790; // Total width of all columns sum
@@ -245,7 +277,7 @@ export default function DeliveryPlanPage() {
   const [edits, setEdits] = useState<Record<string, { qty?: string; note?: string; note2?: string }>>({});
 
   // Ghi chú kế thừa từ quá khứ (30 ngày gần nhất)
-  const [pastNotesMap, setPastNotesMap] = useState<Map<string, { note: string | null; note_2: string | null; plan_date: string }>>(new Map());
+  const [pastNotesMap, setPastNotesMap] = useState<Map<string, DeliveryNoteState>>(new Map());
 
   // Filtering
   const [onlyScheduled, setOnlyScheduled] = useState(false);
@@ -369,19 +401,21 @@ export default function DeliveryPlanPage() {
       );
 
       // Hash Map O(N): giữ ghi chú gần nhất riêng cho từng cột lưu ý.
-      const tempMap = new Map<string, { note: string | null; note_2: string | null; plan_date: string }>();
+      const tempMap = new Map<string, DeliveryNoteState>();
       for (const item of pastNotesData) {
         const note = item.note_edited_at ? (item.note ?? "") : null;
         const note2 = item.note_2_edited_at ? (item.note_2 ?? "") : null;
         if (note === null && note2 === null) continue;
         const key = `${item.product_id}_${item.delivery_customer_id || "null"}`;
-        const existing = tempMap.get(key) ?? { note: null, note_2: null, plan_date: item.plan_date };
+        const existing = tempMap.get(key) ?? { note: null, note_2: null, note_edited_at: null, note_2_edited_at: null, plan_date: item.plan_date };
         const next = {
-          note: existing.note ?? note,
-          note_2: existing.note_2 ?? note2,
+          note: existing.note !== null ? existing.note : note,
+          note_2: existing.note_2 !== null ? existing.note_2 : note2,
+          note_edited_at: existing.note_edited_at ?? item.note_edited_at,
+          note_2_edited_at: existing.note_2_edited_at ?? item.note_2_edited_at,
           plan_date: existing.plan_date,
         };
-        if (!tempMap.has(key) || next.note !== existing.note || next.note_2 !== existing.note_2) {
+        if (!tempMap.has(key) || next.note !== existing.note || next.note_2 !== existing.note_2 || next.note_edited_at !== existing.note_edited_at || next.note_2_edited_at !== existing.note_2_edited_at) {
           tempMap.set(key, next);
         }
       }
@@ -976,10 +1010,9 @@ export default function DeliveryPlanPage() {
         if (isNaN(qty) || qty < 0) return;
 
         const pastKey = `${product_id}_${delivery_id || "null"}`;
-        const inheritedNote = pastNotesMap.get(pastKey)?.note ?? null;
-        const inheritedNote2 = pastNotesMap.get(pastKey)?.note_2 ?? null;
-        const previousNote = existing?.note_edited_at ? (existing.note ?? "") : (inheritedNote ?? existing?.note ?? null);
-        const previousNote2 = existing?.note_2_edited_at ? (existing.note_2 ?? "") : (inheritedNote2 ?? existing?.note_2 ?? null);
+        const inheritedNotes = pastNotesMap.get(pastKey);
+        const previousNote = resolveDeliveryNote(existing?.note, existing?.note_edited_at, inheritedNotes?.note, inheritedNotes?.note_edited_at);
+        const previousNote2 = resolveDeliveryNote(existing?.note_2, existing?.note_2_edited_at, inheritedNotes?.note_2, inheritedNotes?.note_2_edited_at);
         const newNote = editData.note !== undefined ? editData.note : previousNote;
         const newNote2 = editData.note2 !== undefined ? editData.note2 : previousNote2;
 
@@ -1645,7 +1678,8 @@ export default function DeliveryPlanPage() {
                             const today = days[0];
                             const plan = plans.find(x => x.product_id === p.id && x.plan_date === today && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
                             const pastNoteKey = `${p.id}_${row.deliveryCustomerId || "null"}`;
-                            const noteVal = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note ?? (plan?.note_edited_at ? (plan.note ?? "") : (pastNotesMap.get(pastNoteKey)?.note ?? plan?.note)) ?? "";
+                            const inheritedNotes = pastNotesMap.get(pastNoteKey);
+                            const noteVal = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note ?? resolveDeliveryNote(plan?.note, plan?.note_edited_at, inheritedNotes?.note, inheritedNotes?.note_edited_at);
                             const disabled = !canEditDate(today);
                             return (
                               <input
@@ -1664,7 +1698,8 @@ export default function DeliveryPlanPage() {
                             const today = days[0];
                             const plan = plans.find(x => x.product_id === p.id && x.plan_date === today && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
                             const pastNote2Key = `${p.id}_${row.deliveryCustomerId || "null"}`;
-                            const note2Val = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note2 ?? (plan?.note_2_edited_at ? (plan.note_2 ?? "") : (pastNotesMap.get(pastNote2Key)?.note_2 ?? plan?.note_2)) ?? "";
+                            const inheritedNotes = pastNotesMap.get(pastNote2Key);
+                            const note2Val = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${today}`]?.note2 ?? resolveDeliveryNote(plan?.note_2, plan?.note_2_edited_at, inheritedNotes?.note_2, inheritedNotes?.note_2_edited_at);
                             const disabled = !canEditDate(today);
                             return (
                               <input

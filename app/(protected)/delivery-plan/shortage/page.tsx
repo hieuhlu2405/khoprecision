@@ -16,6 +16,7 @@ type Product = { id: string; sku: string; name: string; spec: string | null; cus
 type Customer = { id: string; code: string; name: string; parent_customer_id: string | null };
 type Plan = { id: string; product_id: string; customer_id: string | null; delivery_customer_id?: string | null; plan_date: string; planned_qty: number; actual_qty: number; backlog_qty?: number; note?: string | null; note_2?: string | null; note_edited_at?: string | null; note_2_edited_at?: string | null };
 type PastNote = { id: string; product_id: string; customer_id: string | null; delivery_customer_id: string | null; note: string | null; note_2: string | null; note_edited_at: string | null; note_2_edited_at: string | null; plan_date: string };
+type DeliveryNoteState = { note: string | null; note_2: string | null; note_edited_at: string | null; note_2_edited_at: string | null; plan_date: string };
 
 type TextFilter = { mode: "contains" | "equals"; value: string };
 type SortDir = "asc" | "desc" | null;
@@ -42,6 +43,44 @@ function fmtNum(n: number): string {
 function getTodayStr(): string {
   const n = getVNTimeNow();
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+}
+
+function isAfterTimestamp(candidate: string | null | undefined, baseline: string | null | undefined) {
+  if (!candidate) return false;
+  if (!baseline) return true;
+  const candidateTime = Date.parse(candidate);
+  const baselineTime = Date.parse(baseline);
+  if (Number.isNaN(candidateTime)) return false;
+  if (Number.isNaN(baselineTime)) return true;
+  return candidateTime > baselineTime;
+}
+
+function resolveDeliveryNote(
+  planNote: string | null | undefined,
+  planEditedAt: string | null | undefined,
+  inheritedNote: string | null | undefined,
+  inheritedEditedAt: string | null | undefined
+) {
+  if (isAfterTimestamp(inheritedEditedAt, planEditedAt)) {
+    return inheritedNote ?? "";
+  }
+  if (planEditedAt) {
+    return planNote ?? "";
+  }
+  return inheritedNote ?? planNote ?? "";
+}
+
+function mergeDeliveryNoteState(
+  current: DeliveryNoteState | undefined,
+  patch: Partial<DeliveryNoteState> & { plan_date: string }
+): DeliveryNoteState {
+  return {
+    note: patch.note !== undefined ? patch.note : current?.note ?? null,
+    note_2: patch.note_2 !== undefined ? patch.note_2 : current?.note_2 ?? null,
+    note_edited_at: patch.note_edited_at !== undefined ? patch.note_edited_at : current?.note_edited_at ?? null,
+    note_2_edited_at: patch.note_2_edited_at !== undefined ? patch.note_2_edited_at : current?.note_2_edited_at ?? null,
+    plan_date: patch.plan_date || current?.plan_date || "",
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -140,7 +179,7 @@ export default function ShortageReportPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [stockMap, setStockMap] = useState<Record<string, number>>({});
-  const [pastNotesMap, setPastNotesMap] = useState<Map<string, { note: string | null; note_2: string | null; plan_date: string }>>(new Map());
+  const [pastNotesMap, setPastNotesMap] = useState<Map<string, DeliveryNoteState>>(new Map());
 
   const days = useMemo(() => getNext7Days(), []);
   const [onlyShortage, setOnlyShortage] = useState(true);
@@ -205,19 +244,21 @@ export default function ShortageReportPage() {
           .order("plan_date", { ascending: false })
       );
 
-      const tempMap = new Map<string, { note: string | null; note_2: string | null; plan_date: string }>();
+      const tempMap = new Map<string, DeliveryNoteState>();
       for (const item of pastNotesData) {
         const note = item.note_edited_at ? (item.note ?? "") : null;
         const note2 = item.note_2_edited_at ? (item.note_2 ?? "") : null;
         if (note === null && note2 === null) continue;
         const key = `${item.product_id}_${item.delivery_customer_id || "null"}`;
-        const existing = tempMap.get(key) ?? { note: null, note_2: null, plan_date: item.plan_date };
+        const existing = tempMap.get(key) ?? { note: null, note_2: null, note_edited_at: null, note_2_edited_at: null, plan_date: item.plan_date };
         const next = {
-          note: existing.note ?? note,
-          note_2: existing.note_2 ?? note2,
+          note: existing.note !== null ? existing.note : note,
+          note_2: existing.note_2 !== null ? existing.note_2 : note2,
+          note_edited_at: existing.note_edited_at ?? item.note_edited_at,
+          note_2_edited_at: existing.note_2_edited_at ?? item.note_2_edited_at,
           plan_date: existing.plan_date,
         };
-        if (!tempMap.has(key) || next.note !== existing.note || next.note_2 !== existing.note_2) {
+        if (!tempMap.has(key) || next.note !== existing.note || next.note_2 !== existing.note_2 || next.note_edited_at !== existing.note_edited_at || next.note_2_edited_at !== existing.note_2_edited_at) {
           tempMap.set(key, next);
         }
       }
@@ -264,6 +305,7 @@ export default function ShortageReportPage() {
       const dailyPlan: number[] = [];
       const dailyShortage: number[] = [];
       const dailyNotes: { note: string, note2: string }[] = [];
+      const rollingNotesMap = new Map(pastNotesMap);
 
       for (const d of days) {
         // FIX: dùng filter() + reduce() để tổng hợp từ nhiều vendor hàng cùng 1 sản phẩm
@@ -282,18 +324,41 @@ export default function ShortageReportPage() {
         const noteParts1 = dayPlans
           .map(x => {
             const key = `${x.product_id}_${x.delivery_customer_id || "null"}`;
-            return x.note_edited_at ? (x.note ?? "") : (pastNotesMap.get(key)?.note ?? x.note ?? "");
+            const inherited = rollingNotesMap.get(key);
+            return resolveDeliveryNote(x.note, x.note_edited_at, inherited?.note, inherited?.note_edited_at);
           })
           .filter(x => x.trim() !== "");
         const noteParts2 = dayPlans
           .map(x => {
             const key = `${x.product_id}_${x.delivery_customer_id || "null"}`;
-            return x.note_2_edited_at ? (x.note_2 ?? "") : (pastNotesMap.get(key)?.note_2 ?? x.note_2 ?? "");
+            const inherited = rollingNotesMap.get(key);
+            return resolveDeliveryNote(x.note_2, x.note_2_edited_at, inherited?.note_2, inherited?.note_2_edited_at);
           })
           .filter(x => x.trim() !== "");
         const combinedNote1 = Array.from(new Set(noteParts1)).join(" | ");
         const combinedNote2 = Array.from(new Set(noteParts2)).join(" | ");
         dailyNotes.push({ note: combinedNote1, note2: combinedNote2 });
+
+        dayPlans.forEach(x => {
+          const key = `${x.product_id}_${x.delivery_customer_id || "null"}`;
+          const current = rollingNotesMap.get(key);
+          let next = current;
+          if (x.note_edited_at && isAfterTimestamp(x.note_edited_at, current?.note_edited_at)) {
+            next = mergeDeliveryNoteState(next, {
+              note: x.note ?? "",
+              note_edited_at: x.note_edited_at,
+              plan_date: x.plan_date,
+            });
+          }
+          if (x.note_2_edited_at && isAfterTimestamp(x.note_2_edited_at, next?.note_2_edited_at)) {
+            next = mergeDeliveryNoteState(next, {
+              note_2: x.note_2 ?? "",
+              note_2_edited_at: x.note_2_edited_at,
+              plan_date: x.plan_date,
+            });
+          }
+          if (next) rollingNotesMap.set(key, next);
+        });
 
         if (shortageToday > 0) hasShortage = true;
       }
