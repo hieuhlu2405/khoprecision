@@ -141,15 +141,17 @@ export function exportToExcel(data: any[], filename: string, sheetName: string =
 /**
  * Xuất nháp Kế hoạch Giao hàng hôm nay dùng đúng file mẫu maukehoachgiaohang.xlsx
  * - Giữ nguyên định dạng A1, A2, B2, C2, D2, E2
- * - A3+ = dữ liệu từng mã: STT, Tên KH, Mã nội bộ, Tên hàng, Số lượng kế hoạch
+ * - A3+ = dữ liệu từng mã: STT, Mã KH/Vendor, Mã nội bộ, Tên hàng, Số lượng kế hoạch, Lưu ý 1, Lưu ý 2
  * - Tự kẻ bảng cho từng dòng dữ liệu
  */
 export async function exportDeliveryDraftExcel(
   items: {
-    customerName: string;
+    customerCode: string;
     sku: string;
     productName: string;
     plannedQty: number;
+    note1: string;
+    note2: string;
   }[],
   dateLabel: string,
   filename: string
@@ -166,9 +168,25 @@ export async function exportDeliveryDraftExcel(
   // Cập nhật tiêu đề A1 với ngày
   const titleCell = ws.getCell('A1');
   titleCell.value = `KẾ HOẠCH GIAO HÀNG - NGÀY ${dateLabel}`;
-  // Giữ merge A1:E1
+  // Giữ tiêu đề phủ hết các cột đang xuất
   try { ws.unMergeCells('A1:E1'); } catch (_) {}
-  ws.mergeCells('A1:E1');
+  try { ws.unMergeCells('A1:G1'); } catch (_) {}
+  ws.mergeCells('A1:G1');
+
+  const headerLabels = ['#', 'Khách hàng', 'Mã nội bộ', 'Tên hàng', 'Số lượng theo kế hoạch', 'Lưu ý 1', 'Lưu ý 2'];
+  const headerRow = ws.getRow(2);
+  const headerTemplate = headerRow.getCell(5);
+  headerLabels.forEach((label, index) => {
+    const cell = headerRow.getCell(index + 1);
+    cell.value = label;
+    cell.font = headerTemplate.font;
+    cell.fill = headerTemplate.fill;
+    cell.alignment = headerTemplate.alignment;
+    cell.border = headerTemplate.border;
+  });
+  ws.getColumn(2).width = 14;
+  ws.getColumn(6).width = 24;
+  ws.getColumn(7).width = 24;
 
   // Border style dùng cho từng ô dữ liệu
   const thinBorder: Partial<ExcelJS.Borders> = {
@@ -190,11 +208,11 @@ export async function exportDeliveryDraftExcel(
     c1.alignment = { horizontal: 'center', vertical: 'middle' };
     c1.border = thinBorder;
 
-    // Tên Khách hàng
+    // Mã Khách hàng / Vendor
     const c2 = row.getCell(2);
-    c2.value = item.customerName;
+    c2.value = item.customerCode;
     c2.font = { name: 'Times New Roman', size: 13 };
-    c2.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+    c2.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     c2.border = thinBorder;
 
     // Mã nội bộ
@@ -217,6 +235,20 @@ export async function exportDeliveryDraftExcel(
     c5.font = { name: 'Times New Roman', size: 13, bold: true };
     c5.alignment = { horizontal: 'center', vertical: 'middle' };
     c5.border = thinBorder;
+
+    // Lưu ý 1
+    const c6 = row.getCell(6);
+    c6.value = item.note1;
+    c6.font = { name: 'Times New Roman', size: 13 };
+    c6.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+    c6.border = thinBorder;
+
+    // Lưu ý 2
+    const c7 = row.getCell(7);
+    c7.value = item.note2;
+    c7.font = { name: 'Times New Roman', size: 13 };
+    c7.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+    c7.border = thinBorder;
 
     row.height = 20;
     row.commit();

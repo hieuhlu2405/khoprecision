@@ -947,22 +947,28 @@ export default function DeliveryPlanPage() {
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const dateLabel = todayStr.split('-').reverse().join('/');
 
-    const todayItems = products
-      .filter(p => {
-        const plan = plans.find(pl => pl.product_id === p.id && pl.plan_date === todayStr);
-        return plan && ((plan.planned_qty || 0) + (plan.backlog_qty || 0)) > 0 && !plan.is_completed;
+    const todayItems = plans
+      .filter(plan => {
+        return plan.plan_date === todayStr && ((plan.planned_qty || 0) + (plan.backlog_qty || 0)) > 0 && !plan.is_completed;
       })
-      .map(p => {
-        const plan = plans.find(pl => pl.product_id === p.id && pl.plan_date === todayStr)!;
-        const cust = customers.find(c => c.id === p.customer_id);
+      .map(plan => {
+        const p = products.find(prod => prod.id === plan.product_id);
+        if (!p) return null;
+        const cust = customers.find(c => c.id === (plan.delivery_customer_id || plan.customer_id || p.customer_id));
+        const editKey = `${plan.product_id}_${plan.delivery_customer_id || "null"}_${todayStr}`;
+        const pastKey = `${plan.product_id}_${plan.delivery_customer_id || "null"}`;
+        const inheritedNotes = pastNotesMap.get(pastKey);
         return {
-          customerName: cust?.name || '-',
+          customerCode: cust?.code || '-',
           sku: p.sku,
           productName: p.name + (p.spec ? ` (${p.spec})` : ''),
           plannedQty: (plan.planned_qty || 0) + (plan.backlog_qty || 0),
+          note1: edits[editKey]?.note ?? resolveDeliveryNote(plan.note, plan.note_edited_at, inheritedNotes?.note, inheritedNotes?.note_edited_at),
+          note2: edits[editKey]?.note2 ?? resolveDeliveryNote(plan.note_2, plan.note_2_edited_at, inheritedNotes?.note_2, inheritedNotes?.note_2_edited_at),
         };
       })
-      .sort((a, b) => a.customerName.localeCompare(b.customerName) || a.sku.localeCompare(b.sku));
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+      .sort((a, b) => a.customerCode.localeCompare(b.customerCode) || a.sku.localeCompare(b.sku));
 
     if (todayItems.length === 0) {
       showToast('Không có mã hàng nào có kế hoạch giao hôm nay.', 'warning');
