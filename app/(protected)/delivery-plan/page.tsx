@@ -5,6 +5,21 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  ArrowDown,
+  ArrowDownUp,
+  ArrowUp,
+  CalendarDays,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  FileSpreadsheet,
+  Flame,
+  Funnel,
+  Printer,
+  Save,
+  Truck,
+} from "lucide-react";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 import { formatDateVN, formatDateTimeVN, getTodayVNStr, getVNTimeNow } from "@/lib/date-utils";
 import { exportToExcel, readExcel, exportWithTemplate, exportDeliveryDraftExcel } from "@/lib/excel-utils";
@@ -212,7 +227,7 @@ function DateColFilterPopup({ filter, onChange, onClose, dateStr, uncompletedCou
   return (
     <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xl min-w-[250px] backdrop-blur-xl bg-white/90" onClick={e => e.stopPropagation()}>
       <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1">
-        <span>📅</span> Lọc ngày {formattedDate}
+        <CalendarDays className="h-3.5 w-3.5" strokeWidth={2.25} /> Lọc ngày {formattedDate}
       </div>
       <div className="flex items-center gap-3 mb-4 py-2 border-y border-slate-100">
         <input
@@ -274,6 +289,7 @@ export default function DeliveryPlanPage() {
   const days = useMemo(() => get7DaysFrom(anchorDate), [anchorDate]);
 
   const [saving, setSaving] = useState(false);
+  const [exportingFuturePlan, setExportingFuturePlan] = useState(false);
   const [edits, setEdits] = useState<Record<string, { qty?: string; note?: string; note2?: string }>>({});
 
   // Ghi chú kế thừa từ quá khứ (30 ngày gần nhất)
@@ -989,6 +1005,98 @@ export default function DeliveryPlanPage() {
     }
   };
 
+  const handleExportFuturePlan = async () => {
+    if (Object.keys(edits).length > 0) {
+      showToast('Có kế hoạch chưa lưu. Vui lòng lưu trước rồi xuất file kế hoạch tổng để tránh lấy số cũ.', 'warning');
+      return;
+    }
+
+    const now = getVNTimeNow();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const dateLabel = todayStr.split('-').reverse().join('/');
+
+    setExportingFuturePlan(true);
+    try {
+      const futurePlans = await fetchAllRows<Plan>(
+        supabase
+          .from("delivery_plans")
+          .select("*")
+          .gte("plan_date", todayStr)
+          .is("deleted_at", null)
+          .or("planned_qty.gt.0,backlog_qty.gt.0")
+          .order("plan_date", { ascending: true })
+      );
+
+      const rollingNotes = new Map(pastNotesMap);
+      const exportRows = futurePlans
+        .map(plan => {
+          const p = products.find(prod => prod.id === plan.product_id);
+          if (!p) return null;
+
+          const totalPlan = (plan.planned_qty || 0) + (plan.backlog_qty || 0);
+          if (totalPlan <= 0) return null;
+
+          const exportCustomerId = plan.delivery_customer_id || p.customer_id;
+          const cust = customers.find(c => c.id === exportCustomerId);
+          const noteKey = `${plan.product_id}_${plan.delivery_customer_id || "null"}`;
+          const inheritedNotes = rollingNotes.get(noteKey);
+          const note1 = resolveDeliveryNote(plan.note, plan.note_edited_at, inheritedNotes?.note, inheritedNotes?.note_edited_at);
+          const note2 = resolveDeliveryNote(plan.note_2, plan.note_2_edited_at, inheritedNotes?.note_2, inheritedNotes?.note_2_edited_at);
+
+          if (plan.note_edited_at || plan.note_2_edited_at) {
+            rollingNotes.set(noteKey, {
+              note: plan.note_edited_at ? (plan.note ?? "") : (inheritedNotes?.note ?? null),
+              note_2: plan.note_2_edited_at ? (plan.note_2 ?? "") : (inheritedNotes?.note_2 ?? null),
+              note_edited_at: plan.note_edited_at ?? inheritedNotes?.note_edited_at ?? null,
+              note_2_edited_at: plan.note_2_edited_at ?? inheritedNotes?.note_2_edited_at ?? null,
+              plan_date: plan.plan_date,
+            });
+          }
+
+          const actualQty = plan.actual_qty || 0;
+          const remainingQty = Math.max(totalPlan - actualQty, 0);
+
+          return {
+            "Ngày kế hoạch": plan.plan_date.split("-").reverse().join("/"),
+            "Mã khách/Vendor": cust?.code || "-",
+            "Tên khách/Vendor": cust?.name || "-",
+            "Mã nội bộ": p.sku,
+            "Tên hàng": p.name + (p.spec ? ` (${p.spec})` : ""),
+            "ĐVT": p.uom || "",
+            "Kế hoạch gốc": plan.planned_qty || 0,
+            "Nợ cộng thêm": plan.backlog_qty || 0,
+            "Tổng kế hoạch": totalPlan,
+            "Đã xuất": actualQty,
+            "Còn lại": remainingQty,
+            "Trạng thái": plan.is_completed ? "Đã xong" : actualQty > 0 ? "Đã xuất một phần" : "Chưa xuất",
+            "Lưu ý 1": note1,
+            "Lưu ý 2": note2,
+          };
+        })
+        .filter((row): row is NonNullable<typeof row> => row !== null)
+        .sort((a, b) => {
+          const dateA = String(a["Ngày kế hoạch"]).split("/").reverse().join("");
+          const dateB = String(b["Ngày kế hoạch"]).split("/").reverse().join("");
+          return dateA.localeCompare(dateB) ||
+            String(a["Mã khách/Vendor"]).localeCompare(String(b["Mã khách/Vendor"])) ||
+            String(a["Mã nội bộ"]).localeCompare(String(b["Mã nội bộ"]));
+        });
+
+      if (exportRows.length === 0) {
+        showToast(`Không có kế hoạch nào từ ngày ${dateLabel}.`, 'warning');
+        return;
+      }
+
+      exportToExcel(exportRows, `KE_HOACH_GIAO_HANG_TU_${todayStr.replace(/-/g, '')}`, "Ke hoach tu hom nay");
+      showToast(`Đã xuất kế hoạch tổng ${exportRows.length} dòng từ ngày ${dateLabel}.`, 'success');
+    } catch (err: any) {
+      console.error(err);
+      showToast('Lỗi khi xuất file Excel kế hoạch tổng.', 'error');
+    } finally {
+      setExportingFuturePlan(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!canEdit || Object.keys(edits).length === 0) return;
     setSaving(true);
@@ -1370,9 +1478,13 @@ export default function DeliveryPlanPage() {
                 aria-label={`Sắp xếp ${label}`}
                 className={`delivery-th-action-btn p-1 rounded bg-white shadow-sm border border-slate-200 transition-all ${isSortTarget ? "text-indigo-600 scale-110" : "text-slate-400 hover:text-indigo-500"}`}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6" /> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6" /> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3" />}
-                </svg>
+                {isSortTarget && sortDir === "asc" ? (
+                  <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.5} />
+                ) : isSortTarget && sortDir === "desc" ? (
+                  <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.5} />
+                ) : (
+                  <ArrowDownUp className="h-3.5 w-3.5" strokeWidth={2.25} />
+                )}
               </button>
             )}
             <button
@@ -1381,7 +1493,7 @@ export default function DeliveryPlanPage() {
               aria-label={`Lọc ${label}`}
               className={`delivery-th-action-btn p-1 rounded transition-all border ${active ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-400 border-slate-200 hover:text-indigo-500"}`}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+              <Funnel className="h-3.5 w-3.5" strokeWidth={2.25} />
             </button>
           </div>
         </div>
@@ -1436,8 +1548,8 @@ export default function DeliveryPlanPage() {
     <motion.div className="page-root" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <div className="page-header bg-white/80 backdrop-blur-md z-[100] py-4 px-6 -mx-6 mb-8 border-b border-slate-200/60 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200 text-2xl">
-            📅
+          <div className="w-10 h-10 rounded-xl bg-slate-950 text-white flex items-center justify-center shadow-lg shadow-slate-200">
+            <CalendarDays className="h-5 w-5" strokeWidth={2.25} />
           </div>
           <div>
             <h1 className="page-title tracking-wider">KẾ HOẠCH GIAO HÀNG</h1>
@@ -1455,7 +1567,7 @@ export default function DeliveryPlanPage() {
               className="btn btn-ghost btn-xs h-8 px-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
               title="7 ngày trước"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              <ChevronLeft className="h-4 w-4" strokeWidth={2.4} />
             </button>
             <input
               type="date"
@@ -1480,7 +1592,7 @@ export default function DeliveryPlanPage() {
               className="btn btn-ghost btn-xs h-8 px-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
               title="7 ngày sau"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              <ChevronRight className="h-4 w-4" strokeWidth={2.4} />
             </button>
           </div>
 
@@ -1520,7 +1632,10 @@ export default function DeliveryPlanPage() {
             onClick={handleSave}
             disabled={saving || !canEdit || Object.keys(edits).length === 0}
           >
-            {saving ? "ĐANG LƯU..." : "💾 LƯU KẾ HOẠCH"}
+            <span className="inline-flex items-center gap-2">
+              <Save className="h-4 w-4" strokeWidth={2.35} />
+              {saving ? "ĐANG LƯU..." : "LƯU KẾ HOẠCH"}
+            </span>
           </button>
 
           <div className="h-8 w-px bg-slate-200 mx-1" />
@@ -1530,7 +1645,21 @@ export default function DeliveryPlanPage() {
             title="Xuất nháp kế hoạch giao hàng hôm nay để kiểm tra khi xuất hàng"
             className="btn h-10 px-5 rounded-xl font-black text-xs tracking-widest bg-amber-400 hover:bg-amber-500 text-amber-950 shadow-xl shadow-amber-200 border-none transition-all"
           >
-            🖨️ XUẤT NHÁP
+            <span className="inline-flex items-center gap-2">
+              <Printer className="h-4 w-4" strokeWidth={2.35} />
+              XUẤT NHÁP
+            </span>
+          </button>
+          <button
+            onClick={handleExportFuturePlan}
+            disabled={exportingFuturePlan}
+            title="Xuất Excel toàn bộ kế hoạch từ hôm nay trở đi, không phải file nháp xuất hàng"
+            className="btn h-10 px-5 rounded-xl font-black text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-100 border-none transition-all disabled:opacity-60"
+          >
+            <span className="inline-flex items-center gap-2">
+              <FileSpreadsheet className="h-4 w-4" strokeWidth={2.35} />
+              {exportingFuturePlan ? "ĐANG XUẤT..." : "XUẤT KẾ HOẠCH TỔNG"}
+            </span>
           </button>
         </div>
       </div>
@@ -1843,7 +1972,7 @@ export default function DeliveryPlanPage() {
                                       </button>
                                     )}
                                     <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm" title={`Đã xuất kho: ${actualQty}`}>
-                                      <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" className="w-2.5 h-2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                                      <Check className="h-3 w-3 text-white" strokeWidth={3.5} />
                                     </div>
                                   </div>
                                 )}
@@ -2041,7 +2170,10 @@ export default function DeliveryPlanPage() {
                 <div className="flex-1 w-full mt-2">
                   <div className="flex gap-4">
                     <div className="flex-1 min-w-[200px]">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">🚛 Chọn Xe / Tài xế *</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                        <Truck className="h-3.5 w-3.5" strokeWidth={2.35} />
+                        Chọn Xe / Tài xế *
+                      </label>
                       <select
                         value={shipmentVehicleId}
                         onChange={async (e) => {
@@ -2152,7 +2284,17 @@ export default function DeliveryPlanPage() {
                           ) : (
                             tripCountAlert > 0 && vehicles.find(v => v.id === shipmentVehicleId)?.type === "nội_bộ" && (
                               <div className={`text-[11px] font-black px-2 py-1 flex items-center gap-1 rounded border inline-flex ${tripCountAlert >= 3 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
-                                {tripCountAlert >= 3 ? `🔥 LƯU Ý: Chuyến thứ ${tripCountAlert + 1} (Rate 230k/170k)` : `🚛 Chuyến thứ ${tripCountAlert + 1} (Rate 170k/120k)`}
+                                {tripCountAlert >= 3 ? (
+                                  <>
+                                    <Flame className="h-3.5 w-3.5" strokeWidth={2.4} />
+                                    LƯU Ý: Chuyến thứ {tripCountAlert + 1} (Rate 230k/170k)
+                                  </>
+                                ) : (
+                                  <>
+                                    <Truck className="h-3.5 w-3.5" strokeWidth={2.4} />
+                                    Chuyến thứ {tripCountAlert + 1} (Rate 170k/120k)
+                                  </>
+                                )}
                               </div>
                             )
                           )}
