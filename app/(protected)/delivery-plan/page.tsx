@@ -954,7 +954,8 @@ export default function DeliveryPlanPage() {
       .map(plan => {
         const p = products.find(prod => prod.id === plan.product_id);
         if (!p) return null;
-        const cust = customers.find(c => c.id === (plan.delivery_customer_id || plan.customer_id || p.customer_id));
+        const exportCustomerId = plan.delivery_customer_id || p.customer_id;
+        const cust = customers.find(c => c.id === exportCustomerId);
         const editKey = `${plan.product_id}_${plan.delivery_customer_id || "null"}_${todayStr}`;
         const pastKey = `${plan.product_id}_${plan.delivery_customer_id || "null"}`;
         const inheritedNotes = pastNotesMap.get(pastKey);
