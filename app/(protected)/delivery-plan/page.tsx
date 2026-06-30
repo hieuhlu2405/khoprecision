@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef, type KeyboardEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
@@ -1054,7 +1054,7 @@ export default function DeliveryPlanPage() {
         const customer = customers.find(c => c.id === exportCustomerId);
         const rowKey = `${plan.product_id}_${plan.delivery_customer_id || "parent"}`;
         const existing = rowsByProduct.get(rowKey) ?? {
-          customerName: customer?.name || customer?.code || "-",
+          customerName: customer?.code || customer?.name || "-",
           sku: p.sku,
           uom: p.uom || "",
           totalRemaining: 0,
@@ -1415,6 +1415,37 @@ export default function DeliveryPlanPage() {
     estimateSize: () => 56,
     overscan: 10,
   });
+
+  const focusPlanCell = useCallback((rowIndex: number, dayIndex: number) => {
+    const selector = `input[data-plan-row-index="${rowIndex}"][data-plan-day-index="${dayIndex}"]:not(:disabled)`;
+    const target = document.querySelector<HTMLInputElement>(selector);
+    if (!target) return false;
+    target.focus();
+    target.select();
+    return true;
+  }, []);
+
+  const handlePlanCellKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+
+    const rowIndex = Number(event.currentTarget.dataset.planRowIndex);
+    const dayIndex = Number(event.currentTarget.dataset.planDayIndex);
+    if (!Number.isFinite(rowIndex) || !Number.isFinite(dayIndex)) return;
+
+    const nextRow = event.key === "ArrowUp" ? rowIndex - 1 : event.key === "ArrowDown" ? rowIndex + 1 : rowIndex;
+    const nextDay = event.key === "ArrowLeft" ? dayIndex - 1 : event.key === "ArrowRight" ? dayIndex + 1 : dayIndex;
+    if (nextRow < 0 || nextRow >= tableRows.length || nextDay < 0 || nextDay >= days.length) return;
+
+    event.preventDefault();
+    if (focusPlanCell(nextRow, nextDay)) return;
+
+    rowVirtualizer.scrollToIndex(nextRow, { align: "auto" });
+    window.setTimeout(() => {
+      if (!focusPlanCell(nextRow, nextDay)) {
+        window.setTimeout(() => focusPlanCell(nextRow, nextDay), 40);
+      }
+    }, 0);
+  }, [days.length, focusPlanCell, rowVirtualizer, tableRows.length]);
 
   const activeFilterCount = Object.keys(colFilters).length;
 
@@ -1847,7 +1878,7 @@ export default function DeliveryPlanPage() {
                             );
                           })()}
                         </td>
-                        {days.map(d => {
+                        {days.map((d, dayIndex) => {
                           const plan = plans.find(x => x.product_id === p.id && x.plan_date === d && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
                           const editData = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${d}`];
                           const actualQty = plan?.actual_qty || 0;
@@ -1926,6 +1957,8 @@ export default function DeliveryPlanPage() {
                                     ${itdr && !isChanged && !isDone ? 'text-red-600' : ''}
                                   `}
                                   disabled={disabled}
+                                  data-plan-row-index={virtualRow.index}
+                                  data-plan-day-index={dayIndex}
                                   value={val === "0" ? "" : val}
                                   placeholder="-"
                                   title={isDone ? `Đã xuất đủ: ${actualQty}/${plannedQty}` : hasPartialShipment ? `Đang xuất dở: ${actualQty}/${plannedQty}` : (editData?.note ?? plan?.note ?? "")}
@@ -1934,6 +1967,7 @@ export default function DeliveryPlanPage() {
                                     handleQtyChange(p.id, row.deliveryCustomerId, d, v);
                                   }}
                                   onFocus={e => e.target.select()}
+                                  onKeyDown={handlePlanCellKeyDown}
                                 />
                                 {(isDone || hasPartialShipment) && (
                                   <div className="absolute bottom-0 left-1 right-1 h-1 rounded-full bg-slate-200 overflow-hidden">
