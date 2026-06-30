@@ -138,6 +138,106 @@ export function exportToExcel(data: any[], filename: string, sheetName: string =
    xlsx.writeFile(wb, `${filename}.xlsx`);
 }
 
+export async function exportDeliveryFuturePlanMatrixExcel(
+  rows: {
+    sku: string;
+    uom: string;
+    totalRemaining: number;
+    quantitiesByDate: Record<string, number>;
+  }[],
+  dates: string[],
+  filename: string
+) {
+  const workbook = new ExcelJS.Workbook();
+  const ws = workbook.addWorksheet('Ke hoach tong');
+
+  const thinBorder: Partial<ExcelJS.Borders> = {
+    top: { style: 'thin' },
+    left: { style: 'thin' },
+    bottom: { style: 'thin' },
+    right: { style: 'thin' },
+  };
+  const blueFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0070C0' } };
+  const lightBlueFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
+
+  ws.views = [{ state: 'frozen', xSplit: 3, ySplit: 2 }];
+  ws.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: 2, column: 3 + dates.length },
+  };
+
+  ws.getColumn(1).width = 24;
+  ws.getColumn(2).width = 10;
+  ws.getColumn(3).width = 12;
+  dates.forEach((_, idx) => {
+    ws.getColumn(4 + idx).width = 11;
+  });
+
+  const fixedHeaders = ['Mã liệu', 'Đơn vị', 'SL chưa giao'];
+  fixedHeaders.forEach((label, idx) => {
+    const col = idx + 1;
+    const cell = ws.getCell(1, col);
+    cell.value = label;
+    cell.fill = blueFill;
+    cell.font = { name: 'Times New Roman', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    cell.border = thinBorder;
+    ws.mergeCells(1, col, 2, col);
+  });
+
+  const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  dates.forEach((dateStr, idx) => {
+    const col = 4 + idx;
+    const d = new Date(`${dateStr}T00:00:00`);
+    const day = d.getDay();
+    const dateCell = ws.getCell(1, col);
+    dateCell.value = `${String(d.getDate()).padStart(2, '0')}-Thg${d.getMonth() + 1}`;
+    dateCell.fill = blueFill;
+    dateCell.font = { name: 'Times New Roman', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+    dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    dateCell.border = thinBorder;
+
+    const weekdayCell = ws.getCell(2, col);
+    weekdayCell.value = weekdayLabels[day];
+    weekdayCell.fill = lightBlueFill;
+    weekdayCell.font = {
+      name: 'Times New Roman',
+      size: 11,
+      bold: day === 0 || day === 6,
+      color: { argb: day === 0 || day === 6 ? 'FFC00000' : 'FF000000' },
+    };
+    weekdayCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    weekdayCell.border = thinBorder;
+  });
+
+  ws.getRow(1).height = 20;
+  ws.getRow(2).height = 18;
+
+  rows.forEach((item, rowIdx) => {
+    const rowNum = 3 + rowIdx;
+    [item.sku, item.uom, item.totalRemaining].forEach((value, idx) => {
+      const cell = ws.getCell(rowNum, idx + 1);
+      cell.value = value;
+      cell.font = { name: 'Times New Roman', size: 11 };
+      cell.alignment = { horizontal: idx === 0 ? 'left' : 'center', vertical: 'middle' };
+      cell.border = thinBorder;
+    });
+
+    dates.forEach((dateStr, idx) => {
+      const qty = item.quantitiesByDate[dateStr] || 0;
+      const cell = ws.getCell(rowNum, 4 + idx);
+      cell.value = qty > 0 ? qty : null;
+      cell.font = { name: 'Times New Roman', size: 11 };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = thinBorder;
+    });
+    ws.getRow(rowNum).height = 18;
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  saveAs(new Blob([buffer]), `${filename}.xlsx`);
+}
+
 /**
  * Xuất nháp Kế hoạch Giao hàng hôm nay dùng đúng file mẫu maukehoachgiaohang.xlsx
  * - Giữ nguyên định dạng A1, A2, B2, C2, D2, E2

@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 import { formatDateVN, formatDateTimeVN, getTodayVNStr, getVNTimeNow } from "@/lib/date-utils";
-import { exportToExcel, readExcel, exportWithTemplate, exportDeliveryDraftExcel } from "@/lib/excel-utils";
+import { exportToExcel, readExcel, exportWithTemplate, exportDeliveryDraftExcel, exportDeliveryFuturePlanMatrixExcel } from "@/lib/excel-utils";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 
 /* ------------------------------------------------------------------ */
@@ -1032,68 +1032,56 @@ export default function DeliveryPlanPage() {
           .order("plan_date", { ascending: true })
       );
 
-      const rollingNotes = new Map(pastNotesMap);
-      const exportRows = futurePlans
-        .map(plan => {
-          const p = products.find(prod => prod.id === plan.product_id);
-          if (!p) return null;
+      const rowsByProduct = new Map<string, {
+        sku: string;
+        uom: string;
+        totalRemaining: number;
+        quantitiesByDate: Record<string, number>;
+      }>();
+      let maxPlanDate = todayStr;
 
-          const totalPlan = (plan.planned_qty || 0) + (plan.backlog_qty || 0);
-          if (totalPlan <= 0) return null;
+      futurePlans.forEach(plan => {
+        const p = products.find(prod => prod.id === plan.product_id);
+        if (!p) return;
 
-          const exportCustomerId = plan.delivery_customer_id || p.customer_id;
-          const cust = customers.find(c => c.id === exportCustomerId);
-          const noteKey = `${plan.product_id}_${plan.delivery_customer_id || "null"}`;
-          const inheritedNotes = rollingNotes.get(noteKey);
-          const note1 = resolveDeliveryNote(plan.note, plan.note_edited_at, inheritedNotes?.note, inheritedNotes?.note_edited_at);
-          const note2 = resolveDeliveryNote(plan.note_2, plan.note_2_edited_at, inheritedNotes?.note_2, inheritedNotes?.note_2_edited_at);
+        const totalPlan = (plan.planned_qty || 0) + (plan.backlog_qty || 0);
+        const remainingQty = Math.max(totalPlan - (plan.actual_qty || 0), 0);
+        if (remainingQty <= 0) return;
 
-          if (plan.note_edited_at || plan.note_2_edited_at) {
-            rollingNotes.set(noteKey, {
-              note: plan.note_edited_at ? (plan.note ?? "") : (inheritedNotes?.note ?? null),
-              note_2: plan.note_2_edited_at ? (plan.note_2 ?? "") : (inheritedNotes?.note_2 ?? null),
-              note_edited_at: plan.note_edited_at ?? inheritedNotes?.note_edited_at ?? null,
-              note_2_edited_at: plan.note_2_edited_at ?? inheritedNotes?.note_2_edited_at ?? null,
-              plan_date: plan.plan_date,
-            });
-          }
+        if (plan.plan_date > maxPlanDate) maxPlanDate = plan.plan_date;
+        const existing = rowsByProduct.get(plan.product_id) ?? {
+          sku: p.sku,
+          uom: p.uom || "",
+          totalRemaining: 0,
+          quantitiesByDate: {},
+        };
+        existing.totalRemaining += remainingQty;
+        existing.quantitiesByDate[plan.plan_date] = (existing.quantitiesByDate[plan.plan_date] || 0) + remainingQty;
+        rowsByProduct.set(plan.product_id, existing);
+      });
 
-          const actualQty = plan.actual_qty || 0;
-          const remainingQty = Math.max(totalPlan - actualQty, 0);
-
-          return {
-            "Ngày kế hoạch": plan.plan_date.split("-").reverse().join("/"),
-            "Mã khách/Vendor": cust?.code || "-",
-            "Tên khách/Vendor": cust?.name || "-",
-            "Mã nội bộ": p.sku,
-            "Tên hàng": p.name + (p.spec ? ` (${p.spec})` : ""),
-            "ĐVT": p.uom || "",
-            "Kế hoạch gốc": plan.planned_qty || 0,
-            "Nợ cộng thêm": plan.backlog_qty || 0,
-            "Tổng kế hoạch": totalPlan,
-            "Đã xuất": actualQty,
-            "Còn lại": remainingQty,
-            "Trạng thái": plan.is_completed ? "Đã xong" : actualQty > 0 ? "Đã xuất một phần" : "Chưa xuất",
-            "Lưu ý 1": note1,
-            "Lưu ý 2": note2,
-          };
-        })
-        .filter((row): row is NonNullable<typeof row> => row !== null)
-        .sort((a, b) => {
-          const dateA = String(a["Ngày kế hoạch"]).split("/").reverse().join("");
-          const dateB = String(b["Ngày kế hoạch"]).split("/").reverse().join("");
-          return dateA.localeCompare(dateB) ||
-            String(a["Mã khách/Vendor"]).localeCompare(String(b["Mã khách/Vendor"])) ||
-            String(a["Mã nội bộ"]).localeCompare(String(b["Mã nội bộ"]));
-        });
+      const exportRows = Array.from(rowsByProduct.values())
+        .sort((a, b) => a.sku.localeCompare(b.sku));
 
       if (exportRows.length === 0) {
         showToast(`Không có kế hoạch nào từ ngày ${dateLabel}.`, 'warning');
         return;
       }
 
-      exportToExcel(exportRows, `KE_HOACH_GIAO_HANG_TU_${todayStr.replace(/-/g, '')}`, "Ke hoach tu hom nay");
-      showToast(`Đã xuất kế hoạch tổng ${exportRows.length} dòng từ ngày ${dateLabel}.`, 'success');
+      const exportDates: string[] = [];
+      const cursor = new Date(`${todayStr}T00:00:00`);
+      const end = new Date(`${maxPlanDate}T00:00:00`);
+      while (cursor <= end) {
+        exportDates.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      await exportDeliveryFuturePlanMatrixExcel(
+        exportRows,
+        exportDates,
+        `KE_HOACH_GIAO_HANG_TU_${todayStr.replace(/-/g, '')}`
+      );
+      showToast(`Đã xuất kế hoạch tổng dạng ngang ${exportRows.length} mã từ ngày ${dateLabel}.`, 'success');
     } catch (err: any) {
       console.error(err);
       showToast('Lỗi khi xuất file Excel kế hoạch tổng.', 'error');
