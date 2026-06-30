@@ -9,15 +9,20 @@ import {
   ArrowDown,
   ArrowDownUp,
   ArrowUp,
+  AlertTriangle,
+  Building2,
   CalendarDays,
   Check,
+  CircleCheck,
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
   Flame,
   Funnel,
+  PackageCheck,
   Printer,
   Save,
+  Sparkles,
   Truck,
 } from "lucide-react";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
@@ -252,7 +257,7 @@ function DateColFilterPopup({ filter, onChange, onClose, dateStr, uncompletedCou
             className="group w-full py-2.5 px-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 active:scale-95 text-white rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all shadow-lg shadow-orange-200/50"
           >
             <span className="font-black text-[10px] tracking-wider flex items-center gap-1.5 uppercase">
-              <span className="inline-block transition-transform duration-300 group-hover:-translate-x-1.5">🚚</span>
+              <Truck className="h-3.5 w-3.5 transition-transform duration-300 group-hover:-translate-x-1.5" strokeWidth={2.4} />
               CHỐT NỢ HÀNG NGÀY
             </span>
             <span className="text-[8px] font-bold text-amber-100/90 italic">
@@ -2113,7 +2118,7 @@ export default function DeliveryPlanPage() {
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
-                <span className="text-xl">📦</span>
+                <PackageCheck className="h-5 w-5 text-indigo-600" strokeWidth={2.25} />
               </div>
               <div>
                 <div className="font-black text-slate-900 text-sm">{selectedPlanIds.size} dòng đã chọn</div>
@@ -2130,9 +2135,9 @@ export default function DeliveryPlanPage() {
             <button
               onClick={openShipmentModal}
               disabled={shipmentProcessing}
-              className="btn bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black tracking-widest text-[10px] rounded-xl px-8 shadow-xl shadow-indigo-200 border-none h-12 flex items-center gap-2"
-            >
-              {shipmentProcessing ? <span className="loading loading-spinner loading-xs"></span> : <span className="text-base">🚚</span>}
+            className="btn bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black tracking-widest text-[10px] rounded-xl px-8 shadow-xl shadow-indigo-200 border-none h-12 flex items-center gap-2"
+          >
+              {shipmentProcessing ? <span className="loading loading-spinner loading-xs"></span> : <Truck className="h-4 w-4" strokeWidth={2.35} />}
               TẠO CHUYẾN HÀNG
             </button>
           </motion.div>
@@ -2146,7 +2151,7 @@ export default function DeliveryPlanPage() {
               <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50/50">
                 <div>
                   <h2 className="text-2xl font-black text-indigo-950 tracking-tight flex items-center gap-3">
-                    <span className="text-indigo-600 text-3xl">🚚</span> TẠO CHUYẾN HÀNG
+                    <Truck className="h-7 w-7 text-indigo-600" strokeWidth={2.25} /> TẠO CHUYẾN HÀNG
                   </h2>
                   <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1">
                     Ngày xuất: {selectedOutboundDay.split("-").reverse().join("/")} • {shipmentItems.length} mã hàng
@@ -2157,7 +2162,10 @@ export default function DeliveryPlanPage() {
 
               <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex gap-4 flex-wrap">
                 <div className="flex-1 min-w-[200px]">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">🏢 Pháp nhân bán hàng</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5" strokeWidth={2.35} />
+                    Pháp nhân bán hàng
+                  </label>
                   <select
                     value={shipmentEntityId}
                     onChange={e => setShipmentEntityId(e.target.value)}
@@ -2264,7 +2272,7 @@ export default function DeliveryPlanPage() {
                                 >
                                   <div className="flex items-center gap-3">
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg transition-colors ${selectedMergeShipmentId === null ? 'bg-indigo-500 text-white shadow-inner' : 'bg-slate-100 text-slate-400'}`}>
-                                      ✨
+                                      <Sparkles className="h-4 w-4" strokeWidth={2.35} />
                                     </div>
                                     <div>
                                       <div className={`text-[11px] font-black uppercase tracking-tight transition-colors ${selectedMergeShipmentId === null ? 'text-indigo-700' : 'text-slate-700'}`}>
@@ -2342,7 +2350,7 @@ export default function DeliveryPlanPage() {
 
                       {[overrideDriver1Name, overrideDriver2Name, overrideAst1Name, overrideAst2Name].filter(x => x.trim()).length > 3 && (
                         <div className="p-2 rounded bg-red-50 border border-red-100 flex items-center gap-2 text-red-600">
-                          <span className="text-sm">⚠️</span>
+                          <AlertTriangle className="h-4 w-4" strokeWidth={2.35} />
                           <span className="text-[10px] font-black uppercase tracking-tight">Cảnh báo: Tổng nhân sự không được vượt quá 3 người!</span>
                         </div>
                       )}
@@ -2418,7 +2426,14 @@ export default function DeliveryPlanPage() {
                   className="btn bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black tracking-widest text-[10px] rounded-xl px-8 shadow-xl shadow-indigo-200 border-none"
                   disabled={shipmentProcessing}
                 >
-                  {shipmentProcessing ? <span className="loading loading-spinner loading-sm"></span> : "✅ XÁC NHẬN & IN PGH"}
+                  {shipmentProcessing ? (
+                    <span className="loading loading-spinner loading-sm"></span>
+                  ) : (
+                    <span className="inline-flex items-center gap-2">
+                      <CircleCheck className="h-4 w-4" strokeWidth={2.35} />
+                      XÁC NHẬN & IN PGH
+                    </span>
+                  )}
                 </button>
               </div>
             </motion.div>
@@ -2463,7 +2478,10 @@ export default function DeliveryPlanPage() {
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
               {/* Header */}
               <div className="px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white">
-                <div className="text-xs font-black uppercase tracking-widest opacity-80">🚚 Chốt Nợ Hàng Ngày</div>
+                <div className="text-xs font-black uppercase tracking-widest opacity-80 flex items-center gap-1.5">
+                  <Truck className="h-3.5 w-3.5" strokeWidth={2.35} />
+                  Chốt Nợ Hàng Ngày
+                </div>
                 <div className="text-lg font-black mt-1">Ngày {fmtDate} — {pendingItems.length} đơn chờ chốt</div>
                 <div className="text-xs font-bold opacity-80 mt-0.5">Tổng lượng gối nợ: {totalQty.toLocaleString()} PCS</div>
               </div>
