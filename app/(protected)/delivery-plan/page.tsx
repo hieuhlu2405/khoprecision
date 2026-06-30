@@ -1086,7 +1086,7 @@ export default function DeliveryPlanPage() {
         exportDates,
         `KE_HOACH_GIAO_HANG_TU_${todayStr.replace(/-/g, '')}`
       );
-      showToast(`Đã xuất kế hoạch tổng dạng ngang ${exportRows.length} mã từ ngày ${dateLabel}.`, 'success');
+      showToast(`Đã xuất tổng kế hoạch giao hàng từ ngày ${dateLabel}!`, 'success');
     } catch (err: any) {
       console.error(err);
       showToast('Lỗi khi xuất file Excel kế hoạch tổng.', 'error');
