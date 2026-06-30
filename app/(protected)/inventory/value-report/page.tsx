@@ -11,6 +11,7 @@ import { useDebounce } from "@/app/hooks/useDebounce";
 import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
+import { AlertTriangle, BarChart3, CalendarDays, ClipboardList, Download, Package, PlusCircle, Repeat2, Search, Snowflake, Tags, Target, TrendingDown, Trophy, User, Wallet, XCircle } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -162,16 +163,16 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
         <option value="contains">Chứa</option>
         <option value="equals">Bằng</option>
       </select>
-      <input 
-        value={val} 
-        onChange={e => setVal(e.target.value)} 
+      <input
+        value={val}
+        onChange={e => setVal(e.target.value)}
         onKeyDown={e => {
           if (e.key === "Enter") { onChange(val ? { mode, value: val } : null); onClose(); }
           else if (e.key === "Escape") onClose();
         }}
-        placeholder="Nhập giá trị..." 
-        style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, boxSizing: "border-box" }} 
-        autoFocus 
+        placeholder="Nhập giá trị..."
+        style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, boxSizing: "border-box" }}
+        autoFocus
       />
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
         <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
@@ -226,7 +227,7 @@ function useCountAnimation(targetValue: number, speed = 1) {
       let elapsed = now - startTime;
       let progress = Math.min(elapsed / totalDuration, 1);
       let easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-      
+
       const current = Math.floor(start + (end - start) * easeProgress);
       setDisplayValue(current);
 
@@ -275,9 +276,9 @@ function Tabs({ items, activeId, onSelect }: { items: { id: string; label: strin
   );
 }
 
-function InsightCard({ icon, title, subtitle, value, active, onClick, color, notClickable }: { icon: string; title: string; subtitle: string; value: string; active: boolean; onClick?: () => void; color?: string; notClickable?: boolean }) {
+function InsightCard({ icon, title, subtitle, value, active, onClick, color, notClickable }: { icon: React.ReactNode; title: string; subtitle: string; value: string; active: boolean; onClick?: () => void; color?: string; notClickable?: boolean }) {
   return (
-    <div 
+    <div
       onClick={!notClickable ? onClick : undefined}
       style={{
         padding: "16px 20px",
@@ -298,13 +299,13 @@ function InsightCard({ icon, title, subtitle, value, active, onClick, color, not
       className="group hover:shadow-md"
     >
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-        <div style={{ fontSize: 22 }}>{icon}</div>
+        <div style={{ display: "flex", color: color || "var(--brand)" }}>{icon}</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</div>
       </div>
       <div style={{ fontSize: 11, color: "var(--slate-500)", fontWeight: 500 }}>{subtitle}</div>
       <div style={{ fontSize: 20, fontWeight: 900, color: active ? (color || "var(--brand)") : "var(--slate-900)", marginTop: 4 }}>{value}</div>
       {active && (
-        <motion.div 
+        <motion.div
           layoutId="active-insight-ring"
           style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 3, background: color || "var(--brand)" }}
         />
@@ -313,12 +314,12 @@ function InsightCard({ icon, title, subtitle, value, active, onClick, color, not
   );
 }
 
-function StatCardV2({ label, value, icon, unit, color = "var(--brand)" }: { label: string; value: number; icon?: string; unit?: string; color?: string }) {
+function StatCardV2({ label, value, icon, unit, color = "var(--brand)" }: { label: string; value: number; icon?: React.ReactNode; unit?: string; color?: string }) {
   const displayVal = useCountAnimation(value);
   return (
     <div className="stat-card glass-panel" style={{ borderLeft: `5px solid ${color}`, minHeight: 100, display: "flex", flexDirection: "column", justifyContent: "center", position: "relative", overflow: "hidden", padding: "16px 20px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-        {icon && <span style={{ fontSize: 20 }}>{icon}</span>}
+        {icon && <span style={{ display: "flex", color }}>{icon}</span>}
         <div className="stat-label" style={{ marginBottom: 0, fontSize: 12, color: "var(--slate-500)", fontWeight: 600, textTransform: "uppercase" }}>{label}</div>
       </div>
       <div className="stat-value" style={{ color: "var(--slate-900)", display: "flex", alignItems: "baseline", gap: 6, fontSize: 28, fontWeight: 800 }}>
@@ -386,7 +387,7 @@ function HistoricalTrendChart({ data }: { data: { label: string; value: number }
   const marginBottom = 30;
   const marginLeft = 60;
   const marginRight = 20;
-  
+
   const getX = (i: number) => marginLeft + (i * (100 / (data.length - 1 || 1)) * (100 - (marginLeft + marginRight)) / 100);
   const getY = (v: number) => height - marginBottom - ((v / maxVal) * (height - marginTop - marginBottom));
 
@@ -406,7 +407,7 @@ function HistoricalTrendChart({ data }: { data: { label: string; value: number }
             <stop offset="100%" stopColor="var(--brand)" stopOpacity="0" />
           </linearGradient>
         </defs>
-        
+
         {/* Grid lines */}
         {[0, 0.5, 1].map(p => (
           <line key={p} x1={marginLeft} y1={getY(maxVal * p)} x2="100%" y2={getY(maxVal * p)} stroke="#f1f5f9" strokeWidth={1} />
@@ -414,10 +415,10 @@ function HistoricalTrendChart({ data }: { data: { label: string; value: number }
 
         {/* Area fill */}
         <polyline points={areaPoints} fill="url(#trendGradient)" stroke="none" />
-        
+
         {/* Main Line */}
         <polyline points={points} fill="none" stroke="var(--brand)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        
+
         {/* Points & Labels */}
         {data.map((d, i) => (
           <g key={i}>
@@ -439,7 +440,7 @@ function SummaryCard({ title, v1, v2, diff, bg, accent, icon, unit = "đ", showD
   const isPositive = diff > 0;
   // For counts (SKUs), we might not want the "đ" unit
   const displayUnit = unit;
-  
+
   const countV1 = useCountAnimation(v1);
   const countV2 = useCountAnimation(v2);
   const countDiff = useCountAnimation(diff);
@@ -448,7 +449,7 @@ function SummaryCard({ title, v1, v2, diff, bg, accent, icon, unit = "đ", showD
     <div className="stat-card glass-panel" style={{ borderLeft: `5px solid ${accent}`, padding: "20px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--slate-500)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</span>
-        {icon && <div style={{ fontSize: 22 }}>{icon}</div>}
+        {icon && <div style={{ display: "flex", color: accent }}>{icon}</div>}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <div>
@@ -483,7 +484,7 @@ function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilte
     label: string; colKey: string; sortable: boolean; isNum: boolean; align?: "left" | "right" | "center";
     colFilters: Record<string, ColFilter>; setColFilters: React.Dispatch<React.SetStateAction<Record<string, ColFilter>>>;
     sortCol: string | null; sortDir: SortDir;
-    onSort: (key: any) => void; 
+    onSort: (key: any) => void;
     openPopupId: string | null; setOpenPopupId: (id: string | null) => void;
     w?: string; colWidths: Record<string, number>; onResize: (key: string, width: number) => void;
     popupPrefix: string;
@@ -560,8 +561,8 @@ function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilte
 
         {isOpen && (
           <div className="absolute top-[calc(100%+4px)] left-0 z-[100] animate-in fade-in slide-in-from-top-2 duration-200" onClick={e => e.stopPropagation()}>
-            {isNum ? 
-              <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => setColFilters(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> : 
+            {isNum ?
+              <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => setColFilters(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} /> :
               <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => setColFilters(p => { const x = { ...p }; if (f) x[colKey] = f; else delete x[colKey]; return x; })} onClose={() => setOpenPopupId(null)} />
             }
           </div>
@@ -592,16 +593,16 @@ function BarChart({ data, title, isRiskHeatmap = false, minHeight = 220 }: {
   minHeight?: number;
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  
+
   if (!data.length) return <div style={{ padding: "16px 0", color: "#94a3b8", textAlign: "center", fontSize: 13 }}>Không có dữ liệu</div>;
-  
+
   const maxVal = Math.max(...data.map(d => d.value), 1);
   const getRiskColor = (idx: number) => {
     if (!isRiskHeatmap) return "var(--brand)";
     const rankColors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
     return rankColors[idx % rankColors.length];
   };
-  
+
   return (
     <div style={{ position: "relative", width: "100%", minWidth: 0, overflow: "hidden", minHeight }}>
       <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</div>
@@ -609,11 +610,11 @@ function BarChart({ data, title, isRiskHeatmap = false, minHeight = 220 }: {
         {data.map((d, i) => {
           const pct = Math.max(1, (d.value / maxVal) * 100);
           const activeColor = getRiskColor(i);
-          
+
           return (
             <div
-              key={i} 
-              onMouseEnter={() => setHoverIdx(i)} 
+              key={i}
+              onMouseEnter={() => setHoverIdx(i)}
               onMouseLeave={() => setHoverIdx(null)}
               style={{
                 display: "grid",
@@ -647,22 +648,22 @@ function BarChart({ data, title, isRiskHeatmap = false, minHeight = 220 }: {
 
 function StackedBarChart({ data, totalValue, title }: { data: { label: string; value: number; color?: string }[]; totalValue: number; title: string }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  
+
   const colors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
 
   return (
     <div style={{ width: "100%" }}>
       <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</div>
-      <div style={{ 
-        height: 36, width: "100%", background: "#f1f5f9", borderRadius: 8, 
+      <div style={{
+        height: 36, width: "100%", background: "#f1f5f9", borderRadius: 8,
         display: "flex", overflow: "hidden", boxShadow: "inset 0 2px 4px rgba(0,0,0,0.05)",
-        position: "relative" 
+        position: "relative"
       }}>
         {data.map((d, i) => {
           const pct = totalValue > 0 ? (d.value / totalValue) * 100 : 0;
           if (pct < 0.5) return null;
           return (
-            <div 
+            <div
               key={i}
               onMouseEnter={() => setHoverIdx(i)}
               onMouseLeave={() => setHoverIdx(null)}
@@ -682,10 +683,10 @@ function StackedBarChart({ data, totalValue, title }: { data: { label: string; v
               }}
             >
               {pct > 8 && (
-                <span style={{ 
-                  fontSize: 10, fontWeight: 900, color: "white", 
+                <span style={{
+                  fontSize: 10, fontWeight: 900, color: "white",
                   textShadow: "0 1px 2px rgba(0,0,0,0.3)",
-                  pointerEvents: "none" 
+                  pointerEvents: "none"
                 }}>
                   {pct.toFixed(0)}%
                 </span>
@@ -725,7 +726,7 @@ function ClusteredBarChart({ data, title, label1, label2, color1 = "#94a3b8", co
   const marginLeft = 140;
   const marginRight = 60;
   const height = Math.max(minHeight, data.length * rowGroupHeight + marginTop + marginBottom);
-  
+
   return (
     <div style={{ position: "relative", width: "100%", minWidth: 0, overflow: "hidden", minHeight: Math.max(minHeight, data.length * rowGroupHeight) }}>
       <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{title}</div>
@@ -733,33 +734,33 @@ function ClusteredBarChart({ data, title, label1, label2, color1 = "#94a3b8", co
         <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, color: "var(--slate-500)" }}><span style={{ width: 12, height: 4, background: color1, borderRadius: 2 }} />{label1}</span>
         <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, color: "var(--brand)" }}><span style={{ width: 12, height: 4, background: color2, borderRadius: 2 }} />{label2}</span>
       </div>
-      
+
       <svg width="100%" height={height} style={{ display: "block", overflow: "visible" }}>
         <line x1={marginLeft} y1={marginTop} x2={marginLeft} y2={height - marginBottom} stroke="#e2e8f0" strokeWidth={1} />
-        
+
         {data.map((d, i) => {
           const y = marginTop + i * rowGroupHeight + rowGroupHeight / 2;
           const w1 = (d.val1 / maxVal) * 100;
           const w2 = (d.val2 / maxVal) * 100;
-          
+
           return (
             <g key={i} onMouseEnter={() => setHoverIdx(i)} onMouseLeave={() => setHoverIdx(null)} style={{ cursor: "pointer" }} opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.6}>
               <text x={marginLeft - 8} y={y + 4} textAnchor="end" fontSize={11} fill="var(--slate-600)" fontWeight="500">
                 {shortLabel(d.label, 22)}
               </text>
-              
+
               <svg x={marginLeft} y={y - 12} width={`calc(100% - ${marginLeft + marginRight}px)`} height={24} style={{ overflow: "visible" }}>
                 {/* Trend connection line - Unified with bars scale */}
-                <line 
-                  x1={`${w1}%`} y1={4} 
-                  x2={`${w2}%`} y2={20} 
-                  stroke={d.val2 > d.val1 ? "crimson" : "var(--color-success)"} 
+                <line
+                  x1={`${w1}%`} y1={4}
+                  x2={`${w2}%`} y2={20}
+                  stroke={d.val2 > d.val1 ? "crimson" : "var(--color-success)"}
                   strokeWidth={1.5} strokeDasharray="4,2" opacity={0.6}
                 />
 
                 <rect x={0} y={0} width={`${w1}%`} height={8} fill={color1} rx={2} opacity={0.6} />
                 <rect x={0} y={16} width={`${w2}%`} height={8} fill={color2} rx={2} />
-                
+
                 {/* Diff indicator */}
                 {hoverIdx === i && (
                   <text x={`max(${w1}%, ${w2}%)`} dx={10} y={14} fontSize={10} fontWeight="700" fill={d.val2 > d.val1 ? "crimson" : "var(--color-success)"}>
@@ -861,7 +862,7 @@ function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, t
   if ((!data1.length && !data2.length) || (total1 <= 0 && total2 <= 0)) return null;
 
   const barHeight = 36;
-  
+
   const renderBarRow = (seriesIdx: number, seriesLabel: string, data: { label: string; value: number; color?: string }[], total: number) => {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -872,7 +873,7 @@ function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, t
             if (pct < 0.3) return null;
             const isHovered = hoverIdx?.series === seriesIdx && hoverIdx?.idx === i;
             return (
-              <div 
+              <div
                 key={i}
                 onMouseEnter={() => setHoverIdx({ series: seriesIdx, idx: i })}
                 onMouseLeave={() => setHoverIdx(null)}
@@ -911,7 +912,7 @@ function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, t
         {renderBarRow(1, label1, data1, total1)}
         {renderBarRow(2, label2, data2, total2)}
       </div>
-      
+
       <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px", marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--slate-100)" }}>
         {legendItems.map((lbl, i) => {
           const d1 = data1.find(x => x.label === lbl);
@@ -919,7 +920,7 @@ function CompareStackedBarChart({ data1, data2, title, label1, label2, total1, t
           const pct1 = d1 && total1 > 0 ? (d1.value / total1) * 100 : 0;
           const pct2 = d2 && total2 > 0 ? (d2.value / total2) * 100 : 0;
           const isHovered = hoverIdx?.idx === i;
-          
+
           return (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, opacity: !hoverIdx || isHovered ? 1 : 0.5, transition: "opacity 0.2s" }}>
               <span style={{ width: 10, height: 10, borderRadius: 3, background: (d1?.color || d2?.color) || colors[i % colors.length] }} />
@@ -1105,7 +1106,7 @@ export default function InventoryValueReportPage() {
         // Comparison mode: Call RPC twice
         const b1 = computeSnapshotBounds(getDaysAgo(p1End, 30), p1End, ops);
         const b2 = computeSnapshotBounds(getDaysAgo(p2End, 30), p2End, ops);
-        
+
         const [res1, res2] = await Promise.all([
           fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
             p_baseline_date: b1.S || getDaysAgo(p1End, 30),
@@ -1122,11 +1123,11 @@ export default function InventoryValueReportPage() {
         setRpcRowsP1(res1 ?? []);
         setRpcRowsP2(res2 ?? []);
       }
-    } catch (err: any) { 
+    } catch (err: any) {
       if (err.name === 'AbortError') return;
       setError(err?.message ?? "Có lỗi xảy ra");
-    } finally { 
-      if (!signal.aborted) setLoading(false); 
+    } finally {
+      if (!signal.aborted) setLoading(false);
     }
   }
 
@@ -1142,10 +1143,10 @@ export default function InventoryValueReportPage() {
       grouped.set(m, (grouped.get(m) || 0) + (o.inventory_value || 0));
     });
     return Array.from(grouped.entries())
-      .map(([m, val]) => ({ 
-        label: m.split("-").reverse().join("/"), 
+      .map(([m, val]) => ({
+        label: m.split("-").reverse().join("/"),
         value: val,
-        raw: m 
+        raw: m
       }))
       .sort((a,b) => a.raw.localeCompare(b.raw))
       .slice(-12);
@@ -1288,7 +1289,7 @@ export default function InventoryValueReportPage() {
   const compareData = useMemo(() => {
     const emptyTotals = { val1: 0, val2: 0, diff: 0, pct: 0, cust1: 0, cust2: 0 };
     if (reportMode !== "compare") return { all: [], totals: emptyTotals };
-    
+
     // Convert P1 rows to a lookup map
     const m1 = new Map<string, number>();
     for (const r of rpcRowsP1) {
@@ -1306,7 +1307,7 @@ export default function InventoryValueReportPage() {
       const p = productMap.get(pid);
       if (!p) continue;
       const cid = p.customer_id;
-      
+
       // Basic Filters
       if (qCustomer && p.customer_id !== qCustomer) continue;
       if (debouncedQProd) {
@@ -1319,7 +1320,7 @@ export default function InventoryValueReportPage() {
       const qty2 = r2 ? Number(r2.current_qty) : 0;
 
       if (onlyInStock && qty1 <= 0 && qty2 <= 0) continue;
-      
+
       const up = p.unit_price ?? 0;
       const val1 = qty1 * up;
       const val2 = qty2 * up;
@@ -1353,9 +1354,9 @@ export default function InventoryValueReportPage() {
 
   const deadStockStats = useMemo(() => {
     const calcDead = (rows: any[]) => {
-      const deadRows = (rows || []).filter(r => 
-        Number(r.inbound_qty) === 0 && 
-        Number(r.outbound_qty) === 0 && 
+      const deadRows = (rows || []).filter(r =>
+        Number(r.inbound_qty) === 0 &&
+        Number(r.outbound_qty) === 0 &&
         Number(r.current_qty) > 0
       );
       const deadValue = deadRows.reduce((acc, r) => acc + (Number(r.current_qty) * (productMap.get(r.product_id)?.unit_price || 0)), 0);
@@ -1600,27 +1601,27 @@ export default function InventoryValueReportPage() {
       <div className="page-header" style={{ marginBottom: 32 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
            <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-             📦 Báo cáo Giá trị Tồn kho 
+             <Package size={28} strokeWidth={2.5} /> Báo cáo Giá trị Tồn kho
              <span style={{ fontSize: 12, fontWeight: 500, padding: "4px 8px", background: "var(--brand-light)", color: "var(--brand)", borderRadius: 6, textTransform: "none", letterSpacing: "normal" }}>Premium Dashboard</span>
            </h1>
            <p style={{ fontSize: 13, color: "var(--slate-500)", margin: 0 }}>Góc nhìn toàn diện về dòng tiền và phân bổ hàng hóa trong kho</p>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
             <button className="btn btn-outline" onClick={handleExport} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              <Download size={16} strokeWidth={2.4} />
               Xuất Excel
             </button>
             <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading || productData.length === 0}>
-              {closing ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}
+              {closing ? "Đang chốt..." : <><ClipboardList size={16} strokeWidth={2.4} /> Chốt lưu trữ báo cáo</>}
             </button>
         </div>
       </div>
 
       <div className="tabs" style={{ display: "flex", gap: 0, marginBottom: 24, border: "1px solid var(--slate-200)", borderRadius: 8, overflow: "hidden", alignSelf: "flex-start", width: "fit-content" }}>
-        <button 
-          className={`tab-item ${reportMode === "current" ? "active" : ""}`} 
+        <button
+          className={`tab-item ${reportMode === "current" ? "active" : ""}`}
           onClick={() => setReportMode("current")}
-          style={{ 
+          style={{
             padding: "10px 20px",
             border: "none",
             borderRadius: 0,
@@ -1631,12 +1632,12 @@ export default function InventoryValueReportPage() {
             transition: "all 0.2s"
           }}
         >
-          📊 Báo cáo hiện tại
+          <BarChart3 size={16} strokeWidth={2.4} style={{ display: "inline", marginRight: 6, verticalAlign: -3 }} /> Báo cáo hiện tại
         </button>
-        <button 
-          className={`tab-item ${reportMode === "compare" ? "active" : ""}`} 
+        <button
+          className={`tab-item ${reportMode === "compare" ? "active" : ""}`}
           onClick={() => setReportMode("compare")}
-          style={{ 
+          style={{
             padding: "10px 20px",
             border: "none",
             borderLeft: "1px solid var(--slate-200)",
@@ -1648,7 +1649,7 @@ export default function InventoryValueReportPage() {
             transition: "all 0.2s"
           }}
         >
-          🔄 So sánh 2 kỳ
+          <Repeat2 size={16} strokeWidth={2.4} style={{ display: "inline", marginRight: 6, verticalAlign: -3 }} /> So sánh 2 kỳ
         </button>
       </div>
 
@@ -1657,36 +1658,36 @@ export default function InventoryValueReportPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20, marginBottom: 32 }}>
         {reportMode === "current" ? (
           <>
-            <StatCardV2 label="Tổng giá trị tồn kho" value={overallTotals.totalValue} unit="VNĐ" color="crimson" icon="💰" />
-            <StatCardV2 label="Tổng số lượng tồn" value={overallTotals.totalQty} color="var(--slate-400)" icon="📦" />
-            <StatCardV2 label="Số mã còn tồn" value={overallTotals.productCount} color="var(--brand)" icon="🏷️" />
-            <StatCardV2 label="Số mã hàng đọng" value={deadStockProducts.length} color="var(--slate-500)" icon="🧊" />
+            <StatCardV2 label="Tổng giá trị tồn kho" value={overallTotals.totalValue} unit="VNĐ" color="crimson" icon={<Wallet size={20} strokeWidth={2.5} />} />
+            <StatCardV2 label="Tổng số lượng tồn" value={overallTotals.totalQty} color="var(--slate-400)" icon={<Package size={20} strokeWidth={2.5} />} />
+            <StatCardV2 label="Số mã còn tồn" value={overallTotals.productCount} color="var(--brand)" icon={<Tags size={20} strokeWidth={2.5} />} />
+            <StatCardV2 label="Số mã hàng đọng" value={deadStockProducts.length} color="var(--slate-500)" icon={<Snowflake size={20} strokeWidth={2.5} />} />
           </>
         ) : (
           <>
-            <SummaryCard title="Giá trị kho" v1={compareTotals.val1} v2={compareTotals.val2} diff={compareTotals.diff} bg="var(--brand-light)" accent="var(--brand)" icon="📊" showDiffValue />
-            <SummaryCard title="Giá trị hàng chậm luân chuyển" v1={deadStockStats.v1} v2={deadStockStats.v2} diff={deadStockStats.diff} bg="var(--brand-light)" accent="#f59e0b" icon="🧊" unit="đ" showDiffValue />
-            <SummaryCard title="Số mã hàng có tồn" v1={activeSkuStats.v1} v2={activeSkuStats.v2} diff={activeSkuStats.diff} bg="var(--brand-light)" accent="#6366f1" icon="🏷️" unit="mã" showDiffValue />
+            <SummaryCard title="Giá trị kho" v1={compareTotals.val1} v2={compareTotals.val2} diff={compareTotals.diff} bg="var(--brand-light)" accent="var(--brand)" icon={<BarChart3 size={22} strokeWidth={2.5} />} showDiffValue />
+            <SummaryCard title="Giá trị hàng chậm luân chuyển" v1={deadStockStats.v1} v2={deadStockStats.v2} diff={deadStockStats.diff} bg="var(--brand-light)" accent="#f59e0b" icon={<Snowflake size={22} strokeWidth={2.5} />} unit="đ" showDiffValue />
+            <SummaryCard title="Số mã hàng có tồn" v1={activeSkuStats.v1} v2={activeSkuStats.v2} diff={activeSkuStats.diff} bg="var(--brand-light)" accent="#6366f1" icon={<Tags size={22} strokeWidth={2.5} />} unit="mã" showDiffValue />
           </>
         )}
       </div>
-      
+
       {reportMode === "current" && <HistoricalTrendChart data={historyData} />}
 
-      <div className="glass-panel" style={{ 
-        marginBottom: 24, padding: "20px 24px", borderRadius: 16, 
+      <div className="glass-panel" style={{
+        marginBottom: 24, padding: "20px 24px", borderRadius: 16,
         border: "1px solid rgba(255,255,255,0.4)",
-        background: "rgba(255,255,255,0.7)", 
+        background: "rgba(255,255,255,0.7)",
         backdropFilter: "blur(12px)",
         boxShadow: "0 8px 32px rgba(31, 38, 135, 0.07)"
       }}>
         <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-end" }}>
-          
+
           {/* Group 1: Time */}
           <div style={{ display: "flex", gap: 12, padding: "4px 16px 4px 4px", borderRight: "1px solid var(--slate-200)" }}>
             {reportMode === "current" ? (
               <div style={{ width: 180 }}>
-                <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>📅 Tính đến ngày</label>
+                <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6 }}><CalendarDays size={14} strokeWidth={2.4} /> Tính đến ngày</label>
                 <input type="date" className="input" value={qEnd} onChange={e => setQEnd(e.target.value)} style={{ borderRadius: 10 }} />
                 <div style={{ fontSize: 10, color: "var(--slate-500)", marginTop: 4, fontWeight: 500 }}>
                   {bounds.S ? `Tính từ mốc kiểm kê: ${formatToVietnameseDate(bounds.S)}` : "Hệ thống"}
@@ -1695,12 +1696,12 @@ export default function InventoryValueReportPage() {
             ) : (
               <div style={{ display: "flex", gap: 16 }}>
                 <div style={{ width: 160 }}>
-                  <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--slate-500)" }}>📅 Chọn Kỳ 1</label>
+                  <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--slate-500)" }}><CalendarDays size={14} strokeWidth={2.4} /> Chọn Kỳ 1</label>
                   <input type="date" className="input" value={p1End} onChange={e => setP1End(e.target.value)} style={{ borderRadius: 10 }} />
                   <div style={{ fontSize: 10, color: "var(--slate-500)", marginTop: 4, fontWeight: 500 }}>{bounds1.S ? `Tính từ mốc kiểm kê: ${formatToVietnameseDate(bounds1.S)}` : ""}</div>
                 </div>
                 <div style={{ width: 160 }}>
-                  <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--brand)" }}>📅 Chọn Kỳ 2</label>
+                  <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--brand)" }}><CalendarDays size={14} strokeWidth={2.4} /> Chọn Kỳ 2</label>
                   <input type="date" className="input" value={p2End} onChange={e => setP2End(e.target.value)} style={{ borderRadius: 10, borderColor: "var(--brand-glow)" }} />
                   <div style={{ fontSize: 10, color: "var(--slate-500)", marginTop: 4, fontWeight: 500 }}>{bounds2.S ? `Tính từ mốc kiểm kê: ${formatToVietnameseDate(bounds2.S)}` : ""}</div>
                 </div>
@@ -1715,21 +1716,21 @@ export default function InventoryValueReportPage() {
           {/* Group 2: Entity */}
           <div style={{ display: "flex", gap: 16, flex: 1, minWidth: 400 }}>
             <div style={{ flex: 1 }}>
-              <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>👤 Khách hàng</label>
+              <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6 }}><User size={14} strokeWidth={2.4} /> Khách hàng</label>
               <select className="input" value={qCustomer} onChange={e => setQCustomer(e.target.value)} style={{ borderRadius: 10 }}>
                 <option value="">-- Tất cả khách hàng --</option>
                 {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
               </select>
             </div>
             <div style={{ flex: 1 }}>
-              <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--slate-500)" }}>🔍 Tìm sản phẩm</label>
+              <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--slate-500)" }}><Search size={14} strokeWidth={2.4} /> Tìm sản phẩm</label>
               <input type="text" className="input" placeholder="Mã hàng hoặc tên..." value={qProduct} onChange={e => setQProduct(e.target.value)} style={{ borderRadius: 10 }} />
             </div>
           </div>
 
           {/* Group 3: Scope */}
           <div style={{ width: 120 }}>
-            <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>🏆 Top hiển thị</label>
+            <label className="filter-label" style={{ display: "flex", alignItems: "center", gap: 6 }}><Trophy size={14} strokeWidth={2.4} /> Top hiển thị</label>
             <select className="input" value={topN} onChange={e => setTopN(Number(e.target.value))} style={{ borderRadius: 10 }}>
               <option value={10}>Top 10</option>
               <option value={20}>Top 20</option>
@@ -1761,42 +1762,42 @@ export default function InventoryValueReportPage() {
 
       {/* ---- SMART INSIGHTS GRID (BENTO STYLE) ---- */}
       <AnimatePresence>
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20, marginBottom: 24 }}
         >
           {reportMode === "current" ? (
             <>
-              <InsightCard 
-                icon="💰" title="Vốn tập trung" subtitle="Chiếm 80% tổng giá trị kho hàng" 
+              <InsightCard
+                icon={<Wallet size={22} strokeWidth={2.5} />} title="Vốn tập trung" subtitle="Chiếm 80% tổng giá trị kho hàng"
                 value={(() => {
                   const sorted = [...(stockRowsFromRpc || [])].sort((a,b) => (Number(b.current_qty) * (productMap.get(b.product_id)?.unit_price || 0)) - (Number(a.current_qty) * (productMap.get(a.product_id)?.unit_price || 0)));
                   const total = sorted.reduce((acc, r) => acc + (Number(r.current_qty) * (productMap.get(r.product_id)?.unit_price || 0)), 0);
                   let sum = 0, count = 0;
                   for(const r of sorted) { sum += (Number(r.current_qty) * (productMap.get(r.product_id)?.unit_price || 0)); count++; if (sum > total * 0.8) break; }
                   return `${count} mã hàng`;
-                })()} 
+                })()}
                 active={activeInsightFilter === "capital"}
                 color="crimson"
                 onClick={() => setActiveInsightFilter(f => f === "capital" ? null : "capital")}
               />
-              <InsightCard 
-                icon="🧊" title="Hàng tồn đọng" subtitle="Không giao dịch > 30 ngày" 
+              <InsightCard
+                icon={<Snowflake size={22} strokeWidth={2.5} />} title="Hàng tồn đọng" subtitle="Không giao dịch > 30 ngày"
                 value={`${deadStockProducts.length} mã`}
                 active={activeInsightFilter === "dead"}
                 color="orange"
                 onClick={() => setActiveInsightFilter(f => f === "dead" ? null : "dead")}
               />
-              <InsightCard 
-                icon="⚠️" title="Thiếu đơn giá" subtitle="Tồn kho nhưng giá = 0" 
+              <InsightCard
+                icon={<AlertTriangle size={22} strokeWidth={2.5} />} title="Thiếu đơn giá" subtitle="Tồn kho nhưng giá = 0"
                 value={`${(stockRowsFromRpc || []).filter(r => Number(r.current_qty) > 0 && (productMap.get(r.product_id)?.unit_price || 0) === 0).length} mã`}
                 active={activeInsightFilter === "no_price"}
                 color="#f59e0b"
                 onClick={() => setActiveInsightFilter(f => f === "no_price" ? null : "no_price")}
               />
-              <InsightCard 
-                icon="🎯" title="Khách trọng điểm" subtitle="Phụ thuộc Top 3 khách" 
+              <InsightCard
+                icon={<Target size={22} strokeWidth={2.5} />} title="Khách trọng điểm" subtitle="Phụ thuộc Top 3 khách"
                 value={(() => {
                   const sorted = [...baseCustomerSummary].sort((a,b) => b.value - a.value);
                   const top3 = sorted.slice(0, 3).reduce((acc, c) => acc + c.value, 0);
@@ -1809,29 +1810,29 @@ export default function InventoryValueReportPage() {
             </>
           ) : (
             <>
-              <InsightCard 
-                icon="🚀" title="Tăng vốn mạnh" subtitle="Giá trị tồn tăng > 20%" 
+              <InsightCard
+                icon={<TrendingDown size={22} strokeWidth={2.5} style={{ transform: "rotate(180deg)" }} />} title="Tăng vốn mạnh" subtitle="Giá trị tồn tăng > 20%"
                 value={`${(compareData.all || []).filter(r => r.valDiff > 0 && r.val1 > 0 && (r.valDiff / r.val1) > 0.2).length} mã hàng`}
                 active={activeInsightFilter === "growth"}
                 color="crimson"
                 onClick={() => setActiveInsightFilter(f => f === "growth" ? null : "growth")}
               />
-              <InsightCard 
-                icon="📉" title="Giải phóng kho" subtitle="Giảm tồn kho > 20%" 
+              <InsightCard
+                icon={<TrendingDown size={22} strokeWidth={2.5} />} title="Giải phóng kho" subtitle="Giảm tồn kho > 20%"
                 value={`${(compareData.all || []).filter(r => r.valDiff < 0 && r.val1 > 0 && (Math.abs(r.valDiff) / r.val1) > 0.2).length} mã hàng`}
                 active={activeInsightFilter === "reduction"}
                 color="#10b981"
                 onClick={() => setActiveInsightFilter(f => f === "reduction" ? null : "reduction")}
               />
-              <InsightCard 
-                icon="🆕" title="Mã hàng mới" subtitle="Mới phát sinh ở Kỳ 2" 
+              <InsightCard
+                icon={<PlusCircle size={22} strokeWidth={2.5} />} title="Mã hàng mới" subtitle="Mới phát sinh ở Kỳ 2"
                 value={`${(compareData.all || []).filter(r => r.val2 > 0 && r.val1 <= 0).length} mã hàng`}
                 active={activeInsightFilter === "new"}
                 color="#06b6d4"
                 onClick={() => setActiveInsightFilter(f => f === "new" ? null : "new")}
               />
-              <InsightCard 
-                icon="🛑" title="Mã hàng đã hết tồn" subtitle="Hết hàng ở Kỳ 2" 
+              <InsightCard
+                icon={<XCircle size={22} strokeWidth={2.5} />} title="Mã hàng đã hết tồn" subtitle="Hết hàng ở Kỳ 2"
                 value={`${(compareData.all || []).filter(r => r.val1 > 0 && r.val2 <= 0).length} mã hàng`}
                 active={activeInsightFilter === "gone"}
                 color="#64748b"
@@ -1857,7 +1858,7 @@ export default function InventoryValueReportPage() {
             {activeInsightFilter === "new" && "Mã hàng mới phát sinh"}
             {activeInsightFilter === "gone" && "Mã hàng đã hết tồn"}
           </span>
-          <button className="btn btn-clear-filter btn-sm" onClick={() => setActiveInsightFilter(null)} style={{ marginLeft: "auto" }}>Xóa lọc nhanh ❌</button>
+          <button className="btn btn-clear-filter btn-sm" onClick={() => setActiveInsightFilter(null)} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>Xóa lọc nhanh <XCircle size={14} strokeWidth={2.5} /></button>
         </motion.div>
       )}
 
@@ -1872,23 +1873,23 @@ export default function InventoryValueReportPage() {
           {(reportMode as string) === "current" ? (
             <div className="inventory-value-chart-grid">
               <div className="page-section" style={{ padding: 24, minWidth: 0, overflow: "hidden" }}>
-                <BarChart 
-                  title={`Top 10 mã hàng theo giá trị tồn kho${activeInsightFilter ? ` (${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"})` : ""}`} 
-                  isRiskHeatmap 
-                  data={baseTopProducts.slice(0, 10).map(p => ({ label: p.product.sku, value: p.inventory_value }))} 
+                <BarChart
+                  title={`Top 10 mã hàng theo giá trị tồn kho${activeInsightFilter ? ` (${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"})` : ""}`}
+                  isRiskHeatmap
+                  data={baseTopProducts.slice(0, 10).map(p => ({ label: p.product.sku, value: p.inventory_value }))}
                 />
               </div>
               <div className="page-section" style={{ padding: 24, minWidth: 0, overflow: "hidden" }}>
-                <BarChart 
-                  title={`Top 10 khách hàng theo giá trị tồn kho${activeInsightFilter ? ` (${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"})` : ""}`} 
-                  isRiskHeatmap 
-                  data={baseCustomerSummary.slice(0, 10).map(c => ({ label: customerCodeLabel(c.customer_id), value: c.value }))} 
+                <BarChart
+                  title={`Top 10 khách hàng theo giá trị tồn kho${activeInsightFilter ? ` (${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"})` : ""}`}
+                  isRiskHeatmap
+                  data={baseCustomerSummary.slice(0, 10).map(c => ({ label: customerCodeLabel(c.customer_id), value: c.value }))}
                 />
               </div>
               <div className="page-section inventory-value-chart-full" style={{ padding: 24, minWidth: 0, overflow: "hidden" }}>
-                <StackedBarChart 
+                <StackedBarChart
                   title={`Cơ cấu giá trị tồn kho theo khách hàng (%)${activeInsightFilter ? ` - Đang lọc: ${activeInsightFilter === "capital" ? "Vốn tập trung" : activeInsightFilter === "dead" ? "Hàng tồn đọng" : "Thiếu đơn giá"}` : ""}`}
-                  totalValue={overallTotals.totalValue} 
+                  totalValue={overallTotals.totalValue}
                   data={(() => {
                     const sorted = [...baseCustomerSummary].sort((a,b) => b.value - a.value);
                     const top5 = sorted.slice(0, 5);
@@ -1896,7 +1897,7 @@ export default function InventoryValueReportPage() {
                     const chartData: { label: string; value: number; color?: string }[] = top5.map(c => ({ label: customerLabel(c.customer_id), value: c.value }));
                     if (restSum > 0) chartData.push({ label: "Khác", value: restSum, color: "#cbd5e1" });
                     return chartData;
-                  })()} 
+                  })()}
                 />
               </div>
             </div>
@@ -1909,7 +1910,7 @@ export default function InventoryValueReportPage() {
                 <ClusteredBarChartSafe title="So sánh giá trị tồn khách hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareCustomerSummary.sort((a,b) => (b.p2_value || 0) - (a.p2_value || 0)).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), val1: c.p1_value || 0, val2: c.p2_value || 0 }))} />
               </div>
               <div className="filter-panel inventory-value-chart-full" style={{ padding: 20, minWidth: 0, overflow: "hidden" }}>
-                <CompareStackedBarChart title="Cơ cấu giá trị tồn Kỳ 1 vs Kỳ 2 (%)" label1="Kỳ 1" label2="Kỳ 2" total1={compareTotals.val1} total2={compareTotals.val2} 
+                <CompareStackedBarChart title="Cơ cấu giá trị tồn Kỳ 1 vs Kỳ 2 (%)" label1="Kỳ 1" label2="Kỳ 2" total1={compareTotals.val1} total2={compareTotals.val2}
                   data1={(() => {
                     const sorted = [...compareCustomerSummary].sort((a,b) => (b.p1_value || 0) - (a.p1_value || 0));
                     const top5 = sorted.slice(0, 5);

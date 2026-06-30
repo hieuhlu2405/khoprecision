@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 import { getVNTimeNow } from "@/lib/date-utils";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
+import { AlertTriangle, CalendarDays, CheckCircle2, Package, RefreshCw, Zap } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -117,7 +118,7 @@ function DayFilterPopup({ dateStr, filter, onChange, onClose }: { dateStr: strin
   return (
     <div className="p-4 bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200 shadow-2xl min-w-[240px]" onClick={e => e.stopPropagation()}>
       <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1">
-        <span>📅</span> Lọc ngày {formattedDate}
+        <CalendarDays size={14} strokeWidth={2.5} /> Lọc ngày {formattedDate}
       </div>
       <div className="flex items-center gap-3 mb-4 py-2 border-y border-slate-100">
         <input
@@ -144,7 +145,7 @@ function DayFilterPopup({ dateStr, filter, onChange, onClose }: { dateStr: strin
 /* ------------------------------------------------------------------ */
 /* KPI Card                                                            */
 /* ------------------------------------------------------------------ */
-function KpiCard({ icon, label, value, sub, color, pulse }: { icon: string; label: string; value: string | number; sub?: string; color: string; pulse?: boolean }) {
+function KpiCard({ icon, label, value, sub, color, pulse }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string; pulse?: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -155,7 +156,7 @@ function KpiCard({ icon, label, value, sub, color, pulse }: { icon: string; labe
       <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-10 pointer-events-none" style={{ background: color, transform: "translate(30%, -30%)" }} />
       <div className="p-4 relative z-10">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-xl">{icon}</span>
+          <span className="text-xl" style={{ color }}>{icon}</span>
           {pulse && <span className="w-2 h-2 rounded-full bg-red-500 animate-ping absolute top-3 right-3 opacity-75" />}
         </div>
         <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{label}</div>
@@ -515,7 +516,7 @@ export default function ShortageReportPage() {
       {/* HEADER */}
       <div className="page-header bg-gradient-to-r from-red-50 via-white to-orange-50 border-b border-red-100/50 py-5 px-6 -mx-6 mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500 to-rose-700 flex items-center justify-center shadow-lg shadow-red-200 text-2xl">🚨</div>
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500 to-rose-700 flex items-center justify-center shadow-lg shadow-red-200 text-white"><AlertTriangle size={26} strokeWidth={2.6} /></div>
           <div>
             <h1 className="page-title mb-0">CẢNH BÁO THIẾU HÀNG</h1>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] m-0">Rolling Inventory Logic • 7-Day Forecast</p>
@@ -523,26 +524,26 @@ export default function ShortageReportPage() {
         </div>
         <div className="flex gap-3 items-center">
           <select value={filterCustomer} onChange={e => setFilterCustomer(e.target.value)} className="input text-xs py-2" style={{ minWidth: 180 }}>
-            <option value="">🏢 Tất cả khách hàng</option>
+            <option value="">Tất cả khách hàng</option>
             {parentCustomers.map(c => <option key={c.id} value={c.id}>{c.code} – {c.name}</option>)}
           </select>
           <label className="flex items-center gap-2 cursor-pointer bg-white/80 border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50 transition-all">
             <input type="checkbox" checked={onlyShortage} onChange={e => setOnlyShortage(e.target.checked)} className="w-4 h-4 rounded accent-red-600" />
             <span className={`text-[10px] font-black uppercase tracking-widest ${onlyShortage ? "text-red-600" : "text-slate-400"}`}>CHỈ MÃ THIẾU</span>
           </label>
-          <button onClick={() => loadData()} className="btn btn-secondary btn-sm">↻ Làm mới</button>
+          <button onClick={() => loadData()} className="btn btn-secondary btn-sm"><RefreshCw size={14} strokeWidth={2.5} /> Làm mới</button>
         </div>
       </div>
 
       {/* KPI CARDS */}
       <div className="grid grid-cols-4 gap-3 mb-4">
-        <KpiCard icon="🚨" label="Mã hàng thiếu hụt" value={totalShortage} color="#ef4444" pulse={totalShortage > 0}
+        <KpiCard icon={<AlertTriangle size={20} strokeWidth={2.5} />} label="Mã hàng thiếu hụt" value={totalShortage} color="#ef4444" pulse={totalShortage > 0}
           sub={`Trong ${reportData.length} mã được theo dõi`} />
-        <KpiCard icon="⚡" label="Thiếu hôm nay" value={criticalToday} color="#f97316"
+        <KpiCard icon={<Zap size={20} strokeWidth={2.5} />} label="Thiếu hôm nay" value={criticalToday} color="#f97316"
           sub="Cần xử lý ngay trong ngày" />
-        <KpiCard icon="📦" label="Tổng thiếu hụt dự kiến" value={totalMissing} color="#8b5cf6"
+        <KpiCard icon={<Package size={20} strokeWidth={2.5} />} label="Tổng thiếu hụt dự kiến" value={totalMissing} color="#8b5cf6"
           sub="Đơn vị tồn kho (units)" />
-        <KpiCard icon="✅" label="Mã đủ hàng 7 ngày" value={reportData.filter(r => !r.hasShortage).length} color="#10b981"
+        <KpiCard icon={<CheckCircle2 size={20} strokeWidth={2.5} />} label="Mã đủ hàng 7 ngày" value={reportData.filter(r => !r.hasShortage).length} color="#10b981"
           sub="An toàn toàn bộ kế hoạch" />
       </div>
 
@@ -576,7 +577,7 @@ export default function ShortageReportPage() {
               ) : reportData.length === 0 ? (
                 <tr style={{ display: "flex", width: "100%" }}>
                   <td style={{ flex: 1, padding: "80px 20px", textAlign: "center" }}>
-                    <div className="text-5xl mb-4">🎉</div>
+                    <div className="text-emerald-500 mb-4 flex justify-center"><CheckCircle2 size={48} strokeWidth={2.2} /></div>
                     <div className="text-emerald-600 font-black text-xl mb-2">Tuyệt vời! Không phát hiện thiếu hụt nào.</div>
                     <div className="text-slate-400 text-xs font-bold">Tồn kho an toàn cho toàn bộ kế hoạch 7 ngày tới.</div>
                   </td>
@@ -600,7 +601,7 @@ export default function ShortageReportPage() {
                       <div className="font-black text-black tracking-wider text-[15px] break-all uppercase" style={{ color: '#000000' }}>{r.p.sku}</div>
                       {urgency === "critical" && (
                         <span className="inline-flex items-center gap-1 text-[9px] font-black text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full uppercase tracking-widest mt-1">
-                          ⚡ Hôm nay
+                          <Zap size={10} strokeWidth={3} /> Hôm nay
                         </span>
                       )}
                     </td>
@@ -659,13 +660,13 @@ export default function ShortageReportPage() {
                           {isShort ? (
                             <div className="flex flex-col items-center relative z-10">
                               <span className="text-[8px] font-black text-red-500 uppercase tracking-widest flex items-center gap-0.5">
-                                ▲ THIẾU
+                                <AlertTriangle size={10} strokeWidth={3} /> THIẾU
                               </span>
                               <span className="text-lg font-black text-red-700 leading-none mt-0.5">{fmtNum(deficit)}</span>
                             </div>
                           ) : (
                             <div className={`py-1.5 text-[10px] font-black ${plan > 0 ? "text-emerald-600" : "text-slate-200 italic"}`}>
-                              {plan > 0 ? "✅" : "—"}
+                              {plan > 0 ? <CheckCircle2 size={14} strokeWidth={3} className="mx-auto" /> : "—"}
                             </div>
                           )}
                         </td>

@@ -11,6 +11,7 @@ import { useDebounce } from "@/app/hooks/useDebounce";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
+import { Eye, Package, Rocket, X, Zap } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -726,7 +727,7 @@ export default function InventoryReportPage() {
       <div className="page-header bg-white/80 backdrop-blur-md z-40 py-4 px-6 -mx-6 mb-8 border-b border-slate-200/60 shadow-sm text-slate-900">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-[#6366f1]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
-            📦
+            <Package size={28} strokeWidth={2.5} />
           </div>
           <div>
             <h1 className="page-title">TỒN KHO HIỆN TẠI</h1>
@@ -740,14 +741,14 @@ export default function InventoryReportPage() {
           </button>
           
           <button className="btn btn-ghost btn-sm text-indigo-600 font-bold border-indigo-200" onClick={testDbSpeed} disabled={testingDb}>
-            {testingDb ? "Đang xử lý..." : "⚡ Test DB Speed"}
+            {testingDb ? "Đang xử lý..." : <><Zap size={16} strokeWidth={2.5} /> Test DB Speed</>}
           </button>
           <div className="w-px h-6 bg-slate-200 mx-1" />
           <button className="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold" onClick={closeReport} disabled={closing || loading || displayData.length === 0}>
             {closing ? "Đang lưu..." : "📸 Lưu Snapshot"}
           </button>
           <button className="btn bg-indigo-600 text-white hover:bg-indigo-700 font-black tracking-widest uppercase text-[11px] shadow-lg shadow-indigo-200" onClick={() => setRolloverOpen(true)} disabled={loading || reportData.length === 0}>
-            🚀 Kết Chuyển Tháng
+            <Rocket size={16} strokeWidth={2.5} /> Kết Chuyển Tháng
           </button>
         </div>
       </div>
@@ -884,7 +885,7 @@ export default function InventoryReportPage() {
                     <td className="text-right text-red-500 font-medium text-[15px]">-{fmtNum(r.outbound_qty)}</td>
                     <td className="text-right font-bold text-[15px]" style={{ backgroundColor: isZero ? "#fecaca" : isLow ? "#fde047" : "#fef08a", color: isZero ? "#991b1b" : "#000000" }}>{fmtNum(r.current_qty)}</td>
                     <td className="text-center">
-                      <button onClick={() => openHistory(r.product, customerLabel(r.customer_id))} className="w-8 h-8 mx-auto rounded-lg hover:bg-slate-200 text-slate-500 hover:text-indigo-600 transition-colors flex items-center justify-center" title="Xem chi tiết lịch sử">👁️</button>
+                      <button onClick={() => openHistory(r.product, customerLabel(r.customer_id))} className="w-8 h-8 mx-auto rounded-lg hover:bg-slate-200 text-slate-500 hover:text-indigo-600 transition-colors flex items-center justify-center" title="Xem chi tiết lịch sử"><Eye size={17} strokeWidth={2.4} /></button>
                     </td>
                   </tr>
                 );
@@ -921,13 +922,13 @@ export default function InventoryReportPage() {
             >
               <div className="p-6 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-black text-xl">🚀</div>
+                  <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center"><Rocket size={22} strokeWidth={2.5} /></div>
                   <div>
                     <h2 className="font-black text-lg text-slate-900">KẾT CHUYỂN KẾ TOÁN</h2>
                     <p className="text-xs text-indigo-600 font-bold tracking-widest uppercase">Thiết lập mốc tồn đầu kỳ mới</p>
                   </div>
                 </div>
-                <button onClick={() => setRolloverOpen(false)} className="text-slate-400 hover:text-slate-600 font-black p-2 bg-white rounded-lg transition-colors">✕</button>
+                <button onClick={() => setRolloverOpen(false)} className="text-slate-400 hover:text-slate-600 font-black p-2 bg-white rounded-lg transition-colors"><X size={18} strokeWidth={2.5} /></button>
               </div>
 
               <div className="p-6">
@@ -982,7 +983,7 @@ export default function InventoryReportPage() {
           <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-[800px] w-full flex flex-col" style={{ maxHeight: "85vh" }} onClick={e => e.stopPropagation()}>
             <div className="p-6 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center text-xl">👁️</div>
+                <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center"><Eye size={22} strokeWidth={2.5} /></div>
                 <div>
                   <h2 className="font-black text-lg text-slate-900 uppercase tracking-tight">{historyProduct.sku} - {historyProduct.name}</h2>
                   <p className="text-xs text-indigo-600 font-bold tracking-widest uppercase">
@@ -990,7 +991,7 @@ export default function InventoryReportPage() {
                   </p>
                 </div>
               </div>
-              <button onClick={() => setHistoryModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-black p-2 bg-white rounded-lg transition-colors">✕</button>
+              <button onClick={() => setHistoryModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-black p-2 bg-white rounded-lg transition-colors"><X size={18} strokeWidth={2.5} /></button>
             </div>
 
             <div className="p-4 bg-slate-50 border-b border-slate-200 flex gap-4 items-end shrink-0">

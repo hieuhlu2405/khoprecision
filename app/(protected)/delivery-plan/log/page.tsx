@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { exportWithTemplate, exportToExcel } from "@/lib/excel-utils";
+import { FileText, Package, Printer, ScrollText, Trash2, Truck, UserRound, X } from "lucide-react";
 
 type ShipmentLog = {
   id: string;
@@ -429,7 +430,7 @@ export default function DeliveryLogPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="page-title flex items-center gap-3">
-            <span className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100" style={{fontSize: '1.2rem'}}>📜</span>
+            <span className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100"><ScrollText size={22} strokeWidth={2.5} /></span>
             NHẬT KÝ GIAO HÀNG
           </h1>
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-2 ml-1">
@@ -452,7 +453,7 @@ export default function DeliveryLogPage() {
               onClick={handleBulkUndo}
               className="btn btn-sm bg-red-50 text-red-600 border-red-100 hover:bg-red-100 font-bold text-[10px] rounded-xl px-4"
             >
-              🗑️ HỦY {selectedIds.size} CHUYẾN
+              <Trash2 size={14} strokeWidth={2.5} /> HỦY {selectedIds.size} CHUYẾN
             </button>
           )}
         </div>
@@ -529,7 +530,7 @@ export default function DeliveryLogPage() {
                                  {totalQty > 0 ? totalQty.toLocaleString("vi-VN") : "0"} <span className="text-[10px] text-black font-bold uppercase ml-0.5" style={{ color: '#000000' }}>Sản phẩm</span>
                                </div>
                                <div className="text-[10px] text-slate-500 font-black uppercase tracking-tighter mt-0.5">
-                                 📦 {skuCount} mã hàng
+                                 <Package size={12} strokeWidth={2.5} className="inline-block mr-1 align-[-2px]" /> {skuCount} mã hàng
                                </div>
                              </div>
                            );
@@ -551,18 +552,18 @@ export default function DeliveryLogPage() {
                             <div className="flex flex-col gap-1">
                               {v && (
                                 <div className="inline-flex items-center w-fit px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-md font-black text-xs">
-                                  🚛 {v.license_plate}
+                                  <Truck size={14} strokeWidth={2.5} className="mr-1" /> {v.license_plate}
                                 </div>
                               )}
                               <div className="flex flex-col">
                                 {drivers.map((d, idx) => (
                                   <div key={idx} className="text-[11px] font-black text-black uppercase leading-tight">
-                                    👤 {d}
+                                    <UserRound size={12} strokeWidth={2.5} className="inline-block mr-1 align-[-2px]" /> {d}
                                   </div>
                                 ))}
                                 {assistants.map((a, idx) => (
                                   <div key={idx} className="text-[10px] font-bold text-slate-500 uppercase leading-tight">
-                                    👤 {a}
+                                    <UserRound size={12} strokeWidth={2.5} className="inline-block mr-1 align-[-2px]" /> {a}
                                   </div>
                                 ))}
                                 {!v && !log.driver_1_name_snapshot && (
@@ -580,7 +581,7 @@ export default function DeliveryLogPage() {
                                 className="w-10 h-10 flex items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-all shadow-sm"
                                 title="In lại Phiếu giao hàng"
                               >
-                                📄
+                                <Printer size={18} strokeWidth={2.4} />
                               </button>
                           {profile?.role === 'admin' && (
                             <button
@@ -588,7 +589,7 @@ export default function DeliveryLogPage() {
                               className="w-10 h-10 flex items-center justify-center rounded-xl bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 transition-all shadow-sm opacity-0 group-hover:opacity-100"
                               title="Hủy chuyến hàng"
                             >
-                              ✕
+                              <X size={18} strokeWidth={2.6} />
                             </button>
                           )}
                         </div>
@@ -609,7 +610,7 @@ export default function DeliveryLogPage() {
               disabled={loadingMore}
               className="btn btn-sm px-10 bg-white border-slate-300 shadow-sm font-black text-[10px] uppercase tracking-widest hover:bg-slate-100"
             >
-              {loadingMore ? "ĐANG TẢI..." : "🔽 XEM THÊM CHUYẾN CŨ HƠN"}
+              {loadingMore ? "ĐANG TẢI..." : <><FileText size={14} strokeWidth={2.5} /> XEM THÊM CHUYẾN CŨ HƠN</>}
             </button>
           )}
           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">

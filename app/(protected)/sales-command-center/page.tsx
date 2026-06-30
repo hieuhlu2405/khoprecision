@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { getVNTimeNow, getTodayVNStr } from "@/lib/date-utils";
+import { BarChart3, Building2, ClipboardList, CreditCard, Flame, Gem, RefreshCw, Repeat2, Rocket, TrendingDown, TrendingUp, Truck, Zap } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -81,7 +82,7 @@ function KpiCard({ icon, label, rawValue, formatted, sub, color, trend, idx = 0 
       className="relative overflow-hidden rounded-2xl bg-white border border-slate-200/80 p-5 shadow-sm">
       <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-[0.05] pointer-events-none" style={{ background: color, transform: "translate(30%, -30%)" }} />
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: `${color}15` }}>{icon}</div>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${color}15`, color }}>{icon}</div>
         <div>
           <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">{label}</div>
           {trend !== undefined && (
@@ -349,7 +350,7 @@ export default function SalesCommandCenterPage() {
       {/* ─── HEADER ─── */}
       <div className="page-header -mx-6 px-6 py-5 mb-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-[100] shadow-sm">
         <div className="flex items-center gap-4 min-w-0">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl shadow-lg ring-4 ring-indigo-50">🚀</div>
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg ring-4 ring-indigo-50"><Rocket size={26} strokeWidth={2.5} /></div>
           <div>
             <h1 className="page-title mb-0 text-xl font-black text-slate-800">SALES COMMAND CENTER</h1>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{getMonthRange(monthOffset).label}</p>
@@ -361,25 +362,25 @@ export default function SalesCommandCenterPage() {
             <span className="text-xs font-black text-slate-700 w-36 text-center uppercase tracking-tighter">{getMonthRange(monthOffset).label}</span>
             <button onClick={() => setMonthOffset(m => Math.min(0, m + 1))} className="p-1 hover:text-indigo-600 font-bold transition-colors">›</button>
           </div>
-          <button onClick={loadData} className="w-11 h-11 bg-white border border-slate-200 rounded-xl flex items-center justify-center hover:bg-slate-50 hover:text-indigo-600 transition-all active:scale-95 shadow-sm">↻</button>
+          <button onClick={loadData} className="w-11 h-11 bg-white border border-slate-200 rounded-xl flex items-center justify-center hover:bg-slate-50 hover:text-indigo-600 transition-all active:scale-95 shadow-sm"><RefreshCw size={18} strokeWidth={2.5} /></button>
         </div>
       </div>
 
       {/* ─── KPI GRID ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
-        <KpiCard idx={0} icon="💳" label="Doanh thu tháng" rawValue={stats.monthRev} formatted={fmtVND(stats.monthRev)} color="#6366f1" trend={stats.monthRevTrend} sub={`vs ${getMonthRange(monthOffset-1).label}`} />
-        <KpiCard idx={1} icon="⚡" label="Doanh thu 7 ngày" rawValue={stats.weekRev} formatted={fmtVND(stats.weekRev)} color="#10b981" trend={stats.weekRevTrend} sub="Gần nhất so với 7 ngày trước" />
-        <KpiCard idx={2} icon="🚛" label="Số chuyến tháng" rawValue={stats.monthShip} formatted={`${fmtNum(stats.monthShip)} chuyến`} color="#f59e0b" trend={stats.monthShipTrend} sub={`vs ${getMonthRange(monthOffset-1).label}`} />
-        <KpiCard idx={3} icon="🚚" label="Số chuyến 7 ngày" rawValue={stats.weekShip} formatted={`${fmtNum(stats.weekShip)} chuyến`} color="#eab308" trend={stats.weekShipTrend} sub="Gần nhất so với 7 ngày trước" />
-        <KpiCard idx={4} icon="🔥" label="Tốc độ xuất/ngày" rawValue={stats.dailyBurn} formatted={fmtVND(stats.dailyBurn)} color="#ec4899" sub="Mục tiêu duy trì dòng tiền" />
-        <KpiCard idx={5} icon="💎" label="Giá trị TB / chuyến" rawValue={stats.avgShipVal} formatted={fmtVND(stats.avgShipVal)} color="#8b5cf6" sub="Quy mô trung bình đơn hàng" />
+        <KpiCard idx={0} icon={<CreditCard size={21} strokeWidth={2.5} />} label="Doanh thu tháng" rawValue={stats.monthRev} formatted={fmtVND(stats.monthRev)} color="#6366f1" trend={stats.monthRevTrend} sub={`vs ${getMonthRange(monthOffset-1).label}`} />
+        <KpiCard idx={1} icon={<Zap size={21} strokeWidth={2.5} />} label="Doanh thu 7 ngày" rawValue={stats.weekRev} formatted={fmtVND(stats.weekRev)} color="#10b981" trend={stats.weekRevTrend} sub="Gần nhất so với 7 ngày trước" />
+        <KpiCard idx={2} icon={<Truck size={21} strokeWidth={2.5} />} label="Số chuyến tháng" rawValue={stats.monthShip} formatted={`${fmtNum(stats.monthShip)} chuyến`} color="#f59e0b" trend={stats.monthShipTrend} sub={`vs ${getMonthRange(monthOffset-1).label}`} />
+        <KpiCard idx={3} icon={<Truck size={21} strokeWidth={2.5} />} label="Số chuyến 7 ngày" rawValue={stats.weekShip} formatted={`${fmtNum(stats.weekShip)} chuyến`} color="#eab308" trend={stats.weekShipTrend} sub="Gần nhất so với 7 ngày trước" />
+        <KpiCard idx={4} icon={<Flame size={21} strokeWidth={2.5} />} label="Tốc độ xuất/ngày" rawValue={stats.dailyBurn} formatted={fmtVND(stats.dailyBurn)} color="#ec4899" sub="Mục tiêu duy trì dòng tiền" />
+        <KpiCard idx={5} icon={<Gem size={21} strokeWidth={2.5} />} label="Giá trị TB / chuyến" rawValue={stats.avgShipVal} formatted={fmtVND(stats.avgShipVal)} color="#8b5cf6" sub="Quy mô trung bình đơn hàng" />
       </div>
 
       {/* ─── TABS ─── */}
       <div className="flex flex-wrap gap-1 bg-slate-200/50 p-1 rounded-2xl w-fit max-w-full mb-8 border border-slate-200/50 shadow-inner">
-        <button onClick={() => setActiveTab("overview")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider ${activeTab === "overview" ? "bg-white text-indigo-600 shadow-md scale-105" : "text-slate-500 hover:text-slate-800"}`}>📊 Tổng quan Sales</button>
-        <button onClick={() => setActiveTab("customers")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider ${activeTab === "customers" ? "bg-white text-indigo-600 shadow-md scale-105" : "text-slate-500 hover:text-slate-800"}`}>🏢 Báo cáo Khách hàng</button>
-        <button onClick={() => setActiveTab("compare")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider ${activeTab === "compare" ? "bg-white text-indigo-600 shadow-md scale-105" : "text-slate-500 hover:text-slate-800"}`}>🔄 Đối chiếu Kỳ</button>
+        <button onClick={() => setActiveTab("overview")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider flex items-center gap-2 ${activeTab === "overview" ? "bg-white text-indigo-600 shadow-md scale-105" : "text-slate-500 hover:text-slate-800"}`}><BarChart3 size={15} strokeWidth={2.5} /> Tổng quan Sales</button>
+        <button onClick={() => setActiveTab("customers")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider flex items-center gap-2 ${activeTab === "customers" ? "bg-white text-indigo-600 shadow-md scale-105" : "text-slate-500 hover:text-slate-800"}`}><Building2 size={15} strokeWidth={2.5} /> Báo cáo Khách hàng</button>
+        <button onClick={() => setActiveTab("compare")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider flex items-center gap-2 ${activeTab === "compare" ? "bg-white text-indigo-600 shadow-md scale-105" : "text-slate-500 hover:text-slate-800"}`}><Repeat2 size={15} strokeWidth={2.5} /> Đối chiếu Kỳ</button>
       </div>
 
       <AnimatePresence mode="wait">
@@ -506,7 +507,7 @@ export default function SalesCommandCenterPage() {
                      </div>
                   </div>
                   <button onClick={loadCompare} className="h-12 px-8 bg-black text-white rounded-2xl font-black uppercase text-[12px] shadow-lg shadow-slate-200 hover:shadow-indigo-200 hover:-translate-y-1 transition-all active:scale-95 disabled:bg-slate-300" disabled={loading}>
-                    {loading ? "Đang xử lý..." : "Thực hiện Đối chiếu 🔄"}
+                    {loading ? "Đang xử lý..." : <><Repeat2 size={16} strokeWidth={2.5} /> Thực hiện Đối chiếu</>}
                   </button>
                </div>
 
@@ -611,9 +612,9 @@ export default function SalesCommandCenterPage() {
                           {/* Filter Tabs */}
                           <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
                              {[
-                               { id: "all", label: "Tất cả", icon: "📋" },
-                               { id: "growth", label: "Tăng trưởng", icon: "📈" },
-                               { id: "drop", label: "Sụt giảm", icon: "📉" }
+                               { id: "all", label: "Tất cả", icon: <ClipboardList size={14} strokeWidth={2.5} /> },
+                               { id: "growth", label: "Tăng trưởng", icon: <TrendingUp size={14} strokeWidth={2.5} /> },
+                               { id: "drop", label: "Sụt giảm", icon: <TrendingDown size={14} strokeWidth={2.5} /> }
                              ].map(f => (
                                <button key={f.id} onClick={() => setCompareFilter(f.id as any)} className={`px-4 py-2 rounded-lg text-[11px] font-black uppercase transition-all flex items-center gap-2 ${compareFilter === f.id ? "bg-slate-900 text-white shadow-md" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"}`}>
                                  <span>{f.icon}</span> {f.label}

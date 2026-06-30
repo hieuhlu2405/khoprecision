@@ -7,6 +7,7 @@ import { getVNTimeNow, getTodayVNStr } from "@/lib/date-utils";
 import { useUI } from "@/app/context/UIContext";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
+import { CalendarDays, Clock, Download, Package, Search, Upload, Wallet, Warehouse } from "lucide-react";
 
 /* -----------------------------------------------------------------------
    Types Definitions
@@ -49,12 +50,12 @@ const DEPT_LABELS: Record<string, string> = {
 };
 
 const quickLinks = [
-  { href: "/delivery-plan", icon: "📅", color: "#8b5cf6", label: "Kế hoạch Giao", desc: "Lịch trình giao hàng" },
-  { href: "/inventory/inbound", icon: "📥", color: "#10b981", label: "Nhập kho", desc: "Ghi nhận thành phẩm đầu vào" },
-  { href: "/inventory/outbound", icon: "🚚", color: "#8b5cf6", label: "Xuất kho", desc: "Ghi nhận thành phẩm đầu ra" },
-  { href: "/inventory/report", icon: "📦", color: "#2487C8", label: "Tồn kho", desc: "Xem tồn kho thành phẩm" },
-  { href: "/inventory/stocktake", icon: "🔍", color: "#0d9488", label: "Kiểm kê", desc: "Tạo phiếu kiểm kê kho" },
-  { href: "/inventory/phoi", icon: "🧱", color: "#475569", label: "Nhập phôi", desc: "Ghi nhận phôi nguyên vật liệu" },
+  { href: "/delivery-plan", Icon: CalendarDays, color: "#8b5cf6", label: "Kế hoạch Giao", desc: "Lịch trình giao hàng" },
+  { href: "/inventory/inbound", Icon: Download, color: "#10b981", label: "Nhập kho", desc: "Ghi nhận thành phẩm đầu vào" },
+  { href: "/inventory/outbound", Icon: Upload, color: "#8b5cf6", label: "Xuất kho", desc: "Ghi nhận thành phẩm đầu ra" },
+  { href: "/inventory/report", Icon: Package, color: "#2487C8", label: "Tồn kho", desc: "Xem tồn kho thành phẩm" },
+  { href: "/inventory/stocktake", Icon: Search, color: "#0d9488", label: "Kiểm kê", desc: "Tạo phiếu kiểm kê kho" },
+  { href: "/inventory/phoi", Icon: Warehouse, color: "#475569", label: "Nhập phôi", desc: "Ghi nhận phôi nguyên vật liệu" },
 ];
 
 /* -----------------------------------------------------------------------
@@ -625,10 +626,7 @@ export default function AppHome() {
         <div className="kpi-card kpi-card-1">
           <div>
             <div style={{ width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "#2487C812" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2487C8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2v20"/>
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-              </svg>
+              <Wallet size={22} strokeWidth={2.5} color="#2487C8" />
             </div>
             <div className="money-text">
               {loading ? <span style={{ color: "#cbd5e1" }}>—— đ</span> : formatVND(stats?.totalCurrentValue ?? 0)}
@@ -643,11 +641,7 @@ export default function AppHome() {
         <div className="kpi-card kpi-card-2">
           <div>
             <div style={{ width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "#10b98112" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" x2="12" y1="15" y2="3"/>
-              </svg>
+              <Download size={22} strokeWidth={2.5} color="#10b981" />
             </div>
             <div className="money-text">
               {loading ? <span style={{ color: "#cbd5e1" }}>—— đ</span> : formatVND(stats?.totalInboundMonth ?? 0)}
@@ -662,11 +656,7 @@ export default function AppHome() {
         <div className="kpi-card kpi-card-3">
           <div>
             <div style={{ width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "#8b5cf612" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" x2="12" y1="3" y2="15"/>
-              </svg>
+              <Upload size={22} strokeWidth={2.5} color="#8b5cf6" />
             </div>
             <div className="money-text">
               {loading ? <span style={{ color: "#cbd5e1" }}>—— đ</span> : formatVND(stats?.totalOutboundMonth ?? 0)}
@@ -681,10 +671,7 @@ export default function AppHome() {
         <div className="kpi-card kpi-card-4">
           <div>
             <div style={{ width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "#f43f5e12" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
-              </svg>
+              <Clock size={22} strokeWidth={2.5} color="#f43f5e" />
             </div>
             <div className="money-text">
               {loading ? <span style={{ color: "#cbd5e1" }}>—— đ</span> : formatVND(stats?.totalDeadValue ?? 0)}
@@ -847,7 +834,7 @@ export default function AppHome() {
                 alignItems: "center", justifyContent: "center", flexShrink: 0,
                 background: `${link.color}15`, fontSize: 20
               }}>
-                {link.icon}
+                <link.Icon size={22} strokeWidth={2.4} color={link.color} />
               </div>
               <div style={{ marginLeft: 12 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a", marginBottom: 2 }}>{link.label}</div>
