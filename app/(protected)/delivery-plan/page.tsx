@@ -1033,6 +1033,7 @@ export default function DeliveryPlanPage() {
       );
 
       const rowsByProduct = new Map<string, {
+        customerName: string;
         sku: string;
         uom: string;
         totalRemaining: number;
@@ -1049,7 +1050,11 @@ export default function DeliveryPlanPage() {
         if (remainingQty <= 0) return;
 
         if (plan.plan_date > maxPlanDate) maxPlanDate = plan.plan_date;
-        const existing = rowsByProduct.get(plan.product_id) ?? {
+        const exportCustomerId = plan.delivery_customer_id || p.customer_id;
+        const customer = customers.find(c => c.id === exportCustomerId);
+        const rowKey = `${plan.product_id}_${plan.delivery_customer_id || "parent"}`;
+        const existing = rowsByProduct.get(rowKey) ?? {
+          customerName: customer?.name || customer?.code || "-",
           sku: p.sku,
           uom: p.uom || "",
           totalRemaining: 0,
@@ -1057,11 +1062,11 @@ export default function DeliveryPlanPage() {
         };
         existing.totalRemaining += remainingQty;
         existing.quantitiesByDate[plan.plan_date] = (existing.quantitiesByDate[plan.plan_date] || 0) + remainingQty;
-        rowsByProduct.set(plan.product_id, existing);
+        rowsByProduct.set(rowKey, existing);
       });
 
       const exportRows = Array.from(rowsByProduct.values())
-        .sort((a, b) => a.sku.localeCompare(b.sku));
+        .sort((a, b) => a.customerName.localeCompare(b.customerName) || a.sku.localeCompare(b.sku));
 
       if (exportRows.length === 0) {
         showToast(`Không có kế hoạch nào từ ngày ${dateLabel}.`, 'warning');

@@ -140,6 +140,7 @@ export function exportToExcel(data: any[], filename: string, sheetName: string =
 
 export async function exportDeliveryFuturePlanMatrixExcel(
   rows: {
+    customerName: string;
     sku: string;
     uom: string;
     totalRemaining: number;
@@ -160,20 +161,21 @@ export async function exportDeliveryFuturePlanMatrixExcel(
   const blueFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0070C0' } };
   const lightBlueFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
 
-  ws.views = [{ state: 'frozen', xSplit: 3, ySplit: 2 }];
+  ws.views = [{ state: 'frozen', xSplit: 4, ySplit: 2 }];
   ws.autoFilter = {
     from: { row: 1, column: 1 },
-    to: { row: 2, column: 3 + dates.length },
+    to: { row: 2, column: 4 + dates.length },
   };
 
-  ws.getColumn(1).width = 24;
-  ws.getColumn(2).width = 10;
-  ws.getColumn(3).width = 12;
+  ws.getColumn(1).width = 28;
+  ws.getColumn(2).width = 24;
+  ws.getColumn(3).width = 10;
+  ws.getColumn(4).width = 16;
   dates.forEach((_, idx) => {
-    ws.getColumn(4 + idx).width = 11;
+    ws.getColumn(5 + idx).width = 11;
   });
 
-  const fixedHeaders = ['Mã liệu', 'Đơn vị', 'SL chưa giao'];
+  const fixedHeaders = ['Khách hàng', 'Mã liệu', 'Đơn vị', 'Tổng SL cần giao'];
   fixedHeaders.forEach((label, idx) => {
     const col = idx + 1;
     const cell = ws.getCell(1, col);
@@ -187,7 +189,7 @@ export async function exportDeliveryFuturePlanMatrixExcel(
 
   const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   dates.forEach((dateStr, idx) => {
-    const col = 4 + idx;
+    const col = 5 + idx;
     const d = new Date(`${dateStr}T00:00:00`);
     const day = d.getDay();
     const dateCell = ws.getCell(1, col);
@@ -215,17 +217,17 @@ export async function exportDeliveryFuturePlanMatrixExcel(
 
   rows.forEach((item, rowIdx) => {
     const rowNum = 3 + rowIdx;
-    [item.sku, item.uom, item.totalRemaining].forEach((value, idx) => {
+    [item.customerName, item.sku, item.uom, item.totalRemaining].forEach((value, idx) => {
       const cell = ws.getCell(rowNum, idx + 1);
       cell.value = value;
       cell.font = { name: 'Times New Roman', size: 11 };
-      cell.alignment = { horizontal: idx === 0 ? 'left' : 'center', vertical: 'middle' };
+      cell.alignment = { horizontal: idx <= 1 ? 'left' : 'center', vertical: 'middle', wrapText: idx === 0 };
       cell.border = thinBorder;
     });
 
     dates.forEach((dateStr, idx) => {
       const qty = item.quantitiesByDate[dateStr] || 0;
-      const cell = ws.getCell(rowNum, 4 + idx);
+      const cell = ws.getCell(rowNum, 5 + idx);
       cell.value = qty > 0 ? qty : null;
       cell.font = { name: 'Times New Roman', size: 11 };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
