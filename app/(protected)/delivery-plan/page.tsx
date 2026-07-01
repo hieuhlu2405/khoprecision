@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, useRef, type KeyboardEvent } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef, type CSSProperties, type KeyboardEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
@@ -19,7 +19,9 @@ import {
   FileSpreadsheet,
   Flame,
   Funnel,
+  Minus,
   PackageCheck,
+  Plus,
   Printer,
   Save,
   Sparkles,
@@ -177,6 +179,18 @@ function resolveDeliveryNote(
 }
 
 const TABLE_MIN_WIDTH = 1790; // Total width of all columns sum
+const PLAN_TABLE_MIN_ZOOM = 0.55;
+const PLAN_TABLE_MAX_ZOOM = 1.35;
+
+const clampPlanTableZoom = (value: number) =>
+  Math.min(PLAN_TABLE_MAX_ZOOM, Math.max(PLAN_TABLE_MIN_ZOOM, value));
+
+const getTouchDistance = (touches: TouchList) => {
+  if (touches.length < 2) return 0;
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
+};
 
 /* ------------------------------------------------------------------ */
 /* UI Components                                                       */
@@ -356,6 +370,56 @@ export default function DeliveryPlanPage() {
   const [modalSortDir, setModalSortDir] = useState<'asc' | 'desc'>('asc');
 
   const parentRef = useRef<HTMLDivElement>(null);
+  const pinchZoomRef = useRef<{ startDistance: number; startZoom: number } | null>(null);
+  const planTableZoomRef = useRef(1);
+  const [planTableZoom, setPlanTableZoom] = useState(1);
+
+  const updatePlanTableZoom = useCallback((nextZoom: number | ((current: number) => number)) => {
+    setPlanTableZoom(current => {
+      const raw = typeof nextZoom === "function" ? nextZoom(current) : nextZoom;
+      return Math.round(clampPlanTableZoom(raw) * 100) / 100;
+    });
+  }, []);
+
+  useEffect(() => {
+    planTableZoomRef.current = planTableZoom;
+  }, [planTableZoom]);
+
+  useEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 2) return;
+      pinchZoomRef.current = {
+        startDistance: getTouchDistance(event.touches),
+        startZoom: planTableZoomRef.current,
+      };
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const pinch = pinchZoomRef.current;
+      if (!pinch || event.touches.length !== 2 || pinch.startDistance <= 0) return;
+      event.preventDefault();
+      updatePlanTableZoom(pinch.startZoom * (getTouchDistance(event.touches) / pinch.startDistance));
+    };
+
+    const handleTouchEnd = (event: TouchEvent) => {
+      if (event.touches.length < 2) pinchZoomRef.current = null;
+    };
+
+    el.addEventListener("touchstart", handleTouchStart, { passive: true });
+    el.addEventListener("touchmove", handleTouchMove, { passive: false });
+    el.addEventListener("touchend", handleTouchEnd, { passive: true });
+    el.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener("touchstart", handleTouchStart);
+      el.removeEventListener("touchmove", handleTouchMove);
+      el.removeEventListener("touchend", handleTouchEnd);
+      el.removeEventListener("touchcancel", handleTouchEnd);
+    };
+  }, [updatePlanTableZoom]);
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     if (typeof window !== "undefined") {
@@ -1721,12 +1785,55 @@ export default function DeliveryPlanPage() {
       <div className="page-content">
         {activeTab === 'plan' ? (
           <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden flex flex-col">
+            <div className="delivery-plan-zoom-bar">
+              <button
+                type="button"
+                onClick={() => updatePlanTableZoom(current => current - 0.1)}
+                className="delivery-plan-zoom-btn"
+                title="Thu nhỏ bảng kế hoạch"
+                aria-label="Thu nhỏ bảng kế hoạch"
+                disabled={planTableZoom <= PLAN_TABLE_MIN_ZOOM}
+              >
+                <Minus className="h-4 w-4" strokeWidth={2.5} />
+              </button>
+              <input
+                type="range"
+                min={PLAN_TABLE_MIN_ZOOM}
+                max={PLAN_TABLE_MAX_ZOOM}
+                step="0.05"
+                value={planTableZoom}
+                onChange={event => updatePlanTableZoom(Number(event.target.value))}
+                className="delivery-plan-zoom-range"
+                aria-label="Mức thu phóng bảng kế hoạch"
+              />
+              <button
+                type="button"
+                onClick={() => updatePlanTableZoom(current => current + 0.1)}
+                className="delivery-plan-zoom-btn"
+                title="Phóng to bảng kế hoạch"
+                aria-label="Phóng to bảng kế hoạch"
+                disabled={planTableZoom >= PLAN_TABLE_MAX_ZOOM}
+              >
+                <Plus className="h-4 w-4" strokeWidth={2.5} />
+              </button>
+              <button
+                type="button"
+                onClick={() => updatePlanTableZoom(1)}
+                className="delivery-plan-zoom-reset"
+                title="Đưa bảng về 100%"
+              >
+                {Math.round(planTableZoom * 100)}%
+              </button>
+            </div>
             <div
               ref={parentRef}
-              className="data-table-wrap overflow-auto flex-1"
+              className="data-table-wrap delivery-plan-table-scroll overflow-auto flex-1"
               style={{ maxHeight: "calc(100dvh - 260px)", position: 'relative' }}
             >
-              <table className="text-sm !border-separate !border-spacing-0 table-fixed" style={{ width: TABLE_MIN_WIDTH, minWidth: TABLE_MIN_WIDTH }}>
+              <table
+                className="text-sm !border-separate !border-spacing-0 table-fixed"
+                style={{ width: TABLE_MIN_WIDTH, minWidth: TABLE_MIN_WIDTH, zoom: planTableZoom } as CSSProperties}
+              >
                 <thead className="sticky top-0 z-[60]">
                   <tr style={{ display: 'flex', width: TABLE_MIN_WIDTH }}>
                     <th style={{ width: '50px', minWidth: '50px', flexBasis: '50px', textAlign: 'center', position: 'sticky', top: 0, left: 0, zIndex: 62, background: 'white', borderBottom: '1px solid #e2e8f0', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="py-4 px-2 border-r border-slate-200/60">
