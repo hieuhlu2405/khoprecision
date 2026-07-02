@@ -26,6 +26,7 @@ import {
   Save,
   Sparkles,
   Truck,
+  Copy,
 } from "lucide-react";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 import { formatDateVN, formatDateTimeVN, getTodayVNStr, getVNTimeNow } from "@/lib/date-utils";
@@ -120,6 +121,18 @@ type ShipmentItem = {
   remaining: number;
   actual: string; // empty string for manual input
   push_backlog: boolean;
+};
+
+type ClosePlanReviewItem = {
+  id: string;
+  customerCode: string;
+  sku: string;
+  productName: string;
+  plannedQty: number;
+  backlogQty: number;
+  targetQty: number;
+  actualQty: number;
+  diffQty: number;
 };
 
 type TextFilter = { mode: "contains" | "equals"; value: string };
@@ -275,7 +288,7 @@ function DateColFilterPopup({ filter, onChange, onClose, dateStr, uncompletedCou
               CHỐT NỢ HÀNG NGÀY
             </span>
             <span className="text-[8px] font-bold text-amber-100/90 italic">
-              {uncompletedCount} đơn chờ chốt
+              {uncompletedCount} dòng cần rà
             </span>
           </button>
         </div>
@@ -1274,23 +1287,42 @@ export default function DeliveryPlanPage() {
   const handleConfirmCloseBacklog = async () => {
     if (!closeBacklogDay) return;
 
-    const uncompleted = plans.filter(p =>
+    const dayPlans = plans.filter(p =>
       p.plan_date === closeBacklogDay &&
-      !p.is_completed &&
       ((p.planned_qty || 0) + (p.backlog_qty || 0)) > 0
     );
+    const closablePlans = dayPlans.filter(p => !p.is_completed);
+    const shortagePlans = dayPlans.filter(p => {
+      const targetQty = (p.planned_qty || 0) + (p.backlog_qty || 0);
+      return (p.actual_qty || 0) < targetQty;
+    });
+    const overPlans = dayPlans.filter(p => {
+      const targetQty = (p.planned_qty || 0) + (p.backlog_qty || 0);
+      return (p.actual_qty || 0) > targetQty;
+    });
 
-    if (uncompleted.length === 0) {
-      showToast("Không có kế hoạch nào cần chốt nợ cho ngày này.", "info");
+    if (closablePlans.length === 0) {
+      if (overPlans.length > 0) {
+        showToast(`Đã ghi nhận ${overPlans.length} mã giao thừa. Không có dòng thiếu/chưa giao cần chốt nợ.`, "info");
+      } else {
+        showToast("Không có kế hoạch nào cần chốt nợ cho ngày này.", "info");
+      }
       setCloseBacklogDay(null);
       return;
     }
 
     const [y, m, d] = closeBacklogDay.split("-");
     const formattedDate = `${d}/${m}`;
+    const totalDebtQty = shortagePlans.reduce((sum, p) => {
+      const targetQty = (p.planned_qty || 0) + (p.backlog_qty || 0);
+      return sum + Math.max(targetQty - (p.actual_qty || 0), 0);
+    }, 0);
+    const overWarning = overPlans.length > 0
+      ? `\n\nCảnh báo: Có ${overPlans.length} mã giao thừa. Cần báo Kinh Doanh điều chỉnh kế hoạch ngày mai để tránh khách claim.`
+      : "";
 
     const confirmOk = await showConfirm({
-      message: `Bạn có muốn xác nhận chốt nợ? Hệ thống sẽ tiến hành đóng chốt ngày ${formattedDate}.\n\nXin lưu ý: Thao tác này là KHÔNG THỂ HOÀN TÁC! Hãy xác nhận và thông báo với bộ phận Kinh Doanh trước khi thực hiện thao tác này.`,
+      message: `Bạn có muốn xác nhận chốt kế hoạch ngày ${formattedDate}?\n\nHệ thống sẽ đóng ${closablePlans.length} dòng chưa hoàn tất. Tổng thiếu cần theo dõi: ${totalDebtQty.toLocaleString()} PCS.${overWarning}\n\nXin lưu ý: Thao tác này là KHÔNG THỂ HOÀN TÁC! Hãy xác nhận và thông báo với bộ phận Kinh Doanh trước khi thực hiện thao tác này.`,
       confirmLabel: "ĐỒNG Ý CHỐT NỢ",
       cancelLabel: "HỦY",
       danger: true
@@ -1300,7 +1332,7 @@ export default function DeliveryPlanPage() {
 
     setSaving(true);
     try {
-      const ids = uncompleted.map(p => p.id);
+      const ids = closablePlans.map(p => p.id);
       const { error } = await supabase
         .from("delivery_plans")
         .update({
@@ -1312,8 +1344,7 @@ export default function DeliveryPlanPage() {
 
       if (error) throw error;
 
-      const totalQty = uncompleted.reduce((sum, p) => sum + ((p.planned_qty || 0) + (p.backlog_qty || 0)), 0);
-      showToast(`Đã chốt nợ thành công ngày ${formattedDate}! ${uncompleted.length} đơn, tổng ${totalQty.toLocaleString()} PCS gối sang ngày tiếp theo.`, "success");
+      showToast(`Đã chốt kế hoạch ngày ${formattedDate}! ${closablePlans.length} dòng đã đóng, tổng thiếu ${totalDebtQty.toLocaleString()} PCS cần theo dõi.`, "success");
       setCloseBacklogDay(null);
       loadData();
     } catch (err: any) {
@@ -1603,7 +1634,11 @@ export default function DeliveryPlanPage() {
                 onChange={f => setColFilters(prev => { const n = { ...prev }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
                 onClose={() => setOpenPopup(null)}
                 dateStr={colKey}
-                uncompletedCount={plans.filter(p => p.plan_date === colKey && !p.is_completed && (p.actual_qty || 0) === 0 && ((p.planned_qty || 0) + (p.backlog_qty || 0)) > 0).length}
+                uncompletedCount={plans.filter(p => {
+                  const targetQty = (p.planned_qty || 0) + (p.backlog_qty || 0);
+                  const actualQty = p.actual_qty || 0;
+                  return p.plan_date === colKey && targetQty > 0 && actualQty !== targetQty;
+                }).length}
                 canClose={canEdit && colKey <= todayVN}
                 onOpenCloseModal={handleOpenCloseBacklogModal}
               />
@@ -2577,95 +2612,198 @@ export default function DeliveryPlanPage() {
 
       {/* === MODAL CHỐT NỢ HÀNG NGÀY === */}
       {closeBacklogDay && (() => {
-        const pendingPlans = plans.filter(p =>
-          p.plan_date === closeBacklogDay &&
-          !p.is_completed &&
-          (p.actual_qty || 0) === 0 &&
-          ((p.planned_qty || 0) + (p.backlog_qty || 0)) > 0
-        );
-        const pendingItems = pendingPlans.map(p => {
+        const dayPlans = plans.filter(p => {
+          const targetQty = (p.planned_qty || 0) + (p.backlog_qty || 0);
+          return p.plan_date === closeBacklogDay && targetQty > 0;
+        });
+        const closableCount = dayPlans.filter(p => !p.is_completed).length;
+        const reviewItems = dayPlans.map((p): ClosePlanReviewItem => {
           const prod = products.find(x => x.id === p.product_id);
-          const cust = customers.find(x => x.id === (p.customer_id || prod?.customer_id));
+          const cust = customers.find(x => x.id === (p.delivery_customer_id || p.customer_id || prod?.customer_id));
+          const plannedQty = p.planned_qty || 0;
+          const backlogQty = p.backlog_qty || 0;
+          const targetQty = plannedQty + backlogQty;
+          const actualQty = p.actual_qty || 0;
           return {
             id: p.id,
             customerCode: cust?.code || "N/A",
             sku: prod?.sku || "N/A",
-            qty: (p.planned_qty || 0) + (p.backlog_qty || 0)
+            productName: prod?.name || "",
+            plannedQty,
+            backlogQty,
+            targetQty,
+            actualQty,
+            diffQty: Math.abs(targetQty - actualQty),
           };
-        }).sort((a, b) => {
+        });
+        const sortItems = (items: ClosePlanReviewItem[]) => items.slice().sort((a, b) => {
           const valA = modalSortCol === 'customer' ? a.customerCode : a.sku;
           const valB = modalSortCol === 'customer' ? b.customerCode : b.sku;
           const cmp = valA.localeCompare(valB, 'vi', { sensitivity: 'base' });
           return modalSortDir === 'asc' ? cmp : -cmp;
         });
-        const totalQty = pendingItems.reduce((s, x) => s + x.qty, 0);
+        const notShippedItems = sortItems(reviewItems.filter(x => x.actualQty === 0 && x.targetQty > 0));
+        const shortItems = sortItems(reviewItems.filter(x => x.actualQty > 0 && x.actualQty < x.targetQty));
+        const overItems = sortItems(reviewItems.filter(x => x.actualQty > x.targetQty));
+        const reviewCount = notShippedItems.length + shortItems.length + overItems.length;
+        const totalNotShippedQty = notShippedItems.reduce((s, x) => s + x.diffQty, 0);
+        const totalShortQty = shortItems.reduce((s, x) => s + x.diffQty, 0);
+        const totalOverQty = overItems.reduce((s, x) => s + x.diffQty, 0);
         const [y, m, d] = closeBacklogDay.split("-");
         const fmtDate = `${d}/${m}`;
         const toggleSort = (col: 'customer' | 'sku') => {
           if (modalSortCol === col) setModalSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
           else { setModalSortCol(col); setModalSortDir('asc'); }
         };
+        const buildCopyText = () => {
+          const lines = [
+            `Chốt kế hoạch ngày ${fmtDate}`,
+            `Chưa giao: ${notShippedItems.length} mã / ${totalNotShippedQty.toLocaleString("vi-VN")} PCS`,
+            `Giao thiếu: ${shortItems.length} mã / ${totalShortQty.toLocaleString("vi-VN")} PCS`,
+            `Giao thừa: ${overItems.length} mã / ${totalOverQty.toLocaleString("vi-VN")} PCS`,
+          ];
+          const appendGroup = (title: string, items: ClosePlanReviewItem[], label: string) => {
+            if (items.length === 0) return;
+            lines.push("", title);
+            items.forEach((item, index) => {
+              lines.push(`${index + 1}. ${item.customerCode} | ${item.sku} | KH ${item.targetQty.toLocaleString("vi-VN")} | Đã xuất ${item.actualQty.toLocaleString("vi-VN")} | ${label} ${item.diffQty.toLocaleString("vi-VN")}`);
+            });
+          };
+          appendGroup("CHƯA GIAO", notShippedItems, "Thiếu");
+          appendGroup("GIAO THIẾU", shortItems, "Thiếu");
+          appendGroup("GIAO THỪA - cần KD điều chỉnh kế hoạch ngày mai", overItems, "Thừa");
+          return lines.join("\n");
+        };
+        const handleCopyCloseSummary = async () => {
+          try {
+            await navigator.clipboard.writeText(buildCopyText());
+            showToast("Đã copy danh sách chốt ngày để gửi Kinh Doanh.", "success");
+          } catch {
+            showToast("Không copy được tự động. Anh thử copy thủ công từ danh sách đang hiện.", "warning");
+          }
+        };
+        const renderReviewSection = (
+          title: string,
+          items: ClosePlanReviewItem[],
+          totalDiff: number,
+          tone: "amber" | "red" | "rose",
+          emptyText: string,
+          diffLabel: string
+        ) => {
+          const toneClass = tone === "amber"
+            ? "bg-amber-50 text-amber-800 border-amber-200"
+            : tone === "red"
+              ? "bg-red-50 text-red-800 border-red-200"
+              : "bg-rose-50 text-rose-800 border-rose-200";
+          const totalClass = tone === "amber"
+            ? "text-amber-700"
+            : tone === "red"
+              ? "text-red-700"
+              : "text-rose-700";
 
-        return (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => !saving && setCloseBacklogDay(null)}>
-            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" />
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
-              {/* Header */}
-              <div className="px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white">
-                <div className="text-xs font-black uppercase tracking-widest opacity-80 flex items-center gap-1.5">
-                  <Truck className="h-3.5 w-3.5" strokeWidth={2.35} />
-                  Chốt Nợ Hàng Ngày
+          return (
+            <section className="border-t border-slate-200">
+              <div className={`px-5 py-3 border-b ${toneClass} flex flex-wrap items-center justify-between gap-2`}>
+                <div className="font-black text-xs uppercase tracking-widest">{title}</div>
+                <div className={`font-black text-xs ${totalClass}`}>
+                  {items.length} mã / {totalDiff.toLocaleString("vi-VN")} PCS
                 </div>
-                <div className="text-lg font-black mt-1">Ngày {fmtDate} — {pendingItems.length} đơn chờ chốt</div>
-                <div className="text-xs font-bold opacity-80 mt-0.5">Tổng lượng gối nợ: {totalQty.toLocaleString()} PCS</div>
               </div>
-
-              {/* Table */}
-              {pendingItems.length === 0 ? (
-                <div className="px-6 py-12 text-center text-slate-400 font-bold italic text-sm">
-                  Không có đơn nào cần chốt nợ cho ngày này.
-                </div>
+              {items.length === 0 ? (
+                <div className="px-5 py-4 text-sm text-slate-400 font-bold italic">{emptyText}</div>
               ) : (
-                <div className="max-h-[350px] overflow-y-auto">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-slate-50 z-10">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] text-sm">
+                    <thead className="bg-slate-50">
                       <tr className="border-b border-slate-200">
-                        <th className="px-6 py-3 text-left">
+                        <th className="px-5 py-2.5 text-left">
                           <button onClick={() => toggleSort('customer')} className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">
                             Mã KH
                             <span className="text-xs">{modalSortCol === 'customer' ? (modalSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
                           </button>
                         </th>
-                        <th className="px-4 py-3 text-left">
+                        <th className="px-4 py-2.5 text-left">
                           <button onClick={() => toggleSort('sku')} className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">
                             Mã hàng
                             <span className="text-xs">{modalSortCol === 'sku' ? (modalSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
                           </button>
                         </th>
-                        <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Số lượng</th>
+                        <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Kế hoạch</th>
+                        <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Đã xuất</th>
+                        <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">{diffLabel}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {pendingItems.map((item, idx) => (
-                        <tr key={item.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-amber-50/40 transition-colors`}>
-                          <td className="px-6 py-2.5 font-black text-xs text-slate-700">{item.customerCode}</td>
-                          <td className="px-4 py-2.5 font-bold text-xs text-slate-600">{item.sku}</td>
-                          <td className="px-4 py-2.5 font-black text-xs text-right text-slate-900">{item.qty.toLocaleString()}</td>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {items.map((item, idx) => (
+                        <tr key={item.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-slate-50 transition-colors`}>
+                          <td className="px-5 py-2.5 font-black text-xs text-slate-700">{item.customerCode}</td>
+                          <td className="px-4 py-2.5">
+                            <div className="font-bold text-xs text-slate-700">{item.sku}</div>
+                            {item.productName && <div className="text-[10px] text-slate-400 font-bold truncate max-w-[220px]" title={item.productName}>{item.productName}</div>}
+                          </td>
+                          <td className="px-4 py-2.5 font-black text-xs text-right text-slate-700">
+                            {item.targetQty.toLocaleString("vi-VN")}
+                            {item.backlogQty > 0 && <div className="text-[9px] text-amber-600 font-bold">gồm nợ {item.backlogQty.toLocaleString("vi-VN")}</div>}
+                          </td>
+                          <td className="px-4 py-2.5 font-black text-xs text-right text-slate-700">{item.actualQty.toLocaleString("vi-VN")}</td>
+                          <td className={`px-4 py-2.5 font-black text-xs text-right ${totalClass}`}>{item.diffQty.toLocaleString("vi-VN")}</td>
                         </tr>
                       ))}
                     </tbody>
-                    <tfoot className="sticky bottom-0 bg-amber-50 border-t-2 border-amber-200">
-                      <tr>
-                        <td colSpan={2} className="px-6 py-2.5 font-black text-xs text-amber-800 uppercase tracking-wider">Tổng cộng</td>
-                        <td className="px-4 py-2.5 font-black text-xs text-right text-amber-900">{totalQty.toLocaleString()}</td>
-                      </tr>
-                    </tfoot>
                   </table>
                 </div>
               )}
+            </section>
+          );
+        };
+
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => !saving && setCloseBacklogDay(null)}>
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" />
+            <div className="relative bg-white rounded-2xl shadow-2xl w-[calc(100vw-24px)] max-w-5xl max-h-[90dvh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white">
+                <div className="text-xs font-black uppercase tracking-widest opacity-80 flex items-center gap-1.5">
+                  <Truck className="h-3.5 w-3.5" strokeWidth={2.35} />
+                  Rà soát cuối ngày
+                </div>
+                <div className="text-lg font-black mt-1">Ngày {fmtDate} — {reviewCount} dòng cần chú ý</div>
+                <div className="text-xs font-bold opacity-90 mt-0.5">
+                  Chưa giao {notShippedItems.length} / Thiếu {shortItems.length} / Thừa {overItems.length}
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto">
+                {reviewCount === 0 ? (
+                  <div className="px-6 py-12 text-center text-slate-400 font-bold italic text-sm">
+                    Không có dòng chưa giao, giao thiếu hoặc giao thừa cho ngày này.
+                  </div>
+                ) : (
+                  <>
+                    {renderReviewSection("Chưa giao", notShippedItems, totalNotShippedQty, "amber", "Không có mã nào chưa giao.", "Thiếu")}
+                    {renderReviewSection("Giao thiếu", shortItems, totalShortQty, "red", "Không có mã nào giao thiếu.", "Thiếu")}
+                    {renderReviewSection("Giao thừa", overItems, totalOverQty, "rose", "Không có mã nào giao thừa.", "Thừa")}
+                    {overItems.length > 0 && (
+                      <div className="px-5 py-3 border-t border-rose-200 bg-rose-50 text-rose-800 text-xs font-bold">
+                        Có mã giao thừa. Cần báo Kinh Doanh điều chỉnh kế hoạch ngày mai để giảm rủi ro khách claim.
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
 
               {/* Footer */}
-              <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex items-center justify-end gap-3">
+              <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex flex-wrap items-center justify-end gap-3">
+                {reviewCount > 0 && (
+                  <button
+                    onClick={handleCopyCloseSummary}
+                    disabled={saving}
+                    className="btn btn-sm bg-white border-slate-200 text-slate-700 hover:bg-slate-100 font-black text-xs uppercase tracking-wider"
+                  >
+                    <Copy className="h-4 w-4" strokeWidth={2.35} />
+                    Copy gửi KD
+                  </button>
+                )}
                 <button
                   onClick={() => setCloseBacklogDay(null)}
                   disabled={saving}
@@ -2673,13 +2811,13 @@ export default function DeliveryPlanPage() {
                 >
                   Hủy
                 </button>
-                {pendingItems.length > 0 && (
+                {(reviewCount > 0 || closableCount > 0) && (
                   <button
                     onClick={handleConfirmCloseBacklog}
                     disabled={saving}
                     className="btn btn-sm px-6 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black text-xs uppercase tracking-wider border-none shadow-lg shadow-orange-200/50 disabled:opacity-50"
                   >
-                    {saving ? "ĐANG XỬ LÝ..." : "XÁC NHẬN CHỐT NỢ"}
+                    {saving ? "ĐANG XỬ LÝ..." : closableCount > 0 ? "XÁC NHẬN CHỐT" : "ĐÃ XEM & ĐÓNG"}
                   </button>
                 )}
               </div>
