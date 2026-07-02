@@ -1317,12 +1317,9 @@ export default function DeliveryPlanPage() {
       const targetQty = (p.planned_qty || 0) + (p.backlog_qty || 0);
       return sum + Math.max(targetQty - (p.actual_qty || 0), 0);
     }, 0);
-    const overWarning = overPlans.length > 0
-      ? `\n\nCảnh báo: Có ${overPlans.length} mã giao thừa. Cần báo Kinh Doanh điều chỉnh kế hoạch ngày mai để tránh khách claim.`
-      : "";
 
     const confirmOk = await showConfirm({
-      message: `Bạn có muốn xác nhận chốt kế hoạch ngày ${formattedDate}?\n\nHệ thống sẽ đóng ${closablePlans.length} dòng chưa hoàn tất. Tổng thiếu cần theo dõi: ${totalDebtQty.toLocaleString()} PCS.${overWarning}\n\nXin lưu ý: Thao tác này là KHÔNG THỂ HOÀN TÁC! Hãy xác nhận và thông báo với bộ phận Kinh Doanh trước khi thực hiện thao tác này.`,
+      message: `Bạn có muốn xác nhận chốt kế hoạch ngày ${formattedDate}?\n\nHệ thống sẽ đóng ${closablePlans.length} dòng chưa hoàn tất. Tổng thiếu cần theo dõi: ${totalDebtQty.toLocaleString()} PCS.\n\nXin lưu ý: Thao tác này là KHÔNG THỂ HOÀN TÁC! Hãy xác nhận và thông báo với bộ phận Kinh Doanh trước khi thực hiện thao tác này.`,
       confirmLabel: "ĐỒNG Ý CHỐT NỢ",
       cancelLabel: "HỦY",
       danger: true
@@ -2677,7 +2674,7 @@ export default function DeliveryPlanPage() {
         const handleCopyCloseSummary = async () => {
           try {
             await navigator.clipboard.writeText(buildCopyText());
-            showToast("Đã copy danh sách chốt ngày để gửi Kinh Doanh.", "success");
+            showToast("Đã copy dữ liệu chốt ngày.", "success");
           } catch {
             showToast("Không copy được tự động. Anh thử copy thủ công từ danh sách đang hiện.", "warning");
           }
@@ -2688,7 +2685,8 @@ export default function DeliveryPlanPage() {
           totalDiff: number,
           tone: "amber" | "red" | "rose",
           emptyText: string,
-          diffLabel: string
+          diffLabel: string,
+          compact = false
         ) => {
           const toneClass = tone === "amber"
             ? "bg-amber-50 text-amber-800 border-amber-200"
@@ -2713,7 +2711,7 @@ export default function DeliveryPlanPage() {
                 <div className="px-5 py-4 text-sm text-slate-400 font-bold italic">{emptyText}</div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] text-sm">
+                  <table className={`w-full ${compact ? "min-w-[480px]" : "min-w-[720px]"} text-sm`}>
                     <thead className="bg-slate-50">
                       <tr className="border-b border-slate-200">
                         <th className="px-5 py-2.5 text-left">
@@ -2729,8 +2727,12 @@ export default function DeliveryPlanPage() {
                           </button>
                         </th>
                         <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Kế hoạch</th>
-                        <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Đã xuất</th>
-                        <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">{diffLabel}</th>
+                        {!compact && (
+                          <>
+                            <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Đã xuất</th>
+                            <th className="px-4 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">{diffLabel}</th>
+                          </>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
@@ -2745,8 +2747,12 @@ export default function DeliveryPlanPage() {
                             {item.targetQty.toLocaleString("vi-VN")}
                             {item.backlogQty > 0 && <div className="text-[9px] text-amber-600 font-bold">gồm nợ {item.backlogQty.toLocaleString("vi-VN")}</div>}
                           </td>
-                          <td className="px-4 py-2.5 font-black text-xs text-right text-slate-700">{item.actualQty.toLocaleString("vi-VN")}</td>
-                          <td className={`px-4 py-2.5 font-black text-xs text-right ${totalClass}`}>{item.diffQty.toLocaleString("vi-VN")}</td>
+                          {!compact && (
+                            <>
+                              <td className="px-4 py-2.5 font-black text-xs text-right text-slate-700">{item.actualQty.toLocaleString("vi-VN")}</td>
+                              <td className={`px-4 py-2.5 font-black text-xs text-right ${totalClass}`}>{item.diffQty.toLocaleString("vi-VN")}</td>
+                            </>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -2780,14 +2786,9 @@ export default function DeliveryPlanPage() {
                   </div>
                 ) : (
                   <>
-                    {renderReviewSection("Chưa giao", notShippedItems, totalNotShippedQty, "amber", "Không có mã nào chưa giao.", "Thiếu")}
+                    {renderReviewSection("Chưa giao", notShippedItems, totalNotShippedQty, "amber", "Không có mã nào chưa giao.", "Thiếu", true)}
                     {renderReviewSection("Giao thiếu", shortItems, totalShortQty, "red", "Không có mã nào giao thiếu.", "Thiếu")}
                     {renderReviewSection("Giao thừa", overItems, totalOverQty, "rose", "Không có mã nào giao thừa.", "Thừa")}
-                    {overItems.length > 0 && (
-                      <div className="px-5 py-3 border-t border-rose-200 bg-rose-50 text-rose-800 text-xs font-bold">
-                        Có mã giao thừa. Cần báo Kinh Doanh điều chỉnh kế hoạch ngày mai để giảm rủi ro khách claim.
-                      </div>
-                    )}
                   </>
                 )}
               </div>
@@ -2801,7 +2802,7 @@ export default function DeliveryPlanPage() {
                     className="btn btn-sm bg-white border-slate-200 text-slate-700 hover:bg-slate-100 font-black text-xs uppercase tracking-wider"
                   >
                     <Copy className="h-4 w-4" strokeWidth={2.35} />
-                    Copy gửi KD
+                    Copy dữ liệu
                   </button>
                 )}
                 <button
