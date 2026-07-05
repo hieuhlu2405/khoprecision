@@ -1935,7 +1935,7 @@ export default function InventoryValueReportPage() {
                 <ClusteredBarChartSafe title="So sánh giá trị tồn mã hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareTopProducts.map(p => ({ label: p.product.sku, val1: p.val1 || 0, val2: p.val2 || 0 }))} />
               </div>
               <div className="filter-panel" style={{ padding: 20, minWidth: 0, overflow: "hidden" }}>
-                <ClusteredBarChartSafe title="So sánh giá trị tồn khách hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareCustomerSummary.sort((a,b) => (b.p2_value || 0) - (a.p2_value || 0)).slice(0, 10).map(c => ({ label: customerLabel(c.customer_id), val1: c.p1_value || 0, val2: c.p2_value || 0 }))} />
+                <ClusteredBarChartSafe title="So sánh giá trị tồn khách hàng" label1="Kỳ 1" label2="Kỳ 2" data={compareCustomerSummary.sort((a,b) => (b.p2_value || 0) - (a.p2_value || 0)).slice(0, 10).map(c => ({ label: customerCodeLabel(c.customer_id), val1: c.p1_value || 0, val2: c.p2_value || 0 }))} />
               </div>
               <div className="filter-panel inventory-value-chart-full" style={{ padding: 20, minWidth: 0, overflow: "hidden" }}>
                 <CompareStackedBarChart title="Cơ cấu giá trị tồn Kỳ 1 vs Kỳ 2 (%)" label1="Kỳ 1" label2="Kỳ 2" total1={compareTotals.val1} total2={compareTotals.val2}
@@ -1943,14 +1943,14 @@ export default function InventoryValueReportPage() {
                     const sorted = [...compareCustomerSummary].sort((a,b) => (b.p1_value || 0) - (a.p1_value || 0));
                     const top5 = sorted.slice(0, 5);
                     const rest = sorted.slice(5).reduce((acc, c) => acc + (c.p1_value || 0), 0);
-                    const res: { label: string; value: number; color?: string }[] = top5.map(c => ({ label: customerLabel(c.customer_id), value: c.p1_value || 0 }));
+                    const res: { label: string; value: number; color?: string }[] = top5.map(c => ({ label: customerCodeLabel(c.customer_id), value: c.p1_value || 0 }));
                     if (rest > 0) res.push({ label: "Khác", value: rest, color: "#cbd5e1" });
                     return res;
                   })()}
                   data2={(() => {
                     const sorted1 = [...compareCustomerSummary].sort((a,b) => (b.p1_value || 0) - (a.p1_value || 0));
                     const topIds = new Set(sorted1.slice(0, 5).map(c => c.customer_id));
-                    const res: { label: string; value: number; color?: string }[] = sorted1.slice(0, 5).map(c => ({ label: customerLabel(c.customer_id), value: c.p2_value || 0 }));
+                    const res: { label: string; value: number; color?: string }[] = sorted1.slice(0, 5).map(c => ({ label: customerCodeLabel(c.customer_id), value: c.p2_value || 0 }));
                     const rest = compareCustomerSummary.filter(c => !topIds.has(c.customer_id)).reduce((acc, c) => acc + (c.p2_value||0), 0);
                     if (rest > 0) res.push({ label: "Khác", value: rest, color: "#cbd5e1" });
                     return res;
@@ -2013,7 +2013,7 @@ export default function InventoryValueReportPage() {
                     ) : compareCustomerSummary.map((c, i) => (
                       <tr key={c.customer_id || `u2-${i}`} className="hover:bg-brand/[0.02] transition-colors odd:bg-white even:bg-slate-50/30">
                         <td style={{ ...tdStyle, textAlign: "center", fontWeight: 700, color: (i + 1) <= 3 ? "var(--color-danger)" : "inherit" }}>#{i + 1}</td>
-                        <td style={{ ...tdStyle, fontWeight: 600 }}>{customerLabel(c.customer_id)}</td>
+                        <td style={{ ...tdStyle, fontWeight: 600 }}>{customerCodeLabel(c.customer_id)}</td>
                         <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.productCount)}</td>
                         <td style={{ ...tdStyle, textAlign: "right" }}>{fmtNum(c.p1_value || 0)}</td>
                         <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>{fmtNum(c.p2_value || 0)}</td>

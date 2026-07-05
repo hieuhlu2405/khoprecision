@@ -11,6 +11,8 @@
 
 ## Trang thai hien tai
 
+- Cap nhat 2026-07-06: Trang Bao cao Gia tri ton kho, tab `So sanh 2 ky`: da doi nhan khach hang trong chart `So sanh gia tri ton khach hang`, chart co cau so sanh, va dong bang khach hang o che do so sanh sang chi hien ma/ten viet tat khach hang (`customer.code`) thay vi `code - name`. Khong sua SQL/backend, khong doi cach tinh so lieu. `npm run build` da pass. Chua test mobile bang browser/screenshot vi khong tu dong dang nhap.
+
 - Cap nhat 2026-07-05 tiep 2: Da sua quy tac bieu do Gia tri ton kho theo dung de xuat cua chu du an: khong gom theo thang `YYYY-MM` nua vi co the cong trung nhieu moc trong cung thang va lam so phong len, vi du thang 6 hien 2.9 ty. Nay chart gom theo ngay moc chinh xac `YYYY-MM-DD`, moi diem la mot moc ton dau ky/ket chuyen/kiem ke that, label dang `dd/mm/yy`, lay 12 moc gan nhat. Gia tri tinh theo `opening_qty * unit_price hien hanh`, neu thieu gia hien hanh thi fallback `opening_unit_cost`. Khong sua SQL/backend, khong doi du lieu goc. `npm run build` da pass. Chua test mobile bang browser/screenshot vi khong tu dong dang nhap.
 
 - Cap nhat 2026-07-05 tiep: Da sua tiep loi bieu do xu huong Gia tri ton kho hien `0 VNĐ`. Nguyen nhan theo code: chart doc `opening.inventory_value` nhung bang `inventory_opening_balances` khong co cot nay; du lieu dung la `opening_qty` va `opening_unit_cost`. Da doi chart tinh theo `opening_qty * opening_unit_cost`, neu thieu gia goc thi fallback sang `products.unit_price`. Khong sua SQL/backend, khong doi du lieu goc. `npm run build` da pass. Chua test mobile bang browser/screenshot vi chu du an yeu cau khong tu dong dang nhap.
