@@ -381,56 +381,86 @@ const customStyles = `
 
 function HistoricalTrendChart({ data }: { data: { label: string; value: number }[] }) {
   if (!data.length) return null;
-  const maxVal = Math.max(...data.map(d => d.value), 1);
-  const height = 140;
-  const marginTop = 20;
-  const marginBottom = 30;
-  const marginLeft = 60;
-  const marginRight = 20;
+  const width = 980;
+  const height = 260;
+  const marginTop = 32;
+  const marginBottom = 48;
+  const marginLeft = 78;
+  const marginRight = 28;
+  const plotWidth = width - marginLeft - marginRight;
+  const plotHeight = height - marginTop - marginBottom;
+  const values = data.map(d => Number(d.value) || 0);
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values, 1);
+  const range = Math.max(maxVal - minVal, maxVal * 0.12, 1);
+  const domainMin = Math.max(0, minVal - range * 0.18);
+  const domainMax = maxVal + range * 0.18;
+  const latest = data[data.length - 1];
+  const first = data[0];
+  const diff = latest.value - first.value;
+  const pct = first.value ? (diff / first.value) * 100 : 0;
+  const tickCount = 4;
+  const labelEvery = Math.max(1, Math.ceil(data.length / 6));
 
-  const getX = (i: number) => marginLeft + (i * (100 / (data.length - 1 || 1)) * (100 - (marginLeft + marginRight)) / 100);
-  const getY = (v: number) => height - marginBottom - ((v / maxVal) * (height - marginTop - marginBottom));
+  const getX = (i: number) => data.length === 1 ? marginLeft + plotWidth / 2 : marginLeft + (i / (data.length - 1)) * plotWidth;
+  const getY = (v: number) => marginTop + ((domainMax - v) / (domainMax - domainMin)) * plotHeight;
 
-  const points = data.map((d, i) => `${getX(i)},${getY(d.value)}`).join(" ");
-  const areaPoints = `${marginLeft},${height - marginBottom} ${points} ${getX(data.length - 1)},${height - marginBottom}`;
+  const points = data.map((d, i) => `${getX(i).toFixed(2)},${getY(d.value).toFixed(2)}`).join(" ");
+  const baselineY = marginTop + plotHeight;
+  const areaPoints = data.length === 1
+    ? `${getX(0).toFixed(2)},${baselineY.toFixed(2)} ${getX(0).toFixed(2)},${getY(data[0].value).toFixed(2)} ${getX(0).toFixed(2)},${baselineY.toFixed(2)}`
+    : `${marginLeft},${baselineY} ${points} ${getX(data.length - 1)},${baselineY}`;
+  const yTicks = Array.from({ length: tickCount + 1 }, (_, i) => domainMin + ((domainMax - domainMin) * i) / tickCount);
 
   return (
-    <div className="glass-panel" style={{ padding: "20px 24px", borderRadius: 16, marginBottom: 24, background: "rgba(255,255,255,0.7)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.4)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
+    <div className="glass-panel" style={{ padding: "18px clamp(14px, 2vw, 24px) 16px", borderRadius: 12, marginBottom: 24, background: "rgba(255,255,255,0.78)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.55)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 12, flexWrap: "wrap" }}>
          <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Xu hướng giá trị tồn kho (12 tháng)</h4>
          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)" }}>Đơn vị: VNĐ</div>
       </div>
-      <svg width="100%" height={height} style={{ overflow: "visible" }}>
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Xu hướng giá trị tồn kho 12 tháng" style={{ display: "block", overflow: "visible" }}>
         <defs>
           <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.2" />
+            <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.22" />
             <stop offset="100%" stopColor="var(--brand)" stopOpacity="0" />
           </linearGradient>
         </defs>
 
-        {/* Grid lines */}
-        {[0, 0.5, 1].map(p => (
-          <line key={p} x1={marginLeft} y1={getY(maxVal * p)} x2="100%" y2={getY(maxVal * p)} stroke="#f1f5f9" strokeWidth={1} />
+        {yTicks.map(t => (
+          <g key={t}>
+            <line x1={marginLeft} y1={getY(t)} x2={width - marginRight} y2={getY(t)} stroke="#e2e8f0" strokeWidth={1} strokeDasharray={t === domainMin ? "0" : "4 8"} />
+            <text x={marginLeft - 12} y={getY(t) + 4} textAnchor="end" fontSize={11} fill="var(--slate-400)" fontWeight={700}>
+              {fmtCompactValue(t)}
+            </text>
+          </g>
         ))}
 
-        {/* Area fill */}
         <polyline points={areaPoints} fill="url(#trendGradient)" stroke="none" />
 
-        {/* Main Line */}
-        <polyline points={points} fill="none" stroke="var(--brand)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <polyline points={points} fill="none" stroke="var(--brand)" strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
 
-        {/* Points & Labels */}
         {data.map((d, i) => (
           <g key={i}>
-            <circle cx={getX(i)} cy={getY(d.value)} r={3} fill="white" stroke="var(--brand)" strokeWidth={2} />
-            { (i === 0 || i === data.length - 1 || i % 3 === 0) && (
-              <text x={getX(i)} y={height - 5} textAnchor="middle" fontSize={10} fill="var(--slate-400)" fontWeight={600}>
+            <line x1={getX(i)} y1={marginTop} x2={getX(i)} y2={baselineY} stroke="#f1f5f9" strokeWidth={1} opacity={i === 0 || i === data.length - 1 ? 1 : 0.45} />
+            <circle cx={getX(i)} cy={getY(d.value)} r={4.5} fill="white" stroke="var(--brand)" strokeWidth={2.5}>
+              <title>{d.label}: {fmtNum(d.value)} VNĐ</title>
+            </circle>
+            { (i === 0 || i === data.length - 1 || i % labelEvery === 0) && (
+              <text x={getX(i)} y={height - 14} textAnchor="middle" fontSize={12} fill="var(--slate-500)" fontWeight={700}>
                 {d.label}
               </text>
             )}
           </g>
         ))}
       </svg>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 8, fontSize: 12, fontWeight: 700, color: "var(--slate-500)" }}>
+        <span>Mới nhất: {fmtNum(latest.value)} VNĐ</span>
+        {data.length > 1 && (
+          <span style={{ color: diff >= 0 ? "#0f766e" : "#dc2626" }}>
+            {diff >= 0 ? "+" : ""}{fmtCompactValue(diff)} ({diff >= 0 ? "+" : ""}{pct.toFixed(1)}%)
+          </span>
+        )}
+      </div>
     </div>
   );
 }
