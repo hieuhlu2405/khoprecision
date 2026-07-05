@@ -201,8 +201,7 @@ export default function AppHome() {
         ] = await Promise.allSettled([
           supabase.from("profiles").select("full_name, role, department").eq("id", user.id).maybeSingle(),
           fetchAllRows(supabase.from("products").select("id, unit_price, sku, name, spec").is("deleted_at", null)),
-          // FIXED: select only period_month to avoid querying non-existent column inventory_value
-          fetchAllRows(supabase.from("inventory_opening_balances").select("period_month").is("deleted_at", null).lte("period_month", todayStr + "T23:59:59.999Z")),
+          fetchAllRows(supabase.from("inventory_opening_balances").select("id, period_month, source_stocktake_id, deleted_at").is("deleted_at", null).lte("period_month", todayStr + "T23:59:59.999Z")),
           fetchAllRows(
             supabase.from("inventory_transactions")
               .select("id, tx_date, product_id, customer_id, tx_type, qty, unit_cost, adjusted_from_transaction_id, deleted_at")

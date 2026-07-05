@@ -10,7 +10,7 @@ import { formatToVietnameseDate, computeSnapshotBounds, applySamePeriodLastYearD
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
-import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
+import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 import { AlertTriangle, BarChart3, CalendarDays, ClipboardList, Download, Package, PlusCircle, Repeat2, Search, Snowflake, Tags, Target, TrendingDown, Trophy, User, Wallet, XCircle } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -1063,15 +1063,13 @@ export default function InventoryValueReportPage() {
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) { window.location.href = "/login"; return; }
-      const [rP, rC] = await Promise.all([
-        supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null),
-        supabase.from("customers").select("id, code, name").is("deleted_at", null),
+      const [productsData, customersData] = await Promise.all([
+        fetchAllRows<Product>(supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null)),
+        fetchAllRows<Customer>(supabase.from("customers").select("id, code, name").is("deleted_at", null)),
       ]);
       if (signal.aborted) return;
-      if (rP.error) throw rP.error;
-      if (rC.error) throw rC.error;
-      setProducts((rP.data ?? []) as Product[]);
-      setCustomers((rC.data ?? []) as Customer[]);
+      setProducts(productsData);
+      setCustomers(customersData);
 
       // Nạp dữ liệu ngày giao dịch cuối cùng thông qua RPC bảo mật
       const { data: lastTxData, error: eTx } = await supabase.rpc("inventory_get_last_tx_dates");
@@ -1086,9 +1084,8 @@ export default function InventoryValueReportPage() {
 
       const maxD = Math.max(new Date(qEnd).getTime(), new Date(p1End).getTime(), new Date(p2End).getTime());
       const maxEnd = new Date(maxD).toLocaleDateString('sv-SE');
-      const { data: openData, error: eO } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", maxEnd + "T23:59:59.999Z").is("deleted_at", null);
+      const openData = await fetchAllRows<OpeningBalance & { id: string }>(supabase.from("inventory_opening_balances").select("*").lte("period_month", maxEnd + "T23:59:59.999Z").is("deleted_at", null));
       if (signal.aborted) return;
-      if (eO) throw eO;
       const ops = (openData ?? []) as OpeningBalance[];
       setOpenings(ops);
 

@@ -10,7 +10,7 @@ import { exportToExcel } from "@/lib/excel-utils";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
+import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 import { Eye, Package, Rocket, X, Zap } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -374,19 +374,16 @@ export default function InventoryReportPage() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return window.location.href = "/login";
 
-      const [rP, rC] = await Promise.all([
-        supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null),
-        supabase.from("customers").select("id, code, name").is("deleted_at", null),
+      const [productsData, customersData] = await Promise.all([
+        fetchAllRows<Product>(supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null)),
+        fetchAllRows<Customer>(supabase.from("customers").select("id, code, name").is("deleted_at", null)),
       ]);
-      if (rP.error) throw rP.error;
-      if (rC.error) throw rC.error;
 
-      setProducts(rP.data as Product[]);
-      setCustomers(rC.data as Customer[]);
+      setProducts(productsData);
+      setCustomers(customersData);
 
       const lastDayStr = qEnd.length === 10 ? qEnd + "T23:59:59.999Z" : qEnd;
-      const { data: openData, error: eO } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", lastDayStr).is("deleted_at", null);
-      if (eO) throw eO;
+      const openData = await fetchAllRows<OpeningBalance & { id: string }>(supabase.from("inventory_opening_balances").select("*").lte("period_month", lastDayStr).is("deleted_at", null));
       
       const ops = openData as OpeningBalance[];
       setOpenings(ops);
