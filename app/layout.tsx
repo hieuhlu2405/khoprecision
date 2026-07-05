@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { BrowserChrome } from "@/app/components/BrowserChrome";
 import "./globals.css";
 
 const inter = Inter({
@@ -9,8 +10,18 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Precision Packaging",
+  title: {
+    default: "Precision Packaging | Dashboard",
+    template: "Precision Packaging | %s",
+  },
   description: "Hệ thống quản lý kho nội bộ — Công ty Cổ phần Precision Packaging.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {
@@ -30,6 +41,7 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${inter.className} antialiased`}
       >
+        <BrowserChrome />
         {children}
       </body>
     </html>
