@@ -32,7 +32,7 @@ type Customer = {
   name: string;
 };
 
-type OpeningBalance = SnapshotRow & { inventory_value: number };
+type OpeningBalance = SnapshotRow;
 type InventoryTx = TransactionRow;
 
 type ProdRow = {
@@ -1162,12 +1162,13 @@ export default function InventoryValueReportPage() {
 
   /* ---- Raw Calculations ---- */
   const historyData = useMemo(() => {
-    // Group openings by month and get total value
     const grouped = new Map<string, number>();
     (openings || []).forEach(o => {
       const m = (o.period_month || "").slice(0, 7); // YYYY-MM
       if (!m) return;
-      grouped.set(m, (grouped.get(m) || 0) + (o.inventory_value || 0));
+      const product = productMap.get(o.product_id);
+      const unitValue = Number(o.opening_unit_cost ?? product?.unit_price ?? 0);
+      grouped.set(m, (grouped.get(m) || 0) + (Number(o.opening_qty) || 0) * unitValue);
     });
     return Array.from(grouped.entries())
       .map(([m, val]) => ({
@@ -1177,7 +1178,7 @@ export default function InventoryValueReportPage() {
       }))
       .sort((a,b) => a.raw.localeCompare(b.raw))
       .slice(-12);
-  }, [openings]);
+  }, [openings, productMap]);
 
   // 1. Dữ liệu gốc sau khi áp dụng bộ lọc tìm kiếm và tồn kho cơ bản
   const rawProductData = useMemo(() => {
