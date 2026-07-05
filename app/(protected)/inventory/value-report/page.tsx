@@ -415,10 +415,10 @@ function HistoricalTrendChart({ data }: { data: { label: string; value: number }
   return (
     <div className="glass-panel" style={{ padding: "18px clamp(14px, 2vw, 24px) 16px", borderRadius: 12, marginBottom: 24, background: "rgba(255,255,255,0.78)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.55)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 12, flexWrap: "wrap" }}>
-         <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Xu hướng giá trị tồn kho (12 tháng)</h4>
+         <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "var(--slate-800)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Giá trị tồn theo mốc đầu kỳ/kết chuyển (12 mốc)</h4>
          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)" }}>Đơn vị: VNĐ</div>
       </div>
-      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Xu hướng giá trị tồn kho 12 tháng" style={{ display: "block", overflow: "visible" }}>
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Giá trị tồn theo mốc đầu kỳ hoặc kết chuyển" style={{ display: "block", overflow: "visible" }}>
         <defs>
           <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.22" />
@@ -454,7 +454,7 @@ function HistoricalTrendChart({ data }: { data: { label: string; value: number }
         ))}
       </svg>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 8, fontSize: 12, fontWeight: 700, color: "var(--slate-500)" }}>
-        <span>Mới nhất: {fmtNum(latest.value)} VNĐ</span>
+        <span>Mốc mới nhất: {fmtNum(latest.value)} VNĐ</span>
         {data.length > 1 && (
           <span style={{ color: diff >= 0 ? "#0f766e" : "#dc2626" }}>
             {diff >= 0 ? "+" : ""}{fmtCompactValue(diff)} ({diff >= 0 ? "+" : ""}{pct.toFixed(1)}%)
@@ -1164,15 +1164,15 @@ export default function InventoryValueReportPage() {
   const historyData = useMemo(() => {
     const grouped = new Map<string, number>();
     (openings || []).forEach(o => {
-      const m = (o.period_month || "").slice(0, 7); // YYYY-MM
+      const m = (o.period_month || "").slice(0, 10); // YYYY-MM-DD
       if (!m) return;
       const product = productMap.get(o.product_id);
-      const unitValue = Number(o.opening_unit_cost ?? product?.unit_price ?? 0);
+      const unitValue = Number(product?.unit_price ?? o.opening_unit_cost ?? 0);
       grouped.set(m, (grouped.get(m) || 0) + (Number(o.opening_qty) || 0) * unitValue);
     });
     return Array.from(grouped.entries())
       .map(([m, val]) => ({
-        label: m.split("-").reverse().join("/"),
+        label: `${m.slice(8, 10)}/${m.slice(5, 7)}/${m.slice(2, 4)}`,
         value: val,
         raw: m
       }))
