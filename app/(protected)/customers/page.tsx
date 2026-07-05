@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
+import { Building2, ChevronRight, FileSpreadsheet, Handshake, Link2, Plus } from "lucide-react";
 
 type Customer = {
   id: string;
@@ -243,7 +244,9 @@ export default function CustomersPage() {
     <div className="page-root">
       <div className="page-header">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-700 flex items-center justify-center shadow-lg shadow-emerald-200 text-3xl">🤝</div>
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-700 flex items-center justify-center shadow-lg shadow-emerald-200 text-white">
+            <Handshake size={26} strokeWidth={2.5} />
+          </div>
           <div>
             <h1 className="page-title">KHÁCH HÀNG</h1>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Quản lý Công ty Mẹ & Vendor • Cấu trúc phân cấp</p>
@@ -259,7 +262,7 @@ export default function CustomersPage() {
         <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           {q && <button onClick={() => setQ("")} className="btn btn-clear-filter">Xóa tìm kiếm</button>}
           <button onClick={() => openCreate()} className="btn btn-primary">+ Thêm khách hàng</button>
-          <button onClick={handleExportExcel} className="btn btn-secondary">📋 Xuất Excel</button>
+          <button onClick={handleExportExcel} className="btn btn-secondary"><FileSpreadsheet size={16} strokeWidth={2.4} /> Xuất Excel</button>
           <button onClick={load} className="btn btn-secondary">Làm mới</button>
           {isManager && selectedIds.size > 0 && (
             <button onClick={bulkDelete} className="btn btn-danger">Xóa đã chọn ({selectedIds.size})</button>
@@ -270,11 +273,11 @@ export default function CustomersPage() {
       {/* Stats */}
       <div className="flex gap-3 mb-4">
         <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl">
-          <span className="text-emerald-600 font-black text-[11px] uppercase tracking-widest">🏢 Công ty Mẹ</span>
+          <span className="text-emerald-600 font-black text-[11px] uppercase tracking-widest inline-flex items-center gap-1"><Building2 size={14} strokeWidth={2.5} /> Công ty Mẹ</span>
           <span className="text-emerald-700 font-black text-lg">{parents.length}</span>
         </div>
         <div className="flex items-center gap-2 px-4 py-2 bg-violet-50 border border-violet-100 rounded-xl">
-          <span className="text-violet-600 font-black text-[11px] uppercase tracking-widest">🔗 Vendor</span>
+          <span className="text-violet-600 font-black text-[11px] uppercase tracking-widest inline-flex items-center gap-1"><Link2 size={14} strokeWidth={2.5} /> Vendor</span>
           <span className="text-violet-700 font-black text-lg">{rows.filter(r => r.parent_customer_id).length}</span>
         </div>
       </div>
@@ -329,12 +332,12 @@ export default function CustomersPage() {
                     <div className="flex items-center gap-1.5">
                       {hasVendors && (
                         <button onClick={() => toggleExpand(parent.id)} className="w-5 h-5 flex items-center justify-center rounded transition-transform text-emerald-600 hover:bg-emerald-100 flex-shrink-0" style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0)" }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="m9 18 6-6-6-6"/></svg>
+                          <ChevronRight size={12} strokeWidth={3} />
                         </button>
                       )}
                       {!hasVendors && <span className="w-5 flex-shrink-0" />}
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider whitespace-nowrap">
-                        🏢 PARENT
+                        <Building2 size={12} strokeWidth={2.6} /> PARENT
                       </span>
                     </div>
                   </td>
@@ -350,14 +353,14 @@ export default function CustomersPage() {
                   <td className="py-3 px-3 text-slate-400 font-mono text-[12px]">{parent.tax_code || "–"}</td>
                   <td className="py-3 px-3">
                     {ent ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider">🏢 {ent.code}</span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider"><Building2 size={12} strokeWidth={2.6} /> {ent.code}</span>
                     ) : <span className="text-slate-300 text-[11px] italic">Chưa gán</span>}
                   </td>
                   {isManager && <td className="py-3 px-3 text-slate-500 text-[11px] font-medium whitespace-nowrap">{mounted ? fmtDatetime(parent.created_at) : "…"}</td>}
                   {isManager && (
                     <td className="py-3 px-3">
                       <div className="flex gap-1.5 items-center">
-                        <button onClick={() => openCreate(parent.id)} title="Thêm Vendor con" className="w-7 h-7 flex items-center justify-center rounded-lg bg-violet-50 border border-violet-200 text-violet-600 hover:bg-violet-100 transition-all text-[12px]">＋</button>
+                        <button onClick={() => openCreate(parent.id)} title="Thêm Vendor con" className="w-7 h-7 flex items-center justify-center rounded-lg bg-violet-50 border border-violet-200 text-violet-600 hover:bg-violet-100 transition-all text-[12px]"><Plus size={14} strokeWidth={2.8} /></button>
                         {profile?.role === "admin" && (
                           <button onClick={() => openEdit(parent)} className="px-2 py-1 bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-[10px] text-indigo-700 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all">Sửa</button>
                         )}
@@ -381,7 +384,7 @@ export default function CustomersPage() {
                     <td className="py-2.5 px-3">
                       <div className="flex items-center gap-1.5 pl-7">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-violet-100 border border-violet-200 text-violet-700 text-[10px] font-black uppercase tracking-wider whitespace-nowrap">
-                          🔗 VENDOR
+                          <Link2 size={12} strokeWidth={2.6} /> VENDOR
                         </span>
                       </div>
                     </td>
@@ -420,7 +423,7 @@ export default function CustomersPage() {
         <div className="modal-overlay" onClick={() => setOpen(false)}>
           <div className="modal-box" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
             <h2 className="modal-title">
-              {editing ? "Sửa khách hàng" : parentCustomerId ? "➕ Thêm Vendor con" : "Thêm Công ty Mẹ mới"}
+              {editing ? "Sửa khách hàng" : parentCustomerId ? "Thêm Vendor con" : "Thêm Công ty Mẹ mới"}
             </h2>
 
             {/* Badge phân loại */}
@@ -430,14 +433,14 @@ export default function CustomersPage() {
                 onClick={() => setParentCustomerId("")}
                 className={`flex-1 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${!parentCustomerId ? "bg-emerald-600 text-white border-emerald-600 shadow-md" : "bg-white text-slate-400 border-slate-200 hover:border-emerald-300"}`}
               >
-                🏢 Công ty Mẹ
+                <span className="inline-flex items-center justify-center gap-1"><Building2 size={14} strokeWidth={2.5} /> Công ty Mẹ</span>
               </button>
               <button
                 type="button"
                 onClick={() => { if (parentOptions.length === 0) { showToast("Chưa có Công ty Mẹ nào!", "error"); return; } if (!parentCustomerId) setParentCustomerId(parentOptions[0]?.id || ""); }}
                 className={`flex-1 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${parentCustomerId ? "bg-violet-600 text-white border-violet-600 shadow-md" : "bg-white text-slate-400 border-slate-200 hover:border-violet-300"}`}
               >
-                🔗 Vendor con
+                <span className="inline-flex items-center justify-center gap-1"><Link2 size={14} strokeWidth={2.5} /> Vendor con</span>
               </button>
             </div>
 

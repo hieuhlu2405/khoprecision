@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { exportWithTemplate, exportToExcel } from "@/lib/excel-utils";
-import { FileText, Package, Printer, ScrollText, Trash2, Truck, UserRound, X } from "lucide-react";
+import { ArrowUpDown, FileText, Filter, Package, Printer, ScrollText, Trash2, Truck, UserRound, X } from "lucide-react";
 
 type ShipmentLog = {
   id: string;
@@ -319,15 +319,13 @@ export default function DeliveryLogPage() {
                 onClick={(e) => { e.stopPropagation(); handleSort(colKey); }}
                 className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-indigo-600 font-black" : "text-indigo-300"}`}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-                </svg>
+                <ArrowUpDown size={18} strokeWidth={3} />
               </button>
               <button 
                 onClick={(e) => { e.stopPropagation(); setOpenPopupId(isOpen ? null : popupId); }}
                 className={`p-1 rounded-md transition-all ${active ? "bg-indigo-600 text-white" : "text-indigo-300 hover:bg-indigo-100"}`}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                <Filter size={18} strokeWidth={3} />
               </button>
             </div>
             

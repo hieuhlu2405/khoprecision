@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, TableSkeleton, ErrorBanner, LoadingInline } from "@/app/components/ui/Loading";
 import { exportToExcel, readExcel } from "@/lib/excel-utils";
+import { ArrowDown, ArrowUp, ArrowUpDown, Download, FileSpreadsheet, Filter, ListPlus, Plus, Save, Tags, Upload, X } from "lucide-react";
 
 type Profile = { id: string; role: "admin" | "manager" | "staff"; department: string; };
 type Customer = { id: string; code: string; name: string; parent_customer_id: string | null };
@@ -416,9 +417,7 @@ export default function ProductsPage() {
                 className={`p-1 hover:bg-indigo-100 rounded-md transition-all ${isSortTarget ? "text-indigo-600 bg-indigo-50 font-black shadow-sm" : "text-slate-400 opacity-0 group-hover:opacity-100"}`}
                 title="Sắp xếp"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-                </svg>
+                {isSortTarget && sortDir === "asc" ? <ArrowUp size={14} strokeWidth={3} /> : isSortTarget && sortDir === "desc" ? <ArrowDown size={14} strokeWidth={3} /> : <ArrowUpDown size={14} strokeWidth={3} />}
               </button>
             )}
             <button
@@ -426,7 +425,7 @@ export default function ProductsPage() {
               className={`p-1 hover:bg-slate-200 rounded-md transition-all ${active ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-400 opacity-0 group-hover:opacity-100 hover:text-slate-600 hover:bg-slate-200/50"}`}
               title="Lọc cột"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              <Filter size={14} strokeWidth={3} />
             </button>
           </div>
         </div>
@@ -792,7 +791,7 @@ export default function ProductsPage() {
       <div className="page-header">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-[#2487C8]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
-            🏷️
+            <Tags size={24} strokeWidth={2.5} />
           </div>
           <div>
             <h1 className="page-title">MÃ HÀNG</h1>
@@ -818,21 +817,21 @@ export default function ProductsPage() {
              </button>
           )}
           <button className="btn btn-secondary !bg-emerald-50 !text-emerald-700 !border-emerald-200 hover:!bg-emerald-100" onClick={downloadTemplate}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <Download size={16} strokeWidth={2.4} />
             Tải file mẫu
           </button>
           <button className="btn btn-secondary !bg-indigo-50 !text-indigo-700 !border-indigo-200 hover:!bg-indigo-100" onClick={() => { setImportOpen(true); setImportData([]); setImportStatus(null); }}>
-             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+             <Upload size={16} strokeWidth={2.4} />
              Nhập Excel
           </button>
           <button onClick={openCreate} className="btn btn-primary">
             + Thêm mã hàng
           </button>
           <button onClick={() => setBulkOpen(!bulkOpen)} className="btn btn-secondary">
-            {bulkOpen ? "✕ Đóng" : "≡ Thêm nhiều mã"}
+            {bulkOpen ? <><X size={16} strokeWidth={2.5} /> Đóng</> : <><ListPlus size={16} strokeWidth={2.5} /> Thêm nhiều mã</>}
           </button>
           <button onClick={handleExportExcel} className="btn btn-secondary">
-            📋 Xuất Excel
+            <FileSpreadsheet size={16} strokeWidth={2.4} /> Xuất Excel
           </button>
           <button onClick={load} className="btn btn-secondary">
             Làm mới
@@ -856,7 +855,7 @@ export default function ProductsPage() {
       {/* ── Bulk Add Panel ── */}
       {bulkOpen && (
         <div className="filter-panel" style={{ marginTop: 12 }}>
-          <h3 className="modal-title" style={{ marginTop: 0 }}>≡ Thêm nhiều mã hàng</h3>
+          <h3 className="modal-title flex items-center gap-2" style={{ marginTop: 0 }}><ListPlus size={20} strokeWidth={2.5} /> Thêm nhiều mã hàng</h3>
           <ErrorBanner message={error} onDismiss={() => setError("")} />
           <div className="data-table-wrap" style={{ marginTop: 24, maxHeight: "calc(100vh - 350px)", overflow: "auto" }}>
             <table className="data-table !border-separate !border-spacing-0" style={{ minWidth: 900 }}>
@@ -914,7 +913,7 @@ export default function ProductsPage() {
                       />
                     </td>
                     <td style={{ width: 40, textAlign: "center" }}>
-                      <button onClick={() => removeBulkLine(l.key)} className="btn btn-ghost btn-sm" style={{ color: "var(--color-danger)" }} title="Xóa dòng">✕</button>
+                      <button onClick={() => removeBulkLine(l.key)} className="btn btn-ghost btn-sm" style={{ color: "var(--color-danger)" }} title="Xóa dòng"><X size={14} strokeWidth={2.8} /></button>
                     </td>
                   </tr>
                 ))}
@@ -922,9 +921,9 @@ export default function ProductsPage() {
             </table>
           </div>
           <div className="toolbar" style={{ margin: 0, gap: 12 }}>
-            <button onClick={addBulkLine} className="btn btn-secondary">+ Thêm dòng</button>
+            <button onClick={addBulkLine} className="btn btn-secondary"><Plus size={16} strokeWidth={2.5} /> Thêm dòng</button>
             <button onClick={saveBulk} disabled={bulkSaving} className="btn btn-primary">
-              {bulkSaving ? "Đang lưu..." : "💾 Lưu tất cả"}
+              {bulkSaving ? "Đang lưu..." : <><Save size={16} strokeWidth={2.5} /> Lưu tất cả</>}
             </button>
             <button onClick={() => setBulkOpen(false)} className="btn btn-ghost">Hủy</button>
           </div>
@@ -938,7 +937,7 @@ export default function ProductsPage() {
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                 <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
-                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                   <Upload size={24} strokeWidth={2.4} />
                 </div>
                 Nhập mã hàng từ Excel
               </h3>
@@ -946,7 +945,7 @@ export default function ProductsPage() {
                 onClick={() => setImportOpen(false)} 
                 className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                <X size={20} strokeWidth={2.4} />
               </button>
             </div>
 
@@ -963,7 +962,7 @@ export default function ProductsPage() {
                 />
                 <div className="border-2 border-dashed border-indigo-200 rounded-2xl p-10 bg-indigo-50/30 flex flex-col items-center justify-center gap-3 transition-colors hover:bg-indigo-50/50">
                   <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center text-indigo-500">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <Upload size={24} strokeWidth={2.5} />
                   </div>
                   <div className="text-center">
                     <p className="text-sm font-bold text-slate-700">Kéo thả hoặc nhấn để chọn file Excel</p>

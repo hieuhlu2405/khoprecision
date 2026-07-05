@@ -1,3 +1,5 @@
+import { AlertTriangle, X } from "lucide-react";
+
 export function LoadingPage({ text = "Đang tải..." }: { text?: string }) {
   return (
     <div className="loading-page">
@@ -48,14 +50,14 @@ export function ErrorBanner({ message, onDismiss }: { message: string; onDismiss
   if (!message) return null;
   return (
     <div className="error-banner">
-      <span className="error-banner-icon">⚠</span>
+      <span className="error-banner-icon"><AlertTriangle size={16} strokeWidth={2.5} /></span>
       <span style={{ flex: 1, whiteSpace: "pre-wrap" }}>{message}</span>
       {onDismiss && (
         <button
           onClick={onDismiss}
           style={{ background: "none", border: "none", cursor: "pointer", color: "#fca5a5", fontSize: 16, padding: 0, lineHeight: 1 }}
         >
-          ×
+          <X size={16} strokeWidth={2.5} />
         </button>
       )}
     </div>

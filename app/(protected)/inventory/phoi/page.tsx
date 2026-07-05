@@ -9,6 +9,7 @@ import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { fetchAllRows } from "@/lib/supabase-fetch-all";
+import { ArrowUpDown, Box, Edit3, FileSpreadsheet, Filter, Plus, Search, Trash2, Wrench, X } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -588,9 +589,7 @@ export default function PhoiPage() {
                 }}
                 className={`p-1 hover:bg-slate-100 rounded transition-colors ${isSortTarget ? "text-indigo-600" : "text-slate-400"}`}
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6" /> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6" /> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3" />}
-                </svg>
+                <ArrowUpDown size={12} strokeWidth={4} />
               </button>
             )}
             {filterable !== false && (
@@ -598,7 +597,7 @@ export default function PhoiPage() {
                 onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
                 className={`p-1 rounded transition-all ${active ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-100"}`}
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+                <Filter size={12} strokeWidth={4} />
               </button>
             )}
           </div>
@@ -908,7 +907,7 @@ export default function PhoiPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" style={{ fontSize: 24 }}>
-              🧱
+              <Box size={26} strokeWidth={2.5} />
             </div>
             <div>
               <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">NHẬP PHÔI NGUYÊN LIỆU</h1>
@@ -922,14 +921,14 @@ export default function PhoiPage() {
 
           <div className="flex items-center gap-2">
             <button onClick={handleExportExcel} className="btn btn-secondary h-11 px-5 shadow-sm">
-              <span className="mr-2">📁</span> Xuất Excel
+              <FileSpreadsheet size={16} strokeWidth={2.5} className="mr-2" /> Xuất Excel
             </button>
             {canCreate && (
               <button 
                 onClick={() => { resetCreateForm(); setShowCreate(true); }}
                 className="btn btn-primary h-11 px-5 shadow-lg shadow-indigo-200"
               >
-                <span className="mr-2">➕</span> Nhập phôi mới
+                <Plus size={16} strokeWidth={2.5} className="mr-2" /> Nhập phôi mới
               </button>
             )}
           </div>
@@ -945,7 +944,7 @@ export default function PhoiPage() {
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 font-black text-sm">F2</span>
                 <h3 className="text-lg font-black text-slate-800 uppercase">Tạo phiếu nhập phôi mới</h3>
               </div>
-              <button onClick={handleCancelCreate} className="text-slate-400 hover:text-slate-600 font-bold p-1">✕</button>
+              <button onClick={handleCancelCreate} className="text-slate-400 hover:text-slate-600 font-bold p-1"><X size={18} strokeWidth={2.5} /></button>
             </div>
 
             <div className="entry-header-grid grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -1043,7 +1042,7 @@ export default function PhoiPage() {
                           />
                         </td>
                         <td className="entry-remove-cell px-4 py-3 text-center">
-                          <button onClick={() => removeLine(l.key)} className="text-slate-300 hover:text-red-500 transition-colors">✕</button>
+                          <button onClick={() => removeLine(l.key)} className="text-slate-300 hover:text-red-500 transition-colors"><X size={16} strokeWidth={2.5} /></button>
                         </td>
                       </tr>
                     );
@@ -1077,7 +1076,7 @@ export default function PhoiPage() {
         <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-wrap items-center gap-4">
             <div className="flex-1 min-w-[200px] relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+              <Search size={17} strokeWidth={2.5} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm mã hàng, tên hàng..." className="w-full h-11 bg-white border-slate-300 border rounded-xl pl-10 pr-4 font-bold text-slate-700 focus:bg-white transition-all outline-none" />
             </div>
             {/* MONTH NAVIGATOR */}
@@ -1179,9 +1178,9 @@ export default function PhoiPage() {
                         <td style={{ ...tdStyle, width: 120, textAlign: "center" }}>
                            <div className="flex gap-2 justify-center">
                               <button onClick={() => toggleExpanded(r.id)} className="btn-icon">{isExpanded ? "▲" : "▼"}</button>
-                              {canEdit && <button onClick={() => openEdit(r)} className="btn-icon">✏️</button>}
-                              <button onClick={() => openAdjustment(r)} className="btn-icon">🛠️</button>
-                              {canDelete && <button onClick={() => handleDelete(r.id)} className="btn-icon text-red-500">🗑️</button>}
+                              {canEdit && <button onClick={() => openEdit(r)} className="btn-icon"><Edit3 size={15} strokeWidth={2.5} /></button>}
+                              <button onClick={() => openAdjustment(r)} className="btn-icon"><Wrench size={15} strokeWidth={2.5} /></button>
+                              {canDelete && <button onClick={() => handleDelete(r.id)} className="btn-icon text-red-500"><Trash2 size={15} strokeWidth={2.5} /></button>}
                            </div>
                         </td>
                       </tr>

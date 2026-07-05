@@ -11,6 +11,7 @@ import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
+import { ArrowUpDown, BarChart3, ClipboardList, Filter, RefreshCw } from "lucide-react";
 
 
 /* ------------------------------------------------------------------ */
@@ -250,9 +251,7 @@ function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilte
                 className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
                 title="Sắp xếp"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-                </svg>
+                <ArrowUpDown size={24} strokeWidth={3} />
               </button>
             )}
             <button
@@ -260,7 +259,7 @@ function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilte
               className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
               title="Lọc dữ liệu"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              <Filter size={24} strokeWidth={3} />
             </button>
           </div>
         </div>
@@ -1212,7 +1211,7 @@ export default function InventoryAgingReportPage() {
   async function closeAgingReport() {
     const ok = await showConfirm({
       message: "Chốt lưu trữ báo cáo tồn lâu ngày kỳ này? Dữ liệu sẽ được đóng băng để đối soát sau này.",
-      confirmLabel: "📋 Chốt lưu trữ báo cáo"
+      confirmLabel: "Chốt lưu trữ báo cáo"
     });
     if (!ok) return;
 
@@ -1289,8 +1288,8 @@ export default function InventoryAgingReportPage() {
 
       <div className="page-header bg-white/80 backdrop-blur-md z-40 py-4 px-6 -mx-6 mb-6 border-b border-slate-200/60 shadow-sm text-slate-900">
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div className="w-10 h-10 rounded-xl bg-[#6366f1]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
-            📊
+          <div className="w-10 h-10 rounded-xl bg-[#6366f1]15 flex items-center justify-center shadow-sm">
+            <BarChart3 size={24} strokeWidth={2.5} />
           </div>
           <div>
             <h1 className="page-title">TỒN DÀI KỲ (AGING)</h1>
@@ -1303,7 +1302,7 @@ export default function InventoryAgingReportPage() {
             disabled={loading || (reportMode === "current" ? displayDetailData.length === 0 : compareAgingData.length === 0)}
             className="btn btn-secondary"
           >
-            <span style={{ marginRight: 6 }}>📊</span>
+            <BarChart3 size={16} strokeWidth={2.5} style={{ marginRight: 6 }} />
             Xuất Excel
           </button>
           <button
@@ -1311,7 +1310,7 @@ export default function InventoryAgingReportPage() {
             disabled={closingAging || loading || filteredLongAgingData.length === 0}
             className="btn btn-primary"
           >
-            {closingAging ? "Đang chốt..." : "📋 Chốt lưu trữ báo cáo"}
+            {closingAging ? "Đang chốt..." : <><ClipboardList size={16} strokeWidth={2.5} /> Chốt lưu trữ báo cáo</>}
           </button>
         </div>
       </div>
@@ -1326,7 +1325,9 @@ export default function InventoryAgingReportPage() {
             className={`tab-item ${reportMode === m ? "active" : ""}`}
             onClick={() => setReportMode(m)}
           >
-            <span className="tab-icon">{m === "current" ? "📊" : "🔄"}</span>
+            <span className="tab-icon">
+              {m === "current" ? <BarChart3 size={14} strokeWidth={2.5} /> : <RefreshCw size={14} strokeWidth={2.5} />}
+            </span>
             {m === "current" ? "Báo cáo hiện tại" : "So sánh đối soát 2 kỳ"}
           </button>
         ))}
@@ -1548,11 +1549,11 @@ export default function InventoryAgingReportPage() {
                 onClick={() => { setQCustomer(""); setQCustomerSearch(""); setQProduct(""); setColFilters({}); setSortCol(null); setSortDir(null); }}
                 className="btn btn-ghost"
               >
-                🔄 Xóa tất cả lọc
+                <RefreshCw size={16} strokeWidth={2.5} /> Xóa tất cả lọc
               </button>
             )}
             <button onClick={load} className="btn btn-primary" disabled={loading}>
-              {loading ? "..." : "🔄 Làm mới"}
+              {loading ? "..." : <><RefreshCw size={16} strokeWidth={2.5} /> Làm mới</>}
             </button>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
+import { AlertTriangle, ShieldCheck, Trash2 } from "lucide-react";
 
 type Role = "admin" | "manager" | "staff";
 type Dept = "sales" | "warehouse" | "production" | "purchasing" | "accounting";
@@ -254,12 +255,12 @@ export default function AdminUsersPage() {
   if (!isAdmin && !loading) return <div style={{ padding: 24 }}>Access denied. Redirecting...</div>;
 
   return (
-    <div style={{ fontFamily: "sans-serif" }}>
+    <div style={{ fontFamily: "inherit" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-[#64748b]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
-            🛡️
+            <ShieldCheck size={24} strokeWidth={2.5} />
           </div>
           <div>
             <h1 className="page-title">QUẢN LÝ NGƯỜI DÙNG</h1>
@@ -284,7 +285,7 @@ export default function AdminUsersPage() {
               fontSize: 13, opacity: bulkDeleting ? 0.7 : 1,
             }}
           >
-            🗑 {bulkDeleting ? "Đang xóa..." : `Xóa ${selectedIds.size} tài khoản đã chọn`}
+            <Trash2 size={16} strokeWidth={2.5} /> {bulkDeleting ? "Đang xóa..." : `Xóa ${selectedIds.size} tài khoản đã chọn`}
           </button>
         )}
       </div>
@@ -466,7 +467,8 @@ export default function AdminUsersPage() {
       </div>
 
       <p style={{ marginTop: 16, color: "#94a3b8", fontSize: 12 }}>
-        ⚠️ Trang này chỉ quản lý bảng profiles (role/department). Tạo tài khoản user vẫn làm qua /login.
+        <AlertTriangle size={14} strokeWidth={2.5} style={{ display: "inline", verticalAlign: "-2px", marginRight: 6 }} />
+        Trang này chỉ quản lý bảng profiles (role/department). Tạo tài khoản user vẫn làm qua /login.
       </p>
     </div>
   );

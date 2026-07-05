@@ -8,6 +8,7 @@ import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { Pagination } from "@/app/components/ui/Pagination";
+import { ArrowUpDown, Check, Download, Filter, Flag, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -698,8 +699,8 @@ export default function InventoryOpeningBalancesPage() {
     <div className="page-root" ref={containerRef}>
       <div className="page-header">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-[#dc2626]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
-            🚩
+          <div className="w-10 h-10 rounded-xl bg-[#dc2626]15 flex items-center justify-center shadow-sm">
+            <Flag size={24} strokeWidth={2.5} />
           </div>
           <div>
             <h1 className="page-title">TỒN ĐẦU KỲ</h1>
@@ -708,12 +709,12 @@ export default function InventoryOpeningBalancesPage() {
         </div>
         <div className="toolbar ml-auto">
           <button className="btn btn-secondary" onClick={handleExportExcel}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <Download size={16} strokeWidth={2.5} />
             <span className="hidden sm:inline">Xuất Excel</span>
           </button>
           {canDelete && qPeriod && (
             <button className="btn bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100 shadow-sm" onClick={handleDeletePeriod}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+              <Trash2 size={16} strokeWidth={2.5} />
               <span>Hủy kỳ này</span>
             </button>
           )}
@@ -722,7 +723,7 @@ export default function InventoryOpeningBalancesPage() {
               onClick={() => { resetCreateForm(); setShowCreate(!showCreate); }}
               className="btn btn-primary shadow-lg shadow-brand/20 relative overflow-hidden group"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <Plus size={16} strokeWidth={2.5} />
               <span>Tạo mới</span>
             </button>
           )}
@@ -798,7 +799,7 @@ export default function InventoryOpeningBalancesPage() {
           </div>
           <div className="flex gap-2 ml-auto pb-0.5">
             <button onClick={load} className="btn btn-secondary h-9">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>
+              <RefreshCw size={14} strokeWidth={2.5} />
               Làm mới
             </button>
             {(q || qPeriod || qCustomer || Object.keys(colFilters).length > 0) && (
@@ -827,7 +828,7 @@ export default function InventoryOpeningBalancesPage() {
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
                 <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-brand text-white flex items-center justify-center">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <Plus size={18} strokeWidth={2.5} />
                   </div>
                   Tạo tồn đầu kỳ mới
                 </h3>
@@ -960,7 +961,7 @@ export default function InventoryOpeningBalancesPage() {
                         <td className="text-center">
                           {lines.length > 1 && (
                             <button onClick={() => removeLine(line.key)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                              <X size={16} strokeWidth={2.5} />
                             </button>
                           )}
                         </td>
@@ -971,7 +972,7 @@ export default function InventoryOpeningBalancesPage() {
               </div>
               <div className="flex justify-between items-center">
                 <button onClick={addLine} className="btn btn-secondary h-10 px-4 group">
-                  <svg className="group-hover:rotate-90 transition-transform duration-300" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <Plus className="group-hover:rotate-90 transition-transform duration-300" size={16} strokeWidth={2.5} />
                   Thêm dòng mới
                 </button>
                 <div className="flex gap-3">
@@ -1077,7 +1078,7 @@ export default function InventoryOpeningBalancesPage() {
                   <tr>
                     <td colSpan={canCreate ? 10 : 9} style={{ padding: 16, textAlign: "center", color: "#999" }}>
                       <div className="flex flex-col items-center gap-2 text-slate-400">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M21 21l-6-6"/><circle cx="10" cy="10" r="7"/><path d="M7 10h6"/></svg>
+                        <Search size={40} strokeWidth={1.5} />
                         <p className="text-sm font-medium">Không tìm thấy bản ghi nào khớp điều kiện lọc.</p>
                       </div>
                     </td>
@@ -1103,7 +1104,7 @@ export default function InventoryOpeningBalancesPage() {
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-slate-900 tracking-tight">Cập nhật Tồn Đầu Kỳ</h3>
               <button onClick={() => setEditOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 hover:bg-slate-100 rounded-lg">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                <X size={20} strokeWidth={2.5} />
               </button>
             </div>
             
@@ -1133,7 +1134,7 @@ export default function InventoryOpeningBalancesPage() {
                 <label className="flex items-center gap-3 cursor-pointer group">
                   <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${eIsLongAging ? "bg-brand border-brand" : "bg-white border-slate-300 group-hover:border-slate-400"}`}>
                     <input type="checkbox" checked={eIsLongAging} onChange={e => setEIsLongAging(e.target.checked)} className="hidden" />
-                    {eIsLongAging && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                    {eIsLongAging && <Check size={12} strokeWidth={4} color="white" />}
                   </div>
                   <span className="text-sm font-bold text-slate-700 select-none">Đánh dấu là Hàng Tồn Dài Kỳ</span>
                 </label>
@@ -1219,9 +1220,7 @@ export default function InventoryOpeningBalancesPage() {
                 className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
                 title="Sắp xếp"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-                </svg>
+                <ArrowUpDown size={24} strokeWidth={3} />
               </button>
             )}
             {filterable !== false && (
@@ -1230,7 +1229,7 @@ export default function InventoryOpeningBalancesPage() {
                 className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
                 title="Lọc dữ liệu"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                <Filter size={24} strokeWidth={3} />
               </button>
             )}
           </div>

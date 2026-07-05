@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import { LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
+import { ArrowUpDown, CalendarDays, ClipboardList, Filter, RefreshCw } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -485,9 +486,7 @@ export default function InventoryComparisonPage() {
                 className={`p-1 hover:bg-white/50 rounded-md transition-colors ${isSortTarget ? "text-brand bg-white/80 font-black shadow-sm" : "text-indigo-500"}`}
                 title="Sắp xếp"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  {isSortTarget && sortDirCust === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDirCust === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-                </svg>
+                <ArrowUpDown size={24} strokeWidth={3} />
               </button>
             )}
             <button
@@ -495,7 +494,7 @@ export default function InventoryComparisonPage() {
               className={`p-1 hover:bg-white/50 rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-white/30"}`}
               title="Lọc dữ liệu"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              <Filter size={24} strokeWidth={3} />
             </button>
           </div>
         </div>
@@ -570,9 +569,7 @@ export default function InventoryComparisonPage() {
                 className={`p-1 hover:bg-white/50 rounded-md transition-colors ${isSortTarget ? "text-brand bg-white/80 font-black shadow-sm" : "text-indigo-500"}`}
                 title="Sắp xếp"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  {isSortTarget && sortDirProd === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDirProd === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-                </svg>
+                <ArrowUpDown size={24} strokeWidth={3} />
               </button>
             )}
             <button
@@ -580,7 +577,7 @@ export default function InventoryComparisonPage() {
               className={`p-1 hover:bg-white/50 rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-white/30"}`}
               title="Lọc dữ liệu"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              <Filter size={24} strokeWidth={3} />
             </button>
           </div>
         </div>
@@ -653,7 +650,7 @@ export default function InventoryComparisonPage() {
 
   const [closing, setClosing] = useState(false);
   async function closeReport() {
-    const ok = await showConfirm({ message: "Chốt báo cáo so sánh?", confirmLabel: "📋 Chốt lưu trữ" });
+    const ok = await showConfirm({ message: "Chốt báo cáo so sánh?", confirmLabel: "Chốt lưu trữ" });
     if (!ok) return; setClosing(true);
     try {
       const { data: ins, error: e1 } = await supabase.from("inventory_report_closures").insert({ report_type: "inventory_comparison_report", title: `So sánh ${p1Start}→${p1End} vs ${p2Start}→${p2End}`, period_1_start: p1Start, period_1_end: p1End, period_2_start: p2Start, period_2_end: p2End, summary_json: totals }).select("id").single();
@@ -677,7 +674,7 @@ export default function InventoryComparisonPage() {
       <div className="page-header bg-white/80 backdrop-blur-md z-40 py-4 px-6 -mx-6 mb-6 border-b border-slate-200/60 shadow-sm text-slate-900">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-[#6366f1]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
-            🔄
+            <RefreshCw size={24} strokeWidth={2.5} />
           </div>
           <div>
             <h1 className="page-title">ĐỐI CHIẾU TỒN KHO</h1>
@@ -685,11 +682,11 @@ export default function InventoryComparisonPage() {
           </div>
         </div>
         <div className="toolbar ml-auto flex gap-3">
-          <button className="btn btn-ghost btn-sm" onClick={applyPresetPreviousMonth}>🔄 Kỳ trước</button>
-          <button className="btn btn-ghost btn-sm" onClick={applyPresetSameMonthLastYear}>📅 Năm ngoái</button>
+          <button className="btn btn-ghost btn-sm" onClick={applyPresetPreviousMonth}><RefreshCw size={15} strokeWidth={2.5} /> Kỳ trước</button>
+          <button className="btn btn-ghost btn-sm" onClick={applyPresetSameMonthLastYear}><CalendarDays size={15} strokeWidth={2.5} /> Năm ngoái</button>
           <div className="w-px h-6 bg-slate-200 mx-1" />
           <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading}>
-            {closing ? "Đang xử lý..." : "📋 Chốt lưu trữ"}
+            {closing ? "Đang xử lý..." : <><ClipboardList size={16} strokeWidth={2.5} /> Chốt lưu trữ</>}
           </button>
         </div>
       </div>
@@ -740,7 +737,7 @@ export default function InventoryComparisonPage() {
           </div>
           <div className="ml-auto">
             <button className="btn btn-primary px-8 shadow-lg shadow-brand/20" onClick={load} disabled={loading}>
-              {loading ? "Đang tải..." : "🔄 Lấy dữ liệu đối soát"}
+              {loading ? "Đang tải..." : <><RefreshCw size={16} strokeWidth={2.5} /> Lấy dữ liệu đối soát</>}
             </button>
           </div>
         </div>

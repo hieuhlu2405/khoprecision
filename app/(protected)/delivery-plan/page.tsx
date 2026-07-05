@@ -27,6 +27,12 @@ import {
   Sparkles,
   Truck,
   Copy,
+  ClipboardList,
+  Paperclip,
+  RefreshCw,
+  Trash2,
+  X,
+  Zap,
 } from "lucide-react";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 import { formatDateVN, formatDateTimeVN, getTodayVNStr, getVNTimeNow } from "@/lib/date-utils";
@@ -278,7 +284,7 @@ function DateColFilterPopup({ filter, onChange, onClose, dateStr, uncompletedCou
 
       {canClose && uncompletedCount > 0 && (
         <div className="mt-1 mb-4 pt-3 border-t border-dashed border-amber-200/60">
-          <div className="text-[9px] font-black uppercase tracking-widest text-amber-600 mb-2">⚡ HÀNH ĐỘNG</div>
+          <div className="text-[9px] font-black uppercase tracking-widest text-amber-600 mb-2 flex items-center gap-1"><Zap size={12} strokeWidth={2.5} /> HÀNH ĐỘNG</div>
           <button
             onClick={() => { onClose(); onOpenCloseModal(dateStr); }}
             className="group w-full py-2.5 px-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 active:scale-95 text-white rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all shadow-lg shadow-orange-200/50"
@@ -2054,18 +2060,16 @@ export default function DeliveryPlanPage() {
                                     className="absolute -top-4 left-1 flex flex-col items-start z-50 group/tooltip pointer-events-auto cursor-pointer"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      showToast(`Kế hoạch cũ: ${plan?.prev_planned_qty || 0} ➔ Mới: ${plan?.planned_qty || 0} (Lúc ${new Date(plan!.qty_updated_at!).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`, "info");
+                                      showToast(`Kế hoạch cũ: ${plan?.prev_planned_qty || 0} -> Mới: ${plan?.planned_qty || 0} (Lúc ${new Date(plan!.qty_updated_at!).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`, "info");
                                     }}
                                   >
                                     <div className="flex items-center justify-center bg-amber-500 text-white w-5 h-5 rounded-full shadow-md shadow-amber-200/50 border border-amber-400 transform group-hover/tooltip:scale-110 transition-transform">
-                                      <svg className="w-3 h-3 text-white animate-pulse" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                                      </svg>
+                                      <Zap className="w-3 h-3 text-white animate-pulse" fill="currentColor" strokeWidth={2.5} />
                                     </div>
                                     {/* Tooltip cao cấp tự thiết kế - hiển thị hướng xuống dưới */}
                                     <div className="absolute top-full mt-1.5 hidden group-hover/tooltip:flex flex-col bg-slate-900/95 backdrop-blur-md text-white text-[11px] p-2.5 rounded-xl shadow-xl border border-slate-700/50 min-w-[160px] z-[100] text-left pointer-events-none">
                                       <div className="font-bold text-amber-400 text-[10px] tracking-wider uppercase mb-1 flex items-center gap-1">
-                                        <span>⚡</span> THAY ĐỔI GẦN ĐÂY
+                                        <Zap size={14} strokeWidth={2.5} /> THAY ĐỔI GẦN ĐÂY
                                       </div>
                                       <div className="border-b border-slate-700/50 my-1"></div>
                                       <div className="flex justify-between gap-2 py-0.5">
@@ -2139,7 +2143,7 @@ export default function DeliveryPlanPage() {
                                         className="w-5 h-5 bg-white border border-red-200 text-red-500 rounded-full flex items-center justify-center shadow-sm hover:bg-red-50 hover:border-red-400 transition-all opacity-0 group-hover/cell:opacity-100"
                                         title="Admin: Hủy lệnh xuất kho này"
                                       >
-                                        ✕
+                                        <X size={16} strokeWidth={2.5} />
                                       </button>
                                     )}
                                     <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm" title={`Đã xuất kho: ${actualQty}`}>
@@ -2176,13 +2180,13 @@ export default function DeliveryPlanPage() {
           <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl">📋</div>
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600"><ClipboardList size={22} strokeWidth={2.5} /></div>
                 <div>
                   <h3 className="text-lg font-black text-slate-900 leading-tight">LỊCH SỬ CHUYẾN HÀNG</h3>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Danh sách 100 chuyến hàng gần đây nhất</p>
                 </div>
               </div>
-              <button onClick={loadShipmentHistory} className="btn btn-ghost btn-sm text-indigo-600 font-black">🔄 LÀM MỚI</button>
+              <button onClick={loadShipmentHistory} className="btn btn-ghost btn-sm text-indigo-600 font-black"><RefreshCw size={15} strokeWidth={2.5} /> LÀM MỚI</button>
             </div>
 
             <div className="overflow-x-auto">
@@ -2235,7 +2239,7 @@ export default function DeliveryPlanPage() {
                             )) : <span className="text-slate-300 italic">N/A</span>}
                             {uniqueCusts.length > 1 && (
                               <span className="px-2 py-1 rounded-md bg-amber-500 text-white text-[9px] font-black uppercase tracking-tighter">
-                                ⚡ ĐA ĐIỂM
+                                <Zap size={13} strokeWidth={2.5} /> ĐA ĐIỂM
                               </span>
                             )}
                           </div>
@@ -2260,7 +2264,7 @@ export default function DeliveryPlanPage() {
                               className="w-8 h-8 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 transition-colors"
                               title="Admin: Hủy chuyến hàng"
                             >
-                              <span className="text-lg">🗑️</span>
+                              <Trash2 size={18} strokeWidth={2.5} />
                             </button>
                           </div>
                         </td>
@@ -2323,7 +2327,7 @@ export default function DeliveryPlanPage() {
                     Ngày xuất: {selectedOutboundDay.split("-").reverse().join("/")} • {shipmentItems.length} mã hàng
                   </p>
                 </div>
-                <button onClick={() => setShipmentModalOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 transition-colors">✕</button>
+                <button onClick={() => setShipmentModalOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 transition-colors"><X size={16} strokeWidth={2.5} /></button>
               </div>
 
               <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex gap-4 flex-wrap">
@@ -2415,7 +2419,7 @@ export default function DeliveryPlanPage() {
                                   >
                                     <div className="flex items-center gap-3">
                                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg transition-colors ${selectedMergeShipmentId === shipment.id ? 'bg-amber-400 text-white shadow-inner' : 'bg-slate-100 text-slate-400'}`}>
-                                        📎
+                                        <Paperclip size={14} strokeWidth={2.5} />
                                       </div>
                                       <div>
                                         <div className={`text-[11px] font-black uppercase tracking-tight transition-colors ${selectedMergeShipmentId === shipment.id ? 'text-amber-700' : 'text-slate-700'}`}>

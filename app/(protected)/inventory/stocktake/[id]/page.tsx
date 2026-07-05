@@ -9,6 +9,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
+import { AlertTriangle, ArrowUpDown, CheckCircle2, ClipboardCheck, ClipboardList, Clock3, Filter, Package, PencilLine, Rocket, Save, X } from "lucide-react";
 
 type Profile = {
   id: string;
@@ -646,7 +647,7 @@ export default function StocktakeDetailPage() {
   async function fillAllSystemStock() {
     if (!header) return;
     const ok = await showConfirm({
-      message: "Hệ thống sẽ bổ sung TẤT CẢ mã hàng có tồn kho vào phiếu.\n\n⚠️ Số lượng thực tế sẽ được điền MẶC ĐỊNH = Tồn máy.\nBạn CẦN sửa lại số lượng thực tế sau khi đếm!\n\nTiếp tục?",
+      message: "Hệ thống sẽ bổ sung TẤT CẢ mã hàng có tồn kho vào phiếu.\n\nCẢNH BÁO: Số lượng thực tế sẽ được điền MẶC ĐỊNH = Tồn máy.\nBạn CẦN sửa lại số lượng thực tế sau khi đếm!\n\nTiếp tục?",
       confirmLabel: "Điền tồn máy"
     });
     if (!ok) return;
@@ -766,11 +767,11 @@ export default function StocktakeDetailPage() {
         <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : ""}`}>
           <span className="font-black text-[10px] text-slate-400 uppercase tracking-widest">{label}</span>
           <button onClick={() => setOpenPopupId(openPopupId === colKey ? null : colKey)} className={`p-1 rounded ${active ? "bg-indigo-600 text-white" : "text-slate-300 hover:bg-slate-100"}`}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+            <Filter size={12} strokeWidth={3} />
           </button>
           {sortable && (
             <button onClick={() => { if (isSort) { setSortDir(sortDir === "asc" ? "desc" : null); if (sortDir === "desc") setSortCol(null); } else { setSortCol(colKey); setSortDir("asc"); } }} className={`p-1 rounded ${isSort ? "text-indigo-600" : "text-slate-200"}`}>
-              {isSort && sortDir === "asc" ? "▲" : isSort && sortDir === "desc" ? "▼" : "⇅"}
+              <ArrowUpDown size={12} strokeWidth={3} />
             </button>
           )}
         </div>
@@ -793,7 +794,7 @@ export default function StocktakeDetailPage() {
       <div className="page-header px-8 py-6 bg-white border-b border-slate-200 sticky top-0 z-[60] shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-6">
           <div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-200 relative overflow-hidden group">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /></svg>
+            <ClipboardCheck size={28} strokeWidth={2.5} />
             <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
           </div>
           <div>
@@ -805,7 +806,7 @@ export default function StocktakeDetailPage() {
             <h1 className="text-3xl font-black text-slate-900 tracking-tighter flex items-center gap-3">
               {stocktakeId.slice(-6).toUpperCase()}
               <span className={`text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest ${isConfirmed ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-600"}`}>
-                {isConfirmed ? "📦 Đã chốt" : "📝 Bản nháp"}
+                {isConfirmed ? <><Package size={12} strokeWidth={2.6} /> Đã chốt</> : <><PencilLine size={12} strokeWidth={2.6} /> Bản nháp</>}
               </span>
             </h1>
           </div>
@@ -813,13 +814,13 @@ export default function StocktakeDetailPage() {
         <div className="flex items-center gap-3">
           {canEditDraft && (
             <>
-              <button onClick={fillAllSystemStock} disabled={saving || loadingStock} className="btn h-12 px-6 bg-amber-500 hover:bg-amber-600 text-white border-none shadow-xl shadow-amber-100 font-black text-xs uppercase tracking-widest transform transition active:scale-95">{loadingStock ? "⏳ Đang tải..." : "📋 Tự động điền tồn máy"}</button>
-              <button onClick={() => handleSaveLinesAndApply(false)} disabled={saving} className="btn h-12 px-6 bg-slate-700 hover:bg-slate-800 text-white border-none shadow-xl shadow-slate-100 font-black text-xs uppercase tracking-widest transform transition active:scale-95">💾 Lưu nháp</button>
-              <button onClick={() => handleConfirm()} disabled={saving} className="btn h-12 px-8 bg-indigo-600 hover:bg-indigo-700 text-white border-none shadow-xl shadow-indigo-100 font-black text-sm uppercase tracking-widest transform transition active:scale-95">🚀 Chốt phiếu</button>
+              <button onClick={fillAllSystemStock} disabled={saving || loadingStock} className="btn h-12 px-6 bg-amber-500 hover:bg-amber-600 text-white border-none shadow-xl shadow-amber-100 font-black text-xs uppercase tracking-widest transform transition active:scale-95">{loadingStock ? <><Clock3 size={16} strokeWidth={2.5} /> Đang tải...</> : <><ClipboardList size={16} strokeWidth={2.5} /> Tự động điền tồn máy</>}</button>
+              <button onClick={() => handleSaveLinesAndApply(false)} disabled={saving} className="btn h-12 px-6 bg-slate-700 hover:bg-slate-800 text-white border-none shadow-xl shadow-slate-100 font-black text-xs uppercase tracking-widest transform transition active:scale-95"><Save size={16} strokeWidth={2.5} /> Lưu nháp</button>
+              <button onClick={() => handleConfirm()} disabled={saving} className="btn h-12 px-8 bg-indigo-600 hover:bg-indigo-700 text-white border-none shadow-xl shadow-indigo-100 font-black text-sm uppercase tracking-widest transform transition active:scale-95"><Rocket size={16} strokeWidth={2.5} /> Chốt phiếu</button>
             </>
           )}
           {canEditConfirmed && (
-            <button onClick={() => handleSaveLinesAndApply()} disabled={saving || !editReason.trim()} className="btn h-12 px-8 bg-red-600 hover:bg-red-700 text-white border-none shadow-xl shadow-red-100 font-black text-sm uppercase tracking-widest transform transition active:scale-95">⚠️ Lưu thay đổi</button>
+            <button onClick={() => handleSaveLinesAndApply()} disabled={saving || !editReason.trim()} className="btn h-12 px-8 bg-red-600 hover:bg-red-700 text-white border-none shadow-xl shadow-red-100 font-black text-sm uppercase tracking-widest transform transition active:scale-95"><AlertTriangle size={16} strokeWidth={2.5} /> Lưu thay đổi</button>
           )}
         </div>
       </div>
@@ -867,8 +868,8 @@ export default function StocktakeDetailPage() {
 
         {/* Tab Bar */}
         <div className="flex items-center gap-1 mb-6 bg-white rounded-2xl p-1.5 border border-slate-200 shadow-sm w-fit">
-          <button onClick={() => setActiveTab("checklist")} className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === "checklist" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-50"}`}>📋 Phiếu kiểm ({lines.length})</button>
-          <button onClick={() => { setActiveTab("missing"); loadMissingSkus(); }} className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === "missing" ? "bg-red-500 text-white shadow-lg" : "text-slate-400 hover:bg-slate-50"}`}>⚠️ Mã hàng bị sót {missingSkus.length > 0 ? `(${missingSkus.length})` : ""}</button>
+          <button onClick={() => setActiveTab("checklist")} className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === "checklist" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-50"}`}><ClipboardList size={15} strokeWidth={2.5} /> Phiếu kiểm ({lines.length})</button>
+          <button onClick={() => { setActiveTab("missing"); loadMissingSkus(); }} className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === "missing" ? "bg-red-500 text-white shadow-lg" : "text-slate-400 hover:bg-slate-50"}`}><AlertTriangle size={15} strokeWidth={2.5} /> Mã hàng bị sót {missingSkus.length > 0 ? `(${missingSkus.length})` : ""}</button>
         </div>
 
         {/* Tab: Checklist */}
@@ -921,7 +922,7 @@ export default function StocktakeDetailPage() {
                           </td>
                           {canEdit && (
                             <td className="w-20 text-center">
-                              <button onClick={() => removeLine(l.id)} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-red-50 text-slate-200 hover:text-red-500 transition-all font-black text-xs">✕</button>
+                              <button onClick={() => removeLine(l.id)} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-red-50 text-slate-200 hover:text-red-500 transition-all font-black text-xs"><X size={15} strokeWidth={2.5} /></button>
                             </td>
                           )}
                         </tr>
@@ -948,7 +949,7 @@ export default function StocktakeDetailPage() {
               <div className="py-32 text-center text-slate-400 font-black text-xs uppercase tracking-widest animate-pulse">Đang tải tồn kho hệ thống...</div>
             ) : missingSkus.length === 0 ? (
               <div className="py-32 text-center">
-                <div className="text-4xl mb-4">✅</div>
+                <div className="text-4xl mb-4 flex justify-center text-emerald-500"><CheckCircle2 size={40} strokeWidth={2.5} /></div>
                 <div className="text-slate-400 font-black text-sm uppercase tracking-widest">Tất cả mã hàng đã được kiểm kê</div>
                 <div className="text-slate-300 text-xs mt-2">Không phát hiện mã hàng bị sót</div>
               </div>
@@ -956,7 +957,7 @@ export default function StocktakeDetailPage() {
               <>
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                   <div>
-                    <div className="font-black text-red-500 text-sm uppercase tracking-widest">⚠️ Phát hiện {missingSkus.length} mã hàng có tồn kho nhưng chưa có trong phiếu</div>
+                    <div className="font-black text-red-500 text-sm uppercase tracking-widest flex items-center gap-2"><AlertTriangle size={16} strokeWidth={2.5} /> Phát hiện {missingSkus.length} mã hàng có tồn kho nhưng chưa có trong phiếu</div>
                     <div className="text-slate-400 text-xs mt-1">Nhấn "Bổ sung" để thêm vào phiếu kiểm kê, hoặc nhấn nút bên phải để bổ sung tất cả.</div>
                   </div>
                   {canEdit && <button onClick={fillAllSystemStock} disabled={loadingStock} className="btn h-10 px-6 bg-red-500 hover:bg-red-600 text-white font-black text-xs uppercase tracking-widest transition-all active:scale-95">Bổ sung tất cả ({missingSkus.length})</button>}

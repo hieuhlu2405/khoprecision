@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { getVNTimeNow, getTodayVNStr } from "@/lib/date-utils";
-import { BarChart3, Building2, ClipboardList, CreditCard, Flame, Gem, RefreshCw, Repeat2, Rocket, TrendingDown, TrendingUp, Truck, Zap } from "lucide-react";
+import { BarChart3, Building2, CheckCircle2, ClipboardList, CreditCard, Flame, Gem, RefreshCw, Repeat2, Rocket, TrendingDown, TrendingUp, Truck, Zap } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -433,7 +433,7 @@ export default function SalesCommandCenterPage() {
                   <h3 className="font-black text-[15px] uppercase tracking-[0.1em] text-slate-900 border-l-4 border-indigo-600 pl-4">Chi tiết báo cáo doanh thu theo khách hàng</h3>
                   <div className="h-8 w-[1px] bg-slate-200" />
                   <button onClick={() => setShowActiveOnly(!showActiveOnly)} className={`px-4 py-2 rounded-xl border text-[11px] font-black uppercase transition-all shadow-sm ${showActiveOnly ? "bg-indigo-600 border-indigo-700 text-white translate-y-[-2px] shadow-indigo-200" : "bg-white border-slate-200 text-slate-400 hover:bg-slate-50"}`}>
-                    {showActiveOnly ? "✓ Đang lọc khách có DT" : "Tất cả khách hàng"}
+                    {showActiveOnly ? <><CheckCircle2 size={14} strokeWidth={2.5} /> Đang lọc khách có DT</> : "Tất cả khách hàng"}
                   </button>
                 </div>
               </div>

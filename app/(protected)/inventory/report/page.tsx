@@ -11,7 +11,7 @@ import { useDebounce } from "@/app/hooks/useDebounce";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
-import { Eye, Package, Rocket, X, Zap } from "lucide-react";
+import { ArrowUpDown, BarChart3, Camera, Download, Eye, Filter, Package, Rocket, Upload, X, Zap } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -552,13 +552,11 @@ export default function InventoryReportPage() {
           <div className="flex items-center gap-0.5">
             {sortable && (
               <button onClick={() => toggleSort(colKey as SortableCol)} className={`p-1.5 rounded-md transition-all ${isSortTarget ? "text-brand bg-white/80 font-black shadow-sm" : "text-indigo-500 hover:bg-white/50"}`}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-                </svg>
+                <ArrowUpDown size={24} strokeWidth={3} />
               </button>
             )}
             <button onClick={() => setOpenPopup(popupOpen ? null : colKey)} className={`p-1.5 rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-white/50"}`}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              <Filter size={24} strokeWidth={3} />
             </button>
           </div>
         </div>
@@ -698,10 +696,10 @@ export default function InventoryReportPage() {
       });
 
       if (diffCount === 0) {
-        console.log("✅ Dữ liệu DB KHỚP HOÀN TOÀN 100% với JS Calc.");
+        console.log("[OK] Dữ liệu DB KHỚP HOÀN TOÀN 100% với JS Calc.");
         showToast(`Test DB thành công (${duration}ms). Khớp 100% kết quả Javascript!`, "success");
       } else {
-        console.error(`❌ Có ${diffCount} dòng tính toán bị lệch! (Mở F12 để xem số liệu chi tiết)`);
+        console.error(`[ERROR] Có ${diffCount} dòng tính toán bị lệch! (Mở F12 để xem số liệu chi tiết)`);
         showToast(`Cảnh báo: Có ${diffCount} dòng bị lệch giữa DB và JS. Hãy xem Console (F12).`, "warning");
       }
       
@@ -733,7 +731,7 @@ export default function InventoryReportPage() {
         </div>
         <div className="toolbar ml-auto flex gap-3">
           <button className="btn btn-ghost btn-sm" onClick={handleExportExcel}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 
+            <Download size={16} strokeWidth={2.5} /> 
             Xuất Excel
           </button>
           
@@ -742,7 +740,7 @@ export default function InventoryReportPage() {
           </button>
           <div className="w-px h-6 bg-slate-200 mx-1" />
           <button className="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold" onClick={closeReport} disabled={closing || loading || displayData.length === 0}>
-            {closing ? "Đang lưu..." : "📸 Lưu Snapshot"}
+            {closing ? "Đang lưu..." : <><Camera size={16} strokeWidth={2.5} /> Lưu Snapshot</>}
           </button>
           <button className="btn bg-indigo-600 text-white hover:bg-indigo-700 font-black tracking-widest uppercase text-[11px] shadow-lg shadow-indigo-200" onClick={() => setRolloverOpen(true)} disabled={loading || reportData.length === 0}>
             <Rocket size={16} strokeWidth={2.5} /> Kết Chuyển Tháng
@@ -766,7 +764,7 @@ export default function InventoryReportPage() {
           <div className="stat-card border-none bg-white/70 backdrop-blur-md shadow-sm border border-slate-200/50 hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-500 rounded-2xl p-6">
             <div className="flex justify-between items-start mb-3">
               <div className="p-2 bg-amber-100/80 rounded-lg text-amber-600">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+                <Package size={20} strokeWidth={2.5} />
               </div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Số lượng</span>
             </div>
@@ -780,7 +778,7 @@ export default function InventoryReportPage() {
           <div className="stat-card border-none bg-white/70 backdrop-blur-md shadow-sm border border-slate-200/50 hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-500 rounded-2xl p-6">
             <div className="flex justify-between items-start mb-3">
               <div className="p-2 bg-blue-100/80 rounded-lg text-blue-600">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <Download size={20} strokeWidth={2.5} />
               </div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nhập</span>
             </div>
@@ -794,7 +792,7 @@ export default function InventoryReportPage() {
           <div className="stat-card border-none bg-white/70 backdrop-blur-md shadow-sm border border-slate-200/50 hover:shadow-xl hover:shadow-red-500/10 transition-all duration-500 rounded-2xl p-6">
             <div className="flex justify-between items-start mb-3">
               <div className="p-2 bg-red-100/80 rounded-lg text-red-600">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <Upload size={20} strokeWidth={2.5} />
               </div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Xuất</span>
             </div>
@@ -892,7 +890,7 @@ export default function InventoryReportPage() {
               <tr className="font-bold border-none text-slate-900">
                 <td colSpan={4} className="p-5 uppercase tracking-tighter text-[11px] font-black text-slate-400">
                   <span className="flex items-center gap-2">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                    <BarChart3 size={14} strokeWidth={3} />
                     TỔNG CỘNG ({displayData.length} MÃ)
                   </span>
                 </td>

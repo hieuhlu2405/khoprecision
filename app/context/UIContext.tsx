@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { AlertTriangle, Check, CircleHelp, Info, X } from "lucide-react";
 
 /* -----------------------------------------------------------------------
    Types
@@ -131,11 +132,11 @@ function ToastItem({
   toast: ToastItem;
   onRemove: (id: string) => void;
 }) {
-  const icons: Record<ToastType, string> = {
-    success: "✓",
-    error: "✕",
-    warning: "⚠",
-    info: "ℹ",
+  const icons: Record<ToastType, typeof Check> = {
+    success: Check,
+    error: X,
+    warning: AlertTriangle,
+    info: Info,
   };
   const colors: Record<ToastType, { bg: string; border: string; icon: string }> = {
     success: { bg: "#f0fdf4", border: "#86efac", icon: "#16a34a" },
@@ -144,6 +145,7 @@ function ToastItem({
     info: { bg: "#f0f9ff", border: "#7dd3fc", icon: "#0284c7" },
   };
   const c = colors[toast.type];
+  const ToastIcon = icons[toast.type];
 
   return (
     <div
@@ -180,7 +182,7 @@ function ToastItem({
           marginTop: 1,
         }}
       >
-        {icons[toast.type]}
+        <ToastIcon size={13} strokeWidth={3} />
       </span>
       <span style={{ flex: 1, color: "#1e293b" }}>{toast.message}</span>
       <button
@@ -196,7 +198,7 @@ function ToastItem({
           flexShrink: 0,
         }}
       >
-        ×
+        <X size={14} strokeWidth={2.5} />
       </button>
     </div>
   );
@@ -256,7 +258,7 @@ function ConfirmDialog({
             marginBottom: 16,
           }}
         >
-          {options.danger ? "⚠️" : "❓"}
+          {options.danger ? <AlertTriangle size={24} strokeWidth={2.5} color="#dc2626" /> : <CircleHelp size={24} strokeWidth={2.5} color="#0284c7" />}
         </div>
 
         {/* Message */}

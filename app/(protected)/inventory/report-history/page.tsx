@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
+import { ArrowUpDown, Clock3, Filter, RefreshCw } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -338,9 +339,7 @@ export default function ReportHistoryListPage() {
                 className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
                 title="Sắp xếp"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-                </svg>
+                <ArrowUpDown size={24} strokeWidth={3} />
               </button>
             )}
             <button
@@ -348,7 +347,7 @@ export default function ReportHistoryListPage() {
               className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
               title="Lọc dữ liệu"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              <Filter size={24} strokeWidth={3} />
             </button>
           </div>
         </div>
@@ -389,8 +388,8 @@ export default function ReportHistoryListPage() {
     <div className="page-root">
       <div className="page-header">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div className="w-10 h-10 rounded-xl bg-[#6366f1]15 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
-            🕒
+          <div className="w-10 h-10 rounded-xl bg-[#6366f1]15 flex items-center justify-center shadow-sm">
+            <Clock3 size={24} strokeWidth={2.5} />
           </div>
           <div>
             <h1 className="page-title">LỊCH SỬ CHỐT KHO</h1>
@@ -399,7 +398,7 @@ export default function ReportHistoryListPage() {
         </div>
         <div className="toolbar">
           <button onClick={load} className="btn btn-secondary">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+            <RefreshCw size={16} strokeWidth={2.5} />
             Làm mới
           </button>
         </div>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { ArrowLeft, ArrowUpDown, FileText, Filter, Printer } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -355,9 +356,7 @@ export default function ReportHistoryDetailPage() {
                 className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
                 title="Sắp xếp"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-                </svg>
+                <ArrowUpDown size={24} strokeWidth={3} />
               </button>
             )}
             <button
@@ -365,7 +364,7 @@ export default function ReportHistoryDetailPage() {
               className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
               title="Lọc dữ liệu"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              <Filter size={24} strokeWidth={3} />
             </button>
           </div>
         </div>
@@ -421,8 +420,8 @@ export default function ReportHistoryDetailPage() {
     return result;
   }
 
-  if (loading) return <div style={{ padding: 24, fontFamily: "sans-serif" }}>Đang tải...</div>;
-  if (error) return <div style={{ padding: 24, fontFamily: "sans-serif" }}><pre style={{ color: "crimson" }}>{error}</pre><button onClick={() => router.push("/inventory/report-history")} style={{ padding: 10, cursor: "pointer", marginTop: 12 }}>← Quay lại</button></div>;
+  if (loading) return <div style={{ padding: 24, fontFamily: "inherit" }}>Đang tải...</div>;
+  if (error) return <div style={{ padding: 24, fontFamily: "inherit" }}><pre style={{ color: "crimson" }}>{error}</pre><button onClick={() => router.push("/inventory/report-history")} style={{ padding: 10, cursor: "pointer", marginTop: 12 }}>← Quay lại</button></div>;
   if (!closure) return null;
 
   const summary = closure.summary_json || {};
@@ -432,7 +431,7 @@ export default function ReportHistoryDetailPage() {
       <div className="page-header">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div className="page-header-icon" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <FileText size={20} strokeWidth={2.5} />
           </div>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -441,7 +440,7 @@ export default function ReportHistoryDetailPage() {
                 className="btn btn-ghost btn-sm"
                 style={{ padding: "4px 8px", marginLeft: -8 }}
               >
-                ← Lịch sử
+                <ArrowLeft size={16} strokeWidth={2.5} /> Lịch sử
               </button>
               <span style={{ color: "var(--slate-300)" }}>/</span>
               <span style={{ fontSize: 13, color: "var(--slate-500)", fontWeight: 500 }}>Chi tiết bản chốt</span>
@@ -453,7 +452,7 @@ export default function ReportHistoryDetailPage() {
         </div>
         <div className="toolbar">
           <button onClick={() => window.print()} className="btn btn-secondary">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            <Printer size={16} strokeWidth={2.5} />
             In báo cáo
           </button>
         </div>

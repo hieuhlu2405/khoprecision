@@ -46,7 +46,7 @@ export default function MePage() {
             {[
               { label: "Vai trò", value: ROLE_LABELS[profile.role] ?? profile.role },
               { label: "Bộ phận", value: DEPT_LABELS[profile.department] ?? profile.department },
-              { label: "Trạng thái", value: profile.is_active ? "✅ Đang hoạt động" : "🔒 Bị khóa" },
+              { label: "Trạng thái", value: profile.is_active ? "Đang hoạt động" : "Bị khóa" },
               { label: "ID tài khoản", value: profile.id, mono: true },
             ].map(row => (
               <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 10, borderBottom: "1px solid #f1f5f9" }}>

@@ -1,13 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import { BrowserChrome } from "@/app/components/BrowserChrome";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "700", "900"],
-});
 
 export const metadata: Metadata = {
   title: {
@@ -36,11 +29,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" suppressHydrationWarning className={inter.variable}>
-      <body
-        suppressHydrationWarning
-        className={`${inter.className} antialiased`}
-      >
+    <html lang="vi" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <BrowserChrome />
         {children}
       </body>

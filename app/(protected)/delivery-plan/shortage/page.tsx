@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 import { getVNTimeNow } from "@/lib/date-utils";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
-import { AlertTriangle, CalendarDays, CheckCircle2, Package, RefreshCw, Zap } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, CalendarDays, CheckCircle2, Filter, Package, RefreshCw, Zap } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -466,15 +466,13 @@ export default function ShortageReportPage() {
                 if (isSortTarget) { sortDir === "asc" ? setSortDir("desc") : (setSortCol(null), setSortDir(null)); }
                 else { setSortCol(colKey); setSortDir("asc"); }
               }} className={`p-0.5 rounded transition-all ${isSortTarget ? "text-indigo-600 bg-indigo-50" : "text-slate-400 hover:text-indigo-500 hover:bg-slate-100"}`}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6" /> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6" /> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3" />}
-                </svg>
+                <ArrowUpDown size={10} strokeWidth={3} />
               </button>
             )}
             {!isNum && (
               <button onClick={() => setOpenPopup(popupOpen ? null : colKey)}
                 className={`p-0.5 rounded transition-all ${active ? (days.includes(colKey) ? "bg-red-600 text-white" : "bg-indigo-600 text-white") : "text-slate-400 hover:text-indigo-500 hover:bg-slate-100"}`}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+                <Filter size={10} strokeWidth={3} />
               </button>
             )}
           </div>

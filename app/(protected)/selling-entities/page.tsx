@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
+import { Building2, FileText, MapPin, Save } from "lucide-react";
 
 type SellingEntity = {
   id: string;
@@ -255,7 +256,7 @@ export default function SellingEntitiesPage() {
       <div className="page-header">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200 text-2xl">
-            🏢
+            <Building2 size={24} strokeWidth={2.5} />
           </div>
           <div>
             <h1 className="page-title">PHÁP NHÂN BÁN HÀNG</h1>
@@ -321,7 +322,7 @@ export default function SellingEntitiesPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-black text-slate-900 leading-tight">{e.name}</h3>
-                  {e.address && <p className="text-[12px] text-slate-500 mt-1 font-medium">📍 {e.address}</p>}
+                  {e.address && <p className="text-[12px] text-slate-500 mt-1 font-medium inline-flex items-center gap-1"><MapPin size={13} strokeWidth={2.4} /> {e.address}</p>}
                 </div>
               </div>
               {isManager && (
@@ -387,7 +388,7 @@ export default function SellingEntitiesPage() {
         <div className="modal-overlay" onClick={() => setOpen(false)}>
           <div className="modal-box" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title flex items-center gap-3">
-              <span className="text-2xl">🏢</span>
+              <Building2 size={24} strokeWidth={2.5} />
               {editing ? "Sửa pháp nhân" : "Thêm pháp nhân mới"}
             </h2>
 
@@ -448,7 +449,7 @@ export default function SellingEntitiesPage() {
               {/* Excel Template Fields */}
               <div className="border-t border-slate-200 pt-3 mt-2">
                 <div className="text-[11px] font-black uppercase tracking-widest text-indigo-600 mb-3 flex items-center gap-2">
-                  <span>📄</span> CÀI ĐẶT MẪU PHIẾU XUẤT KHO (EXCEL)
+                  <FileText size={15} strokeWidth={2.5} /> CÀI ĐẶT MẪU PHIẾU XUẤT KHO (EXCEL)
                 </div>
                 <label style={{ display: "grid", gap: 6 }}>
                   Tiêu đề phiếu (Header)
@@ -480,7 +481,7 @@ export default function SellingEntitiesPage() {
                 Hủy
               </button>
               <button onClick={save} className="btn btn-primary">
-                💾 Lưu
+                <Save size={16} strokeWidth={2.5} /> Lưu
               </button>
             </div>
           </div>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { LoadingPage } from "@/app/components/ui/Loading";
+import { Building2, CheckCircle2, Clock3, Lock, Theater } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = { admin: "Admin", manager: "Quản lý", staff: "Nhân viên" };
 const DEPT_LABELS: Record<string, string> = { sales: "Kinh doanh", warehouse: "Kho", production: "Sản xuất", purchasing: "Mua hàng", accounting: "Kế toán" };
@@ -53,15 +54,15 @@ export default function ProfilePage() {
           {/* Info rows */}
           <div style={{ padding: "8px 24px" }}>
             {[
-              { label: "Vai trò", value: ROLE_LABELS[profile.role] ?? profile.role, icon: "🎭" },
-              { label: "Bộ phận", value: DEPT_LABELS[profile.department] ?? profile.department, icon: "🏢" },
-              { label: "Trạng thái", value: profile.is_active ? "Đang hoạt động" : "Bị khóa", icon: profile.is_active ? "✅" : "🔒", color: profile.is_active ? "#16a34a" : "#dc2626" },
-              { label: "Tài khoản đã duyệt", value: profile.is_approved ? "Đã duyệt" : "Chờ duyệt", icon: profile.is_approved ? "✅" : "⏳" },
+              { label: "Vai trò", value: ROLE_LABELS[profile.role] ?? profile.role, icon: Theater },
+              { label: "Bộ phận", value: DEPT_LABELS[profile.department] ?? profile.department, icon: Building2 },
+              { label: "Trạng thái", value: profile.is_active ? "Đang hoạt động" : "Bị khóa", icon: profile.is_active ? CheckCircle2 : Lock, color: profile.is_active ? "#16a34a" : "#dc2626" },
+              { label: "Tài khoản đã duyệt", value: profile.is_approved ? "Đã duyệt" : "Chờ duyệt", icon: profile.is_approved ? CheckCircle2 : Clock3 },
               { label: "ID", value: profile.id, mono: true },
             ].map((row, i) => (
               <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: i < 4 ? "1px solid #f1f5f9" : "none" }}>
                 <span style={{ fontSize: 13, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
-                  <span>{row.icon}</span> {row.label}
+                  {row.icon ? createElement(row.icon, { size: 15, strokeWidth: 2.4 }) : null} {row.label}
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: (row as any).color ?? "#0f172a", fontFamily: (row as any).mono ? "monospace" : "inherit", maxWidth: 280, textAlign: "right", wordBreak: "break-all" }}>
                   {row.value}

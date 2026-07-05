@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { Lock, Mail } from "lucide-react";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -51,7 +52,7 @@ export default function LoginPage() {
       display: "flex",
       flexDirection: isMobile ? "column" : "row",
       background: "#f0f7fd",
-      fontFamily: "'Segoe UI', Arial, sans-serif",
+      fontFamily: "inherit",
     }}>
       {/* ── Left panel — Branding ── */}
       <div style={{
@@ -135,7 +136,7 @@ export default function LoginPage() {
                 Email
               </label>
               <div style={{ position: "relative" }}>
-                <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "#94a3b8" }}>✉</span>
+                <Mail size={16} strokeWidth={2.4} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
                 <input
                   type="email"
                   value={email}
@@ -162,7 +163,7 @@ export default function LoginPage() {
                 Mật khẩu
               </label>
               <div style={{ position: "relative" }}>
-                <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "#94a3b8" }}>🔒</span>
+                <Lock size={16} strokeWidth={2.4} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
                 <input
                   type="password"
                   value={password}

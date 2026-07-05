@@ -11,7 +11,7 @@ import { useDebounce } from "@/app/hooks/useDebounce";
 import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
-import { AlertTriangle, BarChart3, CalendarDays, ClipboardList, Download, Package, PlusCircle, Repeat2, Search, Snowflake, Tags, Target, TrendingDown, Trophy, User, Wallet, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, BarChart3, CalendarDays, ClipboardList, Download, Filter, Package, PlusCircle, Repeat2, Search, Snowflake, Tags, Target, TrendingDown, Trophy, User, Wallet, XCircle } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -566,9 +566,7 @@ function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilte
                 className={`p-1 hover:bg-indigo-100 rounded-md transition-colors ${isSortTarget ? "text-brand bg-brand/10 font-black" : "text-indigo-500"}`}
                 title="Sắp xếp"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6"/> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6"/> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3"/>}
-                </svg>
+                <ArrowUpDown size={24} strokeWidth={3} />
               </button>
             )}
             <button
@@ -576,7 +574,7 @@ function ThCell({ label, colKey, sortable, isNum, align, colFilters, setColFilte
               className={`p-1 hover:bg-brand-hover rounded-md transition-all ${active ? "bg-brand text-white shadow-md shadow-brand/30" : "text-indigo-500 hover:bg-indigo-100"}`}
               title="Lọc dữ liệu"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              <Filter size={24} strokeWidth={3} />
             </button>
           </div>
         </div>

@@ -9,6 +9,7 @@ import { exportToExcel } from "@/lib/excel-utils";
 import { formatDateVN, formatDateTimeVN, getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
+import { ArrowUpDown, Edit3, Filter, Save, Search, Trash2, Wrench, X } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -595,9 +596,7 @@ export default function InventoryOutboundPage() {
                 }}
                 className={`p-0.5 hover:bg-slate-100 rounded transition-colors ${isSortTarget ? "text-indigo-600" : "text-slate-400"}`}
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
-                  {isSortTarget && sortDir === "asc" ? <path d="m18 15-6-6-6 6" /> : isSortTarget && sortDir === "desc" ? <path d="m6 9 6 6 6-6" /> : <path d="m15 9-3-3-3 3M9 15l3 3 3-3" />}
-                </svg>
+                <ArrowUpDown size={12} strokeWidth={4} />
               </button>
             )}
             {filterable !== false && (
@@ -605,7 +604,7 @@ export default function InventoryOutboundPage() {
                 onClick={(e) => { e.stopPropagation(); setOpenPopupId(popupOpen ? null : colKey); }}
                 className={`p-0.5 rounded transition-all ${active ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-100"}`}
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+                <Filter size={12} strokeWidth={4} />
               </button>
             )}
           </div>
@@ -977,7 +976,7 @@ export default function InventoryOutboundPage() {
         <div className="card shadow-lg entry-create-panel" style={{ marginBottom: 24, background: "white", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0" }}>
           <div className="entry-create-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
              <h2 style={{ fontSize: 18, fontWeight: 700 }}>Tạo phiếu xuất mới</h2>
-             <button onClick={handleCancelCreate} className="btn-icon">✕</button>
+             <button onClick={handleCancelCreate} className="btn-icon"><X size={16} strokeWidth={2.5} /></button>
           </div>
           <div className="entry-header-grid" style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 20, marginBottom: 16 }}>
             <label style={{ display: "grid", gap: 6 }}>
@@ -1059,7 +1058,7 @@ export default function InventoryOutboundPage() {
                    </td>
                    <td data-label="Ghi chú riêng" style={{ padding: "4px" }}><input type="text" className="input" value={l.note} onChange={e => updateLine(l.key, "note", e.target.value)} /></td>
                    <td className="entry-remove-cell" style={{ padding: "4px", textAlign: "center" }}>
-                      <button onClick={() => removeLine(l.key)} className="text-red-500 hover:scale-110 transition-transform">✕</button>
+                      <button onClick={() => removeLine(l.key)} className="text-red-500 hover:scale-110 transition-transform"><X size={16} strokeWidth={2.5} /></button>
                    </td>
                 </tr>
               ))}
@@ -1070,7 +1069,7 @@ export default function InventoryOutboundPage() {
              <div className="entry-form-actions" style={{ display: "flex", gap: 12 }}>
                 <button onClick={handleCancelCreate} className="btn btn-ghost" disabled={saving}>HỦY</button>
                 <button onClick={saveMulti} className="btn btn-primary" disabled={saving}>
-                   {saving ? "ĐANG LƯU..." : "💾 LƯU PHIẾU XUẤT"}
+                   {saving ? "ĐANG LƯU..." : <><Save size={16} strokeWidth={2.5} /> LƯU PHIẾU XUẤT</>}
                 </button>
              </div>
           </div>
@@ -1080,7 +1079,7 @@ export default function InventoryOutboundPage() {
       {/* FILTER BAR */}
       <div className="toolbar shadow-sm" style={{ background: "#f8fafc", padding: "16px 20px", borderRadius: 12, marginBottom: 20, display: "flex", gap: 16, alignItems: "center", border: "1px solid #e2e8f0", flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
-          <span style={{ position: "absolute", left: 12, top: 10, color: "#94a3b8" }}>🔍</span>
+          <Search size={17} strokeWidth={2.5} style={{ position: "absolute", left: 12, top: 10, color: "#94a3b8" }} />
           <input className="input" style={{ paddingLeft: 36 }} placeholder="Tìm nhanh theo SKU, Tên hàng..." value={q} onChange={e => setQ(e.target.value)} />
         </div>
         {/* DATE RANGE MONTH NAVIGATOR */}
@@ -1188,9 +1187,9 @@ export default function InventoryOutboundPage() {
                     <td style={{ ...tdStyle, width: 120, textAlign: "center" }}>
                        <div className="flex gap-2 justify-center">
                           <button onClick={() => toggleExpanded(r.id)} className="btn-icon">{isExpanded ? "▲" : "▼"}</button>
-                          {canEditRow(r.tx_date) && <button onClick={() => openEdit(r)} className="btn-icon">✏️</button>}
-                          <button onClick={() => openAdjustment(r)} className="btn-icon">🛠️</button>
-                          {canDeleteRow(r.tx_date) && <button onClick={() => handleDelete(r.id)} className="btn-icon text-red-500">🗑️</button>}
+                          {canEditRow(r.tx_date) && <button onClick={() => openEdit(r)} className="btn-icon"><Edit3 size={15} strokeWidth={2.5} /></button>}
+                          <button onClick={() => openAdjustment(r)} className="btn-icon"><Wrench size={15} strokeWidth={2.5} /></button>
+                          {canDeleteRow(r.tx_date) && <button onClick={() => handleDelete(r.id)} className="btn-icon text-red-500"><Trash2 size={15} strokeWidth={2.5} /></button>}
                        </div>
                     </td>
                   </tr>
@@ -1239,7 +1238,7 @@ export default function InventoryOutboundPage() {
       {adjOpen && adjBaseTx && (
         <div className="modal-overlay" onClick={() => setAdjOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div className="modal-box bg-white p-8 rounded-2xl shadow-2xl w-[600px] animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <h2 className="text-2xl font-black mb-6 flex items-center gap-2 uppercase tracking-tighter">🛠️ ĐIỀU CHỈNH KHO (XUẤT)</h2>
+            <h2 className="text-2xl font-black mb-6 flex items-center gap-2 uppercase tracking-tighter"><Wrench size={24} strokeWidth={2.5} /> ĐIỀU CHỈNH KHO (XUẤT)</h2>
             <div className="p-5 bg-slate-50 rounded-2xl mb-6 border border-slate-100">
                 <div className="flex justify-between items-start mb-2">
                   <div className="font-black text-black text-lg tracking-tight leading-none">{skuFor(adjBaseTx)}</div>

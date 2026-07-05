@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, memo, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
+import { CheckCircle2, Clock3, Handshake, RefreshCw, Search, Sparkles, Truck, Wrench } from "lucide-react";
 
 type Vehicle = {
   id: string;
@@ -93,8 +94,9 @@ const VehicleModal = memo(({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box !rounded-[2rem] shadow-2xl border-none p-8" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-xl font-black text-slate-900 border-b border-slate-100 pb-4 mb-6 uppercase tracking-tighter italic">
-          {editingVehicle ? "⚡ Cập nhật thông tin xe" : "✨ Thêm xe mới vào đội"}
+        <h2 className="text-xl font-black text-slate-900 border-b border-slate-100 pb-4 mb-6 uppercase tracking-tighter italic flex items-center gap-2">
+          {editingVehicle ? <Wrench size={20} strokeWidth={2.5} /> : <Sparkles size={20} strokeWidth={2.5} />}
+          {editingVehicle ? "Cập nhật thông tin xe" : "Thêm xe mới vào đội"}
         </h2>
 
         <div className="flex flex-col gap-5">
@@ -118,8 +120,8 @@ const VehicleModal = memo(({
               }}
               className="input font-bold border-slate-200 h-12 px-4 shadow-sm"
             >
-              <option value="nội_bộ">🚛 XE NỘI BỘ</option>
-              <option value="thuê_ngoài">🤝 XE THUÊ</option>
+              <option value="nội_bộ">XE NỘI BỘ</option>
+              <option value="thuê_ngoài">XE THUÊ</option>
             </select>
           </label>
 
@@ -245,20 +247,13 @@ const VehicleModal = memo(({
             disabled={saving || !licensePlate}
             className="btn bg-gradient-to-r from-indigo-600 to-violet-600 hover:opacity-90 active:scale-95 text-white border-none shadow-xl shadow-indigo-100 font-black tracking-widest text-[11px] flex-1 py-4 rounded-2xl transition-all"
           >
-            {saving ? "⏳ ĐANG LƯU..." : "✅ LƯU THÔNG TIN"}
+            {saving ? <><Clock3 size={16} strokeWidth={2.5} /> ĐANG LƯU...</> : <><CheckCircle2 size={16} strokeWidth={2.5} /> LƯU THÔNG TIN</>}
           </button>
         </div>
       </div>
     </div>
   );
 });
-
-const TruckIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m4-4H4m0 0l4-4" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a2 2 0 012-2h1l4 4V16a2 2 0 01-2 2H5a2 2 0 01-2-2v-3" />
-  </svg>
-);
 
 VehicleModal.displayName = "VehicleModal";
 
@@ -375,7 +370,7 @@ export default function VehiclesPage() {
       <div className="page-header">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-[1.25rem] bg-indigo-600 text-white flex items-center justify-center shadow-2xl shadow-indigo-200" style={{ fontSize: 24 }}>
-            🚛
+            <Truck size={26} strokeWidth={2.5} />
           </div>
           <div>
             <h1 className="page-title uppercase tracking-tighter text-3xl font-black">DANH SÁCH XE</h1>
@@ -394,7 +389,7 @@ export default function VehiclesPage() {
             placeholder="Tìm biển số hoặc tên tài xế..."
             className="input !pl-10 !bg-transparent border-none transition-all focus:ring-0 text-slate-800 font-bold placeholder:text-slate-300"
           />
-          <span className="absolute left-0 top-2.5 opacity-30 select-none grayscale cursor-default scale-125">🔍</span>
+          <Search size={18} strokeWidth={2.5} className="absolute left-0 top-2.5 opacity-30 text-slate-500" />
         </div>
 
         <div className="flex gap-2 mr-1">
@@ -407,7 +402,7 @@ export default function VehiclesPage() {
             THÊM XE MỚI
           </button>
           <button onClick={load} className="btn w-12 h-12 p-0 border border-slate-100 bg-white hover:bg-slate-50 text-slate-400 rounded-full flex items-center justify-center transition-all shadow-sm">
-             🔄
+             <RefreshCw size={18} strokeWidth={2.4} />
           </button>
         </div>
       </div>
@@ -434,9 +429,9 @@ export default function VehiclesPage() {
                  <td className="py-7 px-8">
                    <span className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2.5 w-fit border shadow-sm ${r.type === "nội_bộ" ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
                      {r.type === "nội_bộ" ? (
-                       <><span className="text-base">🚛</span> XE NỘI BỘ</>
+                       <><Truck size={15} strokeWidth={2.5} /> XE NỘI BỘ</>
                      ) : (
-                       <><span className="text-base">🤝</span> XE THUÊ</>
+                       <><Handshake size={15} strokeWidth={2.5} /> XE THUÊ</>
                      )}
                    </span>
                  </td>
@@ -481,7 +476,7 @@ export default function VehiclesPage() {
               <tr>
                 <td colSpan={7} className="py-32 text-center">
                   <div className="flex flex-col items-center gap-4 opacity-20 grayscale">
-                    <span className="text-7xl">🚚</span>
+                    <Truck size={72} strokeWidth={1.8} />
                     <p className="font-black text-xl uppercase tracking-tighter">Không tìm thấy xe nào trong hệ thống</p>
                   </div>
                 </td>

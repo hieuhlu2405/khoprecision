@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { BarChart3, ChevronDown, FileSpreadsheet, Handshake, Pin, Trophy, Truck } from "lucide-react";
 
 type Vehicle = {
   id: string;
@@ -173,7 +174,7 @@ export default function VehiclesReportPage() {
       <div className="page-header flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shadow-sm" style={{ fontSize: 24 }}>
-            📊
+            <BarChart3 size={24} strokeWidth={2.5} />
           </div>
           <div>
             <h1 className="page-title">BÁO CÁO LOGISTIC</h1>
@@ -189,7 +190,7 @@ export default function VehiclesReportPage() {
             onChange={e => setMonth(e.target.value)}
           />
           <button onClick={doExport} className="btn bg-emerald-600 hover:bg-emerald-700 text-white font-black tracking-widest text-[11px] border-none shadow-lg shadow-emerald-200">
-             XUẤT EXCEL THÁNG
+             <FileSpreadsheet size={16} strokeWidth={2.5} /> XUẤT EXCEL THÁNG
           </button>
         </div>
       </div>
@@ -228,7 +229,7 @@ export default function VehiclesReportPage() {
           <div className="data-table-wrap !rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 bg-white/50 backdrop-blur-sm" style={{ padding: 24 }}>
             
             <div className="flex justify-between items-end mb-4">
-               <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">📌 Bảng Chi Lương Tháng (Nhấn vào Biển số để xem chi tiết)</h3>
+               <h3 className="text-sm font-black uppercase tracking-widest text-slate-700 flex items-center gap-2"><Pin size={16} strokeWidth={2.5} /> Bảng Chi Lương Tháng (Nhấn vào Biển số để xem chi tiết)</h3>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -250,7 +251,7 @@ export default function VehiclesReportPage() {
                       >
                          <div className="flex items-center gap-6">
                             <div className="w-12 h-12 flex items-center justify-center bg-slate-100 rounded-xl text-xl">
-                              {isInternal ? '🚚' : '🤝'}
+                              {isInternal ? <Truck size={22} strokeWidth={2.5} /> : <Handshake size={22} strokeWidth={2.5} />}
                             </div>
                             <div>
                                <div className="flex items-center gap-2">
@@ -287,7 +288,7 @@ export default function VehiclesReportPage() {
                             </div>
 
                             <div className={`text-slate-400 transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                               ▼
+                               <ChevronDown size={20} strokeWidth={2.5} />
                             </div>
                          </div>
                       </div>
@@ -363,7 +364,7 @@ export default function VehiclesReportPage() {
                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-indigo-500/10 to-transparent pointer-events-none"></div>
                 <div className="flex items-center gap-5 relative z-10">
                    <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-3xl shadow-inner">
-                     🏆
+                     <Trophy size={30} strokeWidth={2.5} />
                    </div>
                    <div>
                       <div className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-300/80 mb-1">TỔNG KẾT VẬN TẢI THÁNG</div>

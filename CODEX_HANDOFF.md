@@ -11,6 +11,8 @@
 
 ## Trang thai hien tai
 
+- Cap nhat 2026-07-06 tiep 2: Da doi font toan web sang font system giong Facebook (`-apple-system`, `BlinkMacSystemFont`, `Segoe UI`, `Helvetica`, `Arial`) trong `app/layout.tsx`, `app/globals.css`, va bo `next/font` Inter. Da doi icon emoji/SVG thao tac sang `lucide-react` tren layout/sidebar, toast/confirm, login/profile, san pham, khach hang, xe, admin, phap nhan, cac trang kho/giao hang/bao cao/kiem ke con lai. SVG bieu do va duong nen trang dang nhap van giu nguyen vi do la hinh ve/chart, khong phai icon thao tac. Khong sua SQL/backend, khong doi logic tinh so lieu, khong xoa du lieu. `npm run build` da pass. Chua test mobile bang browser/screenshot.
+
 - Cap nhat 2026-07-06 tiep: Da doi browser tab cho web. Them `app/components/BrowserChrome.tsx` de title tu dong theo route dang mo, dang `Precision Packaging | Ten trang`, vi du `Precision Packaging | Nhap kho`, `Precision Packaging | Ke hoach giao hang`. Cap nhat `app/layout.tsx` de dung title template va icons. Da tao lai favicon/icon tu logo cong ty file `C:\Users\cmtco\Downloads\pg.jpg`, gom `app/favicon.ico`, `app/icon.png`, `app/apple-icon.png`; khong con dung icon Vercel. Khong sua SQL/backend, khong doi so lieu. `npm run build` da pass. Chua test browser/screenshot vi khong tu dong dang nhap.
 
 - Cap nhat 2026-07-06: Trang Bao cao Gia tri ton kho, tab `So sanh 2 ky`: da doi nhan khach hang trong chart `So sanh gia tri ton khach hang`, chart co cau so sanh, va dong bang khach hang o che do so sanh sang chi hien ma/ten viet tat khach hang (`customer.code`) thay vi `code - name`. Khong sua SQL/backend, khong doi cach tinh so lieu. `npm run build` da pass. Chua test mobile bang browser/screenshot vi khong tu dong dang nhap.

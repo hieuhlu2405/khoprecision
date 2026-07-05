@@ -7,7 +7,7 @@ import { getVNTimeNow, getTodayVNStr } from "@/lib/date-utils";
 import { useUI } from "@/app/context/UIContext";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
-import { CalendarDays, Clock, Download, Package, Search, Upload, Wallet, Warehouse } from "lucide-react";
+import { CalendarDays, Clock, Crown, Download, Package, Search, Upload, Wallet, Warehouse } from "lucide-react";
 
 /* -----------------------------------------------------------------------
    Types Definitions
@@ -608,7 +608,7 @@ export default function AppHome() {
             {greeting},
           </div>
           <h1 style={{ margin: "0 0 6px", fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", color: "white" }}>
-            {userName} {userName === "Nguyễn Trọng Hiếu" ? "👑" : ""}
+            {userName} {userName === "Nguyễn Trọng Hiếu" ? <Crown size={18} strokeWidth={2.5} className="inline-block align-[-2px] text-amber-500" /> : null}
           </h1>
           {profile && (
             <div style={{ fontSize: 13, opacity: 0.9, fontWeight: 500 }}>
