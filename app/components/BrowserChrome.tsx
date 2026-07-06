@@ -30,6 +30,7 @@ const EXACT_TITLES: Record<string, string> = {
   "/delivery-plan/shortage": "Cảnh báo thiếu hàng",
   "/delivery-plan/log": "Nhật ký giao hàng",
   "/sales-command-center": "Sales Command Center",
+  "/accounting": "Công nợ kế toán",
   "/admin/users": "Người dùng",
 };
 
