@@ -105,6 +105,19 @@ const METHOD_LABELS: Record<PaymentMethod, string> = {
   other: "Khác",
 };
 
+const ACCOUNTING_TABLE_COLUMNS = [
+  { key: "partner", label: "Đối tác", width: 240, align: "left" },
+  { key: "invoice_no", label: "Số hóa đơn", width: 160, align: "left" },
+  { key: "invoice_date", label: "Ngày hóa đơn", width: 140, align: "left" },
+  { key: "payment_term_days", label: "Hạn công nợ", width: 130, align: "left" },
+  { key: "due_date", label: "Ngày đến hạn", width: 140, align: "left" },
+  { key: "amount", label: "Tiền hóa đơn", width: 160, align: "right" },
+  { key: "paid", label: "Đã thanh toán", width: 160, align: "right" },
+  { key: "outstanding", label: "Còn nợ", width: 160, align: "right" },
+  { key: "status", label: "Trạng thái", width: 170, align: "left" },
+  { key: "actions", label: "Thao tác", width: 150, align: "left" },
+] as const;
+
 function localDateKey(date = new Date()) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -210,9 +223,18 @@ export default function AccountingPage() {
   const [detailInvoice, setDetailInvoice] = useState<DebtInvoice | null>(null);
   const [paymentInvoice, setPaymentInvoice] = useState<DebtInvoice | null>(null);
   const [paymentForm, setPaymentForm] = useState<PaymentForm>(() => emptyPaymentForm());
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      return JSON.parse(localStorage.getItem("accounting_debt_col_widths_v1") || "{}");
+    } catch {
+      return {};
+    }
+  });
 
   const canAccess = Boolean(isAdmin || profile?.department === "accounting");
   const today = localDateKey();
+  const tableWidth = ACCOUNTING_TABLE_COLUMNS.reduce((sum, col) => sum + (colWidths[col.key] || col.width), 0);
 
   const paymentByInvoice = useMemo(() => {
     const map: Record<string, number> = {};
@@ -530,6 +552,32 @@ export default function AccountingPage() {
     }
   }
 
+  function startColumnResize(key: string, currentWidth: number, clientX: number) {
+    const startX = clientX;
+    const minWidth = key === "actions" ? 120 : 96;
+
+    function handleMove(event: MouseEvent) {
+      const nextWidth = Math.max(minWidth, currentWidth + event.clientX - startX);
+      setColWidths((prev) => {
+        const next = { ...prev, [key]: nextWidth };
+        localStorage.setItem("accounting_debt_col_widths_v1", JSON.stringify(next));
+        return next;
+      });
+    }
+
+    function handleUp() {
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleUp);
+  }
+
   if (loading) return <LoadingPage text="Đang tải công nợ..." />;
 
   if (!canAccess) {
@@ -550,6 +598,59 @@ export default function AccountingPage() {
 
   return (
     <div className="page-root">
+      <style dangerouslySetInnerHTML={{ __html: `
+        .accounting-kpi-card {
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+        }
+        .accounting-kpi-card:hover {
+          transform: translateY(-2px);
+        }
+        .accounting-kpi-card .stat-value {
+          transition: color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .accounting-kpi-total:hover {
+          background: rgba(36, 135, 200, 0.03);
+          border-color: #2487C8;
+          box-shadow: 0 10px 20px rgba(36, 135, 200, 0.08);
+        }
+        .accounting-kpi-total:hover .stat-value { color: #2487C8; }
+        .accounting-kpi-overdue:hover {
+          background: rgba(244, 63, 94, 0.03);
+          border-color: #f43f5e;
+          box-shadow: 0 10px 20px rgba(244, 63, 94, 0.08);
+        }
+        .accounting-kpi-overdue:hover .stat-value { color: #f43f5e; }
+        .accounting-kpi-due:hover {
+          background: rgba(245, 158, 11, 0.04);
+          border-color: #f59e0b;
+          box-shadow: 0 10px 20px rgba(245, 158, 11, 0.08);
+        }
+        .accounting-kpi-due:hover .stat-value { color: #f59e0b; }
+        .accounting-kpi-paid {
+          border-left: 4px solid #10b981;
+        }
+        .accounting-kpi-paid:hover {
+          background: rgba(16, 185, 129, 0.04);
+          border-color: #10b981;
+          box-shadow: 0 10px 20px rgba(16, 185, 129, 0.08);
+        }
+        .accounting-kpi-paid:hover .stat-value { color: #10b981; }
+        .accounting-resize-handle {
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 8px;
+          height: 100%;
+          cursor: col-resize;
+          user-select: none;
+          touch-action: none;
+        }
+        .accounting-resize-handle:hover {
+          background: rgba(36, 135, 200, 0.15);
+        }
+      ` }} />
       <div className="page-header" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
         <div className="flex items-center gap-4 min-w-0">
           <div className="w-12 h-12 rounded-lg bg-sky-600 text-white flex items-center justify-center shadow-md shadow-sky-100">
@@ -584,22 +685,22 @@ export default function AccountingPage() {
       </div>
 
       <div className="stats-grid">
-        <div className="stat-card brand">
+        <div className="stat-card brand accounting-kpi-card accounting-kpi-total">
           <div className="stat-label">{activeType === "receivable" ? "Tổng phải thu" : "Tổng phải trả"}</div>
           <div className="stat-value">{formatMoney(summary.total)}</div>
           <div className="text-xs text-slate mt-1">{summary.count} hóa đơn còn nợ</div>
         </div>
-        <div className="stat-card danger">
+        <div className="stat-card danger accounting-kpi-card accounting-kpi-overdue">
           <div className="stat-label">Quá hạn</div>
           <div className="stat-value">{formatMoney(summary.overdue)}</div>
           <div className="text-xs text-slate mt-1">Cần ưu tiên xử lý</div>
         </div>
-        <div className="stat-card warning">
+        <div className="stat-card warning accounting-kpi-card accounting-kpi-due">
           <div className="stat-label">Sắp đến hạn 7 ngày</div>
           <div className="stat-value">{formatMoney(summary.dueSoon)}</div>
           <div className="text-xs text-slate mt-1">Theo ngày đến hạn hóa đơn</div>
         </div>
-        <div className="stat-card secondary">
+        <div className="stat-card accounting-kpi-card accounting-kpi-paid">
           <div className="stat-label">Đã thanh toán trong sổ</div>
           <div className="stat-value">{formatMoney(summary.paid)}</div>
           <div className="text-xs text-slate mt-1">Từ các dòng thu/chi đã nhập</div>
@@ -608,11 +709,12 @@ export default function AccountingPage() {
 
       <div className="filter-panel toolbar">
         <div className="relative flex-1 min-w-[260px]">
-          <Search size={16} strokeWidth={2.4} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} strokeWidth={2.4} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="input w-full pl-9"
+            style={{ paddingLeft: 42 }}
             placeholder="Tìm số hóa đơn, khách/NCC, PO, mã đối chiếu..."
           />
         </div>
@@ -630,19 +732,37 @@ export default function AccountingPage() {
       </div>
 
       <div className="data-table-wrap bg-white shadow-sm" style={{ maxHeight: "calc(100dvh - 420px)" }}>
-        <table className="data-table" style={{ minWidth: 1120 }}>
+        <table className="data-table" style={{ minWidth: tableWidth, width: tableWidth, tableLayout: "fixed" }}>
           <thead>
             <tr>
-              <th>Đối tác</th>
-              <th>Số hóa đơn</th>
-              <th>Ngày hóa đơn</th>
-              <th>Hạn công nợ</th>
-              <th>Ngày đến hạn</th>
-              <th className="text-right">Tiền hóa đơn</th>
-              <th className="text-right">Đã thanh toán</th>
-              <th className="text-right">Còn nợ</th>
-              <th>Trạng thái</th>
-              <th>Thao tác</th>
+              {ACCOUNTING_TABLE_COLUMNS.map((col) => {
+                const width = colWidths[col.key] || col.width;
+                return (
+                  <th
+                    key={col.key}
+                    className={col.align === "right" ? "text-right" : undefined}
+                    style={{ width, minWidth: width, position: "sticky", top: 0 }}
+                  >
+                    {col.label}
+                    <span
+                      className="accounting-resize-handle"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        startColumnResize(col.key, width, e.clientX);
+                      }}
+                      onDoubleClick={() => {
+                        setColWidths((prev) => {
+                          const next = { ...prev };
+                          delete next[col.key];
+                          localStorage.setItem("accounting_debt_col_widths_v1", JSON.stringify(next));
+                          return next;
+                        });
+                      }}
+                      title="Kéo để chỉnh rộng cột, nhấp đôi để về mặc định"
+                    />
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
