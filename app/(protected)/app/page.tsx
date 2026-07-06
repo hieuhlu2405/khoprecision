@@ -7,7 +7,7 @@ import { getVNTimeNow, getTodayVNStr } from "@/lib/date-utils";
 import { useUI } from "@/app/context/UIContext";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
-import { CalendarDays, Clock, Crown, Download, Package, Search, Upload, Wallet, Warehouse } from "lucide-react";
+import { CalendarDays, Clock, Crown, Download, Package, RotateCcw, Search, Upload, Wallet, Warehouse } from "lucide-react";
 
 /* -----------------------------------------------------------------------
    Types Definitions
@@ -56,6 +56,7 @@ const quickLinks = [
   { href: "/inventory/report", Icon: Package, color: "#2487C8", label: "Tồn kho", desc: "Xem tồn kho thành phẩm" },
   { href: "/inventory/stocktake", Icon: Search, color: "#0d9488", label: "Kiểm kê", desc: "Tạo phiếu kiểm kê kho" },
   { href: "/inventory/phoi", Icon: Warehouse, color: "#475569", label: "Nhập phôi", desc: "Ghi nhận phôi nguyên vật liệu" },
+  { href: "/inventory/returns", Icon: RotateCcw, color: "#f97316", label: "Hàng trả về", desc: "Theo dõi danh sách hàng khách trả về" },
 ];
 
 /* -----------------------------------------------------------------------

@@ -21,6 +21,7 @@ const EXACT_TITLES: Record<string, string> = {
   "/inventory/inbound": "Nhập kho",
   "/inventory/outbound": "Xuất kho",
   "/inventory/phoi": "Nhập phôi",
+  "/inventory/returns": "Hàng trả về",
   "/inventory/stocktake": "Kiểm kê",
   "/inventory/value-report": "Giá trị tồn kho",
   "/inventory/aging": "Tồn dài kỳ",

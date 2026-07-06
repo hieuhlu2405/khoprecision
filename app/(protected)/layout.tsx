@@ -27,6 +27,7 @@ import {
   Menu,
   Package,
   Repeat2,
+  RotateCcw,
   Route,
   ScrollText,
   ShoppingBag,
@@ -69,6 +70,7 @@ function buildMenu(p: Profile, isAdmin: boolean) {
     { label: "Nhập kho", icon: "inbound", href: "/inventory/inbound", show: true },
     { label: "Xuất kho", icon: "outbound", href: "/inventory/outbound", show: true },
     { label: "Nhập phôi", icon: "phoi", href: "/inventory/phoi", show: true },
+    { label: "Hàng trả về", icon: "returns", href: "/inventory/returns", show: true },
     { label: "Kiểm kê", icon: "stocktake", href: "/inventory/stocktake", show: true },
 
     { label: "GIAO HÀNG", show: true, isHeader: true },
@@ -136,6 +138,7 @@ function SidebarIcon({ type, className = "w-4 h-4" }: { type?: string; className
     case "inbound": return <Download {...iconProps} />;
     case "outbound": return <Upload {...iconProps} />;
     case "phoi": return <Layers {...iconProps} />;
+    case "returns": return <RotateCcw {...iconProps} />;
     case "stocktake": return <ClipboardCheck {...iconProps} />;
     case "delivery": return <CalendarDays {...iconProps} />;
     case "alert": return <AlertTriangle {...iconProps} />;
