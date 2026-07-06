@@ -1224,7 +1224,7 @@ export default function AccountingPage() {
 
       {termsModalOpen && (
         <div className="modal-overlay" onClick={() => setTermsModalOpen(false)}>
-          <div className="modal-box" style={{ maxWidth: 960 }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-box" style={{ maxWidth: 960, overflowX: "hidden" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <h2 className="modal-title !mb-1">Cài đặt hạn công nợ</h2>
@@ -1245,8 +1245,8 @@ export default function AccountingPage() {
             </div>
 
             {termsTab === "receivable" ? (
-              <div className="grid gap-4 md:grid-cols-[320px_minmax(0,1fr)]">
-                <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+              <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
+                <div className="min-w-0 border border-slate-200 rounded-lg p-4 bg-slate-50">
                   <h3 className="section-title !text-sm !mb-3">{customerTermForm.id ? "Sửa hạn khách hàng" : "Cài hạn khách hàng"}</h3>
                   <div className="grid gap-3">
                     <label className="field-group">
@@ -1301,12 +1301,12 @@ export default function AccountingPage() {
                         placeholder="Điều khoản thanh toán, người liên hệ..."
                       />
                     </label>
-                    <div className="flex gap-2">
-                      <button className="btn btn-primary flex-1" onClick={saveCustomerTerm} disabled={saving}>
+                    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                      <button className="btn btn-primary min-w-0" onClick={saveCustomerTerm} disabled={saving}>
                         {saving ? "Đang lưu..." : "Lưu hạn khách"}
                       </button>
                       {customerTermForm.customerId && (
-                        <button className="btn btn-secondary" onClick={() => setCustomerTermForm(emptyCustomerTermForm())} disabled={saving}>
+                        <button className="btn btn-secondary min-w-0" onClick={() => setCustomerTermForm(emptyCustomerTermForm())} disabled={saving}>
                           Chọn lại
                         </button>
                       )}
@@ -1314,7 +1314,7 @@ export default function AccountingPage() {
                   </div>
                 </div>
 
-                <div className="data-table-wrap bg-white" style={{ maxHeight: 420 }}>
+                <div className="data-table-wrap bg-white min-w-0 max-w-full" style={{ maxHeight: 420, minWidth: 0, overflowX: "auto" }}>
                   <table className="data-table" style={{ minWidth: 680 }}>
                     <thead>
                       <tr>
@@ -1359,8 +1359,8 @@ export default function AccountingPage() {
                 </div>
               </div>
             ) : (
-            <div className="grid gap-4 md:grid-cols-[320px_minmax(0,1fr)]">
-              <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+            <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
+              <div className="min-w-0 border border-slate-200 rounded-lg p-4 bg-slate-50">
                 <h3 className="section-title !text-sm !mb-3">{supplierForm.id ? "Sửa NCC" : "Thêm NCC"}</h3>
                 <div className="grid gap-3">
                   <label className="field-group">
@@ -1412,12 +1412,12 @@ export default function AccountingPage() {
                       placeholder="Điều khoản thanh toán, người liên hệ..."
                     />
                   </label>
-                  <div className="flex gap-2">
-                    <button className="btn btn-primary flex-1" onClick={saveSupplier} disabled={saving}>
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <button className="btn btn-primary min-w-0" onClick={saveSupplier} disabled={saving}>
                       {saving ? "Đang lưu..." : "Lưu NCC"}
                     </button>
                     {supplierForm.id && (
-                      <button className="btn btn-secondary" onClick={() => setSupplierForm(emptySupplierForm())} disabled={saving}>
+                      <button className="btn btn-secondary min-w-0" onClick={() => setSupplierForm(emptySupplierForm())} disabled={saving}>
                         Tạo mới
                       </button>
                     )}
@@ -1425,7 +1425,7 @@ export default function AccountingPage() {
                 </div>
               </div>
 
-              <div className="data-table-wrap bg-white" style={{ maxHeight: 420 }}>
+              <div className="data-table-wrap bg-white min-w-0 max-w-full" style={{ maxHeight: 420, minWidth: 0, overflowX: "auto" }}>
                 <table className="data-table" style={{ minWidth: 620 }}>
                   <thead>
                     <tr>
