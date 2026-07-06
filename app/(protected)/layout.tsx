@@ -53,6 +53,7 @@ type Profile = {
 
 function buildMenu(p: Profile, isAdmin: boolean) {
   const canViewReports = isAdmin || (p.role === "manager" && p.department === "warehouse") || p.department === "accounting";
+  const canViewAccounting = isAdmin || p.department === "accounting";
 
   const items: { label: string; href?: string; show: boolean; isHeader?: boolean; icon?: string }[] = [
     { label: "Quản lý dữ liệu", show: true, isHeader: true },
@@ -90,7 +91,7 @@ function buildMenu(p: Profile, isAdmin: boolean) {
     { label: "Đơn hàng", icon: "orders", href: "/sales/orders", show: p.role !== "staff" || p.department === "sales" },
     { label: "Sản xuất", icon: "production", href: "/production", show: p.role !== "staff" || p.department === "production" },
     { label: "Mua hàng", icon: "purchasing", href: "/purchasing", show: p.role !== "staff" || p.department === "purchasing" },
-    { label: "Kế toán", icon: "accounting", href: "/accounting", show: p.role !== "staff" || p.department === "accounting" },
+    { label: "Kế toán", icon: "accounting", href: "/accounting", show: canViewAccounting },
   ];
 
   return items.filter((x) => x.show);
