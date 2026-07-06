@@ -1249,7 +1249,7 @@ export default function AccountingPage() {
                 <div className="min-w-0 border border-slate-200 rounded-lg p-4 bg-slate-50">
                   <h3 className="section-title !text-sm !mb-3">{customerTermForm.id ? "Sửa hạn khách hàng" : "Cài hạn khách hàng"}</h3>
                   <div className="grid gap-3">
-                    <label className="field-group">
+                    <label className="field-group min-w-0">
                       <span className="field-label">Khách hàng *</span>
                       <select
                         value={customerTermForm.customerId}
@@ -1262,7 +1262,7 @@ export default function AccountingPage() {
                             note: existing?.note || "",
                           });
                         }}
-                        className="input"
+                        className="input w-full min-w-0"
                       >
                         <option value="">Chọn khách hàng</option>
                         {customers.map((c) => (
@@ -1270,7 +1270,7 @@ export default function AccountingPage() {
                         ))}
                       </select>
                     </label>
-                    <label className="field-group">
+                    <label className="field-group min-w-0">
                       <span className="field-label">Hạn công nợ mặc định *</span>
                       <div className="flex gap-2 flex-wrap">
                         {TERM_OPTIONS.map((d) => (
@@ -1287,17 +1287,17 @@ export default function AccountingPage() {
                       <input
                         value={customerTermForm.defaultPaymentTermDays}
                         onChange={(e) => setCustomerTermForm((prev) => ({ ...prev, defaultPaymentTermDays: e.target.value }))}
-                        className="input"
+                        className="input w-full min-w-0"
                         inputMode="numeric"
                         placeholder="Nhập số ngày khác"
                       />
                     </label>
-                    <label className="field-group">
+                    <label className="field-group min-w-0">
                       <span className="field-label">Ghi chú</span>
                       <textarea
                         value={customerTermForm.note}
                         onChange={(e) => setCustomerTermForm((prev) => ({ ...prev, note: e.target.value }))}
-                        className="input min-h-[72px]"
+                        className="input min-h-[72px] w-full min-w-0"
                         placeholder="Điều khoản thanh toán, người liên hệ..."
                       />
                     </label>
@@ -1363,25 +1363,25 @@ export default function AccountingPage() {
               <div className="min-w-0 border border-slate-200 rounded-lg p-4 bg-slate-50">
                 <h3 className="section-title !text-sm !mb-3">{supplierForm.id ? "Sửa NCC" : "Thêm NCC"}</h3>
                 <div className="grid gap-3">
-                  <label className="field-group">
+                  <label className="field-group min-w-0">
                     <span className="field-label">Mã NCC</span>
                     <input
                       value={supplierForm.code}
                       onChange={(e) => setSupplierForm((prev) => ({ ...prev, code: e.target.value }))}
-                      className="input"
+                      className="input w-full min-w-0"
                       placeholder="VD: NCC001"
                     />
                   </label>
-                  <label className="field-group">
+                  <label className="field-group min-w-0">
                     <span className="field-label">Tên NCC *</span>
                     <input
                       value={supplierForm.name}
                       onChange={(e) => setSupplierForm((prev) => ({ ...prev, name: e.target.value }))}
-                      className="input"
+                      className="input w-full min-w-0"
                       placeholder="Tên nhà cung cấp"
                     />
                   </label>
-                  <label className="field-group">
+                  <label className="field-group min-w-0">
                     <span className="field-label">Hạn công nợ mặc định *</span>
                     <div className="flex gap-2 flex-wrap">
                       {TERM_OPTIONS.map((d) => (
@@ -1398,17 +1398,17 @@ export default function AccountingPage() {
                     <input
                       value={supplierForm.defaultPaymentTermDays}
                       onChange={(e) => setSupplierForm((prev) => ({ ...prev, defaultPaymentTermDays: e.target.value }))}
-                      className="input"
+                      className="input w-full min-w-0"
                       inputMode="numeric"
                       placeholder="Nhập số ngày khác"
                     />
                   </label>
-                  <label className="field-group">
+                  <label className="field-group min-w-0">
                     <span className="field-label">Ghi chú</span>
                     <textarea
                       value={supplierForm.note}
                       onChange={(e) => setSupplierForm((prev) => ({ ...prev, note: e.target.value }))}
-                      className="input min-h-[72px]"
+                      className="input min-h-[72px] w-full min-w-0"
                       placeholder="Điều khoản thanh toán, người liên hệ..."
                     />
                   </label>
