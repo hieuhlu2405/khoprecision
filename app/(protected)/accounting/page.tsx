@@ -47,6 +47,14 @@ type DebtSupplier = {
   deleted_at: string | null;
 };
 
+type CustomerTerm = {
+  id: string;
+  customer_id: string;
+  default_payment_term_days: number;
+  note: string | null;
+  deleted_at: string | null;
+};
+
 type DebtInvoice = {
   id: string;
   debt_type: DebtType;
@@ -112,6 +120,13 @@ type SupplierForm = {
   id: string | null;
   code: string;
   name: string;
+  defaultPaymentTermDays: string;
+  note: string;
+};
+
+type CustomerTermForm = {
+  id: string | null;
+  customerId: string;
   defaultPaymentTermDays: string;
   note: string;
 };
@@ -206,6 +221,15 @@ function emptySupplierForm(): SupplierForm {
   };
 }
 
+function emptyCustomerTermForm(): CustomerTermForm {
+  return {
+    id: null,
+    customerId: "",
+    defaultPaymentTermDays: "30",
+    note: "",
+  };
+}
+
 function emptyPaymentForm(maxAmount = 0): PaymentForm {
   return {
     paymentDate: localDateKey(),
@@ -239,6 +263,7 @@ export default function AccountingPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerTerms, setCustomerTerms] = useState<CustomerTerm[]>([]);
   const [suppliers, setSuppliers] = useState<DebtSupplier[]>([]);
   const [invoices, setInvoices] = useState<DebtInvoice[]>([]);
   const [payments, setPayments] = useState<DebtPayment[]>([]);
@@ -251,7 +276,9 @@ export default function AccountingPage() {
   const [editingInvoice, setEditingInvoice] = useState<DebtInvoice | null>(null);
   const [invoiceForm, setInvoiceForm] = useState<InvoiceForm>(() => emptyInvoiceForm("receivable"));
   const [dueDateTouched, setDueDateTouched] = useState(false);
-  const [supplierModalOpen, setSupplierModalOpen] = useState(false);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
+  const [termsTab, setTermsTab] = useState<DebtType>("receivable");
+  const [customerTermForm, setCustomerTermForm] = useState<CustomerTermForm>(() => emptyCustomerTermForm());
   const [supplierForm, setSupplierForm] = useState<SupplierForm>(() => emptySupplierForm());
 
   const [detailInvoice, setDetailInvoice] = useState<DebtInvoice | null>(null);
@@ -364,25 +391,29 @@ export default function AccountingPage() {
 
       if (!nextIsAdmin && nextProfile.department !== "accounting") {
         setCustomers([]);
+        setCustomerTerms([]);
         setSuppliers([]);
         setInvoices([]);
         setPayments([]);
         return;
       }
 
-      const [customerRes, supplierRes, invoiceRes, paymentRes] = await Promise.all([
+      const [customerRes, customerTermRes, supplierRes, invoiceRes, paymentRes] = await Promise.all([
         supabase.from("customers").select("id, code, name, deleted_at").is("deleted_at", null).order("code"),
+        supabase.from("accounting_debt_customer_terms").select("*").is("deleted_at", null),
         supabase.from("accounting_debt_suppliers").select("*").is("deleted_at", null).order("name"),
         supabase.from("accounting_debt_invoices").select("*").is("deleted_at", null).order("due_date", { ascending: true }),
         supabase.from("accounting_debt_payments").select("*").is("deleted_at", null).order("payment_date", { ascending: false }),
       ]);
 
       if (customerRes.error) throw customerRes.error;
+      if (customerTermRes.error) throw customerTermRes.error;
       if (supplierRes.error) throw supplierRes.error;
       if (invoiceRes.error) throw invoiceRes.error;
       if (paymentRes.error) throw paymentRes.error;
 
       setCustomers((customerRes.data || []) as Customer[]);
+      setCustomerTerms((customerTermRes.data || []) as CustomerTerm[]);
       setSuppliers((supplierRes.data || []) as DebtSupplier[]);
       setInvoices((invoiceRes.data || []) as DebtInvoice[]);
       setPayments((paymentRes.data || []) as DebtPayment[]);
@@ -441,6 +472,87 @@ export default function AccountingPage() {
     });
   }
 
+  function applyCustomerToInvoice(customerId: string) {
+    const term = customerTerms.find((t) => t.customer_id === customerId);
+    patchInvoiceForm({
+      customerId,
+      paymentTermDays: String(term?.default_payment_term_days || 30),
+    }, true);
+    setDueDateTouched(false);
+  }
+
+  function openCustomerTermEdit(customer: Customer) {
+    const term = customerTerms.find((t) => t.customer_id === customer.id);
+    setTermsTab("receivable");
+    setCustomerTermForm({
+      id: term?.id || null,
+      customerId: customer.id,
+      defaultPaymentTermDays: String(term?.default_payment_term_days || 30),
+      note: term?.note || "",
+    });
+  }
+
+  async function saveCustomerTerm() {
+    setSaving(true);
+    setError("");
+    try {
+      const termDays = Number(customerTermForm.defaultPaymentTermDays || 0);
+      if (!customerTermForm.customerId) throw new Error("Anh yêu cần chọn khách hàng.");
+      if (!Number.isFinite(termDays) || termDays < 0) throw new Error("Thời hạn công nợ khách hàng không hợp lệ.");
+
+      const payload = {
+        customer_id: customerTermForm.customerId,
+        default_payment_term_days: termDays,
+        note: customerTermForm.note.trim() || null,
+      };
+
+      if (customerTermForm.id) {
+        const { error: updateError } = await supabase.from("accounting_debt_customer_terms").update(payload).eq("id", customerTermForm.id);
+        if (updateError) throw updateError;
+        showToast("Đã cập nhật hạn công nợ khách hàng.", "success");
+      } else {
+        const existing = customerTerms.find((t) => t.customer_id === customerTermForm.customerId);
+        if (existing) {
+          const { error: updateError } = await supabase.from("accounting_debt_customer_terms").update(payload).eq("id", existing.id);
+          if (updateError) throw updateError;
+        } else {
+          const { error: insertError } = await supabase.from("accounting_debt_customer_terms").insert(payload);
+          if (insertError) throw insertError;
+        }
+        showToast("Đã lưu hạn công nợ khách hàng.", "success");
+      }
+
+      setCustomerTermForm(emptyCustomerTermForm());
+      await load();
+    } catch (err: any) {
+      setError(err?.message || "Lỗi khi lưu hạn công nợ khách hàng.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deactivateCustomerTerm(term: CustomerTerm) {
+    const customer = customers.find((c) => c.id === term.customer_id);
+    const ok = await showConfirm({
+      message: `Bỏ cài đặt hạn công nợ của ${customer?.code || ""} ${customer?.name || "khách hàng này"}?\nHóa đơn cũ vẫn giữ nguyên, khách hàng chỉ quay về hạn mặc định 30 ngày khi nhập mới.`,
+      danger: true,
+      confirmLabel: "Bỏ cài đặt",
+    });
+    if (!ok) return;
+    try {
+      const { error: updateError } = await supabase
+        .from("accounting_debt_customer_terms")
+        .update({ deleted_at: new Date().toISOString(), deleted_by: currentUserId })
+        .eq("id", term.id);
+      if (updateError) throw updateError;
+      showToast("Đã bỏ cài đặt hạn công nợ khách hàng.", "success");
+      if (customerTermForm.id === term.id) setCustomerTermForm(emptyCustomerTermForm());
+      await load();
+    } catch (err: any) {
+      setError(err?.message || "Lỗi khi bỏ cài đặt hạn công nợ khách hàng.");
+    }
+  }
+
   function applySupplierToInvoice(supplierId: string) {
     const supplier = suppliers.find((s) => s.id === supplierId);
     if (!supplier) {
@@ -457,9 +569,15 @@ export default function AccountingPage() {
     setDueDateTouched(false);
   }
 
+  function openTermsSettings(tab: DebtType = activeType) {
+    setTermsTab(tab);
+    setTermsModalOpen(true);
+  }
+
   function openSupplierCreate() {
+    setTermsTab("payable");
     setSupplierForm(emptySupplierForm());
-    setSupplierModalOpen(true);
+    setTermsModalOpen(true);
   }
 
   function openSupplierEdit(supplier: DebtSupplier) {
@@ -795,8 +913,8 @@ export default function AccountingPage() {
           <button className="btn btn-secondary" onClick={load}>
             <RefreshCw size={16} strokeWidth={2.4} /> Làm mới
           </button>
-          <button className="btn btn-secondary" onClick={openSupplierCreate}>
-            <Settings size={16} strokeWidth={2.4} /> Cài đặt NCC
+          <button className="btn btn-secondary" onClick={() => openTermsSettings(activeType)}>
+            <Settings size={16} strokeWidth={2.4} /> Cài đặt hạn công nợ
           </button>
           <button className="btn btn-primary" onClick={() => openCreate(activeType)}>
             <Plus size={16} strokeWidth={2.4} /> Thêm hóa đơn
@@ -986,10 +1104,13 @@ export default function AccountingPage() {
               {invoiceForm.debtType === "receivable" ? (
                 <label className="field-group md:col-span-2">
                   <span className="field-label">Khách hàng *</span>
-                  <select value={invoiceForm.customerId} onChange={(e) => patchInvoiceForm({ customerId: e.target.value })} className="input">
+                  <select value={invoiceForm.customerId} onChange={(e) => applyCustomerToInvoice(e.target.value)} className="input">
                     <option value="">Chọn khách hàng</option>
                     {customers.map((c) => (
-                      <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
+                      <option key={c.id} value={c.id}>
+                        {c.code} - {c.name}
+                        {customerTerms.find((t) => t.customer_id === c.id) ? ` · ${customerTerms.find((t) => t.customer_id === c.id)?.default_payment_term_days} ngày` : ""}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -1101,19 +1222,143 @@ export default function AccountingPage() {
         </div>
       )}
 
-      {supplierModalOpen && (
-        <div className="modal-overlay" onClick={() => setSupplierModalOpen(false)}>
+      {termsModalOpen && (
+        <div className="modal-overlay" onClick={() => setTermsModalOpen(false)}>
           <div className="modal-box" style={{ maxWidth: 960 }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <h2 className="modal-title !mb-1">Cài đặt NCC công nợ</h2>
-                <p className="text-xs text-slate-500 font-bold">Lưu hạn công nợ mặc định để lần sau nhập hóa đơn tự lấy ngày đến hạn.</p>
+                <h2 className="modal-title !mb-1">Cài đặt hạn công nợ</h2>
+                <p className="text-xs text-slate-500 font-bold">Lưu hạn mặc định để lần sau nhập hóa đơn tự lấy ngày đến hạn.</p>
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => setSupplierModalOpen(false)}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setTermsModalOpen(false)}>
                 <X size={15} strokeWidth={2.5} />
               </button>
             </div>
 
+            <div className="mode-tabs !mb-4">
+              <button className={`tab-item ${termsTab === "receivable" ? "active" : ""}`} onClick={() => setTermsTab("receivable")}>
+                Khách hàng
+              </button>
+              <button className={`tab-item ${termsTab === "payable" ? "active" : ""}`} onClick={() => setTermsTab("payable")}>
+                Nhà cung cấp
+              </button>
+            </div>
+
+            {termsTab === "receivable" ? (
+              <div className="grid gap-4 md:grid-cols-[320px_minmax(0,1fr)]">
+                <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+                  <h3 className="section-title !text-sm !mb-3">{customerTermForm.id ? "Sửa hạn khách hàng" : "Cài hạn khách hàng"}</h3>
+                  <div className="grid gap-3">
+                    <label className="field-group">
+                      <span className="field-label">Khách hàng *</span>
+                      <select
+                        value={customerTermForm.customerId}
+                        onChange={(e) => {
+                          const existing = customerTerms.find((t) => t.customer_id === e.target.value);
+                          setCustomerTermForm({
+                            id: existing?.id || null,
+                            customerId: e.target.value,
+                            defaultPaymentTermDays: String(existing?.default_payment_term_days || 30),
+                            note: existing?.note || "",
+                          });
+                        }}
+                        className="input"
+                      >
+                        <option value="">Chọn khách hàng</option>
+                        {customers.map((c) => (
+                          <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field-group">
+                      <span className="field-label">Hạn công nợ mặc định *</span>
+                      <div className="flex gap-2 flex-wrap">
+                        {TERM_OPTIONS.map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            className={`btn btn-sm ${customerTermForm.defaultPaymentTermDays === String(d) ? "btn-primary" : "btn-secondary"}`}
+                            onClick={() => setCustomerTermForm((prev) => ({ ...prev, defaultPaymentTermDays: String(d) }))}
+                          >
+                            {d} ngày
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        value={customerTermForm.defaultPaymentTermDays}
+                        onChange={(e) => setCustomerTermForm((prev) => ({ ...prev, defaultPaymentTermDays: e.target.value }))}
+                        className="input"
+                        inputMode="numeric"
+                        placeholder="Nhập số ngày khác"
+                      />
+                    </label>
+                    <label className="field-group">
+                      <span className="field-label">Ghi chú</span>
+                      <textarea
+                        value={customerTermForm.note}
+                        onChange={(e) => setCustomerTermForm((prev) => ({ ...prev, note: e.target.value }))}
+                        className="input min-h-[72px]"
+                        placeholder="Điều khoản thanh toán, người liên hệ..."
+                      />
+                    </label>
+                    <div className="flex gap-2">
+                      <button className="btn btn-primary flex-1" onClick={saveCustomerTerm} disabled={saving}>
+                        {saving ? "Đang lưu..." : "Lưu hạn khách"}
+                      </button>
+                      {customerTermForm.customerId && (
+                        <button className="btn btn-secondary" onClick={() => setCustomerTermForm(emptyCustomerTermForm())} disabled={saving}>
+                          Chọn lại
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="data-table-wrap bg-white" style={{ maxHeight: 420 }}>
+                  <table className="data-table" style={{ minWidth: 680 }}>
+                    <thead>
+                      <tr>
+                        <th>Mã KH</th>
+                        <th>Tên khách hàng</th>
+                        <th>Hạn mặc định</th>
+                        <th>Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {customers.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="text-center py-10 text-slate-400 font-bold">Chưa có khách hàng.</td>
+                        </tr>
+                      )}
+                      {customers.map((c) => {
+                        const term = customerTerms.find((t) => t.customer_id === c.id);
+                        return (
+                          <tr key={c.id}>
+                            <td className="font-black text-slate-900">{c.code}</td>
+                            <td className="font-bold text-slate-900">{c.name}</td>
+                            <td className={term ? "font-black text-emerald-700" : "font-bold text-slate-400"}>
+                              {term ? `${term.default_payment_term_days} ngày` : "Mặc định 30 ngày"}
+                            </td>
+                            <td>
+                              <div className="flex gap-2">
+                                <button className="btn btn-secondary btn-sm" onClick={() => openCustomerTermEdit(c)}>
+                                  {term ? "Sửa" : "Cài"}
+                                </button>
+                                {term && (
+                                  <button className="btn btn-danger btn-sm" onClick={() => deactivateCustomerTerm(term)}>
+                                    Bỏ
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
             <div className="grid gap-4 md:grid-cols-[320px_minmax(0,1fr)]">
               <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
                 <h3 className="section-title !text-sm !mb-3">{supplierForm.id ? "Sửa NCC" : "Thêm NCC"}</h3>
@@ -1222,6 +1467,7 @@ export default function AccountingPage() {
                 </table>
               </div>
             </div>
+            )}
           </div>
         </div>
       )}
