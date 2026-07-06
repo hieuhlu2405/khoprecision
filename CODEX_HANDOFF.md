@@ -11,6 +11,8 @@
 
 ## Trang thai hien tai
 
+- Cap nhat 2026-07-06 cong no merge main: Chu du an yeu cau day nhanh phu `codex/accounting-debt-modal` len nhanh chinh de Vercel deploy. Nhanh phu gom module Cong no Ke toan nhap tay, cai dat han cong no mac dinh cho Khach hang/NCC, va cac fix UI modal cai dat han cong no gan nhat. Cac SQL lien quan van theo ghi chu rieng: base cong no da chay live; SQL NCC/Khach hang can dam bao da chay tren Supabase truoc khi test tinh nang mac dinh. Khong co lenh xoa du lieu trong code merge. Can merge/push `main` va de Vercel tu deploy.
+
 - Cap nhat 2026-07-06 cong no cai dat han modal fix tiep: Da sua tiep loi cac o trong form ben trai (`Khach hang`, han cong no nhap tay, `Ghi chu`, nut `Luu han khach`) van tran khoi card do input/select/textarea khong bi ep ve 100% chieu rong. Ap dung ca tab Khach hang va Nha cung cap. Bang van nam trong vung cuon ngang rieng. Khong sua SQL/backend, khong doi cach tinh cong no, khong xoa du lieu. `npm run build` da pass. Chua test mobile bang browser/screenshot.
 
 - Cap nhat 2026-07-06 cong no cai dat han modal: Da sua loi modal `Cai dat han cong no` bi bang ben phai tran de len form ben trai o tab Khach hang, va ap dung cung cach sua cho tab Nha cung cap. Bang trong modal nay bi khoa trong vung cuon ngang rieng, form co `min-width` an toan, cum nut Luu/Chon lai/Tao moi tu xuong dong khi hep. Khong sua SQL/backend, khong doi cach tinh cong no, khong xoa du lieu. `npm run build` da pass. Chua test mobile bang browser/screenshot.
