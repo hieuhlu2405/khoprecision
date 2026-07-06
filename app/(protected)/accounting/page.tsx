@@ -17,6 +17,7 @@ import {
   ReceiptText,
   RefreshCw,
   Search,
+  Settings,
   X,
 } from "lucide-react";
 
@@ -37,11 +38,21 @@ type Customer = {
   deleted_at: string | null;
 };
 
+type DebtSupplier = {
+  id: string;
+  code: string | null;
+  name: string;
+  default_payment_term_days: number;
+  note: string | null;
+  deleted_at: string | null;
+};
+
 type DebtInvoice = {
   id: string;
   debt_type: DebtType;
   partner_kind: "customer" | "supplier";
   customer_id: string | null;
+  supplier_id?: string | null;
   partner_code: string | null;
   partner_name: string;
   invoice_no: string;
@@ -76,6 +87,7 @@ type DebtPayment = {
 type InvoiceForm = {
   debtType: DebtType;
   customerId: string;
+  supplierId: string;
   partnerCode: string;
   partnerName: string;
   invoiceNo: string;
@@ -93,6 +105,14 @@ type PaymentForm = {
   amount: string;
   method: PaymentMethod;
   referenceNo: string;
+  note: string;
+};
+
+type SupplierForm = {
+  id: string | null;
+  code: string;
+  name: string;
+  defaultPaymentTermDays: string;
   note: string;
 };
 
@@ -162,6 +182,7 @@ function emptyInvoiceForm(type: DebtType): InvoiceForm {
   return {
     debtType: type,
     customerId: "",
+    supplierId: "",
     partnerCode: "",
     partnerName: "",
     invoiceNo: "",
@@ -171,6 +192,16 @@ function emptyInvoiceForm(type: DebtType): InvoiceForm {
     amount: "",
     poNo: "",
     referenceNo: "",
+    note: "",
+  };
+}
+
+function emptySupplierForm(): SupplierForm {
+  return {
+    id: null,
+    code: "",
+    name: "",
+    defaultPaymentTermDays: "30",
     note: "",
   };
 }
@@ -208,6 +239,7 @@ export default function AccountingPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [suppliers, setSuppliers] = useState<DebtSupplier[]>([]);
   const [invoices, setInvoices] = useState<DebtInvoice[]>([]);
   const [payments, setPayments] = useState<DebtPayment[]>([]);
 
@@ -219,6 +251,8 @@ export default function AccountingPage() {
   const [editingInvoice, setEditingInvoice] = useState<DebtInvoice | null>(null);
   const [invoiceForm, setInvoiceForm] = useState<InvoiceForm>(() => emptyInvoiceForm("receivable"));
   const [dueDateTouched, setDueDateTouched] = useState(false);
+  const [supplierModalOpen, setSupplierModalOpen] = useState(false);
+  const [supplierForm, setSupplierForm] = useState<SupplierForm>(() => emptySupplierForm());
 
   const [detailInvoice, setDetailInvoice] = useState<DebtInvoice | null>(null);
   const [paymentInvoice, setPaymentInvoice] = useState<DebtInvoice | null>(null);
@@ -330,22 +364,26 @@ export default function AccountingPage() {
 
       if (!nextIsAdmin && nextProfile.department !== "accounting") {
         setCustomers([]);
+        setSuppliers([]);
         setInvoices([]);
         setPayments([]);
         return;
       }
 
-      const [customerRes, invoiceRes, paymentRes] = await Promise.all([
+      const [customerRes, supplierRes, invoiceRes, paymentRes] = await Promise.all([
         supabase.from("customers").select("id, code, name, deleted_at").is("deleted_at", null).order("code"),
+        supabase.from("accounting_debt_suppliers").select("*").is("deleted_at", null).order("name"),
         supabase.from("accounting_debt_invoices").select("*").is("deleted_at", null).order("due_date", { ascending: true }),
         supabase.from("accounting_debt_payments").select("*").is("deleted_at", null).order("payment_date", { ascending: false }),
       ]);
 
       if (customerRes.error) throw customerRes.error;
+      if (supplierRes.error) throw supplierRes.error;
       if (invoiceRes.error) throw invoiceRes.error;
       if (paymentRes.error) throw paymentRes.error;
 
       setCustomers((customerRes.data || []) as Customer[]);
+      setSuppliers((supplierRes.data || []) as DebtSupplier[]);
       setInvoices((invoiceRes.data || []) as DebtInvoice[]);
       setPayments((paymentRes.data || []) as DebtPayment[]);
     } catch (err: any) {
@@ -375,6 +413,7 @@ export default function AccountingPage() {
     setInvoiceForm({
       debtType: invoice.debt_type,
       customerId: invoice.customer_id || "",
+      supplierId: invoice.supplier_id || "",
       partnerCode: invoice.partner_code || "",
       partnerName: invoice.partner_name || "",
       invoiceNo: invoice.invoice_no,
@@ -402,6 +441,93 @@ export default function AccountingPage() {
     });
   }
 
+  function applySupplierToInvoice(supplierId: string) {
+    const supplier = suppliers.find((s) => s.id === supplierId);
+    if (!supplier) {
+      patchInvoiceForm({ supplierId: "", partnerCode: "", partnerName: "" });
+      return;
+    }
+    const term = String(supplier.default_payment_term_days || 30);
+    patchInvoiceForm({
+      supplierId: supplier.id,
+      partnerCode: supplier.code || "",
+      partnerName: supplier.name,
+      paymentTermDays: term,
+    }, true);
+    setDueDateTouched(false);
+  }
+
+  function openSupplierCreate() {
+    setSupplierForm(emptySupplierForm());
+    setSupplierModalOpen(true);
+  }
+
+  function openSupplierEdit(supplier: DebtSupplier) {
+    setSupplierForm({
+      id: supplier.id,
+      code: supplier.code || "",
+      name: supplier.name,
+      defaultPaymentTermDays: String(supplier.default_payment_term_days || 30),
+      note: supplier.note || "",
+    });
+  }
+
+  async function saveSupplier() {
+    setSaving(true);
+    setError("");
+    try {
+      const name = supplierForm.name.trim();
+      const term = Number(supplierForm.defaultPaymentTermDays || 0);
+      if (!name) throw new Error("Anh yêu cần nhập tên NCC.");
+      if (!Number.isFinite(term) || term < 0) throw new Error("Thời hạn công nợ NCC không hợp lệ.");
+
+      const payload = {
+        code: supplierForm.code.trim() || null,
+        name,
+        default_payment_term_days: term,
+        note: supplierForm.note.trim() || null,
+      };
+
+      if (supplierForm.id) {
+        const { error: updateError } = await supabase.from("accounting_debt_suppliers").update(payload).eq("id", supplierForm.id);
+        if (updateError) throw updateError;
+        showToast("Đã cập nhật NCC công nợ.", "success");
+      } else {
+        const { error: insertError } = await supabase.from("accounting_debt_suppliers").insert(payload);
+        if (insertError) throw insertError;
+        showToast("Đã thêm NCC công nợ.", "success");
+      }
+
+      setSupplierForm(emptySupplierForm());
+      await load();
+    } catch (err: any) {
+      setError(err?.message || "Lỗi khi lưu NCC.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deactivateSupplier(supplier: DebtSupplier) {
+    const ok = await showConfirm({
+      message: `Ngưng dùng NCC ${supplier.code ? `${supplier.code} - ` : ""}${supplier.name}?\nHóa đơn cũ vẫn giữ nguyên, NCC này chỉ bị ẩn khỏi danh sách chọn mới.`,
+      danger: true,
+      confirmLabel: "Ngưng dùng",
+    });
+    if (!ok) return;
+    try {
+      const { error: updateError } = await supabase
+        .from("accounting_debt_suppliers")
+        .update({ deleted_at: new Date().toISOString(), deleted_by: currentUserId })
+        .eq("id", supplier.id);
+      if (updateError) throw updateError;
+      showToast("Đã ngưng dùng NCC.", "success");
+      if (supplierForm.id === supplier.id) setSupplierForm(emptySupplierForm());
+      await load();
+    } catch (err: any) {
+      setError(err?.message || "Lỗi khi ngưng dùng NCC.");
+    }
+  }
+
   async function saveInvoice() {
     setSaving(true);
     setError("");
@@ -416,6 +542,7 @@ export default function AccountingPage() {
       if (amount <= 0) throw new Error("Số tiền hóa đơn phải lớn hơn 0.");
 
       const selectedCustomer = customers.find((c) => c.id === invoiceForm.customerId);
+      const selectedSupplier = suppliers.find((s) => s.id === invoiceForm.supplierId);
       if (invoiceForm.debtType === "receivable" && !selectedCustomer) {
         throw new Error("Anh yêu cần chọn khách hàng cho công nợ phải thu.");
       }
@@ -427,8 +554,9 @@ export default function AccountingPage() {
         debt_type: invoiceForm.debtType,
         partner_kind: invoiceForm.debtType === "receivable" ? "customer" : "supplier",
         customer_id: invoiceForm.debtType === "receivable" ? invoiceForm.customerId : null,
-        partner_code: invoiceForm.debtType === "receivable" ? selectedCustomer?.code || null : invoiceForm.partnerCode.trim() || null,
-        partner_name: invoiceForm.debtType === "receivable" ? selectedCustomer?.name || "" : invoiceForm.partnerName.trim(),
+        supplier_id: invoiceForm.debtType === "payable" ? selectedSupplier?.id || null : null,
+        partner_code: invoiceForm.debtType === "receivable" ? selectedCustomer?.code || null : selectedSupplier?.code || invoiceForm.partnerCode.trim() || null,
+        partner_name: invoiceForm.debtType === "receivable" ? selectedCustomer?.name || "" : selectedSupplier?.name || invoiceForm.partnerName.trim(),
         invoice_no: invoiceForm.invoiceNo.trim(),
         invoice_date: invoiceForm.invoiceDate,
         payment_term_days: termDays,
@@ -667,6 +795,9 @@ export default function AccountingPage() {
           <button className="btn btn-secondary" onClick={load}>
             <RefreshCw size={16} strokeWidth={2.4} /> Làm mới
           </button>
+          <button className="btn btn-secondary" onClick={openSupplierCreate}>
+            <Settings size={16} strokeWidth={2.4} /> Cài đặt NCC
+          </button>
           <button className="btn btn-primary" onClick={() => openCreate(activeType)}>
             <Plus size={16} strokeWidth={2.4} /> Thêm hóa đơn
           </button>
@@ -864,13 +995,29 @@ export default function AccountingPage() {
                 </label>
               ) : (
                 <>
+                  <label className="field-group md:col-span-2">
+                    <span className="field-label">NCC đã lưu</span>
+                    <div className="flex gap-2">
+                      <select value={invoiceForm.supplierId} onChange={(e) => applySupplierToInvoice(e.target.value)} className="input flex-1">
+                        <option value="">-- Chọn NCC để tự lấy hạn công nợ --</option>
+                        {suppliers.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.code ? `${s.code} - ` : ""}{s.name} · {s.default_payment_term_days} ngày
+                          </option>
+                        ))}
+                      </select>
+                      <button type="button" className="btn btn-secondary" onClick={openSupplierCreate}>
+                        <Settings size={16} strokeWidth={2.4} /> Cài đặt
+                      </button>
+                    </div>
+                  </label>
                   <label className="field-group">
                     <span className="field-label">Mã NCC</span>
-                    <input value={invoiceForm.partnerCode} onChange={(e) => patchInvoiceForm({ partnerCode: e.target.value })} className="input" placeholder="VD: NCC001" />
+                    <input value={invoiceForm.partnerCode} onChange={(e) => patchInvoiceForm({ supplierId: "", partnerCode: e.target.value })} className="input" placeholder="VD: NCC001" />
                   </label>
                   <label className="field-group">
                     <span className="field-label">Tên nhà cung cấp *</span>
-                    <input value={invoiceForm.partnerName} onChange={(e) => patchInvoiceForm({ partnerName: e.target.value })} className="input" placeholder="Tên NCC trên hóa đơn" />
+                    <input value={invoiceForm.partnerName} onChange={(e) => patchInvoiceForm({ supplierId: "", partnerName: e.target.value })} className="input" placeholder="Tên NCC trên hóa đơn" />
                   </label>
                 </>
               )}
@@ -949,6 +1096,131 @@ export default function AccountingPage() {
               <button className="btn btn-primary" onClick={saveInvoice} disabled={saving}>
                 <FilePenLine size={16} strokeWidth={2.4} /> {saving ? "Đang lưu..." : "Lưu hóa đơn"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {supplierModalOpen && (
+        <div className="modal-overlay" onClick={() => setSupplierModalOpen(false)}>
+          <div className="modal-box" style={{ maxWidth: 960 }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h2 className="modal-title !mb-1">Cài đặt NCC công nợ</h2>
+                <p className="text-xs text-slate-500 font-bold">Lưu hạn công nợ mặc định để lần sau nhập hóa đơn tự lấy ngày đến hạn.</p>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => setSupplierModalOpen(false)}>
+                <X size={15} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-[320px_minmax(0,1fr)]">
+              <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+                <h3 className="section-title !text-sm !mb-3">{supplierForm.id ? "Sửa NCC" : "Thêm NCC"}</h3>
+                <div className="grid gap-3">
+                  <label className="field-group">
+                    <span className="field-label">Mã NCC</span>
+                    <input
+                      value={supplierForm.code}
+                      onChange={(e) => setSupplierForm((prev) => ({ ...prev, code: e.target.value }))}
+                      className="input"
+                      placeholder="VD: NCC001"
+                    />
+                  </label>
+                  <label className="field-group">
+                    <span className="field-label">Tên NCC *</span>
+                    <input
+                      value={supplierForm.name}
+                      onChange={(e) => setSupplierForm((prev) => ({ ...prev, name: e.target.value }))}
+                      className="input"
+                      placeholder="Tên nhà cung cấp"
+                    />
+                  </label>
+                  <label className="field-group">
+                    <span className="field-label">Hạn công nợ mặc định *</span>
+                    <div className="flex gap-2 flex-wrap">
+                      {TERM_OPTIONS.map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          className={`btn btn-sm ${supplierForm.defaultPaymentTermDays === String(d) ? "btn-primary" : "btn-secondary"}`}
+                          onClick={() => setSupplierForm((prev) => ({ ...prev, defaultPaymentTermDays: String(d) }))}
+                        >
+                          {d} ngày
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      value={supplierForm.defaultPaymentTermDays}
+                      onChange={(e) => setSupplierForm((prev) => ({ ...prev, defaultPaymentTermDays: e.target.value }))}
+                      className="input"
+                      inputMode="numeric"
+                      placeholder="Nhập số ngày khác"
+                    />
+                  </label>
+                  <label className="field-group">
+                    <span className="field-label">Ghi chú</span>
+                    <textarea
+                      value={supplierForm.note}
+                      onChange={(e) => setSupplierForm((prev) => ({ ...prev, note: e.target.value }))}
+                      className="input min-h-[72px]"
+                      placeholder="Điều khoản thanh toán, người liên hệ..."
+                    />
+                  </label>
+                  <div className="flex gap-2">
+                    <button className="btn btn-primary flex-1" onClick={saveSupplier} disabled={saving}>
+                      {saving ? "Đang lưu..." : "Lưu NCC"}
+                    </button>
+                    {supplierForm.id && (
+                      <button className="btn btn-secondary" onClick={() => setSupplierForm(emptySupplierForm())} disabled={saving}>
+                        Tạo mới
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="data-table-wrap bg-white" style={{ maxHeight: 420 }}>
+                <table className="data-table" style={{ minWidth: 620 }}>
+                  <thead>
+                    <tr>
+                      <th>Mã NCC</th>
+                      <th>Tên NCC</th>
+                      <th>Hạn mặc định</th>
+                      <th>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {suppliers.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="text-center py-10 text-slate-400 font-bold">
+                          Chưa có NCC công nợ nào.
+                        </td>
+                      </tr>
+                    )}
+                    {suppliers.map((s) => (
+                      <tr key={s.id}>
+                        <td className="font-black text-slate-900">{s.code || "—"}</td>
+                        <td>
+                          <div className="font-bold text-slate-900">{s.name}</div>
+                          {s.note && <div className="text-[11px] text-slate-500">{s.note}</div>}
+                        </td>
+                        <td className="font-black text-emerald-700">{s.default_payment_term_days} ngày</td>
+                        <td>
+                          <div className="flex gap-2">
+                            <button className="btn btn-secondary btn-sm" onClick={() => openSupplierEdit(s)}>
+                              Sửa
+                            </button>
+                            <button className="btn btn-danger btn-sm" onClick={() => deactivateSupplier(s)}>
+                              Ngưng dùng
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
