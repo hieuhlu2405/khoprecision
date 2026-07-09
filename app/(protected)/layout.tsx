@@ -166,6 +166,8 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const pathname = usePathname();
   const menu = useMemo(() => (profile ? buildMenu(profile, isAdmin) : []), [profile, isAdmin]);
@@ -186,6 +188,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (isMobile) setMobileMenuOpen(false);
+    setAccountMenuOpen(false);
   }, [isMobile, pathname]);
 
   function toggleCollapse() {
@@ -230,6 +233,11 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
       setIsAdmin(adminCheck ?? false);
     })();
   }, []);
+
+  function requestLogout() {
+    setAccountMenuOpen(false);
+    setLogoutConfirmOpen(true);
+  }
 
   async function logout() {
     await supabase.auth.signOut();
@@ -361,32 +369,18 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
             }}
           >
             {!sidebarCollapsed && (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden", flex: 1, paddingLeft: 2 }}>
+              <div style={{ overflow: "hidden", flex: 1, paddingLeft: 4 }}>
                 <div
                   style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 10,
-                    background: "rgba(255,255,255,0.95)",
-                    display: "grid",
-                    placeItems: "center",
-                    overflow: "hidden",
-                    flexShrink: 0,
-                    border: "1px solid rgba(255,255,255,0.24)",
-                    boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
+                    fontWeight: 900,
+                    color: "white",
+                    fontSize: 17,
+                    lineHeight: 1.15,
+                    letterSpacing: 0,
                   }}
                 >
-                  <img src="/logo.jpg" alt="Precision Packaging" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                </div>
-                <div style={{ 
-                  fontWeight: 900, 
-                  color: "white", 
-                  fontSize: 16, 
-                  lineHeight: 1.15,
-                  letterSpacing: 0
-                }}>
                   CÔNG TY CỔ PHẦN <br />
-                  <span style={{ opacity: 0.86, fontWeight: 800, fontSize: 13 }}>Precision Packaging</span>
+                  <span style={{ opacity: 0.86, fontWeight: 800, fontSize: 14 }}>Precision Packaging</span>
                 </div>
               </div>
             )}
@@ -478,85 +472,239 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
             })}
           </nav>
 
-          {/* User Info + Logout */}
+          {/* User Info */}
           <div
             style={{
               padding: sidebarCollapsed ? "10px 8px" : "16px 12px",
               borderTop: "1px solid rgba(255,255,255,0.05)",
+              position: "relative",
             }}
           >
-            {!sidebarCollapsed && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  marginBottom: 12,
-                }}
-              >
-                <Link
-                  href="/profile"
-                  title="Hồ sơ cá nhân"
+            {accountMenuOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Đóng menu tài khoản"
+                  onClick={() => setAccountMenuOpen(false)}
                   style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 12,
-                    background: "rgba(255,255,255,0.1)",
-                    color: "white",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    flexShrink: 0,
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 1190,
+                    border: 0,
+                    background: "transparent",
+                    cursor: "default",
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    left: sidebarCollapsed ? 50 : 12,
+                    right: sidebarCollapsed ? "auto" : 12,
+                    bottom: "calc(100% + 8px)",
+                    zIndex: 1210,
+                    width: sidebarCollapsed ? 210 : "auto",
+                    minWidth: 210,
+                    padding: 6,
+                    borderRadius: 10,
+                    background: "rgba(15,23,42,0.98)",
                     border: "1px solid rgba(255,255,255,0.12)",
-                    overflow: "hidden",
-                    textDecoration: "none"
+                    boxShadow: "0 18px 40px rgba(0,0,0,0.32), 0 0 0 1px rgba(255,255,255,0.04)",
                   }}
                 >
-                  {profile.avatar_url ? (
-                    <img src={profile.avatar_url} alt={profile.full_name || "Avatar"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  ) : initials}
-                </Link>
-                <div style={{ overflow: "hidden", flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {profile.full_name || "Người dùng"}
-                  </div>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 1, textTransform: "uppercase", fontWeight: 700 }}>
-                    {ROLE_LABELS[profile.role]} · {DEPT_LABELS[profile.department]}
-                  </div>
+                  <Link
+                    href="/profile"
+                    onClick={() => setAccountMenuOpen(false)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "10px 11px",
+                      borderRadius: 8,
+                      color: "white",
+                      textDecoration: "none",
+                      fontSize: 13,
+                      fontWeight: 800,
+                    }}
+                  >
+                    <UserRound size={16} strokeWidth={2.5} />
+                    Trang cá nhân
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={requestLogout}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "10px 11px",
+                      borderRadius: 8,
+                      border: 0,
+                      background: "transparent",
+                      color: "#fca5a5",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      textAlign: "left",
+                    }}
+                  >
+                    <LogOut size={16} strokeWidth={2.5} />
+                    Đăng xuất
+                  </button>
                 </div>
-              </div>
+              </>
             )}
+
             <button
-              onClick={logout}
+              type="button"
+              onClick={() => setAccountMenuOpen((open) => !open)}
+              title={sidebarCollapsed ? `${profile.full_name || "Người dùng"} - ${ROLE_LABELS[profile.role]}` : "Tài khoản"}
               style={{
                 width: "100%",
-                padding: "8px 10px",
-                borderRadius: 8,
-                background: "rgba(239,68,68,0.1)",
-                border: "1px solid rgba(239,68,68,0.1)",
-                color: "#fca5a5",
-                fontSize: 12,
-                fontWeight: 700,
+                padding: sidebarCollapsed ? 0 : "8px",
+                minHeight: sidebarCollapsed ? 38 : 56,
+                borderRadius: 12,
+                border: accountMenuOpen ? "1px solid rgba(255,255,255,0.22)" : "1px solid rgba(255,255,255,0.06)",
+                background: accountMenuOpen ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)",
+                color: "white",
                 cursor: "pointer",
-                transition: "all 150ms",
-                textAlign: sidebarCollapsed ? "center" : "left",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: sidebarCollapsed ? "center" : "flex-start",
-                gap: 10
+                gap: 10,
+                boxShadow: accountMenuOpen ? "0 0 22px rgba(255,255,255,0.16), 0 10px 24px rgba(0,0,0,0.22)" : "none",
+                transition: "background 150ms var(--ease), border-color 150ms var(--ease), box-shadow 150ms var(--ease)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.1)";
+                e.currentTarget.style.boxShadow = "0 0 20px rgba(255,255,255,0.14)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = accountMenuOpen ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)";
+                e.currentTarget.style.boxShadow = accountMenuOpen ? "0 0 22px rgba(255,255,255,0.16), 0 10px 24px rgba(0,0,0,0.22)" : "none";
               }}
             >
-              {sidebarCollapsed ? <LogOut size={16} strokeWidth={2.5} /> : (
-                <>
-                  <LogOut size={14} strokeWidth={2.5} />
-                  Đăng xuất
-                </>
+              <span
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: "rgba(255,255,255,0.12)",
+                  color: "white",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  flexShrink: 0,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  overflow: "hidden",
+                }}
+              >
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt={profile.full_name || "Avatar"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : initials}
+              </span>
+              {!sidebarCollapsed && (
+                <div style={{ overflow: "hidden", flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>
+                    {profile.full_name || "Người dùng"}
+                  </div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.58)", marginTop: 1, textTransform: "uppercase", fontWeight: 800, textAlign: "left" }}>
+                    {ROLE_LABELS[profile.role]} · {DEPT_LABELS[profile.department]}
+                  </div>
+                </div>
               )}
             </button>
           </div>
         </aside>
+
+        {logoutConfirmOpen && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 10000,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 24,
+              background: "rgba(15,23,42,0.46)",
+              backdropFilter: "blur(2px)",
+            }}
+            onClick={() => setLogoutConfirmOpen(false)}
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 420,
+                borderRadius: 14,
+                background: "white",
+                boxShadow: "0 24px 70px rgba(0,0,0,0.22)",
+                padding: 24,
+                animation: "confirm-in 0.2s ease",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: "50%",
+                  background: "#fef2f2",
+                  color: "#dc2626",
+                  display: "grid",
+                  placeItems: "center",
+                  marginBottom: 16,
+                }}
+              >
+                <LogOut size={22} strokeWidth={2.6} />
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: "#0f172a", marginBottom: 8 }}>
+                Đăng xuất?
+              </div>
+              <div style={{ fontSize: 14, lineHeight: 1.6, color: "#475569", marginBottom: 24 }}>
+                Bạn sẽ phải đăng nhập lại để tiếp tục sử dụng hệ thống.
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setLogoutConfirmOpen(false)}
+                  style={{
+                    minHeight: 40,
+                    padding: "9px 18px",
+                    borderRadius: 8,
+                    border: "1px solid #e2e8f0",
+                    background: "white",
+                    color: "#475569",
+                    fontSize: 14,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={logout}
+                  style={{
+                    minHeight: 40,
+                    padding: "9px 18px",
+                    borderRadius: 8,
+                    border: 0,
+                    background: "#dc2626",
+                    color: "white",
+                    fontSize: 14,
+                    fontWeight: 900,
+                    cursor: "pointer",
+                  }}
+                >
+                  Đăng xuất
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ============================================================
             MAIN CONTENT
