@@ -35,7 +35,9 @@ export default function MePage() {
         <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 12, padding: 24, marginBottom: 20 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
             <div style={{ width: 52, height: 52, borderRadius: "50%", background: "linear-gradient(135deg, #0d4f7c, #2487C8)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 20 }}>
-              {(profile.full_name || session?.user?.email || "?")[0].toUpperCase()}
+              {profile.avatar_url ? (
+                <img src={profile.avatar_url} alt={profile.full_name || "Avatar"} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+              ) : (profile.full_name || session?.user?.email || "?")[0].toUpperCase()}
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a" }}>{profile.full_name || "Chưa đặt tên"}</div>

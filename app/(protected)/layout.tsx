@@ -50,6 +50,7 @@ type Profile = {
   is_active: boolean;
   is_approved: boolean;
   deleted_at: string | null;
+  avatar_url?: string | null;
 };
 
 function buildMenu(p: Profile, isAdmin: boolean) {
@@ -360,16 +361,32 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
             }}
           >
             {!sidebarCollapsed && (
-              <div style={{ overflow: "hidden", flex: 1, paddingLeft: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden", flex: 1, paddingLeft: 2 }}>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 10,
+                    background: "rgba(255,255,255,0.95)",
+                    display: "grid",
+                    placeItems: "center",
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    border: "1px solid rgba(255,255,255,0.24)",
+                    boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
+                  }}
+                >
+                  <img src="/logo.jpg" alt="Precision Packaging" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                </div>
                 <div style={{ 
                   fontWeight: 900, 
                   color: "white", 
-                  fontSize: 14, 
-                  lineHeight: 1.3,
-                  letterSpacing: "-0.01em"
+                  fontSize: 16, 
+                  lineHeight: 1.15,
+                  letterSpacing: 0
                 }}>
                   CÔNG TY CỔ PHẦN <br />
-                  <span style={{ opacity: 0.8, fontWeight: 500 }}>Precision Packaging</span>
+                  <span style={{ opacity: 0.86, fontWeight: 800, fontSize: 13 }}>Precision Packaging</span>
                 </div>
               </div>
             )}
@@ -477,7 +494,9 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                   marginBottom: 12,
                 }}
               >
-                <div
+                <Link
+                  href="/profile"
+                  title="Hồ sơ cá nhân"
                   style={{
                     width: 36,
                     height: 36,
@@ -490,11 +509,15 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                     fontSize: 12,
                     fontWeight: 700,
                     flexShrink: 0,
-                    border: "1px solid rgba(255,255,255,0.05)"
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    overflow: "hidden",
+                    textDecoration: "none"
                   }}
                 >
-                  {initials}
-                </div>
+                  {profile.avatar_url ? (
+                    <img src={profile.avatar_url} alt={profile.full_name || "Avatar"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : initials}
+                </Link>
                 <div style={{ overflow: "hidden", flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {profile.full_name || "Người dùng"}
