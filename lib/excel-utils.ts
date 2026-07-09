@@ -13,6 +13,25 @@ export type CellInfo = {
     font?: ExcelFont;
 };
 
+const MAX_EXCEL_IMPORT_BYTES = 5 * 1024 * 1024;
+const MAX_EXCEL_IMPORT_ROWS = 5000;
+const ALLOWED_EXCEL_IMPORT_EXTENSIONS = [".xlsx", ".xlsm"];
+
+function assertSafeExcelImportFile(file: File) {
+  const lowerName = file.name.toLowerCase();
+  const hasAllowedExtension = ALLOWED_EXCEL_IMPORT_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
+
+  if (!hasAllowedExtension) {
+    throw new Error("Chỉ hỗ trợ file Excel .xlsx hoặc .xlsm.");
+  }
+  if (file.size <= 0) {
+    throw new Error("File Excel đang trống.");
+  }
+  if (file.size > MAX_EXCEL_IMPORT_BYTES) {
+    throw new Error("File Excel quá lớn. Vui lòng dùng file không quá 5MB.");
+  }
+}
+
 /**
  * Tiêm dữ liệu vào một file mẫu Excel có sẵn (Dùng ExcelJS để giữ định dạng)
  */
@@ -107,6 +126,8 @@ export async function exportWithTemplate(
 }
 
 export async function readExcel(file: File): Promise<any[]> {
+    assertSafeExcelImportFile(file);
+
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -117,6 +138,9 @@ export async function readExcel(file: File): Promise<any[]> {
           const worksheet = workbook.worksheets[0];
           const rows: any[] = [];
           worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber > MAX_EXCEL_IMPORT_ROWS + 1) {
+              throw new Error(`File Excel vượt quá ${MAX_EXCEL_IMPORT_ROWS} dòng dữ liệu.`);
+            }
             if (rowNumber > 1) {
               const rowValues = Array.isArray(row.values) ? row.values.slice(1) : [];
               rows.push(rowValues);
@@ -130,12 +154,54 @@ export async function readExcel(file: File): Promise<any[]> {
     });
 }
 
+function safeExcelValue(value: unknown): string | number | boolean | Date | null {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === "number" || typeof value === "boolean") return value;
+
+  const text = String(value);
+  // Security: prevent user-controlled text from being interpreted as an Excel formula.
+  return /^[=+\-@]/.test(text) ? `'${text}` : text;
+}
+
+function normalizeExcelFilename(filename: string): string {
+  return filename.toLowerCase().endsWith(".xlsx") ? filename : `${filename}.xlsx`;
+}
+
 export function exportToExcel(data: any[], filename: string, sheetName: string = "Sheet1") {
-   const xlsx = require('xlsx');
-   const ws = xlsx.utils.json_to_sheet(data);
-   const wb = xlsx.utils.book_new();
-   xlsx.utils.book_append_sheet(wb, ws, sheetName);
-   xlsx.writeFile(wb, `${filename}.xlsx`);
+  void (async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet(sheetName || "Sheet1");
+    const headers = Array.from(
+      data.reduce((keys: Set<string>, row) => {
+        if (row && typeof row === "object") {
+          Object.keys(row).forEach((key) => keys.add(key));
+        }
+        return keys;
+      }, new Set<string>())
+    );
+
+    if (headers.length > 0) {
+      const headerRow = worksheet.addRow(headers);
+      headerRow.font = { bold: true };
+      data.forEach((row) => {
+        worksheet.addRow(headers.map((header) => safeExcelValue(row?.[header])));
+      });
+      worksheet.columns.forEach((column, index) => {
+        const header = headers[index] || "";
+        let maxLength = header.length;
+        column.eachCell?.({ includeEmpty: false }, (cell) => {
+          maxLength = Math.max(maxLength, String(cell.value ?? "").length);
+        });
+        column.width = Math.min(Math.max(maxLength + 2, 10), 42);
+      });
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), normalizeExcelFilename(filename));
+  })().catch((error) => {
+    console.error("Loi xuat Excel:", error);
+  });
 }
 
 export async function exportDeliveryFuturePlanMatrixExcel(

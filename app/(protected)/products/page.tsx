@@ -956,7 +956,7 @@ export default function ProductsPage() {
               <div className="relative">
                 <input 
                   type="file" 
-                  accept=".xlsx, .xls"
+                  accept=".xlsx,.xlsm"
                   onChange={e => e.target.files?.[0] && handleImportFile(e.target.files[0])}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                 />
@@ -966,7 +966,7 @@ export default function ProductsPage() {
                   </div>
                   <div className="text-center">
                     <p className="text-sm font-bold text-slate-700">Kéo thả hoặc nhấn để chọn file Excel</p>
-                    <p className="text-xs text-slate-500 mt-1">Hỗ trợ định dạng .xlsx, .xls</p>
+                    <p className="text-xs text-slate-500 mt-1">Hỗ trợ .xlsx/.xlsm, tối đa 5MB và 5.000 dòng</p>
                   </div>
                 </div>
               </div>

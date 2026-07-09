@@ -217,7 +217,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         .eq("id", u.user.id)
         .maybeSingle();
 
-      if (error) { setErr(error.message); return; }
+      if (error) { setErr("Không tải được thông tin tài khoản. Vui lòng thử lại hoặc liên hệ Admin."); return; }
       if (!p) { setErr("Không tìm thấy profile. Vào Supabase backfill profiles."); return; }
       if (p.deleted_at) { setErr("Tài khoản này đã bị xóa."); return; }
       if (!p.is_approved) { setErr("Tài khoản đang chờ duyệt. Vui lòng liên hệ Admin."); return; }

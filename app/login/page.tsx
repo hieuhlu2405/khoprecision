@@ -5,7 +5,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { Lock, Mail } from "lucide-react";
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<{ text: string; isError: boolean } | null>(null);
@@ -29,18 +28,15 @@ export default function LoginPage() {
         setMsg({ text: "Vui lòng nhập email và mật khẩu.", isError: true });
         return;
       }
-      if (mode === "register") {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        setMsg({ text: "Đăng ký thành công! Kiểm tra email để xác nhận tài khoản.", isError: false });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        setMsg({ text: "Đăng nhập thành công! Đang chuyển hướng...", isError: false });
-        setTimeout(() => { window.location.href = "/app"; }, 600);
-      }
-    } catch (err: any) {
-      setMsg({ text: err?.message ?? "Có lỗi xảy ra", isError: true });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      setMsg({ text: "Đăng nhập thành công! Đang chuyển hướng...", isError: false });
+      setTimeout(() => { window.location.href = "/app"; }, 600);
+    } catch {
+      setMsg({
+        text: "Email hoặc mật khẩu không đúng, hoặc tài khoản chưa được duyệt.",
+        isError: true,
+      });
     } finally {
       setLoading(false);
     }
@@ -119,12 +115,10 @@ export default function LoginPage() {
           {/* Header */}
           <div style={{ marginBottom: isMobile ? 24 : 36 }}>
             <h1 style={{ fontSize: isMobile ? 24 : 28, fontWeight: 800, color: "#0f172a", margin: "0 0 8px", letterSpacing: 0 }}>
-              {mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
+              Đăng nhập
             </h1>
             <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>
-              {mode === "login"
-                ? "Nhập email và mật khẩu để tiếp tục"
-                : "Điền thông tin để tạo tài khoản mới"}
+              Nhập email và mật khẩu để tiếp tục
             </p>
           </div>
 
@@ -229,27 +223,12 @@ export default function LoginPage() {
                   display: "inline-block", animation: "spin 0.7s linear infinite",
                 }} />
               )}
-              {mode === "login" ? (loading ? "Đang đăng nhập..." : "Đăng nhập") : (loading ? "Đang tạo..." : "Tạo tài khoản")}
+              {loading ? "Đang đăng nhập..." : "Đăng nhập"}
             </button>
           </form>
 
-          {/* Mode toggle */}
           <div style={{ textAlign: "center", marginTop: 24, fontSize: 13, color: "#64748b" }}>
-            {mode === "login" ? (
-              <>Chưa có tài khoản?{" "}
-                <button onClick={() => { setMode("register"); setMsg(null); }}
-                  style={{ background: "none", border: "none", color: "var(--brand)", cursor: "pointer", fontWeight: 700, fontSize: 13, padding: 0 }}>
-                  Đăng ký ngay
-                </button>
-              </>
-            ) : (
-              <>Đã có tài khoản?{" "}
-                <button onClick={() => { setMode("login"); setMsg(null); }}
-                  style={{ background: "none", border: "none", color: "var(--brand)", cursor: "pointer", fontWeight: 700, fontSize: 13, padding: 0 }}>
-                  Đăng nhập
-                </button>
-              </>
-            )}
+            Tài khoản nội bộ do Admin cấp và duyệt.
           </div>
 
           {/* Footer */}
