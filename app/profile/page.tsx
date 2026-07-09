@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { createElement, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { LoadingPage } from "@/app/components/ui/Loading";
-import { ArrowLeft, Building2, Camera, CheckCircle2, Clock3, Lock, RotateCcw, Theater, Upload, X } from "lucide-react";
+import { Building2, Camera, CheckCircle2, Clock3, Lock, RotateCcw, Theater, X } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = { admin: "Admin", manager: "Quản lý", staff: "Nhân viên" };
 const DEPT_LABELS: Record<string, string> = { sales: "Kinh doanh", warehouse: "Kho", production: "Sản xuất", purchasing: "Mua hàng", accounting: "Kế toán" };
@@ -212,10 +211,6 @@ export default function ProfilePage() {
 
   return (
     <div style={{ fontFamily: "inherit", maxWidth: 640 }}>
-      <Link href="/app" className="btn btn-secondary" style={{ marginBottom: 16, width: "fit-content", textDecoration: "none" }}>
-        <ArrowLeft size={16} strokeWidth={2.5} />
-        {"Quay v\u1ec1 trang ch\u1ee7"}
-      </Link>
 
       {profile && (
         <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,.05)" }}>
@@ -240,16 +235,6 @@ export default function ProfilePage() {
             <div style={{ minWidth: 0, flex: "1 1 220px" }}>
               <div style={{ color: "white", fontWeight: 800, fontSize: 18 }}>{profile.full_name || "Chưa đặt tên"}</div>
               <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, marginTop: 2, wordBreak: "break-word" }}>{email}</div>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                style={{ marginTop: 12, background: "rgba(255,255,255,0.14)", color: "white", borderColor: "rgba(255,255,255,0.22)", minHeight: 40 }}
-              >
-                <Upload size={15} strokeWidth={2.5} />
-                {uploading ? "Đang tải ảnh..." : "Đổi ảnh đại diện"}
-              </button>
             </div>
           </div>
 

@@ -168,6 +168,8 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
 
   const pathname = usePathname();
   const menu = useMemo(() => (profile ? buildMenu(profile, isAdmin) : []), [profile, isAdmin]);
@@ -214,6 +216,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         window.location.href = "/login";
         return;
       }
+      setUserEmail(u.user.email ?? "");
 
       const { data: p, error } = await supabase
         .from("profiles")
@@ -511,24 +514,31 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                     boxShadow: "0 18px 40px rgba(0,0,0,0.32), 0 0 0 1px rgba(255,255,255,0.04)",
                   }}
                 >
-                  <Link
-                    href="/profile"
-                    onClick={() => setAccountMenuOpen(false)}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      setProfileModalOpen(true);
+                    }}
                     style={{
+                      width: "100%",
                       display: "flex",
                       alignItems: "center",
                       gap: 10,
                       padding: "10px 11px",
                       borderRadius: 8,
+                      border: 0,
+                      background: "transparent",
                       color: "white",
-                      textDecoration: "none",
+                      cursor: "pointer",
                       fontSize: 13,
                       fontWeight: 800,
+                      textAlign: "left",
                     }}
                   >
                     <UserRound size={16} strokeWidth={2.5} />
-                    Trang cá nhân
-                  </Link>
+                    {"Trang c\u00e1 nh\u00e2n"}
+                  </button>
                   <button
                     type="button"
                     onClick={requestLogout}
@@ -618,6 +628,94 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
             </button>
           </div>
         </aside>
+
+        {profileModalOpen && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 10000,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 24,
+              background: "rgba(15,23,42,0.46)",
+              backdropFilter: "blur(2px)",
+            }}
+            onClick={() => setProfileModalOpen(false)}
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 460,
+                borderRadius: 14,
+                background: "white",
+                boxShadow: "0 24px 70px rgba(0,0,0,0.22)",
+                overflow: "hidden",
+                animation: "confirm-in 0.2s ease",
+                position: "relative",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setProfileModalOpen(false)}
+                aria-label="\u0110\u00f3ng"
+                title="\u0110\u00f3ng"
+                style={{
+                  position: "absolute",
+                  top: 12,
+                  right: 12,
+                  width: 34,
+                  height: 34,
+                  borderRadius: 9,
+                  border: "1px solid rgba(255,255,255,0.24)",
+                  background: "rgba(15,23,42,0.34)",
+                  color: "white",
+                  display: "grid",
+                  placeItems: "center",
+                  cursor: "pointer",
+                  zIndex: 1,
+                }}
+              >
+                <X size={18} strokeWidth={2.5} />
+              </button>
+
+              <div style={{ background: "linear-gradient(135deg, #0d4f7c 0%, #2487C8 100%)", padding: "28px 24px", display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(255,255,255,0.18)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 900, overflow: "hidden", border: "2px solid rgba(255,255,255,0.35)", flexShrink: 0 }}>
+                  {profile.avatar_url ? (
+                    <img src={profile.avatar_url} alt={profile.full_name || "Avatar"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : initials}
+                </div>
+                <div style={{ minWidth: 0, paddingRight: 34 }}>
+                  <div style={{ color: "white", fontSize: 18, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {profile.full_name || "Ng\u01b0\u1eddi d\u00f9ng"}
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, marginTop: 2, wordBreak: "break-word" }}>
+                    {userEmail || "Ch\u01b0a c\u00f3 email"}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ padding: "10px 24px 18px" }}>
+                {[
+                  { label: "Vai tr\u00f2", value: ROLE_LABELS[profile.role] ?? profile.role },
+                  { label: "B\u1ed9 ph\u1eadn", value: DEPT_LABELS[profile.department] ?? profile.department },
+                  { label: "Tr\u1ea1ng th\u00e1i", value: profile.is_active ? "\u0110ang ho\u1ea1t \u0111\u1ed9ng" : "B\u1ecb kh\u00f3a", color: profile.is_active ? "#16a34a" : "#dc2626" },
+                  { label: "T\u00e0i kho\u1ea3n", value: profile.is_approved ? "\u0110\u00e3 duy\u1ec7t" : "Ch\u1edd duy\u1ec7t" },
+                  { label: "ID", value: profile.id, mono: true },
+                ].map((row, i) => (
+                  <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, padding: "13px 0", borderBottom: i < 4 ? "1px solid #f1f5f9" : "none" }}>
+                    <span style={{ fontSize: 13, color: "#64748b", fontWeight: 700 }}>{row.label}</span>
+                    <span style={{ fontSize: 13, color: (row as any).color ?? "#0f172a", fontWeight: 800, fontFamily: (row as any).mono ? "monospace" : "inherit", textAlign: "right", wordBreak: "break-all" }}>
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {logoutConfirmOpen && (
           <div
