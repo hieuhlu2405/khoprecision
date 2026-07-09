@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { UIProvider } from "@/app/context/UIContext";
@@ -11,6 +11,7 @@ import {
   Building2,
   Calculator,
   CalendarDays,
+  Camera,
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
@@ -52,6 +53,13 @@ type Profile = {
   deleted_at: string | null;
   avatar_url?: string | null;
 };
+
+type PendingAvatar = {
+  previewUrl: string;
+};
+
+const AVATAR_BUCKET = "profile-avatars";
+const AVATAR_SIZE = 512;
 
 function buildMenu(p: Profile, isAdmin: boolean) {
   const canViewReports = isAdmin || (p.role === "manager" && p.department === "warehouse") || p.department === "accounting";
@@ -124,6 +132,61 @@ function getInitials(name: string | null): string {
     .join("");
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Khong doc duoc anh da chon."));
+    image.src = src;
+  });
+}
+
+function getAvatarCropBox(image: HTMLImageElement, zoom: number, positionX: number, positionY: number) {
+  const baseSize = Math.min(image.naturalWidth, image.naturalHeight);
+  const sourceSize = baseSize / zoom;
+  const maxX = Math.max(0, image.naturalWidth - sourceSize);
+  const maxY = Math.max(0, image.naturalHeight - sourceSize);
+
+  return {
+    sourceX: clamp((positionX / 100) * maxX, 0, maxX),
+    sourceY: clamp((positionY / 100) * maxY, 0, maxY),
+    sourceSize,
+  };
+}
+
+function drawAvatarPreview(canvas: HTMLCanvasElement, image: HTMLImageElement, zoom: number, positionX: number, positionY: number) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const { sourceX, sourceY, sourceSize } = getAvatarCropBox(image, zoom, positionX, positionY);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, canvas.width, canvas.height);
+}
+
+async function cropAvatarToBlob(previewUrl: string, zoom: number, positionX: number, positionY: number) {
+  const image = await loadImage(previewUrl);
+  const canvas = document.createElement("canvas");
+  canvas.width = AVATAR_SIZE;
+  canvas.height = AVATAR_SIZE;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Trinh duyet khong ho tro xu ly anh.");
+
+  const { sourceX, sourceY, sourceSize } = getAvatarCropBox(image, zoom, positionX, positionY);
+  ctx.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Khong tao duoc anh dai dien."));
+    }, "image/jpeg", 0.9);
+  });
+}
+
 function SidebarIcon({ type, className = "w-4 h-4" }: { type?: string; className?: string }) {
   if (!type) return null;
   const iconProps = { className, strokeWidth: 2.4 };
@@ -170,6 +233,14 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [userEmail, setUserEmail] = useState("");
+  const [pendingAvatar, setPendingAvatar] = useState<PendingAvatar | null>(null);
+  const [avatarZoom, setAvatarZoom] = useState(1);
+  const [avatarPositionX, setAvatarPositionX] = useState(50);
+  const [avatarPositionY, setAvatarPositionY] = useState(50);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const avatarCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const pathname = usePathname();
   const menu = useMemo(() => (profile ? buildMenu(profile, isAdmin) : []), [profile, isAdmin]);
@@ -192,6 +263,31 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     if (isMobile) setMobileMenuOpen(false);
     setAccountMenuOpen(false);
   }, [isMobile, pathname]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
+    };
+  }, [pendingAvatar?.previewUrl]);
+
+  useEffect(() => {
+    if (!pendingAvatar || !avatarCanvasRef.current) return;
+    let cancelled = false;
+
+    loadImage(pendingAvatar.previewUrl)
+      .then((image) => {
+        if (!cancelled && avatarCanvasRef.current) {
+          drawAvatarPreview(avatarCanvasRef.current, image, avatarZoom, avatarPositionX, avatarPositionY);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAvatarError("Khong xem truoc duoc anh da chon.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingAvatar, avatarZoom, avatarPositionX, avatarPositionY]);
 
   function toggleCollapse() {
     setCollapsed((prev) => {
@@ -245,6 +341,73 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   async function logout() {
     await supabase.auth.signOut();
     window.location.href = "/login";
+  }
+
+  function resetAvatarEditor() {
+    setAvatarZoom(1);
+    setAvatarPositionX(50);
+    setAvatarPositionY(50);
+  }
+
+  function closeAvatarEditor() {
+    if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
+    setPendingAvatar(null);
+    resetAvatarEditor();
+  }
+
+  function handleAvatarFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    setAvatarError("");
+    if (!file || !profile) return;
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setAvatarError("Anh dai dien chi nhan JPG, PNG hoac WEBP.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError("Anh chon toi da 5MB. Khi luu, web se tu nen ve anh nhe hon.");
+      return;
+    }
+
+    if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
+    setPendingAvatar({ previewUrl: URL.createObjectURL(file) });
+    resetAvatarEditor();
+  }
+
+  async function saveAvatarFromLayout() {
+    if (!pendingAvatar || !profile) return;
+    setAvatarSaving(true);
+    setAvatarError("");
+
+    try {
+      const croppedBlob = await cropAvatarToBlob(pendingAvatar.previewUrl, avatarZoom, avatarPositionX, avatarPositionY);
+      const path = `${profile.id}/avatar-${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(path, croppedBlob, { cacheControl: "3600", contentType: "image/jpeg", upsert: false });
+
+      if (uploadError) {
+        setAvatarError(`Khong tai duoc anh len. ${uploadError.message}`);
+        return;
+      }
+
+      const { data: publicUrl } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
+      const avatarUrl = publicUrl.publicUrl;
+      const { error: updateError } = await supabase.rpc("update_own_avatar_url", { p_avatar_url: avatarUrl });
+
+      if (updateError) {
+        setAvatarError(`Anh da tai len nhung chua luu vao ho so. ${updateError.message}`);
+        return;
+      }
+
+      setProfile((prev) => prev ? { ...prev, avatar_url: avatarUrl } : prev);
+      closeAvatarEditor();
+    } catch (e: any) {
+      setAvatarError(e?.message ?? "Khong xu ly duoc anh dai dien.");
+    } finally {
+      setAvatarSaving(false);
+    }
   }
 
   if (err) return (
@@ -682,10 +845,34 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
               </button>
 
               <div style={{ background: "linear-gradient(135deg, #0d4f7c 0%, #2487C8 100%)", padding: "28px 24px", display: "flex", alignItems: "center", gap: 16 }}>
-                <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(255,255,255,0.18)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 900, overflow: "hidden", border: "2px solid rgba(255,255,255,0.35)", flexShrink: 0 }}>
-                  {profile.avatar_url ? (
-                    <img src={profile.avatar_url} alt={profile.full_name || "Avatar"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  ) : initials}
+                <div style={{ width: 64, height: 64, position: "relative", flexShrink: 0 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(255,255,255,0.18)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 900, overflow: "hidden", border: "2px solid rgba(255,255,255,0.35)" }}>
+                    {profile.avatar_url ? (
+                      <img src={profile.avatar_url} alt={profile.full_name || "Avatar"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : initials}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={avatarSaving}
+                    title="C\u1eadp nh\u1eadt \u1ea3nh \u0111\u1ea1i di\u1ec7n"
+                    style={{
+                      position: "absolute",
+                      right: -4,
+                      bottom: -4,
+                      width: 30,
+                      height: 30,
+                      borderRadius: "50%",
+                      border: "2px solid white",
+                      background: "#0f172a",
+                      color: "white",
+                      display: "grid",
+                      placeItems: "center",
+                      cursor: avatarSaving ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {avatarSaving ? <span className="spinner" style={{ width: 13, height: 13, borderWidth: 2, borderTopColor: "white" }} /> : <Camera size={15} strokeWidth={2.5} />}
+                  </button>
                 </div>
                 <div style={{ minWidth: 0, paddingRight: 34 }}>
                   <div style={{ color: "white", fontSize: 18, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -696,8 +883,10 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                   </div>
                 </div>
               </div>
+              <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarFileChange} style={{ display: "none" }} />
 
               <div style={{ padding: "10px 24px 18px" }}>
+                {avatarError && <div style={{ marginTop: 10, marginBottom: 4, padding: "10px 12px", borderRadius: 8, background: "#fef2f2", color: "#991b1b", fontSize: 13, fontWeight: 800 }}>{avatarError}</div>}
                 {[
                   { label: "Vai tr\u00f2", value: ROLE_LABELS[profile.role] ?? profile.role },
                   { label: "B\u1ed9 ph\u1eadn", value: DEPT_LABELS[profile.department] ?? profile.department },
@@ -712,6 +901,101 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                     </span>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {pendingAvatar && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 10020,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 24,
+              background: "rgba(15,23,42,0.50)",
+              backdropFilter: "blur(2px)",
+            }}
+            onClick={closeAvatarEditor}
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 560,
+                borderRadius: 14,
+                background: "white",
+                boxShadow: "0 24px 70px rgba(0,0,0,0.22)",
+                padding: isMobile ? 16 : 24,
+                maxHeight: "calc(100dvh - 48px)",
+                overflowY: "auto",
+                animation: "confirm-in 0.2s ease",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 18 }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: "#0f172a" }}>{"C\u0103n \u1ea3nh \u0111\u1ea1i di\u1ec7n"}</div>
+                  <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>{"Xem tr\u01b0\u1edbc trong khung tr\u00f2n tr\u01b0\u1edbc khi l\u01b0u."}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeAvatarEditor}
+                  title="\u0110\u00f3ng"
+                  style={{ width: 36, height: 36, borderRadius: 8, border: "1px solid #e2e8f0", background: "white", display: "grid", placeItems: "center", cursor: "pointer" }}
+                >
+                  <X size={18} strokeWidth={2.5} />
+                </button>
+              </div>
+
+              {avatarError && <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: "#fef2f2", color: "#991b1b", fontSize: 13, fontWeight: 800 }}>{avatarError}</div>}
+
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 240px) minmax(0, 1fr)", gap: 22, alignItems: "center" }}>
+                <div style={{ display: "grid", placeItems: "center" }}>
+                  <div style={{ width: isMobile ? 180 : 220, height: isMobile ? 180 : 220, borderRadius: "50%", overflow: "hidden", background: "#f1f5f9", border: "4px solid white", boxShadow: "0 12px 32px rgba(15,23,42,0.18)" }}>
+                    <canvas
+                      ref={avatarCanvasRef}
+                      width={AVATAR_SIZE}
+                      height={AVATAR_SIZE}
+                      aria-label="Xem tr\u01b0\u1edbc \u1ea3nh \u0111\u1ea1i di\u1ec7n"
+                      style={{ width: "100%", height: "100%", display: "block" }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gap: 14 }}>
+                  {[
+                    { label: "Ph\u00f3ng to", value: avatarZoom, min: 1, max: 3, step: 0.05, onChange: (v: number) => setAvatarZoom(v) },
+                    { label: "V\u1ecb tr\u00ed ngang", value: avatarPositionX, min: 0, max: 100, step: 1, onChange: (v: number) => setAvatarPositionX(v) },
+                    { label: "V\u1ecb tr\u00ed d\u1ecdc", value: avatarPositionY, min: 0, max: 100, step: 1, onChange: (v: number) => setAvatarPositionY(v) },
+                  ].map((control) => (
+                    <label key={control.label} style={{ display: "grid", gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: "#475569" }}>{control.label}</span>
+                      <input
+                        type="range"
+                        min={control.min}
+                        max={control.max}
+                        step={control.step}
+                        value={control.value}
+                        onChange={(e) => control.onChange(Number(e.target.value))}
+                        style={{ width: "100%", accentColor: "#2487C8" }}
+                      />
+                    </label>
+                  ))}
+                  <button type="button" className="btn btn-secondary" onClick={resetAvatarEditor} style={{ width: "fit-content" }}>
+                    <RotateCcw size={15} strokeWidth={2.5} />
+                    {"C\u0103n l\u1ea1i"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={closeAvatarEditor} disabled={avatarSaving}>{"H\u1ee7y"}</button>
+                <button type="button" className="btn btn-primary" onClick={saveAvatarFromLayout} disabled={avatarSaving}>
+                  {avatarSaving ? "\u0110ang l\u01b0u..." : "L\u01b0u \u1ea3nh"}
+                </button>
               </div>
             </div>
           </div>
