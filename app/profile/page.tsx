@@ -38,7 +38,29 @@ function loadImage(src: string) {
   });
 }
 
-async function cropAvatarToBlob(previewUrl: string, zoom: number, shiftX: number, shiftY: number) {
+function getAvatarCropBox(image: HTMLImageElement, zoom: number, positionX: number, positionY: number) {
+  const baseSize = Math.min(image.naturalWidth, image.naturalHeight);
+  const sourceSize = baseSize / zoom;
+  const maxX = Math.max(0, image.naturalWidth - sourceSize);
+  const maxY = Math.max(0, image.naturalHeight - sourceSize);
+
+  return {
+    sourceX: clamp((positionX / 100) * maxX, 0, maxX),
+    sourceY: clamp((positionY / 100) * maxY, 0, maxY),
+    sourceSize,
+  };
+}
+
+function drawAvatarPreview(canvas: HTMLCanvasElement, image: HTMLImageElement, zoom: number, positionX: number, positionY: number) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const { sourceX, sourceY, sourceSize } = getAvatarCropBox(image, zoom, positionX, positionY);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, canvas.width, canvas.height);
+}
+
+async function cropAvatarToBlob(previewUrl: string, zoom: number, positionX: number, positionY: number) {
   const image = await loadImage(previewUrl);
   const canvas = document.createElement("canvas");
   canvas.width = AVATAR_SIZE;
@@ -47,15 +69,7 @@ async function cropAvatarToBlob(previewUrl: string, zoom: number, shiftX: number
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Trình duyệt không hỗ trợ xử lý ảnh.");
 
-  const baseSize = Math.min(image.naturalWidth, image.naturalHeight);
-  const sourceSize = baseSize / zoom;
-  const maxMoveX = Math.max(0, (image.naturalWidth - sourceSize) / 2);
-  const maxMoveY = Math.max(0, (image.naturalHeight - sourceSize) / 2);
-  const centerX = image.naturalWidth / 2 + (shiftX / 100) * maxMoveX;
-  const centerY = image.naturalHeight / 2 + (shiftY / 100) * maxMoveY;
-  const sourceX = clamp(centerX - sourceSize / 2, 0, image.naturalWidth - sourceSize);
-  const sourceY = clamp(centerY - sourceSize / 2, 0, image.naturalHeight - sourceSize);
-
+  const { sourceX, sourceY, sourceSize } = getAvatarCropBox(image, zoom, positionX, positionY);
   ctx.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
 
   return new Promise<Blob>((resolve, reject) => {
@@ -75,9 +89,10 @@ export default function ProfilePage() {
   const [notice, setNotice] = useState("");
   const [pendingAvatar, setPendingAvatar] = useState<PendingAvatar | null>(null);
   const [avatarZoom, setAvatarZoom] = useState(1);
-  const [avatarShiftX, setAvatarShiftX] = useState(0);
-  const [avatarShiftY, setAvatarShiftY] = useState(0);
+  const [avatarPositionX, setAvatarPositionX] = useState(50);
+  const [avatarPositionY, setAvatarPositionY] = useState(50);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -97,10 +112,29 @@ export default function ProfilePage() {
     };
   }, [pendingAvatar?.previewUrl]);
 
+  useEffect(() => {
+    if (!pendingAvatar || !previewCanvasRef.current) return;
+    let cancelled = false;
+
+    loadImage(pendingAvatar.previewUrl)
+      .then((image) => {
+        if (!cancelled && previewCanvasRef.current) {
+          drawAvatarPreview(previewCanvasRef.current, image, avatarZoom, avatarPositionX, avatarPositionY);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setError("Không xem trước được ảnh đã chọn.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingAvatar, avatarZoom, avatarPositionX, avatarPositionY]);
+
   function resetAvatarEditor() {
     setAvatarZoom(1);
-    setAvatarShiftX(0);
-    setAvatarShiftY(0);
+    setAvatarPositionX(50);
+    setAvatarPositionY(50);
   }
 
   function closeAvatarEditor() {
@@ -137,7 +171,7 @@ export default function ProfilePage() {
     setNotice("");
 
     try {
-      const croppedBlob = await cropAvatarToBlob(pendingAvatar.previewUrl, avatarZoom, avatarShiftX, avatarShiftY);
+      const croppedBlob = await cropAvatarToBlob(pendingAvatar.previewUrl, avatarZoom, avatarPositionX, avatarPositionY);
       const path = `${profile.id}/avatar-${Date.now()}.jpg`;
       const { error: uploadError } = await supabase.storage
         .from(AVATAR_BUCKET)
@@ -254,25 +288,47 @@ export default function ProfilePage() {
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 240px) minmax(0, 1fr)", gap: 22, alignItems: "center" }}>
               <div style={{ display: "grid", placeItems: "center" }}>
                 <div style={{ width: 220, height: 220, borderRadius: "50%", overflow: "hidden", background: "#f1f5f9", border: "4px solid white", boxShadow: "0 12px 32px rgba(15,23,42,0.18)" }}>
-                  <img
-                    src={pendingAvatar.previewUrl}
-                    alt="Xem trước ảnh đại diện"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      transform: `translate(${avatarShiftX / 4}%, ${avatarShiftY / 4}%) scale(${avatarZoom})`,
-                      transformOrigin: "center",
-                    }}
+                  <canvas
+                    ref={previewCanvasRef}
+                    width={AVATAR_SIZE}
+                    height={AVATAR_SIZE}
+                    aria-label={"Xem tr\u01b0\u1edbc \u1ea3nh \u0111\u1ea1i di\u1ec7n"}
+                    style={{ width: "100%", height: "100%", display: "block" }}
                   />
                 </div>
               </div>
 
               <div style={{ display: "grid", gap: 14 }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {[
+                    { label: "L\u1ea5y ph\u1ea7n tr\u00ean", y: 0 },
+                    { label: "Gi\u1eefa", y: 50 },
+                    { label: "Ph\u1ea7n d\u01b0\u1edbi", y: 100 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setAvatarPositionY(preset.y)}
+                      style={{
+                        minHeight: 34,
+                        padding: "7px 10px",
+                        borderRadius: 8,
+                        border: avatarPositionY === preset.y ? "1px solid #2487C8" : "1px solid #e2e8f0",
+                        background: avatarPositionY === preset.y ? "#e0f2fe" : "white",
+                        color: avatarPositionY === preset.y ? "#0369a1" : "#475569",
+                        cursor: "pointer",
+                        fontSize: 12,
+                        fontWeight: 800,
+                      }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
                 {[
-                  { label: "Phóng to", value: avatarZoom, min: 1, max: 3, step: 0.05, onChange: (v: number) => setAvatarZoom(v) },
-                  { label: "Dịch ngang", value: avatarShiftX, min: -100, max: 100, step: 1, onChange: (v: number) => setAvatarShiftX(v) },
-                  { label: "Dịch dọc", value: avatarShiftY, min: -100, max: 100, step: 1, onChange: (v: number) => setAvatarShiftY(v) },
+                  { label: "Ph\u00f3ng to", value: avatarZoom, min: 1, max: 3, step: 0.05, onChange: (v: number) => setAvatarZoom(v) },
+                  { label: "V\u1ecb tr\u00ed ngang", value: avatarPositionX, min: 0, max: 100, step: 1, onChange: (v: number) => setAvatarPositionX(v) },
+                  { label: "V\u1ecb tr\u00ed d\u1ecdc", value: avatarPositionY, min: 0, max: 100, step: 1, onChange: (v: number) => setAvatarPositionY(v) },
                 ].map((control) => (
                   <label key={control.label} style={{ display: "grid", gap: 6 }}>
                     <span style={{ fontSize: 12, fontWeight: 800, color: "#475569" }}>{control.label}</span>
