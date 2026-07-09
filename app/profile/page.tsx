@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { createElement, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { LoadingPage } from "@/app/components/ui/Loading";
-import { Building2, Camera, CheckCircle2, Clock3, Lock, RotateCcw, Theater, Upload, X } from "lucide-react";
+import { ArrowLeft, Building2, Camera, CheckCircle2, Clock3, Lock, RotateCcw, Theater, Upload, X } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = { admin: "Admin", manager: "Quản lý", staff: "Nhân viên" };
 const DEPT_LABELS: Record<string, string> = { sales: "Kinh doanh", warehouse: "Kho", production: "Sản xuất", purchasing: "Mua hàng", accounting: "Kế toán" };
@@ -211,7 +212,10 @@ export default function ProfilePage() {
 
   return (
     <div style={{ fontFamily: "inherit", maxWidth: 640 }}>
-      <h1>Hồ sơ cá nhân</h1>
+      <Link href="/app" className="btn btn-secondary" style={{ marginBottom: 16, width: "fit-content", textDecoration: "none" }}>
+        <ArrowLeft size={16} strokeWidth={2.5} />
+        {"Quay v\u1ec1 trang ch\u1ee7"}
+      </Link>
 
       {profile && (
         <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,.05)" }}>
@@ -299,32 +303,6 @@ export default function ProfilePage() {
               </div>
 
               <div style={{ display: "grid", gap: 14 }}>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {[
-                    { label: "L\u1ea5y ph\u1ea7n tr\u00ean", y: 0 },
-                    { label: "Gi\u1eefa", y: 50 },
-                    { label: "Ph\u1ea7n d\u01b0\u1edbi", y: 100 },
-                  ].map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => setAvatarPositionY(preset.y)}
-                      style={{
-                        minHeight: 34,
-                        padding: "7px 10px",
-                        borderRadius: 8,
-                        border: avatarPositionY === preset.y ? "1px solid #2487C8" : "1px solid #e2e8f0",
-                        background: avatarPositionY === preset.y ? "#e0f2fe" : "white",
-                        color: avatarPositionY === preset.y ? "#0369a1" : "#475569",
-                        cursor: "pointer",
-                        fontSize: 12,
-                        fontWeight: 800,
-                      }}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
                 {[
                   { label: "Ph\u00f3ng to", value: avatarZoom, min: 1, max: 3, step: 0.05, onChange: (v: number) => setAvatarZoom(v) },
                   { label: "V\u1ecb tr\u00ed ngang", value: avatarPositionX, min: 0, max: 100, step: 1, onChange: (v: number) => setAvatarPositionX(v) },
