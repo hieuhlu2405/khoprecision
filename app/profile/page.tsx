@@ -3,11 +3,12 @@
 import { createElement, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { LoadingPage } from "@/app/components/ui/Loading";
-import { Building2, Camera, CheckCircle2, Clock3, Lock, Theater, Upload } from "lucide-react";
+import { Building2, Camera, CheckCircle2, Clock3, Lock, RotateCcw, Theater, Upload, X } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = { admin: "Admin", manager: "Quản lý", staff: "Nhân viên" };
 const DEPT_LABELS: Record<string, string> = { sales: "Kinh doanh", warehouse: "Kho", production: "Sản xuất", purchasing: "Mua hàng", accounting: "Kế toán" };
 const AVATAR_BUCKET = "profile-avatars";
+const AVATAR_SIZE = 512;
 
 type Profile = {
   id: string;
@@ -19,10 +20,50 @@ type Profile = {
   avatar_url: string | null;
 };
 
-function getAvatarExt(file: File) {
-  if (file.type === "image/png") return "png";
-  if (file.type === "image/webp") return "webp";
-  return "jpg";
+type PendingAvatar = {
+  file: File;
+  previewUrl: string;
+};
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Không đọc được ảnh đã chọn."));
+    image.src = src;
+  });
+}
+
+async function cropAvatarToBlob(previewUrl: string, zoom: number, shiftX: number, shiftY: number) {
+  const image = await loadImage(previewUrl);
+  const canvas = document.createElement("canvas");
+  canvas.width = AVATAR_SIZE;
+  canvas.height = AVATAR_SIZE;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Trình duyệt không hỗ trợ xử lý ảnh.");
+
+  const baseSize = Math.min(image.naturalWidth, image.naturalHeight);
+  const sourceSize = baseSize / zoom;
+  const maxMoveX = Math.max(0, (image.naturalWidth - sourceSize) / 2);
+  const maxMoveY = Math.max(0, (image.naturalHeight - sourceSize) / 2);
+  const centerX = image.naturalWidth / 2 + (shiftX / 100) * maxMoveX;
+  const centerY = image.naturalHeight / 2 + (shiftY / 100) * maxMoveY;
+  const sourceX = clamp(centerX - sourceSize / 2, 0, image.naturalWidth - sourceSize);
+  const sourceY = clamp(centerY - sourceSize / 2, 0, image.naturalHeight - sourceSize);
+
+  ctx.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Không tạo được ảnh đại diện."));
+    }, "image/jpeg", 0.9);
+  });
 }
 
 export default function ProfilePage() {
@@ -32,6 +73,10 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [pendingAvatar, setPendingAvatar] = useState<PendingAvatar | null>(null);
+  const [avatarZoom, setAvatarZoom] = useState(1);
+  const [avatarShiftX, setAvatarShiftX] = useState(0);
+  const [avatarShiftY, setAvatarShiftY] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -46,6 +91,24 @@ export default function ProfilePage() {
     })();
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
+    };
+  }, [pendingAvatar?.previewUrl]);
+
+  function resetAvatarEditor() {
+    setAvatarZoom(1);
+    setAvatarShiftX(0);
+    setAvatarShiftY(0);
+  }
+
+  function closeAvatarEditor() {
+    if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
+    setPendingAvatar(null);
+    resetAvatarEditor();
+  }
+
   async function handleAvatarChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -57,37 +120,51 @@ export default function ProfilePage() {
       setError("Ảnh đại diện chỉ nhận JPG, PNG hoặc WEBP.");
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      setError("Ảnh đại diện tối đa 2MB để web tải nhanh.");
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Ảnh chọn tối đa 5MB. Khi lưu, web sẽ tự nén về ảnh đại diện nhẹ hơn.");
       return;
     }
 
+    if (pendingAvatar?.previewUrl) URL.revokeObjectURL(pendingAvatar.previewUrl);
+    setPendingAvatar({ file, previewUrl: URL.createObjectURL(file) });
+    resetAvatarEditor();
+  }
+
+  async function saveAvatar() {
+    if (!pendingAvatar || !profile) return;
     setUploading(true);
-    const ext = getAvatarExt(file);
-    const path = `${profile.id}/avatar-${Date.now()}.${ext}`;
-    const { error: uploadError } = await supabase.storage
-      .from(AVATAR_BUCKET)
-      .upload(path, file, { cacheControl: "3600", contentType: file.type, upsert: false });
+    setError("");
+    setNotice("");
 
-    if (uploadError) {
+    try {
+      const croppedBlob = await cropAvatarToBlob(pendingAvatar.previewUrl, avatarZoom, avatarShiftX, avatarShiftY);
+      const path = `${profile.id}/avatar-${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(path, croppedBlob, { cacheControl: "3600", contentType: "image/jpeg", upsert: false });
+
+      if (uploadError) {
+        setError(`Không tải được ảnh lên. ${uploadError.message}`);
+        return;
+      }
+
+      const { data: publicUrl } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
+      const avatarUrl = publicUrl.publicUrl;
+      const { error: updateError } = await supabase.rpc("update_own_avatar_url", { p_avatar_url: avatarUrl });
+
+      if (updateError) {
+        setError(`Ảnh đã tải lên nhưng chưa lưu vào hồ sơ. ${updateError.message}`);
+        return;
+      }
+
+      setProfile((prev) => prev ? { ...prev, avatar_url: avatarUrl } : prev);
+      setNotice("Đã cập nhật ảnh đại diện.");
+      closeAvatarEditor();
+    } catch (e: any) {
+      setError(e?.message ?? "Không xử lý được ảnh đại diện.");
+    } finally {
       setUploading(false);
-      setError(`Không tải được ảnh lên. ${uploadError.message}`);
-      return;
     }
-
-    const { data: publicUrl } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
-    const avatarUrl = publicUrl.publicUrl;
-    const { error: updateError } = await supabase.rpc("update_own_avatar_url", { p_avatar_url: avatarUrl });
-
-    if (updateError) {
-      setUploading(false);
-      setError(`Ảnh đã tải lên nhưng chưa lưu vào hồ sơ. ${updateError.message}`);
-      return;
-    }
-
-    setProfile((prev) => prev ? { ...prev, avatar_url: avatarUrl } : prev);
-    setNotice("Đã cập nhật ảnh đại diện.");
-    setUploading(false);
   }
 
   if (loading) return <LoadingPage text="Đang tải hồ sơ cá nhân..." />;
@@ -157,6 +234,72 @@ export default function ProfilePage() {
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {pendingAvatar && (
+        <div className="modal-overlay" onClick={closeAvatarEditor}>
+          <div className="modal-box" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 18 }}>
+              <div>
+                <h2 className="modal-title" style={{ margin: 0 }}>Căn ảnh đại diện</h2>
+                <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>Xem trước trong khung tròn trước khi lưu.</div>
+              </div>
+              <button type="button" onClick={closeAvatarEditor} title="Đóng" style={{ width: 36, height: 36, borderRadius: 8, border: "1px solid #e2e8f0", background: "white", display: "grid", placeItems: "center", cursor: "pointer" }}>
+                <X size={18} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 240px) minmax(0, 1fr)", gap: 22, alignItems: "center" }}>
+              <div style={{ display: "grid", placeItems: "center" }}>
+                <div style={{ width: 220, height: 220, borderRadius: "50%", overflow: "hidden", background: "#f1f5f9", border: "4px solid white", boxShadow: "0 12px 32px rgba(15,23,42,0.18)" }}>
+                  <img
+                    src={pendingAvatar.previewUrl}
+                    alt="Xem trước ảnh đại diện"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      transform: `translate(${avatarShiftX / 4}%, ${avatarShiftY / 4}%) scale(${avatarZoom})`,
+                      transformOrigin: "center",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gap: 14 }}>
+                {[
+                  { label: "Phóng to", value: avatarZoom, min: 1, max: 3, step: 0.05, onChange: (v: number) => setAvatarZoom(v) },
+                  { label: "Dịch ngang", value: avatarShiftX, min: -100, max: 100, step: 1, onChange: (v: number) => setAvatarShiftX(v) },
+                  { label: "Dịch dọc", value: avatarShiftY, min: -100, max: 100, step: 1, onChange: (v: number) => setAvatarShiftY(v) },
+                ].map((control) => (
+                  <label key={control.label} style={{ display: "grid", gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "#475569" }}>{control.label}</span>
+                    <input
+                      type="range"
+                      min={control.min}
+                      max={control.max}
+                      step={control.step}
+                      value={control.value}
+                      onChange={(e) => control.onChange(Number(e.target.value))}
+                      style={{ width: "100%", accentColor: "#2487C8" }}
+                    />
+                  </label>
+                ))}
+                <button type="button" className="btn btn-secondary" onClick={resetAvatarEditor} style={{ width: "fit-content" }}>
+                  <RotateCcw size={15} strokeWidth={2.5} />
+                  Căn lại
+                </button>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={closeAvatarEditor} disabled={uploading}>Hủy</button>
+              <button type="button" className="btn btn-primary" onClick={saveAvatar} disabled={uploading}>
+                {uploading ? "Đang lưu..." : "Lưu ảnh"}
+              </button>
+            </div>
           </div>
         </div>
       )}
