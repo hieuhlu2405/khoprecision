@@ -1,5 +1,13 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-12 - Rut gon ghi chu xuat chuyen xe
+
+- Da tao SQL moi `supabase-sql/20260712_shorten_shipment_inventory_note.sql`, CHUA chay live.
+- SQL doi ghi chu giao dich kho khi xuat tu Ke hoach giao hang thanh `Xe <ho ten tai xe 1> - <so phieu>`, vi du `Xe Nguyen Van Minh - PX20260712-001`.
+- Luong ghep them hang vao chuyen cu dung tai xe da chup luu tren chuyen do.
+- SQL dung `CREATE OR REPLACE FUNCTION` gian tiep de chi doi cach database tao ghi chu; khong xoa/sua giao dich cu, khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`.
+- Can chay SQL live, sau do test tao chuyen moi va ghep them hang; kiem tra ghi chu trong lich su kho dung dinh dang ngan.
+
 ## Nguyen tac
 
 - Luon tra loi ngan gon bang tieng Viet.
