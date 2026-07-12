@@ -127,6 +127,18 @@ export async function exportWithTemplate(
       });
     });
 
+    // Kiểu của Excel Table có thể ghi đè font header khi mở file.
+    // Ép lại ở bước cuối để A15:H15 luôn in đậm trong file tải xuống.
+    for (let col = 1; col <= 8; col += 1) {
+      const headerCell = worksheet.getCell(15, col);
+      headerCell.font = {
+        ...headerCell.font,
+        name: 'Times New Roman',
+        size: 13,
+        bold: true,
+      };
+    }
+
     // 4. Tuyệt đối KHÔNG tự ý giãn cột hay sửa border của người dùng ở đây.
 
     const buffer = await workbook.xlsx.writeBuffer();
