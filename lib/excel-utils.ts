@@ -53,6 +53,18 @@ export async function exportWithTemplate(
     const worksheet = workbook.worksheets[0];
     if (!worksheet) throw new Error("File mẫu không có sheet nào.");
 
+    // Luôn ép vùng in vừa đúng một trang A4, kể cả khi có thêm dòng hàng.
+    worksheet.pageSetup = {
+      ...worksheet.pageSetup,
+      paperSize: 9,
+      orientation: 'portrait',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 1,
+      horizontalCentered: true,
+      printArea: `A1:H${22 + rowOffset}`,
+    };
+
     // 1. Chèn thêm dòng nếu nhiều mã hàng
     if (rowOffset > 0) {
       worksheet.duplicateRow(tableStartRow, rowOffset, true);
