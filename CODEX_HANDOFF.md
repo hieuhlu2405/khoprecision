@@ -1,5 +1,16 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-13 - Mau phieu giao hang theo Vendor va in A4
+
+- Da sua mau `maupgh.xlsx` va `public/templates/maupgh.xlsx`: o G8 co chu 13, dong tieu de A15:H15 in dam, giu bo cuc phiếu.
+- Da sua luong xuat/in lai phieu giao hang: H7 chi hien so phieu PX, khong ghep ten/ma khach hang.
+- Thong tin Ben nhan va Dia chi lay theo `delivery_customer_id`; neu mot chuyen co nhieu Vendor thi tao file rieng cho tung Vendor, tranh in nham noi nhan.
+- Khi xuat file, code ep lai A15:H15 in dam o buoc cuoi de tranh kieu bang Excel ghi de; da kiem tra 8 o A15:H15 deu `bold=true`, co chu 13.
+- Vung in duoc ep vua mot trang A4 doc, tu dong tinh den so dong hang.
+- Khong sua SQL/database, khong xoa du lieu, khong doi so luong xuat kho hay cach tinh ton kho.
+- `npm run build` da pass. Chu du an da test nhanh phu va phat hien loi header chua dam; loi nay da sua tai commit `8e126fe`, can test lai bang file moi sau khi Vercel deploy.
+- Nhanh phu: `codex/delivery-note-template-vendor-a4`; cac commit chinh: `b1818e4`, `8e126fe`.
+
 ## Cap nhat 2026-07-12 - Rut gon ghi chu xuat chuyen xe
 
 - Da tao SQL moi `supabase-sql/20260712_shorten_shipment_inventory_note.sql`, CHUA chay live.

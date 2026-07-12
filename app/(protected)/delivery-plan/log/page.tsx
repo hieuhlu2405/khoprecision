@@ -213,59 +213,58 @@ export default function DeliveryLogPage() {
       if (error) throw error;
       if (!txs || txs.length === 0) throw new Error("Không tìm thấy chi tiết chuyến hàng.");
 
-      const cust = customers.find(c => c.id === log.customer_id);
       const entity = entities.find(e => e.id === log.entity_id);
       const dateLabel = log.shipment_date.split("-").reverse().join("/");
 
-      const items = txs.map(t => {
-        const p = products.find(prod => prod.id === t.product_id);
-        return {
-          sku: p?.sku || t.product_name_snapshot || "",
-          product_name: p?.name || t.product_name_snapshot || "",
-          spec: p?.spec || t.product_spec_snapshot || "",
-          sap_code: p?.sap_code || "",
-          external_sku: p?.external_sku || "",
-          uom: p?.uom || "PCS",
-          actual: t.qty,
-          customer_code: cust?.code || "",
-          customer_name: cust?.name || "",
-          customer_address: cust?.address || "",
-          customer_external_code: cust?.external_code || "",
-          entity_name: entity?.name || "",
-          entity_address: entity?.address || ""
+      const txGroups = new Map<string, typeof txs>();
+      txs.forEach(tx => {
+        const key = tx.delivery_customer_id || log.customer_id || "unknown";
+        txGroups.set(key, [...(txGroups.get(key) || []), tx]);
+      });
+
+      for (const [deliveryCustomerId, vendorTxs] of txGroups) {
+        const cust = customers.find(c => c.id === deliveryCustomerId);
+        const items = vendorTxs.map(t => {
+          const p = products.find(prod => prod.id === t.product_id);
+          return {
+            sku: p?.sku || t.product_name_snapshot || "",
+            product_name: p?.name || t.product_name_snapshot || "",
+            spec: p?.spec || t.product_spec_snapshot || "",
+            sap_code: p?.sap_code || "",
+            external_sku: p?.external_sku || "",
+            uom: p?.uom || "PCS",
+            actual: t.qty,
+          };
+        });
+
+        const totalQty = items.reduce((sum, it) => sum + it.actual, 0);
+        const rowOffset = items.length - 1;
+        const fileName = `PGH_REPRINT_${log.shipment_no}_${cust?.code || "KH"}`;
+        const cellData: any = {
+          'A2': { value: entity?.name || "", font: { name: 'Times New Roman', size: 18, bold: true } },
+          'A3': { value: entity?.address || "", font: { name: 'Times New Roman', size: 18 } },
+          'H7': { value: log.shipment_no, font: { name: 'Times New Roman', size: 13, bold: true } },
+          'H8': { value: dateLabel, font: { name: 'Times New Roman', size: 13, bold: true } },
+          'H9': { value: cust?.code || "", font: { name: 'Times New Roman', size: 13, bold: true } },
+          'H11': { value: cust?.external_code || "", font: { name: 'Times New Roman', size: 13, bold: true } },
+          'B9': { value: cust?.name || "", font: { name: 'Times New Roman', size: 13, bold: true } },
+          'B10': { value: cust?.address || "", font: { name: 'Times New Roman', size: 13 } },
+          'B11': { value: entity?.name || "", font: { name: 'Times New Roman', size: 13, bold: true } },
+          'B12': { value: entity?.address || "", font: { name: 'Times New Roman', size: 13 } },
+          [`G${17 + rowOffset}`]: { value: totalQty, font: { name: 'Times New Roman', size: 13, bold: true } },
+          [`A${19 + rowOffset}`]: { value: "BÊN GIAO", font: { name: 'Times New Roman', size: 12, bold: true } },
+          [`F${19 + rowOffset}`]: { value: "BÊN NHẬN", font: { name: 'Times New Roman', size: 12, bold: true } },
+          [`A${20 + rowOffset}`]: { value: entity?.name || "", font: { name: 'Times New Roman', size: 12, bold: true } },
+          [`F${20 + rowOffset}`]: { value: cust?.name || "", font: { name: 'Times New Roman', size: 12, bold: true } },
         };
-      });
-
-      const totalQty = items.reduce((sum, it) => sum + it.actual, 0);
-      const rowOffset = items.length - 1;
-      const fileName = `PGH_REPRINT_${log.shipment_no}`;
-
-      const cellData: any = {
-        'A2': { value: entity?.name || "", font: { name: 'Times New Roman', size: 18, bold: true } },
-        'A3': { value: entity?.address || "", font: { name: 'Times New Roman', size: 18 } },
-        'H8': { value: dateLabel, font: { name: 'Times New Roman', size: 13, bold: true } },
-        'H9': { value: cust?.code || "", font: { name: 'Times New Roman', size: 13, bold: true } },
-        'H11': { value: cust?.external_code || "", font: { name: 'Times New Roman', size: 13, bold: true } },
-        'B9': { value: cust?.name || "", font: { name: 'Times New Roman', size: 13, bold: true } },
-        'B10': { value: cust?.address || "", font: { name: 'Times New Roman', size: 13 } },
-        'B11': { value: entity?.name || "", font: { name: 'Times New Roman', size: 13, bold: true } },
-        'B12': { value: entity?.address || "", font: { name: 'Times New Roman', size: 13 } },
-        [`G${17 + rowOffset}`]: { value: totalQty, font: { name: 'Times New Roman', size: 13, bold: true } },
-        [`A${19 + rowOffset}`]: { value: "BÊN GIAO", font: { name: 'Times New Roman', size: 12, bold: true } },
-        [`F${19 + rowOffset}`]: { value: "BÊN NHẬN", font: { name: 'Times New Roman', size: 12, bold: true } },
-        [`A${20 + rowOffset}`]: { value: entity?.name || "", font: { name: 'Times New Roman', size: 12, bold: true } },
-        [`F${20 + rowOffset}`]: { value: cust?.name || "", font: { name: 'Times New Roman', size: 12, bold: true } },
-      };
-
-      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(col => {
-        cellData[`${col}15`] = { value: null, font: { name: 'Times New Roman', size: 13, bold: true } };
-      });
-
-      const tableData = items.map((it, i) => [
-        i + 1, it.sku, it.sap_code, it.external_sku, `${it.product_name} ${it.spec ? "(" + it.spec + ")" : ""}`, it.uom, it.actual
-      ]);
-
-      await exportWithTemplate('/templates/maupgh.xlsx', cellData, tableData, 16, fileName, rowOffset);
+        ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(col => {
+          cellData[`${col}15`] = { value: null, font: { name: 'Times New Roman', size: 13, bold: true } };
+        });
+        const tableData = items.map((it, i) => [
+          i + 1, it.sku, it.sap_code, it.external_sku, `${it.product_name} ${it.spec ? "(" + it.spec + ")" : ""}`, it.uom, it.actual
+        ]);
+        await exportWithTemplate('/templates/maupgh.xlsx', cellData, tableData, 16, fileName, rowOffset);
+      }
       showToast(`Đã tải file PGH ${log.shipment_no}`, "success");
     } catch (err: any) {
       showToast(err.message, "error");

@@ -53,6 +53,18 @@ export async function exportWithTemplate(
     const worksheet = workbook.worksheets[0];
     if (!worksheet) throw new Error("File mẫu không có sheet nào.");
 
+    // Luôn ép vùng in vừa đúng một trang A4, kể cả khi có thêm dòng hàng.
+    worksheet.pageSetup = {
+      ...worksheet.pageSetup,
+      paperSize: 9,
+      orientation: 'portrait',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 1,
+      horizontalCentered: true,
+      printArea: `A1:H${22 + rowOffset}`,
+    };
+
     // 1. Chèn thêm dòng nếu nhiều mã hàng
     if (rowOffset > 0) {
       worksheet.duplicateRow(tableStartRow, rowOffset, true);
@@ -114,6 +126,18 @@ export async function exportWithTemplate(
         cell.font = { name: 'Times New Roman', size: 13 };
       });
     });
+
+    // Kiểu của Excel Table có thể ghi đè font header khi mở file.
+    // Ép lại ở bước cuối để A15:H15 luôn in đậm trong file tải xuống.
+    for (let col = 1; col <= 8; col += 1) {
+      const headerCell = worksheet.getCell(15, col);
+      headerCell.font = {
+        ...headerCell.font,
+        name: 'Times New Roman',
+        size: 13,
+        bold: true,
+      };
+    }
 
     // 4. Tuyệt đối KHÔNG tự ý giãn cột hay sửa border của người dùng ở đây.
 

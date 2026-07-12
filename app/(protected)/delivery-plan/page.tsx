@@ -600,8 +600,9 @@ export default function DeliveryPlanPage() {
 
       const items = plansForDay.map(p => {
         const prod = products.find(x => x.id === p.product_id);
-        const cust = customers.find(x => x.id === (p.customer_id || prod?.customer_id));
-        const ent = cust?.selling_entity_id ? entities.find(e => e.id === cust.selling_entity_id) : null;
+        const cust = customers.find(x => x.id === (p.delivery_customer_id || p.customer_id || prod?.customer_id));
+        const ownerCust = customers.find(x => x.id === (p.customer_id || prod?.customer_id)) || cust;
+        const ent = ownerCust?.selling_entity_id ? entities.find(e => e.id === ownerCust.selling_entity_id) : null;
         const totalTarget = (p.planned_qty || 0) + (p.backlog_qty || 0);
         return {
           plan_id: p.id,
@@ -746,8 +747,9 @@ export default function DeliveryPlanPage() {
         const plan = plans.find(p => p.id === planId);
         if (!plan || plan.is_completed) continue;
         const prod = products.find(x => x.id === plan.product_id);
-        const cust = customers.find(x => x.id === (plan.customer_id || prod?.customer_id));
-        const ent = cust?.selling_entity_id ? entities.find(e => e.id === cust.selling_entity_id) : null;
+        const cust = customers.find(x => x.id === (plan.delivery_customer_id || plan.customer_id || prod?.customer_id));
+        const ownerCust = customers.find(x => x.id === (plan.customer_id || prod?.customer_id)) || cust;
+        const ent = ownerCust?.selling_entity_id ? entities.find(e => e.id === ownerCust.selling_entity_id) : null;
         items.push({
           plan_id: plan.id,
           product_id: plan.product_id,
@@ -907,43 +909,49 @@ export default function DeliveryPlanPage() {
 
   const exportShipmentExcel = async (items: ShipmentItem[], shipmentNo: string) => {
     const dateLabel = selectedOutboundDay.split("-").reverse().join("/");
-    const first = items[0];
-    const totalQty = items.reduce((sum, it) => sum + Number(it.actual || 0), 0);
-    const rowOffset = items.length - 1;
-    // Suffix PGH number with customer code for multi-drop clarity
-    const finalShipmentNo = `${shipmentNo} / ${first.customer_code}`;
-    const fileName = `${shipmentNo.replace(/\//g, '-')}_${first.customer_code}`;
-
-    const cellData: any = {
-      'A2': { value: first.entity_name, font: { name: 'Times New Roman', size: 18, bold: true } },
-      'A3': { value: first.entity_address, font: { name: 'Times New Roman', size: 18 } },
-      'H7': { value: finalShipmentNo, font: { name: 'Times New Roman', size: 13, bold: true } },
-      'H8': { value: dateLabel, font: { name: 'Times New Roman', size: 13, bold: true } },
-      'H9': { value: first.customer_code, font: { name: 'Times New Roman', size: 13, bold: true } },
-      'H11': { value: first.customer_external_code || "", font: { name: 'Times New Roman', size: 13, bold: true } },
-      'B9': { value: first.customer_name, font: { name: 'Times New Roman', size: 13, bold: true } },
-      'B10': { value: first.customer_address, font: { name: 'Times New Roman', size: 13 } },
-      'B11': { value: first.entity_name, font: { name: 'Times New Roman', size: 13, bold: true } },
-      'B12': { value: first.entity_address, font: { name: 'Times New Roman', size: 13 } },
-      [`G${17 + rowOffset}`]: { value: totalQty, font: { name: 'Times New Roman', size: 13, bold: true } },
-      [`A${19 + rowOffset}`]: { value: "BÊN GIAO", font: { name: 'Times New Roman', size: 12, bold: true } },
-      [`F${19 + rowOffset}`]: { value: "BÊN NHẬN", font: { name: 'Times New Roman', size: 12, bold: true } },
-      [`A${20 + rowOffset}`]: { value: first.entity_name, font: { name: 'Times New Roman', size: 12, bold: true } },
-      [`F${20 + rowOffset}`]: { value: first.customer_name, font: { name: 'Times New Roman', size: 12, bold: true } },
-    };
-    ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(col => {
-      cellData[`${col}15`] = { value: null, font: { name: 'Times New Roman', size: 13, bold: true } };
+    const groups = new Map<string, ShipmentItem[]>();
+    items.forEach(item => {
+      const key = `${item.customer_code}|${item.customer_name}|${item.customer_address}`;
+      groups.set(key, [...(groups.get(key) || []), item]);
     });
-    const tableData = items.map((item, idx) => [
-      idx + 1, item.sku, item.sap_code || "", item.external_sku || "",
-      `${item.product_name} ${item.spec ? "(" + item.spec + ")" : ""}`,
-      item.uom || "PCS", Number(item.actual),
-    ]);
-    try {
-      await exportWithTemplate('/templates/maupgh.xlsx', cellData, tableData, 16, fileName, rowOffset);
-    } catch (err) {
-      console.error("Lỗi xuất template:", err);
-      showToast("Lỗi xuất Excel.", "warning");
+
+    for (const vendorItems of groups.values()) {
+      const first = vendorItems[0];
+      const totalQty = vendorItems.reduce((sum, it) => sum + Number(it.actual || 0), 0);
+      const rowOffset = vendorItems.length - 1;
+      const fileName = `${shipmentNo.replace(/\//g, '-')}_${first.customer_code}`;
+
+      const cellData: any = {
+        'A2': { value: first.entity_name, font: { name: 'Times New Roman', size: 18, bold: true } },
+        'A3': { value: first.entity_address, font: { name: 'Times New Roman', size: 18 } },
+        'H7': { value: shipmentNo, font: { name: 'Times New Roman', size: 13, bold: true } },
+        'H8': { value: dateLabel, font: { name: 'Times New Roman', size: 13, bold: true } },
+        'H9': { value: first.customer_code, font: { name: 'Times New Roman', size: 13, bold: true } },
+        'H11': { value: first.customer_external_code || "", font: { name: 'Times New Roman', size: 13, bold: true } },
+        'B9': { value: first.customer_name, font: { name: 'Times New Roman', size: 13, bold: true } },
+        'B10': { value: first.customer_address, font: { name: 'Times New Roman', size: 13 } },
+        'B11': { value: first.entity_name, font: { name: 'Times New Roman', size: 13, bold: true } },
+        'B12': { value: first.entity_address, font: { name: 'Times New Roman', size: 13 } },
+        [`G${17 + rowOffset}`]: { value: totalQty, font: { name: 'Times New Roman', size: 13, bold: true } },
+        [`A${19 + rowOffset}`]: { value: "BÊN GIAO", font: { name: 'Times New Roman', size: 12, bold: true } },
+        [`F${19 + rowOffset}`]: { value: "BÊN NHẬN", font: { name: 'Times New Roman', size: 12, bold: true } },
+        [`A${20 + rowOffset}`]: { value: first.entity_name, font: { name: 'Times New Roman', size: 12, bold: true } },
+        [`F${20 + rowOffset}`]: { value: first.customer_name, font: { name: 'Times New Roman', size: 12, bold: true } },
+      };
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(col => {
+        cellData[`${col}15`] = { value: null, font: { name: 'Times New Roman', size: 13, bold: true } };
+      });
+      const tableData = vendorItems.map((item, idx) => [
+        idx + 1, item.sku, item.sap_code || "", item.external_sku || "",
+        `${item.product_name} ${item.spec ? "(" + item.spec + ")" : ""}`,
+        item.uom || "PCS", Number(item.actual),
+      ]);
+      try {
+        await exportWithTemplate('/templates/maupgh.xlsx', cellData, tableData, 16, fileName, rowOffset);
+      } catch (err) {
+        console.error("Lỗi xuất template:", err);
+        showToast("Lỗi xuất Excel.", "warning");
+      }
     }
   };
 
