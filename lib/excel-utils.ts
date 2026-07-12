@@ -149,7 +149,18 @@ export async function exportWithTemplate(
   }
 }
 
-export async function readExcel(file: File): Promise<any[]> {
+export type ExcelImportRow = Record<string, string | number | boolean | Date | null>;
+
+function excelCellValue(cell: ExcelJS.Cell): string | number | boolean | Date | null {
+  const value = cell.value;
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  return cell.text || String(value);
+}
+
+export async function readExcel(file: File): Promise<ExcelImportRow[]> {
     assertSafeExcelImportFile(file);
 
     return new Promise((resolve, reject) => {
@@ -160,14 +171,36 @@ export async function readExcel(file: File): Promise<any[]> {
           const workbook = new ExcelJS.Workbook();
           await workbook.xlsx.load(buffer);
           const worksheet = workbook.worksheets[0];
-          const rows: any[] = [];
+          if (!worksheet) throw new Error("File Excel không có sheet dữ liệu.");
+
+          const headerRow = worksheet.getRow(1);
+          const headers: string[] = [];
+          for (let col = 1; col <= headerRow.cellCount; col += 1) {
+            headers[col] = headerRow.getCell(col).text.trim();
+          }
+          const usableHeaders = headers.filter(Boolean);
+          if (usableHeaders.length === 0) {
+            throw new Error("Dòng đầu tiên phải là tên các cột.");
+          }
+          if (new Set(usableHeaders.map((header) => header.toLocaleLowerCase("vi-VN"))).size !== usableHeaders.length) {
+            throw new Error("File Excel có tên cột bị trùng.");
+          }
+
+          const rows: ExcelImportRow[] = [];
           worksheet.eachRow((row, rowNumber) => {
             if (rowNumber > MAX_EXCEL_IMPORT_ROWS + 1) {
               throw new Error(`File Excel vượt quá ${MAX_EXCEL_IMPORT_ROWS} dòng dữ liệu.`);
             }
             if (rowNumber > 1) {
-              const rowValues = Array.isArray(row.values) ? row.values.slice(1) : [];
-              rows.push(rowValues);
+              const item: ExcelImportRow = {};
+              let hasValue = false;
+              headers.forEach((header, col) => {
+                if (!header) return;
+                const value = excelCellValue(row.getCell(col));
+                item[header] = value;
+                if (value !== null && String(value).trim() !== "") hasValue = true;
+              });
+              if (hasValue) rows.push(item);
             }
           });
           resolve(rows);

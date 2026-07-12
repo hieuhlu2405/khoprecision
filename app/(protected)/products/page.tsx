@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, TableSkeleton, ErrorBanner, LoadingInline } from "@/app/components/ui/Loading";
 import { exportToExcel, readExcel } from "@/lib/excel-utils";
-import { ArrowDown, ArrowUp, ArrowUpDown, Download, FileSpreadsheet, Filter, ListPlus, Plus, Save, Tags, Upload, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, FileSpreadsheet, Filter, ListPlus, Plus, Save, Tags, Upload, X } from "lucide-react";
 
 type Profile = { id: string; role: "admin" | "manager" | "staff"; department: string; };
 type Customer = { id: string; code: string; name: string; parent_customer_id: string | null };
@@ -21,6 +21,30 @@ type Product = {
   created_at: string;
   sap_code: string | null;
   external_sku: string | null;
+};
+type ProductImportAction = "create" | "update" | "unchanged" | "error";
+type ProductImportRow = {
+  rowNumber: number;
+  id: string | null;
+  sku: string;
+  name: string;
+  spec: string | null;
+  sapCode: string | null;
+  externalSku: string | null;
+  uom: string;
+  unitPrice: number | null;
+  customerId: string;
+  customerLabel: string;
+  isActive: boolean;
+  action: ProductImportAction;
+  errors: string[];
+};
+type ProductImportStatus = {
+  total: number;
+  create: number;
+  update: number;
+  unchanged: number;
+  errors: number;
 };
 
 export default function ProductsPage() {
@@ -59,9 +83,9 @@ export default function ProductsPage() {
 
   // excel import state
   const [importOpen, setImportOpen] = useState(false);
-  const [importData, setImportData] = useState<any[]>([]);
+  const [importData, setImportData] = useState<ProductImportRow[]>([]);
   const [importLoading, setImportLoading] = useState(false);
-  const [importStatus, setImportStatus] = useState<{ total: number; valid: number; duplicates: number } | null>(null);
+  const [importStatus, setImportStatus] = useState<ProductImportStatus | null>(null);
 
   // Initialize bulkLines once
   useEffect(() => {
@@ -654,12 +678,15 @@ export default function ProductsPage() {
   }
 
   function handleExportExcel() {
-    const data = finalFiltered.map((r, i) => {
+    // Luôn xuất toàn bộ danh sách, không phụ thuộc ô tìm kiếm hoặc bộ lọc đang bật.
+    // ID hệ thống là mốc an toàn để bước nhập sau cập nhật đúng dòng, kể cả khi đổi mã hàng.
+    const data = rows.map((r, i) => {
       const c = customers.find(x => x.id === r.customer_id);
       return {
         "STT": i + 1,
+        "ID hệ thống": r.id,
         "Khách hàng": c ? `${c.code} - ${c.name}` : r.customer_id,
-        "Mã nội bộ": r.sku,
+        "Mã hàng": r.sku,
         "Mã SAP": r.sap_code ?? "",
         "Mã hàng (NCC)": r.external_sku ?? "",
         "Tên hàng": r.name,
@@ -673,22 +700,10 @@ export default function ProductsPage() {
     exportToExcel(data, `Danh_sach_Ma_hang_${new Date().toLocaleDateString('sv-SE')}`, "Products");
   }
 
-  function downloadTemplate() {
-    const data = [
-      {
-        "Mã hàng": "ABC-123",
-        "Tên hàng": "Tên sản phẩm mẫu",
-        "Kích thước (MM)": "100x200",
-        "ĐƠN VỊ TÍNH": "PCS",
-        "Đơn giá": 50000,
-        "Khách hàng": customers[0] ? `${customers[0].code} - ${customers[0].name}` : "Chọn mã khách hàng mẫu"
-      }
-    ];
-    exportToExcel(data, "Mau_nhap_Ma_hang", "Template");
-  }
-
   async function handleImportFile(file: File) {
     setError("");
+    setImportData([]);
+    setImportStatus(null);
     setImportLoading(true);
     try {
       const json = await readExcel(file);
@@ -696,27 +711,110 @@ export default function ProductsPage() {
         setError("File Excel trống hoặc không đúng định dạng.");
         return;
       }
-      setImportData(json);
 
-      // Simple validation & duplicate detection
-      let valid = 0;
-      let duplicates = 0;
-      const existingSkus = new Set(rows.map(r => r.sku.toLowerCase()));
-      const seenInFile = new Set();
-
-      for (const row of json) {
-        const sku = String(row["Mã hàng"] || "").trim();
-        const name = String(row["Tên hàng"] || "").trim();
-        if (sku && name) {
-          if (existingSkus.has(sku.toLowerCase()) || seenInFile.has(sku.toLowerCase())) {
-            duplicates++;
-          } else {
-            valid++;
-            seenInFile.add(sku.toLowerCase());
-          }
+      const text = (value: unknown) => String(value ?? "").trim();
+      const valueFrom = (row: Record<string, unknown>, ...names: string[]) => {
+        for (const name of names) {
+          if (Object.prototype.hasOwnProperty.call(row, name)) return row[name];
         }
-      }
-      setImportStatus({ total: json.length, valid, duplicates });
+        return null;
+      };
+      const normalize = (value: string) => value.trim().toLocaleLowerCase("vi-VN");
+      const existingById = new Map(rows.map(product => [product.id, product]));
+      const existingBySku = new Map(rows.map(product => [normalize(product.sku), product]));
+      const seenIds = new Set<string>();
+      const seenSkus = new Set<string>();
+
+      const parsed = json.map((raw, index): ProductImportRow => {
+        const errors: string[] = [];
+        const id = text(valueFrom(raw, "ID hệ thống")) || null;
+        const sku = text(valueFrom(raw, "Mã hàng", "Mã nội bộ"));
+        const name = text(valueFrom(raw, "Tên hàng"));
+        const spec = text(valueFrom(raw, "Kích thước (MM)", "Kích thước")) || null;
+        const sapCode = text(valueFrom(raw, "Mã SAP")) || null;
+        const externalSku = text(valueFrom(raw, "Mã hàng (NCC)", "Mã NCC")) || null;
+        const uom = text(valueFrom(raw, "ĐƠN VỊ TÍNH", "Đơn vị tính")) || "PCS";
+        const customerLabel = text(valueFrom(raw, "Khách hàng"));
+        const priceRaw = valueFrom(raw, "Đơn giá");
+        const priceText = text(priceRaw).replace(/[\s,]/g, "");
+        const unitPrice = priceText === "" ? null : Number(priceText);
+        const existing = id ? existingById.get(id) : undefined;
+
+        if (!sku) errors.push("Thiếu Mã hàng");
+        if (!name) errors.push("Thiếu Tên hàng");
+        if (priceText !== "" && (!Number.isFinite(unitPrice) || Number(unitPrice) < 0)) errors.push("Đơn giá không hợp lệ");
+        if (id && !existing) errors.push("ID hệ thống không tồn tại");
+        if (id && seenIds.has(id)) errors.push("ID hệ thống bị lặp trong file");
+        if (id) seenIds.add(id);
+
+        const skuKey = normalize(sku);
+        const productWithSku = skuKey ? existingBySku.get(skuKey) : undefined;
+        if (skuKey && seenSkus.has(skuKey)) errors.push("Mã hàng bị lặp trong file");
+        if (skuKey) seenSkus.add(skuKey);
+        if (!id && productWithSku) errors.push("Mã hàng đã tồn tại; hãy dùng file Xuất Excel để sửa");
+        if (id && productWithSku && productWithSku.id !== id) errors.push("Mã hàng đang thuộc một sản phẩm khác");
+
+        const customerMatches = allCustomers.filter(customer => {
+          const label = `${customer.code} - ${customer.name}`;
+          return [customer.code, customer.name, label].some(value => normalize(value) === normalize(customerLabel));
+        });
+        const parentMatches = customerMatches.filter(customer => !customer.parent_customer_id);
+        if (!customerLabel) errors.push("Thiếu Khách hàng");
+        else if (parentMatches.length === 0) errors.push("Không tìm thấy khách hàng mẹ phù hợp");
+        else if (parentMatches.length > 1) errors.push("Khách hàng không rõ ràng");
+        const customerId = parentMatches[0]?.id ?? "";
+
+        const statusText = normalize(text(valueFrom(raw, "Trạng thái")));
+        const activeValues = new Set(["hoạt động", "active", "1", "true", "yes"]);
+        const inactiveValues = new Set(["ngừng hđ", "ngừng hoạt động", "inactive", "0", "false", "no"]);
+        let isActive = existing?.is_active ?? true;
+        if (statusText) {
+          if (activeValues.has(statusText)) isActive = true;
+          else if (inactiveValues.has(statusText)) isActive = false;
+          else errors.push("Trạng thái không hợp lệ");
+        }
+
+        let action: ProductImportAction = errors.length ? "error" : existing ? "update" : "create";
+        if (existing && errors.length === 0) {
+          const unchanged = existing.sku === sku
+            && existing.name === name
+            && (existing.spec ?? null) === spec
+            && (existing.sap_code ?? null) === sapCode
+            && (existing.external_sku ?? null) === externalSku
+            && existing.uom === uom
+            && (existing.unit_price ?? null) === unitPrice
+            && existing.customer_id === customerId
+            && existing.is_active === isActive;
+          if (unchanged) action = "unchanged";
+        }
+
+        return {
+          rowNumber: index + 2,
+          id,
+          sku,
+          name,
+          spec,
+          sapCode,
+          externalSku,
+          uom,
+          unitPrice: Number.isFinite(unitPrice) ? unitPrice : null,
+          customerId,
+          customerLabel,
+          isActive,
+          action,
+          errors,
+        };
+      });
+
+      const status: ProductImportStatus = {
+        total: parsed.length,
+        create: parsed.filter(row => row.action === "create").length,
+        update: parsed.filter(row => row.action === "update").length,
+        unchanged: parsed.filter(row => row.action === "unchanged").length,
+        errors: parsed.filter(row => row.action === "error").length,
+      };
+      setImportData(parsed);
+      setImportStatus(status);
     } catch (err: any) {
       setError("Lỗi đọc file Excel: " + (err.message || "Không xác định"));
     } finally {
@@ -725,52 +823,38 @@ export default function ProductsPage() {
   }
 
   async function saveImportData() {
-    if (importData.length === 0) return;
+    if (!canEdit) {
+      showToast("Chỉ Admin được nhập hoặc sửa mã hàng bằng Excel.", "error");
+      return;
+    }
+    if (!importStatus || importData.length === 0 || importStatus.errors > 0) return;
+    const changedRows = importData.filter(row => row.action === "create" || row.action === "update");
+    if (changedRows.length === 0) {
+      showToast("File không có thay đổi cần lưu.", "info");
+      return;
+    }
+    const ok = await showConfirm({
+      message: `Xác nhận thêm ${importStatus.create} mã mới và sửa ${importStatus.update} mã cũ? Toàn bộ sẽ được lưu cùng một lần.`,
+      confirmLabel: "Xác nhận lưu",
+    });
+    if (!ok) return;
     setImportLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const existingSkus = new Set(rows.map(r => r.sku.toLowerCase()));
-      const payloads: any[] = [];
-      const seenInFile = new Set();
-
-      for (const row of importData) {
-        const sku = String(row["Mã hàng"] || "").trim();
-        const name = String(row["Tên hàng"] || "").trim();
-        const spec = String(row["Kích thước (MM)"] || "").trim();
-        const uom = String(row["ĐƠN VỊ TÍNH"] || "PCS").trim() || "PCS";
-        const price = row["Đơn giá"] ? Number(row["Đơn giá"]) : null;
-        const custLabel = String(row["Khách hàng"] || "").trim();
-
-        if (!sku || !name) continue;
-        if (existingSkus.has(sku.toLowerCase()) || seenInFile.has(sku.toLowerCase())) continue;
-
-        // Try to find customer by code from label e.g. "KHACH01 - Ten Khach"
-        let finalCustomerId = customers[0]?.id;
-        if (custLabel) {
-          const codePart = custLabel.split("-")[0].trim();
-          const target = customers.find(c => c.code === codePart || c.name === custLabel);
-          if (target) finalCustomerId = target.id;
-        }
-
-        payloads.push({
-          sku,
-          name,
-          spec: spec || null,
-          uom,
-          unit_price: price,
-          customer_id: finalCustomerId,
-          is_active: true
-        });
-        seenInFile.add(sku.toLowerCase());
-      }
-
-      if (payloads.length > 0) {
-        const { error } = await supabase.from("products").insert(payloads);
-        if (error) throw error;
-        showToast(`Đã nhập thành công ${payloads.length} mã hàng.`, "success");
-      } else {
-        showToast("Không có dữ liệu mới để nhập.", "info");
-      }
+      const payloads = changedRows.map(row => ({
+        id: row.id ?? crypto.randomUUID(),
+        sku: row.sku,
+        name: row.name,
+        spec: row.spec,
+        sap_code: row.sapCode,
+        external_sku: row.externalSku,
+        uom: row.uom,
+        unit_price: row.unitPrice,
+        customer_id: row.customerId,
+        is_active: row.isActive,
+      }));
+      const { error } = await supabase.from("products").upsert(payloads, { onConflict: "id" });
+      if (error) throw error;
+      showToast(`Đã thêm ${importStatus.create} mã mới và sửa ${importStatus.update} mã cũ.`, "success");
 
       setImportOpen(false);
       setImportData([]);
@@ -816,14 +900,12 @@ export default function ProductsPage() {
                Xóa tìm kiếm
              </button>
           )}
-          <button className="btn btn-secondary !bg-emerald-50 !text-emerald-700 !border-emerald-200 hover:!bg-emerald-100" onClick={downloadTemplate}>
-            <Download size={16} strokeWidth={2.4} />
-            Tải file mẫu
-          </button>
-          <button className="btn btn-secondary !bg-indigo-50 !text-indigo-700 !border-indigo-200 hover:!bg-indigo-100" onClick={() => { setImportOpen(true); setImportData([]); setImportStatus(null); }}>
-             <Upload size={16} strokeWidth={2.4} />
-             Nhập Excel
-          </button>
+          {canEdit && (
+            <button className="btn btn-secondary !bg-indigo-50 !text-indigo-700 !border-indigo-200 hover:!bg-indigo-100" onClick={() => { setImportOpen(true); setImportData([]); setImportStatus(null); setError(""); }}>
+               <Upload size={16} strokeWidth={2.4} />
+               Nhập Excel
+            </button>
+          )}
           <button onClick={openCreate} className="btn btn-primary">
             + Thêm mã hàng
           </button>
@@ -933,7 +1015,7 @@ export default function ProductsPage() {
       {/* Excel Import Modal */}
       {importOpen && (
         <div className="modal-overlay" style={{ zIndex: 1000 }}>
-          <div className="modal-box !max-w-2xl animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+          <div className="modal-box !max-w-4xl animate-in fade-in zoom-in-95 duration-200" style={{ maxHeight: "min(92dvh, 900px)", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                 <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
@@ -976,25 +1058,39 @@ export default function ProductsPage() {
 
               {importStatus && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
                       <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Tổng số dòng</div>
                       <div className="text-2xl font-black text-slate-800">{importStatus.total}</div>
                     </div>
                     <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-                      <div className="text-[10px] uppercase font-bold text-emerald-500 tracking-wider">Hợp lệ (Sẽ nhập)</div>
-                      <div className="text-2xl font-black text-emerald-600">{importStatus.valid}</div>
+                      <div className="text-[10px] uppercase font-bold text-emerald-500 tracking-wider">Thêm mới</div>
+                      <div className="text-2xl font-black text-emerald-600">{importStatus.create}</div>
                     </div>
-                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-100">
-                      <div className="text-[10px] uppercase font-bold text-amber-500 tracking-wider">Bị trùng (Sẽ bỏ qua)</div>
-                      <div className="text-2xl font-black text-amber-600">{importStatus.duplicates}</div>
+                    <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
+                      <div className="text-[10px] uppercase font-bold text-blue-500 tracking-wider">Sửa mã cũ</div>
+                      <div className="text-2xl font-black text-blue-600">{importStatus.update}</div>
+                    </div>
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                      <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Không đổi</div>
+                      <div className="text-2xl font-black text-slate-600">{importStatus.unchanged}</div>
+                    </div>
+                    <div className={`p-4 rounded-xl border ${importStatus.errors ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-100"}`}>
+                      <div className={`text-[10px] uppercase font-bold tracking-wider ${importStatus.errors ? "text-red-500" : "text-slate-400"}`}>Dòng lỗi</div>
+                      <div className={`text-2xl font-black ${importStatus.errors ? "text-red-600" : "text-slate-600"}`}>{importStatus.errors}</div>
                     </div>
                   </div>
 
+                  {importStatus.errors > 0 && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                      File chưa được phép lưu. Hãy sửa hết các dòng lỗi rồi chọn lại file.
+                    </div>
+                  )}
+
                   <div className="border border-slate-200 rounded-xl overflow-hidden">
                     <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase flex justify-between items-center">
-                       <span>Xem trước 5 dòng đầu tiên</span>
-                       <span className="text-brand">Vui lòng kiểm tra kỹ các tiêu đề cột</span>
+                       <span>Xem trước tối đa 20 dòng</span>
+                       <span className="text-brand">Chỉ lưu khi không còn dòng lỗi</span>
                     </div>
                     <div className="overflow-x-auto" style={{ maxHeight: 250 }}>
                       <table className="w-full text-xs text-left border-collapse">
@@ -1005,16 +1101,23 @@ export default function ProductsPage() {
                              <th className="p-3 font-bold text-slate-700">Tên hàng</th>
                              <th className="p-3 font-bold text-slate-700">Kích thước</th>
                              <th className="p-3 font-bold text-slate-700">Giá</th>
+                             <th className="p-3 font-bold text-slate-700">Kết quả</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {importData.slice(0, 5).map((row, i) => (
-                            <tr key={i} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                              <td className="p-3 text-slate-400 font-mono">{i + 1}</td>
-                              <td className="p-3 font-bold text-indigo-600">{String(row["Mã hàng"] || "")}</td>
-                              <td className="p-3 text-slate-600">{String(row["Tên hàng"] || "")}</td>
-                              <td className="p-3 text-slate-500 italic">{String(row["Kích thước (MM)"] || "")}</td>
-                              <td className="p-3 text-right font-medium text-slate-700">{row["Đơn giá"] ? Number(row["Đơn giá"]).toLocaleString() : ""}</td>
+                          {importData.slice(0, 20).map((row) => (
+                            <tr key={row.rowNumber} className={`border-b last:border-0 ${row.action === "error" ? "border-red-100 bg-red-50/60" : "border-slate-50 hover:bg-slate-50"}`}>
+                              <td className="p-3 text-slate-400 font-mono">{row.rowNumber}</td>
+                              <td className="p-3 font-bold text-indigo-600">{row.sku}</td>
+                              <td className="p-3 text-slate-600">{row.name}</td>
+                              <td className="p-3 text-slate-500 italic">{row.spec ?? ""}</td>
+                              <td className="p-3 text-right font-medium text-slate-700">{row.unitPrice == null ? "" : row.unitPrice.toLocaleString()}</td>
+                              <td className="p-3 min-w-40">
+                                {row.action === "create" && <span className="font-bold text-emerald-600">Thêm mới</span>}
+                                {row.action === "update" && <span className="font-bold text-blue-600">Sửa mã cũ</span>}
+                                {row.action === "unchanged" && <span className="font-bold text-slate-500">Không thay đổi</span>}
+                                {row.action === "error" && <span className="font-bold text-red-600">{row.errors.join("; ")}</span>}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1034,10 +1137,10 @@ export default function ProductsPage() {
                </button>
                <button 
                  onClick={saveImportData} 
-                 disabled={importLoading || !importStatus || importStatus.valid === 0}
+                 disabled={importLoading || !importStatus || importStatus.errors > 0 || (importStatus.create + importStatus.update) === 0}
                  className="btn btn-primary h-12 px-10 shadow-lg shadow-indigo-200"
                >
-                 {importLoading ? "Đang xử lý..." : `Xác nhận Import ${importStatus?.valid ?? 0} mã hàng`}
+                 {importLoading ? "Đang xử lý..." : `Lưu ${importStatus ? importStatus.create + importStatus.update : 0} thay đổi`}
                </button>
             </div>
           </div>
