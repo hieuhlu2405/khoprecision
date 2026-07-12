@@ -8,7 +8,7 @@ import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { Pagination } from "@/app/components/ui/Pagination";
-import { ArrowUpDown, Check, Download, Filter, Flag, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { ArrowUpDown, Check, FileSpreadsheet, Filter, Flag, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -709,7 +709,7 @@ export default function InventoryOpeningBalancesPage() {
         </div>
         <div className="toolbar ml-auto">
           <button className="btn btn-secondary" onClick={handleExportExcel}>
-            <Download size={16} strokeWidth={2.5} />
+            <FileSpreadsheet size={16} strokeWidth={2.4} />
             <span className="hidden sm:inline">Xuất Excel</span>
           </button>
           {canDelete && qPeriod && (

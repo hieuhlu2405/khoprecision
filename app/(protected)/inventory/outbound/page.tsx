@@ -9,7 +9,7 @@ import { exportToExcel } from "@/lib/excel-utils";
 import { formatDateVN, formatDateTimeVN, getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
-import { ArrowUpDown, Edit3, Filter, Save, Search, Trash2, Wrench, X } from "lucide-react";
+import { ArrowUpDown, Edit3, FileSpreadsheet, Filter, Save, Search, Trash2, Wrench, X } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -967,7 +967,7 @@ export default function InventoryOutboundPage() {
             </button>
           )}
           <button className="btn btn-secondary" onClick={handleExportExcel}>
-             XUẤT EXCEL
+             <FileSpreadsheet size={16} strokeWidth={2.4} /> XUẤT EXCEL
           </button>
         </div>
       </header>

@@ -1796,7 +1796,7 @@ export default function DeliveryPlanPage() {
             className="btn h-10 px-5 rounded-xl font-black text-xs tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-100 border-none transition-all disabled:opacity-60"
           >
             <span className="inline-flex items-center gap-2">
-              <FileSpreadsheet className="h-4 w-4" strokeWidth={2.35} />
+              <FileSpreadsheet size={16} strokeWidth={2.4} />
               {exportingFuturePlan ? "ĐANG XUẤT..." : "XUẤT KẾ HOẠCH TỔNG"}
             </span>
           </button>

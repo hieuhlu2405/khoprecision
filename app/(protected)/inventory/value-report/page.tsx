@@ -11,7 +11,7 @@ import { useDebounce } from "@/app/hooks/useDebounce";
 import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
-import { AlertTriangle, ArrowUpDown, BarChart3, CalendarDays, ClipboardList, Download, Filter, Package, PlusCircle, Repeat2, Search, Snowflake, Tags, Target, TrendingDown, Trophy, User, Wallet, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, BarChart3, CalendarDays, ClipboardList, FileSpreadsheet, Filter, Package, PlusCircle, Repeat2, Search, Snowflake, Tags, Target, TrendingDown, Trophy, User, Wallet, XCircle } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -1634,7 +1634,7 @@ export default function InventoryValueReportPage() {
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
             <button className="btn btn-outline" onClick={handleExport} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Download size={16} strokeWidth={2.4} />
+              <FileSpreadsheet size={16} strokeWidth={2.4} />
               Xuất Excel
             </button>
             <button className="btn btn-primary" onClick={closeReport} disabled={closing || loading || productData.length === 0}>

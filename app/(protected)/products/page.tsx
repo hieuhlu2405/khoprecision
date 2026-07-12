@@ -903,7 +903,7 @@ export default function ProductsPage() {
           {canEdit && (
             <button className="btn btn-secondary !bg-indigo-50 !text-indigo-700 !border-indigo-200 hover:!bg-indigo-100" onClick={() => { setImportOpen(true); setImportData([]); setImportStatus(null); setError(""); }}>
                <Upload size={16} strokeWidth={2.4} />
-               Nhập Excel
+               Tải lên Excel
             </button>
           )}
           <button onClick={openCreate} className="btn btn-primary">

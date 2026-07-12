@@ -11,7 +11,7 @@ import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
-import { ArrowUpDown, BarChart3, ClipboardList, Filter, RefreshCw } from "lucide-react";
+import { ArrowUpDown, BarChart3, ClipboardList, FileSpreadsheet, Filter, RefreshCw } from "lucide-react";
 
 
 /* ------------------------------------------------------------------ */
@@ -1302,7 +1302,7 @@ export default function InventoryAgingReportPage() {
             disabled={loading || (reportMode === "current" ? displayDetailData.length === 0 : compareAgingData.length === 0)}
             className="btn btn-secondary"
           >
-            <BarChart3 size={16} strokeWidth={2.5} style={{ marginRight: 6 }} />
+            <FileSpreadsheet size={16} strokeWidth={2.4} />
             Xuất Excel
           </button>
           <button
