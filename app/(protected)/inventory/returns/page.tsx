@@ -921,7 +921,7 @@ export default function ReturnedGoodsPage() {
 
           <div className="flex items-center gap-2">
             <button onClick={handleExportExcel} className="btn btn-secondary h-11 px-5 shadow-sm">
-              <FileSpreadsheet size={16} strokeWidth={2.5} className="mr-2" /> Xuất Excel
+              <FileSpreadsheet size={16} strokeWidth={2.4} /> Xuất Excel
             </button>
             {canCreate && (
               <button 

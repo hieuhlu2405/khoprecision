@@ -1,5 +1,18 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-13 - Nhap/Xuat Excel Ma hang an toan
+
+- Da sua trang `app/(protected)/products/page.tsx`: bo nut Tai file mau; nut Xuat Excel luon xuat toan bo ma hang, khong bi anh huong bo loc/tim kiem.
+- File xuat co `ID he thong` lam moc cap nhat dung ma cu, dong them moi de trong ID; ten cot xuat va nhap da thong nhat.
+- Da sua `lib/excel-utils.ts` de doc dong tieu de Excel thanh dung ten cot; file `.xlsx/.xlsm` van bi gioi han 5MB va 5.000 dong.
+- Nhap Excel chi hien cho Admin. Man xem truoc tach ro: them moi, sua ma cu, khong thay doi, dong loi.
+- Neu co bat ky dong loi nao thi khoa nut Luu; khong tu gan khach hang dau tien. Thieu/sai khach hang, ID khong ton tai, ma trung, gia am/sai, trang thai sai deu bi bao ro.
+- Khi xac nhan, tat ca dong them/sua duoc gui trong mot lenh `upsert`; neu mot dong bi database tu choi thi ca lenh khong duoc luu nua chung.
+- Khong hard delete, khong sua SQL/database, khong doi giao dich kho hay cach tinh ton.
+- `npm run build` da pass. ESLint rieng 2 file van bao cac loi `any`/warning cu cua file lon; build/TypeScript pass.
+- Nhanh phu: `codex/product-excel-safe-import`. Can test tren Vercel: xuat file, sua 1 ma cu, them 1 ma moi, thu 1 dong sai khach hang (phai bi khoa), sau do dung file dung va xac nhan.
+- Khong test mobile bang browser/screenshot theo yeu cau chu du an.
+
 ## Cap nhat 2026-07-13 - Mau phieu giao hang theo Vendor va in A4
 
 - Da sua mau `maupgh.xlsx` va `public/templates/maupgh.xlsx`: o G8 co chu 13, dong tieu de A15:H15 in dam, giu bo cuc phiếu.

@@ -190,7 +190,7 @@ export default function VehiclesReportPage() {
             onChange={e => setMonth(e.target.value)}
           />
           <button onClick={doExport} className="btn bg-emerald-600 hover:bg-emerald-700 text-white font-black tracking-widest text-[11px] border-none shadow-lg shadow-emerald-200">
-             <FileSpreadsheet size={16} strokeWidth={2.5} /> XUẤT EXCEL THÁNG
+             <FileSpreadsheet size={16} strokeWidth={2.4} /> XUẤT EXCEL THÁNG
           </button>
         </div>
       </div>

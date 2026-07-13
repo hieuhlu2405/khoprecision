@@ -11,7 +11,7 @@ import { useDebounce } from "@/app/hooks/useDebounce";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
-import { ArrowUpDown, BarChart3, Camera, Download, Eye, Filter, Package, Rocket, Upload, X, Zap } from "lucide-react";
+import { ArrowUpDown, BarChart3, Camera, Download, Eye, FileSpreadsheet, Filter, Package, Rocket, Upload, X, Zap } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -731,7 +731,7 @@ export default function InventoryReportPage() {
         </div>
         <div className="toolbar ml-auto flex gap-3">
           <button className="btn btn-ghost btn-sm" onClick={handleExportExcel}>
-            <Download size={16} strokeWidth={2.5} /> 
+            <FileSpreadsheet size={16} strokeWidth={2.4} />
             Xuất Excel
           </button>
           
