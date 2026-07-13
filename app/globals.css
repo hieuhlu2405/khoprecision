@@ -1601,7 +1601,6 @@ main > div {
   }
 
   .delivery-mobile-mode .page-header,
-  .delivery-mobile-mode .delivery-plan-zoom-bar,
   .delivery-mobile-mode .page-content > div > .p-4.bg-slate-50.border-t {
     display: none !important;
   }
@@ -1609,10 +1608,6 @@ main > div {
   .delivery-mobile-mode .delivery-mobile-filter-strip {
     margin-top: 0;
     padding-bottom: 6px;
-  }
-
-  .delivery-mobile-mode .delivery-mobile-filter-strip button:not(:first-child) {
-    display: none;
   }
 
   .delivery-mobile-mode .page-content {
@@ -1625,18 +1620,19 @@ main > div {
 
   .delivery-mobile-mode .delivery-plan-table-scroll {
     min-height: 160px;
-    max-height: calc(100dvh - 205px) !important;
+    max-height: calc(100dvh - 260px) !important;
     border-radius: 8px;
   }
 
-  .delivery-mobile-plan-table .delivery-th-actions,
-  .delivery-mobile-plan-table th > div[onmousedown] {
+  .delivery-mobile-plan-table .delivery-th-resizer {
     display: none !important;
   }
 
   .delivery-mobile-plan-table th {
     padding-top: 8px !important;
     padding-bottom: 8px !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
   }
 
   .delivery-mobile-plan-table input[data-plan-row-index] {

@@ -198,7 +198,8 @@ function resolveDeliveryNote(
 }
 
 const TABLE_MIN_WIDTH = 1790; // Total width of all columns sum
-const MOBILE_PLAN_TABLE_WIDTH = 608;
+const MOBILE_PLAN_TABLE_WIDTH = 1080;
+const MOBILE_PLAN_HEADER_HEIGHT = 72;
 const PLAN_TABLE_MIN_ZOOM = 0.55;
 const PLAN_TABLE_MAX_ZOOM = 1.35;
 
@@ -423,7 +424,7 @@ export default function DeliveryPlanPage() {
 
   useEffect(() => {
     const el = parentRef.current;
-    if (!el || mobilePlanModeActive) return;
+    if (!el || !mobilePlanModeActive) return;
 
     const handleTouchStart = (event: TouchEvent) => {
       if (event.touches.length !== 2) return;
@@ -1532,8 +1533,8 @@ export default function DeliveryPlanPage() {
     return rows;
   }, [displayProducts, plans, customers, colFilters, edits]);
 
-  const visibleDays = mobilePlanModeActive ? days.slice(0, 3) : days;
-  const effectivePlanTableZoom = mobilePlanModeActive ? 1 : planTableZoom;
+  const visibleDays = days;
+  const effectivePlanTableZoom = mobilePlanModeActive ? planTableZoom : 1;
   const effectiveTableWidth = mobilePlanModeActive ? MOBILE_PLAN_TABLE_WIDTH : TABLE_MIN_WIDTH;
   const mobileDetailRow = mobileDetailRowId ? tableRows.find(row => row.id === mobileDetailRowId) ?? null : null;
 
@@ -1542,6 +1543,7 @@ export default function DeliveryPlanPage() {
     getScrollElement: () => parentRef.current,
     estimateSize: () => mobilePlanModeActive ? 72 : 56,
     measureElement: element => element.getBoundingClientRect().height / effectivePlanTableZoom,
+    paddingStart: mobilePlanModeActive ? MOBILE_PLAN_HEADER_HEIGHT : 0,
     overscan: 10,
   });
 
@@ -1662,7 +1664,7 @@ export default function DeliveryPlanPage() {
         <div
           onMouseDown={startResizing}
           onDoubleClick={() => onResize(colKey, 150)}
-          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-500 transition-colors z-20"
+          className="delivery-th-resizer absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-500 transition-colors z-20"
         />
         {popupOpen && (
           <div className="absolute top-[calc(100%+8px)] left-0 z-50 animate-in fade-in slide-in-from-top-2 duration-200 shadow-2xl rounded-xl overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -1919,7 +1921,7 @@ export default function DeliveryPlanPage() {
       <div className="page-content">
         {activeTab === 'plan' ? (
           <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden flex flex-col">
-            <div className="delivery-plan-zoom-bar">
+            {mobilePlanModeActive && <div className="delivery-plan-zoom-bar">
               <button
                 type="button"
                 onClick={() => updatePlanTableZoom(current => current - 0.1)}
@@ -1958,7 +1960,7 @@ export default function DeliveryPlanPage() {
               >
                 {Math.round(planTableZoom * 100)}%
               </button>
-            </div>
+            </div>}
             <div
               ref={parentRef}
               className="data-table-wrap delivery-plan-table-scroll overflow-auto flex-1"

@@ -1,5 +1,14 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-13 - Fix tiep mobile Ke hoach giao hang sau test production
+
+- Chu du an test production va xac nhan dong dau van bi mo/nam sau header; da sua bang cach them khoang dem 72px vao chinh bo tinh vi tri dong khi bat Che do dien thoai, dong thoi ep header nen trang duc.
+- Da hien lai nut loc/sap xep tai header cot va giu cac nut loc nhanh tren thanh ngang mobile.
+- Thanh zoom % chi con hien trong Che do dien thoai; giao dien desktop luon 100% va khong con thanh zoom.
+- Che do dien thoai hien du 7 ngay, co the vuot ngang hoac thu nho de xem toan tuan.
+- Khong sua SQL/database, khong doi cach luu so luong, backlog hay xuat kho. `npm run build` da pass.
+- Theo yeu cau chu du an, AI khong dang nhap/test web. Can chu du an test lai tren production sau deploy: dong dau, loc, zoom va du 7 ngay.
+
 ## Cap nhat 2026-07-13 - Che do dien thoai Ke hoach giao hang
 
 - Da sua `app/(protected)/delivery-plan/page.tsx` va `app/globals.css`: them nut `Che do dien thoai`, chi hien tren man hinh nho; mac dinh tat, tai lai trang van ve giao dien binh thuong, desktop khong bi doi giao dien.
