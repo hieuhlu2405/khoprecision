@@ -198,6 +198,7 @@ function resolveDeliveryNote(
 }
 
 const TABLE_MIN_WIDTH = 1790; // Total width of all columns sum
+const MOBILE_PLAN_TABLE_WIDTH = 608;
 const PLAN_TABLE_MIN_ZOOM = 0.55;
 const PLAN_TABLE_MAX_ZOOM = 1.35;
 
@@ -392,6 +393,22 @@ export default function DeliveryPlanPage() {
   const pinchZoomRef = useRef<{ startDistance: number; startZoom: number } | null>(null);
   const planTableZoomRef = useRef(1);
   const [planTableZoom, setPlanTableZoom] = useState(1);
+  const [mobilePlanMode, setMobilePlanMode] = useState(false);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
+  const [mobileDetailRowId, setMobileDetailRowId] = useState<string | null>(null);
+  const mobilePlanModeActive = mobilePlanMode && isCompactViewport;
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 900px), (pointer: coarse) and (max-height: 500px)");
+    const apply = () => setIsCompactViewport(media.matches);
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, []);
+
+  useEffect(() => {
+    if (!mobilePlanModeActive) setMobileDetailRowId(null);
+  }, [mobilePlanModeActive]);
 
   const updatePlanTableZoom = useCallback((nextZoom: number | ((current: number) => number)) => {
     setPlanTableZoom(current => {
@@ -406,7 +423,7 @@ export default function DeliveryPlanPage() {
 
   useEffect(() => {
     const el = parentRef.current;
-    if (!el) return;
+    if (!el || mobilePlanModeActive) return;
 
     const handleTouchStart = (event: TouchEvent) => {
       if (event.touches.length !== 2) return;
@@ -438,7 +455,7 @@ export default function DeliveryPlanPage() {
       el.removeEventListener("touchend", handleTouchEnd);
       el.removeEventListener("touchcancel", handleTouchEnd);
     };
-  }, [updatePlanTableZoom]);
+  }, [mobilePlanModeActive, updatePlanTableZoom]);
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     if (typeof window !== "undefined") {
@@ -1515,12 +1532,22 @@ export default function DeliveryPlanPage() {
     return rows;
   }, [displayProducts, plans, customers, colFilters, edits]);
 
+  const visibleDays = mobilePlanModeActive ? days.slice(0, 3) : days;
+  const effectivePlanTableZoom = mobilePlanModeActive ? 1 : planTableZoom;
+  const effectiveTableWidth = mobilePlanModeActive ? MOBILE_PLAN_TABLE_WIDTH : TABLE_MIN_WIDTH;
+  const mobileDetailRow = mobileDetailRowId ? tableRows.find(row => row.id === mobileDetailRowId) ?? null : null;
+
   const rowVirtualizer = useVirtualizer({
     count: tableRows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 56,
+    estimateSize: () => mobilePlanModeActive ? 72 : 56,
+    measureElement: element => element.getBoundingClientRect().height / effectivePlanTableZoom,
     overscan: 10,
   });
+
+  useEffect(() => {
+    rowVirtualizer.measure();
+  }, [effectivePlanTableZoom, mobilePlanModeActive, rowVirtualizer]);
 
   const focusPlanCell = useCallback((rowIndex: number, dayIndex: number) => {
     const selector = `input[data-plan-row-index="${rowIndex}"][data-plan-day-index="${dayIndex}"]:not(:disabled)`;
@@ -1540,7 +1567,7 @@ export default function DeliveryPlanPage() {
 
     const nextRow = event.key === "ArrowUp" ? rowIndex - 1 : event.key === "ArrowDown" ? rowIndex + 1 : rowIndex;
     const nextDay = event.key === "ArrowLeft" ? dayIndex - 1 : event.key === "ArrowRight" ? dayIndex + 1 : dayIndex;
-    if (nextRow < 0 || nextRow >= tableRows.length || nextDay < 0 || nextDay >= days.length) return;
+    if (nextRow < 0 || nextRow >= tableRows.length || nextDay < 0 || nextDay >= visibleDays.length) return;
 
     event.preventDefault();
     if (focusPlanCell(nextRow, nextDay)) return;
@@ -1551,7 +1578,7 @@ export default function DeliveryPlanPage() {
         window.setTimeout(() => focusPlanCell(nextRow, nextDay), 40);
       }
     }, 0);
-  }, [days.length, focusPlanCell, rowVirtualizer, tableRows.length]);
+  }, [focusPlanCell, rowVirtualizer, tableRows.length, visibleDays.length]);
 
   const activeFilterCount = Object.keys(colFilters).length;
 
@@ -1565,11 +1592,11 @@ export default function DeliveryPlanPage() {
     }
   };
 
-  function ThCell({ label, colKey, sortable, w, align = "left", sticky = false, isToday = false, extra }: { label: string; colKey: string; sortable?: boolean; w?: string; align?: "left" | "right" | "center"; sticky?: boolean; isToday?: boolean; extra?: React.ReactNode }) {
+  function ThCell({ label, colKey, sortable, w, align = "left", sticky = false, stickyLeft = 0, isToday = false, extra }: { label: string; colKey: string; sortable?: boolean; w?: string; align?: "left" | "right" | "center"; sticky?: boolean; stickyLeft?: number; isToday?: boolean; extra?: React.ReactNode }) {
     const active = !!colFilters[colKey];
     const isSortTarget = sortCol === colKey;
     const popupOpen = openPopup === colKey;
-    const width = colWidths[colKey] || (w ? parseInt(w) : undefined);
+    const width = mobilePlanModeActive ? (w ? parseInt(w) : undefined) : (colWidths[colKey] || (w ? parseInt(w) : undefined));
     const thRef = useRef<HTMLTableCellElement>(null);
 
     const startResizing = (e: React.MouseEvent) => {
@@ -1590,7 +1617,7 @@ export default function DeliveryPlanPage() {
           minWidth: width ? `${width}px` : w || "80px",
           flexBasis: width ? `${width}px` : w,
           textAlign: align,
-          left: sticky ? 0 : undefined,
+          left: sticky ? stickyLeft : undefined,
           zIndex: sticky ? 41 : 40,
           background: "rgba(255,255,255,0.95)",
           backdropFilter: "blur(8px)",
@@ -1684,7 +1711,7 @@ export default function DeliveryPlanPage() {
   };
 
   return (
-    <motion.div className="page-root" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+    <motion.div className={`page-root ${mobilePlanModeActive ? "delivery-mobile-mode" : ""}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <div className="page-header bg-white/80 backdrop-blur-md z-[100] py-4 px-6 -mx-6 mb-8 border-b border-slate-200/60 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-slate-950 text-white flex items-center justify-center shadow-lg shadow-slate-200">
@@ -1806,6 +1833,17 @@ export default function DeliveryPlanPage() {
       <div className="delivery-mobile-filter-strip">
         <button
           type="button"
+          onClick={() => setMobilePlanMode(prev => {
+            if (!prev) setActiveTab("plan");
+            return !prev;
+          })}
+          className={mobilePlanModeActive ? "active" : ""}
+          aria-pressed={mobilePlanModeActive}
+        >
+          {mobilePlanModeActive ? "Thoát chế độ điện thoại" : "Chế độ điện thoại"}
+        </button>
+        <button
+          type="button"
           onClick={() => setOnlyScheduled(prev => !prev)}
           className={onlyScheduled ? "active" : ""}
         >
@@ -1827,6 +1865,56 @@ export default function DeliveryPlanPage() {
           </button>
         )}
       </div>
+
+      {mobilePlanModeActive && (
+        <div className="delivery-mobile-plan-toolbar">
+          <button
+            type="button"
+            onClick={() => {
+              const d = new Date(anchorDate);
+              d.setDate(d.getDate() - 7);
+              setAnchorDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+            }}
+            aria-label="7 ngày trước"
+          >
+            <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
+          </button>
+          <input
+            type="date"
+            value={anchorDate}
+            onChange={event => event.target.value && setAnchorDate(event.target.value)}
+            aria-label="Ngày bắt đầu"
+          />
+          <button type="button" onClick={() => setAnchorDate(getVNTimeStr())} className="delivery-mobile-today-btn">
+            Hôm nay
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const d = new Date(anchorDate);
+              d.setDate(d.getDate() + 7);
+              setAnchorDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+            }}
+            aria-label="7 ngày sau"
+          >
+            <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
+          </button>
+          {Object.keys(edits).length > 0 && (
+            <button type="button" onClick={() => setEdits({})} disabled={saving} className="delivery-mobile-cancel-btn">
+              Hủy
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !canEdit || Object.keys(edits).length === 0}
+            className="delivery-mobile-save-btn"
+          >
+            <Save className="h-4 w-4" strokeWidth={2.5} />
+            {saving ? "Đang lưu" : "Lưu"}
+          </button>
+        </div>
+      )}
 
       <div className="page-content">
         {activeTab === 'plan' ? (
@@ -1874,15 +1962,15 @@ export default function DeliveryPlanPage() {
             <div
               ref={parentRef}
               className="data-table-wrap delivery-plan-table-scroll overflow-auto flex-1"
-              style={{ maxHeight: "calc(100dvh - 260px)", position: 'relative' }}
+              style={{ position: 'relative' }}
             >
               <table
-                className="text-sm !border-separate !border-spacing-0 table-fixed"
-                style={{ width: TABLE_MIN_WIDTH, minWidth: TABLE_MIN_WIDTH, zoom: planTableZoom } as CSSProperties}
+                className={`text-sm !border-separate !border-spacing-0 table-fixed ${mobilePlanModeActive ? "delivery-mobile-plan-table" : ""}`}
+                style={{ width: effectiveTableWidth, minWidth: effectiveTableWidth, zoom: effectivePlanTableZoom } as CSSProperties}
               >
                 <thead className="sticky top-0 z-[60]">
-                  <tr style={{ display: 'flex', width: TABLE_MIN_WIDTH }}>
-                    <th style={{ width: '50px', minWidth: '50px', flexBasis: '50px', textAlign: 'center', position: 'sticky', top: 0, left: 0, zIndex: 62, background: 'white', borderBottom: '1px solid #e2e8f0', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="py-4 px-2 border-r border-slate-200/60">
+                  <tr style={{ display: 'flex', width: effectiveTableWidth }}>
+                    <th style={{ width: mobilePlanModeActive ? '44px' : '50px', minWidth: mobilePlanModeActive ? '44px' : '50px', flexBasis: mobilePlanModeActive ? '44px' : '50px', textAlign: 'center', position: 'sticky', top: 0, left: 0, zIndex: 62, background: 'white', borderBottom: '1px solid #e2e8f0', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="py-4 px-2 border-r border-slate-200/60">
                       <input
                         type="checkbox"
                         className="checkbox checkbox-primary checkbox-sm rounded cursor-pointer"
@@ -1904,17 +1992,28 @@ export default function DeliveryPlanPage() {
                         title="Chọn tất cả / Bỏ chọn tất cả"
                       />
                     </th>
-                    <ThCell label="Mã hàng" colKey="sku" sortable sticky w="180px" />
-                    <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="320px" />
-                    <ThCell label="Khách hàng" colKey="customer" sortable w="140px" align="center" />
-                    <ThCell label="LƯU Ý 1" colKey="note_today" sortable={false} w="150px" />
-                    <ThCell label="LƯU Ý 2" colKey="note_today_2" sortable={false} w="150px" />
-                    {days.map(d => (
+                    <ThCell
+                      label={mobilePlanModeActive ? "Mã hàng / Quy cách" : "Mã hàng"}
+                      colKey="sku"
+                      sortable
+                      sticky
+                      stickyLeft={mobilePlanModeActive ? 44 : 50}
+                      w={mobilePlanModeActive ? "210px" : "180px"}
+                    />
+                    {!mobilePlanModeActive && (
+                      <>
+                        <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="320px" />
+                        <ThCell label="Khách hàng" colKey="customer" sortable w="140px" align="center" />
+                        <ThCell label="LƯU Ý 1" colKey="note_today" sortable={false} w="150px" />
+                        <ThCell label="LƯU Ý 2" colKey="note_today_2" sortable={false} w="150px" />
+                      </>
+                    )}
+                    {visibleDays.map(d => (
                       <ThCell
                         key={d}
                         label={""}
                         colKey={d}
-                        w="100px"
+                        w={mobilePlanModeActive ? "118px" : "100px"}
                         align="center"
                         isToday={getVNTimeStr() === d}
                         extra={formatDate(d)}
@@ -1964,11 +2063,11 @@ export default function DeliveryPlanPage() {
                           position: 'absolute',
                           top: 0,
                           transform: `translateY(${virtualRow.start}px)`,
-                          minWidth: TABLE_MIN_WIDTH,
+                          minWidth: effectiveTableWidth,
                           display: 'flex'
                         }}
                       >
-                        <td className="py-2 px-2 border-r border-slate-100 text-center sticky left-0 z-40 bg-white group-hover:bg-brand/10 transition-colors flex items-center justify-center shrink-0 grow-0" style={{ width: '50px', flexBasis: '50px' }}>
+                        <td className="py-2 px-2 border-r border-slate-100 text-center sticky left-0 z-40 bg-white group-hover:bg-brand/10 transition-colors flex items-center justify-center shrink-0 grow-0" style={{ width: mobilePlanModeActive ? '44px' : '50px', flexBasis: mobilePlanModeActive ? '44px' : '50px' }}>
                           {canSelect && (
                             <input
                               type="checkbox"
@@ -1978,20 +2077,29 @@ export default function DeliveryPlanPage() {
                             />
                           )}
                         </td>
-                        <td className="py-2 px-4 border-r border-slate-100 sticky left-[50px] z-40 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)] shrink-0 grow-0" style={{ width: colWidths['sku'] || 180, flexBasis: colWidths['sku'] || 180 }}>
+                        <td className={`py-2 border-r border-slate-100 sticky z-40 bg-white group-hover:bg-brand/10 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.02)] shrink-0 grow-0 ${mobilePlanModeActive ? "left-[44px] px-2" : "left-[50px] px-4"}`} style={{ width: mobilePlanModeActive ? 210 : (colWidths['sku'] || 180), flexBasis: mobilePlanModeActive ? 210 : (colWidths['sku'] || 180) }}>
                           <div className="font-black text-black tracking-wider text-[15px] break-all uppercase" style={{ color: '#000000' }}>{p.sku}</div>
+                          {mobilePlanModeActive && (
+                            <>
+                              <div className="delivery-mobile-product-spec" title={`${p.name} ${p.spec || ""}`}>{p.name} {p.spec || ""}</div>
+                              <div className="delivery-mobile-product-meta">
+                                <span>{c?.code || "Chưa có khách"}</span>
+                                <button type="button" onClick={() => setMobileDetailRowId(row.id)}>Lưu ý</button>
+                              </div>
+                            </>
+                          )}
                         </td>
-                        <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0 overflow-hidden" style={{ width: colWidths['name'] || 320, flexBasis: colWidths['name'] || 320 }}>
+                        {!mobilePlanModeActive && <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0 overflow-hidden" style={{ width: colWidths['name'] || 320, flexBasis: colWidths['name'] || 320 }}>
                           <div className="text-slate-900 font-bold text-[14px] leading-tight truncate" title={p.name}>{p.name}</div>
                           <div className="text-[10px] text-slate-900 font-bold uppercase tracking-wider mt-0.5 truncate">{p.spec || ""}</div>
-                        </td>
-                        <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0 flex items-center justify-center relative group/cust" style={{ width: colWidths['customer'] || 140, flexBasis: colWidths['customer'] || 140 }}>
+                        </td>}
+                        {!mobilePlanModeActive && <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0 flex items-center justify-center relative group/cust" style={{ width: colWidths['customer'] || 140, flexBasis: colWidths['customer'] || 140 }}>
                           {c ? (
                             <span className="inline-flex items-center px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-wider truncate" title={c.code}>{c.code}</span>
                           ) : <span className="text-slate-300 text-[10px]">–</span>}
                           {!isParentRow && <div className="text-[8px] bg-indigo-50 text-indigo-500 rounded px-1 absolute top-1 -left-1 font-black uppercase shadow-sm rotate-[-9deg]">Vendor</div>}
-                        </td>
-                        <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today'] || 150, flexBasis: colWidths['note_today'] || 150 }}>
+                        </td>}
+                        {!mobilePlanModeActive && <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today'] || 150, flexBasis: colWidths['note_today'] || 150 }}>
                           {(() => {
                             const today = days[0];
                             const plan = plans.find(x => x.product_id === p.id && x.plan_date === today && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
@@ -2010,8 +2118,8 @@ export default function DeliveryPlanPage() {
                               />
                             );
                           })()}
-                        </td>
-                        <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today_2'] || 150, flexBasis: colWidths['note_today_2'] || 150 }}>
+                        </td>}
+                        {!mobilePlanModeActive && <td className="py-2 px-4 border-r border-slate-100 shrink-0 grow-0" style={{ width: colWidths['note_today_2'] || 150, flexBasis: colWidths['note_today_2'] || 150 }}>
                           {(() => {
                             const today = days[0];
                             const plan = plans.find(x => x.product_id === p.id && x.plan_date === today && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
@@ -2030,8 +2138,8 @@ export default function DeliveryPlanPage() {
                               />
                             );
                           })()}
-                        </td>
-                        {days.map((d, dayIndex) => {
+                        </td>}
+                        {visibleDays.map((d, dayIndex) => {
                           const plan = plans.find(x => x.product_id === p.id && x.plan_date === d && (row.deliveryCustomerId ? x.delivery_customer_id === row.deliveryCustomerId : x.delivery_customer_id === null));
                           const editData = edits[`${p.id}_${row.deliveryCustomerId || "null"}_${d}`];
                           const actualQty = plan?.actual_qty || 0;
@@ -2043,7 +2151,7 @@ export default function DeliveryPlanPage() {
                           const hasNote = !!(editData?.note ?? plan?.note);
                           const progressPct = plannedQty > 0 ? Math.min(100, Math.round((actualQty / plannedQty) * 100)) : 0;
                           const hasPartialShipment = actualQty > 0 && !isDone;
-                          const colW = colWidths[d] || 100;
+                          const colW = mobilePlanModeActive ? 118 : (colWidths[d] || 100);
                           const disabled = !canEditDate(d);
 
                           // Check if modified in the last 4 hours
@@ -2286,13 +2394,69 @@ export default function DeliveryPlanPage() {
         )}
       </div>
 
+      {mobilePlanModeActive && mobileDetailRow && (() => {
+        const row = mobileDetailRow;
+        const p = row.p;
+        const date = days[0];
+        const customer = row.deliveryCustomerId
+          ? customers.find(item => item.id === row.deliveryCustomerId)
+          : customers.find(item => item.id === p.customer_id);
+        const plan = plans.find(item => item.product_id === p.id && item.plan_date === date && (row.deliveryCustomerId ? item.delivery_customer_id === row.deliveryCustomerId : item.delivery_customer_id === null));
+        const noteKey = `${p.id}_${row.deliveryCustomerId || "null"}`;
+        const editKey = `${noteKey}_${date}`;
+        const inheritedNotes = pastNotesMap.get(noteKey);
+        const noteValue = edits[editKey]?.note ?? resolveDeliveryNote(plan?.note, plan?.note_edited_at, inheritedNotes?.note, inheritedNotes?.note_edited_at);
+        const note2Value = edits[editKey]?.note2 ?? resolveDeliveryNote(plan?.note_2, plan?.note_2_edited_at, inheritedNotes?.note_2, inheritedNotes?.note_2_edited_at);
+        const disabled = !canEditDate(date);
+
+        return (
+          <div className="delivery-mobile-note-overlay" onClick={() => setMobileDetailRowId(null)}>
+            <div className="delivery-mobile-note-sheet" onClick={event => event.stopPropagation()}>
+              <div className="delivery-mobile-note-header">
+                <div>
+                  <strong>{p.sku}</strong>
+                  <span>{p.name} {p.spec || ""}</span>
+                  <small>{customer?.code || "Chưa có khách hàng"} · {date.split("-").reverse().join("/")}</small>
+                </div>
+                <button type="button" onClick={() => setMobileDetailRowId(null)} aria-label="Đóng">
+                  <X className="h-5 w-5" strokeWidth={2.5} />
+                </button>
+              </div>
+              <label>
+                <span>Lưu ý 1</span>
+                <input
+                  type="text"
+                  value={noteValue}
+                  disabled={disabled}
+                  onChange={event => handleNoteChange(p.id, row.deliveryCustomerId, date, event.target.value)}
+                  placeholder={disabled ? "Không thể sửa ngày này" : "Nhập lưu ý..."}
+                />
+              </label>
+              <label>
+                <span>Lưu ý 2</span>
+                <input
+                  type="text"
+                  value={note2Value}
+                  disabled={disabled}
+                  onChange={event => handleNote2Change(p.id, row.deliveryCustomerId, date, event.target.value)}
+                  placeholder={disabled ? "Không thể sửa ngày này" : "Nhập lưu ý..."}
+                />
+              </label>
+              <button type="button" className="delivery-mobile-note-done" onClick={() => setMobileDetailRowId(null)}>
+                Xong
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       <AnimatePresence>
         {selectedPlanIds.size > 0 && activeTab === 'plan' && (
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-slate-300/50 border border-slate-200 px-8 py-4 flex items-center gap-6"
+            className="delivery-plan-selection-bar fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-slate-300/50 border border-slate-200 px-8 py-4 flex items-center gap-6"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">

@@ -630,6 +630,7 @@ input, select, textarea, button {
 }
 
 .delivery-plan-table-scroll {
+  max-height: calc(100dvh - 260px);
   overscroll-behavior: contain;
   touch-action: pan-x pan-y;
   -webkit-overflow-scrolling: touch;
@@ -1404,4 +1405,267 @@ main > div {
   border-color: var(--brand);
   background: var(--brand-light);
   color: var(--brand);
+}
+
+.delivery-mobile-plan-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+  border: 1px solid var(--slate-200);
+  border-radius: 10px;
+  background: white;
+  box-shadow: var(--shadow-sm);
+  -webkit-overflow-scrolling: touch;
+}
+
+.delivery-mobile-plan-toolbar button,
+.delivery-mobile-plan-toolbar input {
+  flex: 0 0 auto;
+  min-height: 42px;
+  border: 1px solid var(--slate-200);
+  border-radius: 8px;
+  background: white;
+  color: var(--slate-700);
+  font-weight: 800;
+}
+
+.delivery-mobile-plan-toolbar button {
+  min-width: 42px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.delivery-mobile-plan-toolbar input {
+  width: 138px;
+  padding: 0 8px;
+  font-size: 16px;
+}
+
+.delivery-mobile-plan-toolbar .delivery-mobile-save-btn {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: white;
+}
+
+.delivery-mobile-plan-toolbar .delivery-mobile-save-btn:disabled {
+  border-color: var(--slate-200);
+  background: var(--slate-100);
+  color: var(--slate-400);
+}
+
+.delivery-mobile-plan-toolbar .delivery-mobile-cancel-btn {
+  color: #b91c1c;
+}
+
+.delivery-mobile-product-spec {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--slate-600);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delivery-mobile-product-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--slate-500);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.delivery-mobile-product-meta button {
+  min-height: 28px;
+  padding: 3px 8px;
+  border: 1px solid #c7d2fe;
+  border-radius: 7px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.delivery-mobile-note-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10020;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 8px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.delivery-mobile-note-sheet {
+  width: min(100%, 560px);
+  max-height: calc(100dvh - 16px);
+  padding: 16px;
+  overflow-y: auto;
+  border-radius: 16px 16px 10px 10px;
+  background: white;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.delivery-mobile-note-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.delivery-mobile-note-header > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.delivery-mobile-note-header strong {
+  font-size: 17px;
+}
+
+.delivery-mobile-note-header span,
+.delivery-mobile-note-header small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delivery-mobile-note-header span {
+  color: var(--slate-700);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.delivery-mobile-note-header small {
+  color: var(--slate-500);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.delivery-mobile-note-header button {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--slate-200);
+  border-radius: 9px;
+  background: white;
+}
+
+.delivery-mobile-note-sheet label {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--slate-600);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.delivery-mobile-note-sheet input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--slate-300);
+  border-radius: 9px;
+  font-size: 16px;
+}
+
+.delivery-mobile-note-done {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--brand);
+  color: white;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+@media (max-width: 900px), ((pointer: coarse) and (max-height: 500px)) {
+  .delivery-plan-table-scroll {
+    max-height: calc(100dvh - 260px) !important;
+  }
+
+  .delivery-mobile-mode .page-header,
+  .delivery-mobile-mode .delivery-plan-zoom-bar,
+  .delivery-mobile-mode .page-content > div > .p-4.bg-slate-50.border-t {
+    display: none !important;
+  }
+
+  .delivery-mobile-mode .delivery-mobile-filter-strip {
+    margin-top: 0;
+    padding-bottom: 6px;
+  }
+
+  .delivery-mobile-mode .delivery-mobile-filter-strip button:not(:first-child) {
+    display: none;
+  }
+
+  .delivery-mobile-mode .page-content {
+    gap: 8px;
+  }
+
+  .delivery-mobile-mode .page-content > div {
+    border-radius: 10px;
+  }
+
+  .delivery-mobile-mode .delivery-plan-table-scroll {
+    min-height: 160px;
+    max-height: calc(100dvh - 205px) !important;
+    border-radius: 8px;
+  }
+
+  .delivery-mobile-plan-table .delivery-th-actions,
+  .delivery-mobile-plan-table th > div[onmousedown] {
+    display: none !important;
+  }
+
+  .delivery-mobile-plan-table th {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+
+  .delivery-mobile-plan-table input[data-plan-row-index] {
+    min-height: 44px;
+    font-size: 16px !important;
+  }
+
+  .delivery-mobile-mode .delivery-plan-selection-bar {
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: calc(100vw - 16px);
+    max-width: 620px;
+    padding: 8px;
+    gap: 8px;
+    border-radius: 12px;
+  }
+
+  .delivery-mobile-mode .delivery-plan-selection-bar > div:first-child > div:first-child,
+  .delivery-mobile-mode .delivery-plan-selection-bar > .h-8 {
+    display: none;
+  }
+
+  .delivery-mobile-mode .delivery-plan-selection-bar > div:first-child {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .delivery-mobile-mode .delivery-plan-selection-bar button {
+    min-height: 42px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
 }

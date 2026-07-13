@@ -1,5 +1,14 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-13 - Che do dien thoai Ke hoach giao hang
+
+- Da sua `app/(protected)/delivery-plan/page.tsx` va `app/globals.css`: them nut `Che do dien thoai`, chi hien tren man hinh nho; mac dinh tat, tai lai trang van ve giao dien binh thuong, desktop khong bi doi giao dien.
+- Khi bat che do: an thanh cong cu desktop, hien thanh ngay/Luu gon, gop ma hang + quy cach + khach hang, hien 3 ngay de o nhap du lon, va mo `Luu y` bang khung rieng.
+- Da sua loi 1-2 dong dau bi header che khi bang thu nho: bo sai lech giua muc zoom va cach tinh vi tri dong, dong thoi giu Ke hoach giao hang trong vung cuon rieng tren dien thoai ngang.
+- Khong sua SQL/database, khong xoa du lieu, khong doi RPC/cach luu so luong, backlog hay xuat kho.
+- `npm run build` da pass. Chu du an yeu cau khong de AI dang nhap/test web; vi vay chua test mobile bang browser/screenshot.
+- Can test production sau Vercel deploy: 390px, 430px, 768px, 1366px; tren dien thoai bam bat/tat che do, nhap so luong, mo/sua Luu y, Huy/Luu, cuon ngang/doc va kiem tra dong dau khong bi header che.
+
 ## Cap nhat 2026-07-13 - Nhap/Xuat Excel Ma hang an toan
 
 - Da sua trang `app/(protected)/products/page.tsx`: bo nut Tai file mau; nut Xuat Excel luon xuat toan bo ma hang, khong bi anh huong bo loc/tim kiem.
