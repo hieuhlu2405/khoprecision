@@ -1,5 +1,13 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-13 - Bang mobile tu gian het chieu cao doc/ngang
+
+- Chu du an test iPhone man doc va phat hien bang chi cao khoang mot dong, bo phi phan lon khoang trong phia duoi.
+- Da sua `app/globals.css`: khi bat Che do dien thoai, toan bo trang dung khung cao theo `100dvh`; thanh loc, ngay va zoom giu kich thuoc can thiet, phan bang tu gian chiem toan bo chieu cao con lai.
+- Muc tieu: man doc hien duoc nhieu dong hon; man ngang van vua man hinh va cuon doc/ngang ben trong bang, khong lam cuon ngang ca trang.
+- Desktop va che do dien thoai dang tat khong bi anh huong. Khong sua SQL/database hay cach luu ke hoach.
+- Can chu du an test lai production tren iPhone doc/ngang sau deploy; AI khong dang nhap/test web theo yeu cau.
+
 ## Cap nhat 2026-07-13 - Fix tiep mobile Ke hoach giao hang sau test production
 
 - Chu du an test production va xac nhan dong dau van bi mo/nam sau header; da sua bang cach them khoang dem 72px vao chinh bo tinh vi tri dong khi bat Che do dien thoai, dong thoi ep header nen trang duc.
