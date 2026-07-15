@@ -1,5 +1,43 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-16 - Fix RLS khi Admin ngung tai khoan nhan vien
+
+- Nguyen nhan theo code: trang `app/(protected)/admin/users/page.tsx` cap nhat truc tiep `profiles.deleted_at`, trong khi policy `profiles_select_policy` moi chi cho thay dong `deleted_at IS NULL`; thao tac co the bi RLS chan voi loi `new row violates row-level security policy for table "profiles"`. Day la ket luan dua tren code, chua phai du lieu production.
+- Da tao SQL audit chi doc `supabase-sql/20260716_audit_profile_account_actions.sql`, DA CHAY LIVE. File chi doc policy/cot/trigger/quyen RPC va thong ke profile; khong sua database.
+- Chu du an da chay ca audit dau va audit mot bang `supabase-sql/20260716_audit_profile_account_actions_full.sql` tren live ngay 2026-07-16. Ket qua: 8 profile dang hien, 4 profile da ngung, 8 profile dang duyet/hoat dong; `profiles_select_policy` chi cho dong `deleted_at IS NULL`, `profiles_update_policy` dung `is_admin()`; cac cot can thiet, helper `is_admin()` va bang `super_admins` deu ton tai; 3 RPC moi dang `missing` dung voi trang thai chua cai fix. Audit chi `SELECT`, khong sua database.
+- SQL fix `supabase-sql/20260716_fix_admin_profile_deactivation.sql` DA CHAY LIVE ngay 2026-07-16, Supabase tra `Success. No rows returned`. SQL tao RPC `admin_deactivate_profiles_v1`, `admin_restore_profiles_v1`, `admin_list_deactivated_profiles_v1`; database tu kiem tra Admin dang hoat dong, chan tu ngung, chan ngung Super Admin, khoa dong khi xu ly va dam bao nhom tai khoan thanh cong toan bo hoac khong thay doi gi.
+- SQL hau kiem chi doc `supabase-sql/20260716_audit_profile_account_actions_postfix.sql` DA CHAY LIVE ngay 2026-07-16. Ket qua: ca 3 RPC co `anon=false`, `authenticated=true`; trigger `trg_profiles_guard_account_lifecycle_v1`, function guard va bang `profile_account_action_audit` deu ton tai; tong van 8 profile dang hien, 4 profile da ngung, 8 profile dang duyet/hoat dong. Ban cai backend khong lam doi trang thai profile ngoai y muon.
+- SQL ghi nhat ky ngung/khoi phuc gom tai khoan, ly do, nguoi thao tac, thoi gian; khoi phuc dua tai khoan ve `is_active=false`, `is_approved=false` de Admin phai duyet lai. Trigger moi chan doi `deleted_at` truc tiep, buoc web dung RPC backend.
+- SQL khong hard delete `auth.users`/`profiles`, khong xoa lich su nghiep vu, khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`. Co `ALTER TABLE`, `CREATE OR REPLACE FUNCTION`, `DROP TRIGGER`, `UPDATE public.profiles`; cac lenh nay tao hang rao/RPC va danh dau ngung-khoi phuc, khong xoa du lieu.
+- Da sua trang Admin users: doi `Xoa` thanh `Ngung`, bat buoc nhap ly do, ngung don/hang loat qua RPC, hien danh sach tai khoan da ngung va cho khoi phuc. Thong bao xac nhan noi ro lich su khong bi xoa.
+- `npm run build` va `node scripts/openclaw-pp-readonly.mjs --self-test` deu pass lai ngay 2026-07-16. Backend da cai va hau kiem live dat yeu cau. Chu du an da yeu cau dua toan bo worktree len `main`; sau khi Vercel deploy can test thao tac web bang tai khoan that. Chua test mobile bang browser/screenshot.
+- Thu tu test live: chay audit; xem ket qua policy/quyen; chay SQL fix; Admin ngung 1 staff, ngung nhieu staff, thu tu ngung chinh minh/Super Admin; dung session cua staff da ngung goi trang va RPC doc du lieu phai bi chan; khoi phuc tai khoan phai ve Cho duyet, chi truy cap lai sau khi Admin bam Duyet.
+
+## Cap nhat 2026-07-15 - OpenClaw tra cuu kho chi doc Buoc 1
+
+- Da tao CLI local `scripts/openclaw-pp-readonly.mjs` va huong dan `OPENCLAW_PP_READONLY.md`; khong tao/chay SQL, khong dang nhap production, khong commit/push.
+- CLI nap URL/anon key tu `.env.local`, tai khoan rieng tu `.env.openclaw.local`; tu choi secret/service role, admin, manager, super admin, tai khoan co quyen sua ke hoach, hoac tai khoan khong phai `staff/warehouse`.
+- Tra cuu theo ma, ten hoac quy cach; neu nhieu ma thi tra `needs_confirmation` va bat buoc hoi lai, khong tu chon. Ket qua gom ma, ten, quy cach, khach hang va ton; co tuy chon ke hoach/nguy co thieu 1 hoac 7 ngay. Chi hien ma active.
+- Logic moc ton duoc tach dung chung tai `lib/inventory-snapshot-bounds.mjs`; web va CLI cung dung mot ham `computeSnapshotBounds`. CLI chi goi RPC doc `inventory_calculate_product_stock_v1` va phan trang 1.000 dong co sap xep on dinh.
+- Da quet script: khong co `.insert()`, `.update()`, `.upsert()`, `.delete()`; 3 RPC con lai chi kiem tra quyen (`is_manager`, `is_admin`, `can_edit_delivery_plan`).
+- `node scripts/openclaw-pp-readonly.mjs --self-test` pass; `npm run build` pass. Chua test du lieu production vi chu du an chua cap tai khoan va yeu cau AI khong tu dang nhap.
+- Chu du an can tao tai khoan `staff`, phong ban `warehouse`, da duyet/dang hoat dong, khong nam trong super admin; sau do tu so sanh it nhat 3 ma voi trang Ton kho hien tai.
+- Fix cung ngay: CLI nay luon nap 2 file env theo thu muc repo `D:\pp`, khong theo thu muc hien tai; tranh OpenClaw chay tu workspace rieng roi bao thieu cau hinh. Self-test local pass sau fix; khong dang nhap production.
+- Chu du an da tao tai khoan OpenClaw `staff/warehouse`, cai skill `pp-kho-readonly` vao agent `main` va test qua Zalo thanh cong. Chu du an xac nhan 3 ma tra tu ClawBot khop trang Ton kho hien tai; cac ca ma gan giong, ma khong ton tai va tra 7 ngay da duoc di qua. Toc do Zalo hien khoang 15-20 giay, tam chap nhan va de task toi uu toc do lam sau. Model chinh da duoc yeu cau tra ve `openai/gpt-5.5`, `thinkingDefault=low`.
+- Dieu chinh theo yeu cau chu du an: tra cuu OpenClaw chi lay ma `is_active=true`; ma inactive mac dinh khong xuat hien va tra nhu khong tim thay. Ket qua bo `don_vi` va bo trang thai active/inactive. Khong sua SQL/database.
+- Chu du an da test lai qua Zalo: ma active tra dung va khong con hien don vi/trang thai; ma inactive tra nhu khong tim thay, khong lo thong tin ma inactive. Dieu chinh Buoc 1 da duoc xac nhan OK.
+
+## Cap nhat 2026-07-15 - OpenClaw tra cuu chi doc Buoc 2
+
+- Da mo rong `scripts/openclaw-pp-readonly.mjs` voi `--shortages 1|7` de liet ke tat ca ma active co nguy co thieu hom nay/7 ngay, dung cung cach tinh cua trang Canh bao thieu hang: con phai giao = `planned_qty + backlog_qty - actual_qty`, sau do tru dan vao ton hien tai theo tung ngay.
+- Da them `--plan-date YYYY-MM-DD` de tra ke hoach giao theo ngay; co the loc them ma hang hoac `--customer "ma/ten"`. Loc khach ho tro ca khach me va diem giao/vendor; neu khop nhieu ma/khach thi tra `needs_confirmation`, khong tu chon.
+- Ket qua ke hoach gom ke hoach goc, backlog, da giao, con phai giao; ket qua thieu gom ton hien tai, ngay thieu phat sinh va thieu luy ke. Chi lay ma hang `is_active=true`, khong bao don vi/trang thai.
+- Danh sach mac dinh toi da 20 dong, cho phep `--limit` tu 1 den 50 va co co bao da cat danh sach; tat ca query van phan trang 1.000 dong.
+- Khong tao/chay SQL, khong sua database/web, khong co luong ghi/xoa. Self-test local da bo sung cho tinh thieu, tong hop ke hoach, tham so ngay/khach hang.
+- CHUA test du lieu Buoc 2 tren production/Zalo; chu du an can test danh sach thieu hom nay, thieu 7 ngay, ke hoach mot ngay, loc khach hang va loc ma hang.
+- Da them skill chuan trong repo tai `openclaw-skills/pp-kho-readonly/SKILL.md` de copy vao workspace OpenClaw, tranh sua tay lam loi dinh dang/encoding.
+- Chu du an da test Zalo Buoc 2: danh sach thieu hom nay tra 42 ma, gioi han dung 20/42 va cau truc hien thi dat yeu cau; da di tiep cac ca thieu 7 ngay va ke hoach hom nay. Khi test loc ke hoach theo khach `YZ D`, OpenClaw dung lai vi tai khoan Codex bao het han muc, reset luc 00:53 GMT+7 ngay 2026-08-14. Day khong phai loi script kho/database. Can test lai loc khach hang va loc ma hang sau khi co model/provider hoat dong.
+
 ## Cap nhat 2026-07-13 - Bang mobile tu gian het chieu cao doc/ngang
 
 - Chu du an test iPhone man doc va phat hien bang chi cao khoang mot dong, bo phi phan lon khoang trong phia duoi.

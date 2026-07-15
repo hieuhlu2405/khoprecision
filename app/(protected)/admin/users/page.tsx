@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
-import { AlertTriangle, ShieldCheck, Trash2 } from "lucide-react";
+import { AlertTriangle, RotateCcw, ShieldCheck, UserMinus } from "lucide-react";
 
 type Role = "admin" | "manager" | "staff";
 type Dept = "sales" | "warehouse" | "production" | "purchasing" | "accounting";
@@ -19,6 +19,8 @@ type Profile = {
   is_approved: boolean;
   created_at: string;
   deleted_at: string | null;
+  last_action_reason?: string | null;
+  last_action_at?: string | null;
 };
 
 const ROLES: Role[] = ["admin", "manager", "staff"];
@@ -91,13 +93,16 @@ export default function AdminUsersPage() {
   const [me, setMe] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [rows, setRows] = useState<Profile[]>([]);
+  const [deactivatedRows, setDeactivatedRows] = useState<Profile[]>([]);
+  const [showDeactivated, setShowDeactivated] = useState(false);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string>("");
-  const [deletingId, setDeletingId] = useState<string>("");
+  const [deactivatingId, setDeactivatingId] = useState<string>("");
+  const [restoringId, setRestoringId] = useState<string>("");
   const [mounted, setMounted] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkDeactivating, setBulkDeactivating] = useState(false);
 
   async function load() {
     setError("");
@@ -114,14 +119,24 @@ export default function AdminUsersPage() {
 
       const { data: adminCheck } = await supabase.rpc("is_admin");
       setIsAdmin(adminCheck ?? false);
+      if (!adminCheck) {
+        setRows([]);
+        setDeactivatedRows([]);
+        return;
+      }
 
-      const { data, error: e2 } = await supabase
-        .from("profiles")
-        .select("*")
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
-      if (e2) throw e2;
-      setRows((data ?? []) as Profile[]);
+      const [activeResult, deactivatedResult] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("*")
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false }),
+        supabase.rpc("admin_list_deactivated_profiles_v1"),
+      ]);
+      if (activeResult.error) throw activeResult.error;
+      if (deactivatedResult.error) throw deactivatedResult.error;
+      setRows((activeResult.data ?? []) as Profile[]);
+      setDeactivatedRows((deactivatedResult.data ?? []) as Profile[]);
     } catch (err: any) {
       setError(err?.message ?? "Có lỗi xảy ra");
     } finally {
@@ -156,63 +171,138 @@ export default function AdminUsersPage() {
     }
   }
 
-  /* ---- Delete single ---- */
-  async function deleteRow(p: Profile) {
+  function requestReason(action: "ngừng" | "khôi phục", target: string): string | null {
+    const raw = window.prompt(
+      `${action === "ngừng" ? "Ngừng" : "Khôi phục"} ${target}\n\nNhập lý do (từ 3 đến 500 ký tự):`
+    );
+    if (raw === null) return null;
+    const reason = raw.trim();
+    if (reason.length < 3 || reason.length > 500) {
+      showToast("Lý do phải từ 3 đến 500 ký tự.", "error");
+      return null;
+    }
+    return reason;
+  }
+
+  /* ---- Deactivate single ---- */
+  async function deactivateRow(p: Profile) {
     if (p.id === me?.id) {
-      showToast("Không thể xóa tài khoản của chính mình!", "error");
+      showToast("Không thể tự ngừng tài khoản của chính mình!", "error");
       return;
     }
+    const displayName = p.full_name || p.id.slice(0, 8);
+    const reason = requestReason("ngừng", `tài khoản "${displayName}"`);
+    if (!reason) return;
     const ok = await showConfirm({
-      message: `Xóa tài khoản "${p.full_name || p.id.slice(0, 8)}"?\n\nNgười dùng sẽ mất quyền đăng nhập. Hành động này không thể hoàn tác.`,
-      confirmLabel: "Xóa tài khoản",
+      message: `Ngừng tài khoản "${displayName}"?\n\nNgười dùng sẽ bị chặn truy cập dữ liệu ngay. Lịch sử không bị xóa và Admin có thể khôi phục.`,
+      confirmLabel: "Ngừng tài khoản",
       danger: true,
     });
     if (!ok) return;
 
-    setDeletingId(p.id);
+    setDeactivatingId(p.id);
     try {
-      const { error } = await supabase.from("profiles").update({
-        deleted_at: new Date().toISOString()
-      }).eq("id", p.id);
+      const { error } = await supabase.rpc("admin_deactivate_profiles_v1", {
+        p_profile_ids: [p.id],
+        p_reason: reason,
+      });
       if (error) throw error;
       setRows((prev) => prev.filter((x) => x.id !== p.id));
+      setDeactivatedRows((prev) => [{
+        ...p,
+        is_active: false,
+        is_approved: false,
+        deleted_at: new Date().toISOString(),
+        last_action_reason: reason,
+        last_action_at: new Date().toISOString(),
+      }, ...prev]);
       setSelectedIds((prev) => { const s = new Set(prev); s.delete(p.id); return s; });
-      showToast(`Đã xóa tài khoản "${p.full_name || p.id.slice(0, 8)}"`, "success");
+      showToast(`Đã ngừng tài khoản "${displayName}"`, "success");
     } catch (err: any) {
-      showToast(err?.message ?? "Lỗi khi xóa", "error");
+      showToast(err?.message ?? "Lỗi khi ngừng tài khoản", "error");
     } finally {
-      setDeletingId("");
+      setDeactivatingId("");
     }
   }
 
-  /* ---- Bulk delete ---- */
-  async function bulkDelete() {
+  /* ---- Bulk deactivate ---- */
+  async function bulkDeactivate() {
     if (selectedIds.size === 0) return;
     const ids = Array.from(selectedIds);
     if (me && ids.includes(me.id)) {
-      showToast("Không thể xóa tài khoản của chính mình!", "error");
+      showToast("Không thể tự ngừng tài khoản của chính mình!", "error");
       return;
     }
+    const reason = requestReason("ngừng", `${ids.length} tài khoản đã chọn`);
+    if (!reason) return;
     const ok = await showConfirm({
-      message: `Xóa ${ids.length} tài khoản đã chọn?\n\nCác người dùng sẽ mất quyền đăng nhập. Hành động này không thể hoàn tác.`,
-      confirmLabel: `Xóa ${ids.length} tài khoản`,
+      message: `Ngừng ${ids.length} tài khoản đã chọn?\n\nTất cả tài khoản sẽ bị chặn truy cập cùng lúc. Nếu một tài khoản không hợp lệ thì không tài khoản nào bị thay đổi.`,
+      confirmLabel: `Ngừng ${ids.length} tài khoản`,
       danger: true,
     });
     if (!ok) return;
 
-    setBulkDeleting(true);
+    setBulkDeactivating(true);
     try {
-      const { error } = await supabase.from("profiles").update({
-        deleted_at: new Date().toISOString()
-      }).in("id", ids);
+      const { error } = await supabase.rpc("admin_deactivate_profiles_v1", {
+        p_profile_ids: ids,
+        p_reason: reason,
+      });
       if (error) throw error;
+      const now = new Date().toISOString();
+      const movedRows = rows
+        .filter((x) => ids.includes(x.id))
+        .map((x) => ({
+          ...x,
+          is_active: false,
+          is_approved: false,
+          deleted_at: now,
+          last_action_reason: reason,
+          last_action_at: now,
+        }));
       setRows((prev) => prev.filter((x) => !ids.includes(x.id)));
+      setDeactivatedRows((prev) => [...movedRows, ...prev]);
       setSelectedIds(new Set());
-      showToast(`Đã xóa ${ids.length} tài khoản.`, "success");
+      showToast(`Đã ngừng ${ids.length} tài khoản.`, "success");
     } catch (err: any) {
-      showToast(err?.message ?? "Lỗi khi xóa hàng loạt", "error");
+      showToast(err?.message ?? "Lỗi khi ngừng hàng loạt", "error");
     } finally {
-      setBulkDeleting(false);
+      setBulkDeactivating(false);
+    }
+  }
+
+  async function restoreRow(p: Profile) {
+    const displayName = p.full_name || p.id.slice(0, 8);
+    const reason = requestReason("khôi phục", `tài khoản "${displayName}"`);
+    if (!reason) return;
+    const ok = await showConfirm({
+      message: `Khôi phục tài khoản "${displayName}"?\n\nTài khoản sẽ trở lại danh sách ở trạng thái chờ duyệt và chưa thể truy cập dữ liệu.`,
+      confirmLabel: "Khôi phục",
+    });
+    if (!ok) return;
+
+    setRestoringId(p.id);
+    try {
+      const { error } = await supabase.rpc("admin_restore_profiles_v1", {
+        p_profile_ids: [p.id],
+        p_reason: reason,
+      });
+      if (error) throw error;
+      const restored: Profile = {
+        ...p,
+        is_active: false,
+        is_approved: false,
+        deleted_at: null,
+        last_action_reason: reason,
+        last_action_at: new Date().toISOString(),
+      };
+      setDeactivatedRows((prev) => prev.filter((x) => x.id !== p.id));
+      setRows((prev) => [restored, ...prev]);
+      showToast(`Đã khôi phục "${displayName}" về trạng thái chờ duyệt.`, "success");
+    } catch (err: any) {
+      showToast(err?.message ?? "Lỗi khi khôi phục tài khoản", "error");
+    } finally {
+      setRestoringId("");
     }
   }
 
@@ -275,19 +365,28 @@ export default function AdminUsersPage() {
           </div>
         </div>
 
-        {selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button
-            onClick={bulkDelete}
-            disabled={bulkDeleting}
+            onClick={() => setShowDeactivated((prev) => !prev)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg text-[13px] font-bold transition-all"
+          >
+            <RotateCcw size={16} strokeWidth={2.5} />
+            {showDeactivated ? "Ẩn tài khoản đã ngừng" : `Đã ngừng (${deactivatedRows.length})`}
+          </button>
+
+          {selectedIds.size > 0 && <button
+            onClick={bulkDeactivate}
+            disabled={bulkDeactivating}
             style={{
               padding: "8px 16px", background: "#dc2626", color: "white",
               border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600,
-              fontSize: 13, opacity: bulkDeleting ? 0.7 : 1,
+              fontSize: 13, opacity: bulkDeactivating ? 0.7 : 1,
             }}
+            className="inline-flex items-center gap-2"
           >
-            <Trash2 size={16} strokeWidth={2.5} /> {bulkDeleting ? "Đang xóa..." : `Xóa ${selectedIds.size} tài khoản đã chọn`}
-          </button>
-        )}
+            <UserMinus size={16} strokeWidth={2.5} /> {bulkDeactivating ? "Đang ngừng..." : `Ngừng ${selectedIds.size} tài khoản`}
+          </button>}
+        </div>
       </div>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError("")} />}
@@ -323,7 +422,7 @@ export default function AdminUsersPage() {
               const isMe = p.id === me?.id;
               const isSelected = selectedIds.has(p.id);
               const isSaving = savingId === p.id;
-              const isDeleting = deletingId === p.id;
+              const isDeactivating = deactivatingId === p.id;
               return (
                 <tr
                   key={p.id}
@@ -425,7 +524,7 @@ export default function AdminUsersPage() {
                       {!p.is_approved && (
                         <button
                           onClick={() => approveUser(p)}
-                          disabled={isSaving || isDeleting}
+                          disabled={isSaving || isDeactivating}
                           className="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 text-[11px] font-black uppercase tracking-widest shadow-sm rounded-lg transition-all disabled:opacity-50"
                         >
                           {isSaving ? "..." : "Duyệt"}
@@ -434,7 +533,7 @@ export default function AdminUsersPage() {
 
                       <button
                         onClick={() => saveRow(p)}
-                        disabled={isSaving || isDeleting}
+                        disabled={isSaving || isDeactivating}
                         className="px-3 py-1.5 bg-slate-900 text-white hover:bg-black text-[11px] font-black uppercase tracking-widest shadow-sm rounded-lg transition-all disabled:opacity-50"
                       >
                         {isSaving ? "..." : "Lưu"}
@@ -442,11 +541,11 @@ export default function AdminUsersPage() {
 
                       {!isMe && (
                         <button
-                          onClick={() => deleteRow(p)}
-                          disabled={isSaving || isDeleting || bulkDeleting}
+                          onClick={() => deactivateRow(p)}
+                          disabled={isSaving || isDeactivating || bulkDeactivating}
                           className="px-3 py-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-[11px] font-black uppercase tracking-widest shadow-sm rounded-lg transition-all disabled:opacity-50"
                         >
-                          {isDeleting ? "..." : "Xóa"}
+                          {isDeactivating ? "..." : "Ngừng"}
                         </button>
                       )}
                     </div>
@@ -466,9 +565,71 @@ export default function AdminUsersPage() {
         </table>
       </div>
 
+      {showDeactivated && (
+        <section style={{ marginTop: 28 }}>
+          <div className="flex items-center justify-between gap-3 flex-wrap" style={{ marginBottom: 12 }}>
+            <div>
+              <h2 style={{ margin: 0, color: "#0f172a", fontSize: 17, fontWeight: 800 }}>TÀI KHOẢN ĐÃ NGỪNG</h2>
+              <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 13 }}>
+                Được giữ lại để bảo vệ lịch sử. Khôi phục xong vẫn phải duyệt lại trước khi sử dụng.
+              </p>
+            </div>
+          </div>
+
+          <div className="data-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr className="bg-white/95 backdrop-blur-md">
+                  <ThCell label="ID" w="100px" />
+                  <ThCell label="Tên hiển thị" w="220px" />
+                  <ThCell label="Role" w="130px" />
+                  <ThCell label="Phòng ban" w="150px" />
+                  <ThCell label="Lý do ngừng" w="260px" />
+                  <ThCell label="Thời gian" w="180px" />
+                  <ThCell label="Hành động" align="center" w="130px" />
+                </tr>
+              </thead>
+              <tbody>
+                {deactivatedRows.map((p) => {
+                  const isRestoring = restoringId === p.id;
+                  return (
+                    <tr key={p.id} className="odd:bg-white even:bg-slate-50/30 hover:bg-brand/5 transition-colors">
+                      <td className="py-4 px-4 border-r border-slate-50 font-mono text-slate-400 text-[12px]">{p.id.slice(0, 8)}…</td>
+                      <td className="py-4 px-4 border-r border-slate-50 text-[14px] font-bold text-slate-900">{p.full_name || "Chưa đặt tên"}</td>
+                      <td className="py-4 px-4 border-r border-slate-50 text-[13px] text-slate-700">{ROLE_LABELS[p.role] ?? p.role}</td>
+                      <td className="py-4 px-4 border-r border-slate-50 text-[13px] text-slate-700">{DEPT_LABELS[p.department] ?? p.department}</td>
+                      <td className="py-4 px-4 border-r border-slate-50 text-[13px] text-slate-600">{p.last_action_reason || "Không có ghi chú cũ"}</td>
+                      <td className="py-4 px-4 border-r border-slate-50 text-slate-500 text-[12px] whitespace-nowrap">
+                        {mounted ? fmtDatetime(p.last_action_at || p.deleted_at) : "..."}
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <button
+                          onClick={() => restoreRow(p)}
+                          disabled={isRestoring || Boolean(deactivatingId) || bulkDeactivating}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 text-[11px] font-black uppercase tracking-widest shadow-sm rounded-lg transition-all disabled:opacity-50"
+                        >
+                          <RotateCcw size={14} strokeWidth={2.5} /> {isRestoring ? "..." : "Khôi phục"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {deactivatedRows.length === 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ ...tdStyle, textAlign: "center", padding: 28, color: "#94a3b8" }}>
+                      Chưa có tài khoản nào bị ngừng.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       <p style={{ marginTop: 16, color: "#94a3b8", fontSize: 12 }}>
         <AlertTriangle size={14} strokeWidth={2.5} style={{ display: "inline", verticalAlign: "-2px", marginRight: 6 }} />
-        Trang này chỉ quản lý bảng profiles (role/department). Tạo tài khoản user vẫn làm qua /login.
+        Ngừng tài khoản không xóa lịch sử. Tài khoản khôi phục phải được Admin duyệt lại trước khi truy cập dữ liệu.
       </p>
     </div>
   );
