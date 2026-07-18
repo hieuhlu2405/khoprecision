@@ -1283,7 +1283,12 @@ export default function ProductsPage() {
       </div>
 
       {open && (
-        <div className="modal-overlay" onClick={() => setOpen(false)}>
+        <div
+          className="modal-overlay"
+          onPointerDown={(e) => {
+            if (e.target === e.currentTarget) setOpen(false);
+          }}
+        >
           <div className="modal-box product-editor-modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">{editing ? "Sửa mã hàng" : "Thêm mã hàng"}</h2>
 
