@@ -61,8 +61,25 @@ type PendingAvatar = {
 const AVATAR_BUCKET = "profile-avatars";
 const AVATAR_SIZE = 512;
 
+const REPORT_ROUTE_PREFIXES = [
+  "/inventory/value-report",
+  "/inventory/aging",
+  "/inventory/comparison",
+  "/inventory/report-history",
+  "/vehicles/report",
+  "/sales-command-center",
+];
+
+function hasReportAccess(p: Profile, isAdmin: boolean) {
+  return isAdmin || p.role === "admin" || p.department === "accounting";
+}
+
+function isReportPath(pathname: string) {
+  return REPORT_ROUTE_PREFIXES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+}
+
 function buildMenu(p: Profile, isAdmin: boolean) {
-  const canViewReports = isAdmin || (p.role === "manager" && p.department === "warehouse") || p.department === "accounting";
+  const canViewReports = hasReportAccess(p, isAdmin);
   const canViewAccounting = isAdmin || p.department === "accounting";
 
   const items: { label: string; href?: string; show: boolean; isHeader?: boolean; icon?: string }[] = [
@@ -326,10 +343,9 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
       if (!p.is_approved) { setErr("Tài khoản đang chờ duyệt. Vui lòng liên hệ Admin."); return; }
       if (!p.is_active) { setErr("Tài khoản đang bị khóa."); return; }
 
-      setProfile(p as Profile);
-
       const { data: adminCheck } = await supabase.rpc("is_admin");
       setIsAdmin(adminCheck ?? false);
+      setProfile(p as Profile);
     })();
   }, []);
 
@@ -432,6 +448,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   const initials = getInitials(profile.full_name);
   const sidebarCollapsed = isMobile ? false : collapsed;
   const sidebarWidth = sidebarCollapsed ? 52 : isMobile ? "min(86vw, 300px)" : 230;
+  const reportBlocked = isReportPath(pathname) && !hasReportAccess(profile, isAdmin);
 
   return (
     <UIProvider>
@@ -1101,7 +1118,17 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
             minHeight: "100dvh",
           }}
         >
-          {children}
+          {reportBlocked ? (
+            <div style={{ minHeight: "calc(100dvh - 140px)", display: "grid", placeItems: "center", padding: 20 }}>
+              <div style={{ maxWidth: 460, width: "100%", padding: 24, border: "1px solid #fbbf24", borderRadius: 14, background: "#fffbeb", color: "#92400e", lineHeight: 1.6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 17, fontWeight: 900, marginBottom: 8 }}>
+                  <AlertTriangle size={20} strokeWidth={2.5} />
+                  Không có quyền xem báo cáo
+                </div>
+                Chỉ tài khoản Kế toán hoặc Admin được mở các trang báo cáo.
+              </div>
+            </div>
+          ) : children}
         </main>
       </div>
     </UIProvider>

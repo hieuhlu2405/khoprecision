@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { exportWithTemplate, exportToExcel } from "@/lib/excel-utils";
+import { exportTemplateBundle, exportToExcel, type TemplateExportFile } from "@/lib/excel-utils";
 import { ArrowUpDown, FileText, Filter, Package, Printer, ScrollText, Trash2, Truck, UserRound, X } from "lucide-react";
 
 type ShipmentLog = {
@@ -215,13 +215,34 @@ export default function DeliveryLogPage() {
 
       const entity = entities.find(e => e.id === log.entity_id);
       const dateLabel = log.shipment_date.split("-").reverse().join("/");
+      const safeShipmentNo = log.shipment_no.replace(/[\\/:*?"<>|]/g, "-");
+
+      const planIds = Array.from(new Set(txs.map(tx => tx.delivery_plan_id).filter(Boolean)));
+      const planDeliveryPoints = new Map<string, string>();
+      if (planIds.length > 0) {
+        const { data: shipmentPlans, error: planError } = await supabase
+          .from("delivery_plans")
+          .select("id, customer_id, delivery_customer_id")
+          .in("id", planIds);
+        if (!planError) {
+          (shipmentPlans || []).forEach(plan => {
+            const deliveryPointId = plan.delivery_customer_id || plan.customer_id;
+            if (deliveryPointId) planDeliveryPoints.set(plan.id, deliveryPointId);
+          });
+        }
+      }
 
       const txGroups = new Map<string, typeof txs>();
       txs.forEach(tx => {
-        const key = tx.delivery_customer_id || log.customer_id || "unknown";
+        const key = tx.delivery_customer_id
+          || planDeliveryPoints.get(tx.delivery_plan_id)
+          || tx.customer_id
+          || log.customer_id
+          || "unknown";
         txGroups.set(key, [...(txGroups.get(key) || []), tx]);
       });
 
+      const files: TemplateExportFile[] = [];
       for (const [deliveryCustomerId, vendorTxs] of txGroups) {
         const cust = customers.find(c => c.id === deliveryCustomerId);
         const items = vendorTxs.map(t => {
@@ -239,7 +260,8 @@ export default function DeliveryLogPage() {
 
         const totalQty = items.reduce((sum, it) => sum + it.actual, 0);
         const rowOffset = items.length - 1;
-        const fileName = `PGH_REPRINT_${log.shipment_no}_${cust?.code || "KH"}`;
+        const safeCustomerCode = (cust?.code || "KH").replace(/[\\/:*?"<>|]/g, "-");
+        const fileName = `PGH_REPRINT_${safeShipmentNo}_${safeCustomerCode}`;
         const cellData: any = {
           'A2': { value: entity?.name || "", font: { name: 'Times New Roman', size: 18, bold: true } },
           'A3': { value: entity?.address || "", font: { name: 'Times New Roman', size: 18 } },
@@ -263,9 +285,20 @@ export default function DeliveryLogPage() {
         const tableData = items.map((it, i) => [
           i + 1, it.sku, it.sap_code, it.external_sku, `${it.product_name} ${it.spec ? "(" + it.spec + ")" : ""}`, it.uom, it.actual
         ]);
-        await exportWithTemplate('/templates/maupgh.xlsx', cellData, tableData, 16, fileName, rowOffset);
+        files.push({ filename: fileName, cellData, tableData, rowOffset });
       }
-      showToast(`Đã tải file PGH ${log.shipment_no}`, "success");
+      await exportTemplateBundle(
+        '/templates/maupgh.xlsx',
+        files,
+        16,
+        `PGH_REPRINT_${safeShipmentNo}_TAT_CA_DIEM`
+      );
+      showToast(
+        txGroups.size > 1
+          ? `Đã tải ${txGroups.size} phiếu theo từng điểm trong 1 file ZIP.`
+          : `Đã tải file PGH ${log.shipment_no}`,
+        "success"
+      );
     } catch (err: any) {
       showToast(err.message, "error");
     }

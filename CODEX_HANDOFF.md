@@ -1,5 +1,14 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-18 - Mo quyen them ma hang va khoa nhom Bao cao
+
+- Nguyen nhan loi them ma hang theo code: nut `Them ma hang` hien cho Staff, nhung policy `products_insert` tren database chi chap nhan `public.is_manager()`, nen Staff bi RLS chan. Day la ket luan dua tren code, chua phai du lieu production.
+- Da tao SQL moi `supabase-sql/20260718_open_product_create_and_restrict_reports.sql`, CHUA CHAY LIVE. SQL cho moi tai khoan da duyet/dang hoat dong them ma hang; tai khoan cho duyet, bi khoa hoac da ngung van bi chan.
+- SQL tao helper `can_view_reports()`, khoa bang snapshot bao cao va RPC Sales de chi Admin hoac phong `accounting` duoc xem/ghi. SQL boc RPC Sales cu bang lop kiem tra quyen, khong doi cach tinh doanh thu.
+- Da sua `app/(protected)/layout.tsx`: nhom Bao cao va 6 man hinh con chi hien voi Admin/Ke toan; Manager Kho va cac chuc danh khac gõ thang URL cung bi chan tai khung bao ve chung.
+- SQL khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`; co `DROP POLICY`, `ALTER FUNCTION`, `CREATE OR REPLACE FUNCTION`, chi thay hang rao quyen va boc ham Sales, khong xoa du lieu nghiep vu.
+- Can chay SQL live, deploy web, sau do test: Staff them 1 ma hang; tai khoan khoa khong them duoc; Staff/Manager Kho khong thay va khong mo duoc 6 trang Bao cao; Ke toan/Admin van mo, xem Sales, xem/luu/vo hieu hoa snapshot bao cao duoc.
+
 ## Cap nhat 2026-07-16 - Fix RLS khi Admin ngung tai khoan nhan vien
 
 - Nguyen nhan theo code: trang `app/(protected)/admin/users/page.tsx` cap nhat truc tiep `profiles.deleted_at`, trong khi policy `profiles_select_policy` moi chi cho thay dong `deleted_at IS NULL`; thao tac co the bi RLS chan voi loi `new row violates row-level security policy for table "profiles"`. Day la ket luan dua tren code, chua phai du lieu production.

@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import JSZip from 'jszip';
 
 export type ExcelFont = {
     name?: string;
@@ -35,14 +36,13 @@ function assertSafeExcelImportFile(file: File) {
 /**
  * Tiêm dữ liệu vào một file mẫu Excel có sẵn (Dùng ExcelJS để giữ định dạng)
  */
-export async function exportWithTemplate(
+async function buildTemplateFile(
   templateUrl: string, 
   cellData: Record<string, string | number | null | CellInfo>, 
   tableData: any[][], 
   tableStartRow: number,
-  filename: string,
   rowOffset: number = 0
-) {
+): Promise<Blob> {
   try {
     const response = await fetch(templateUrl);
     if (!response.ok) throw new Error("Không thể tải file mẫu (.xlsx).");
@@ -142,11 +142,68 @@ export async function exportWithTemplate(
     // 4. Tuyệt đối KHÔNG tự ý giãn cột hay sửa border của người dùng ở đây.
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `${filename}.xlsx`);
+    return new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
   } catch (error) {
     console.error("Lỗi ExcelJS:", error);
     throw error;
   }
+}
+
+export async function exportWithTemplate(
+  templateUrl: string,
+  cellData: Record<string, string | number | null | CellInfo>,
+  tableData: any[][],
+  tableStartRow: number,
+  filename: string,
+  rowOffset: number = 0
+) {
+  const file = await buildTemplateFile(templateUrl, cellData, tableData, tableStartRow, rowOffset);
+  saveAs(file, `${filename}.xlsx`);
+}
+
+export type TemplateExportFile = {
+  filename: string;
+  cellData: Record<string, string | number | null | CellInfo>;
+  tableData: any[][];
+  rowOffset?: number;
+};
+
+export async function exportTemplateBundle(
+  templateUrl: string,
+  files: TemplateExportFile[],
+  tableStartRow: number,
+  bundleFilename: string
+) {
+  if (files.length === 0) return;
+  if (files.length === 1) {
+    const file = files[0];
+    await exportWithTemplate(
+      templateUrl,
+      file.cellData,
+      file.tableData,
+      tableStartRow,
+      file.filename,
+      file.rowOffset || 0
+    );
+    return;
+  }
+
+  const zip = new JSZip();
+  for (const file of files) {
+    const blob = await buildTemplateFile(
+      templateUrl,
+      file.cellData,
+      file.tableData,
+      tableStartRow,
+      file.rowOffset || 0
+    );
+    zip.file(`${file.filename}.xlsx`, blob);
+  }
+
+  const archive = await zip.generateAsync({ type: 'blob' });
+  saveAs(archive, `${bundleFilename}.zip`);
 }
 
 export type ExcelImportRow = Record<string, string | number | boolean | Date | null>;
