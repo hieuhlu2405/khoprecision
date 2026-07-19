@@ -17,6 +17,7 @@ type ShipmentLog = {
   id: string;
   shipment_no: string;
   shipment_date: string;
+  created_at: string;
   vehicle_id: string | null;
   driver_1_name_snapshot: string | null;
   driver_2_name_snapshot: string | null;
@@ -26,6 +27,14 @@ type ShipmentLog = {
   assistant_cost: number;
   external_cost: number;
   vehicles?: Vehicle;
+};
+
+type CalculatedShipmentLog = ShipmentLog & {
+  daily_trip_no: number;
+  effective_driver_cost: number;
+  effective_assistant_cost: number;
+  effective_external_cost: number;
+  rate_was_recalculated: boolean;
 };
 
 export default function VehiclesReportPage() {
@@ -54,7 +63,7 @@ export default function VehiclesReportPage() {
       const { data, error } = await supabase
         .from("shipment_logs")
         .select(`
-          id, shipment_no, shipment_date, vehicle_id, 
+          id, shipment_no, shipment_date, created_at, vehicle_id,
           driver_1_name_snapshot, driver_2_name_snapshot, assistant_1_name_snapshot, assistant_2_name_snapshot,
           driver_cost, assistant_cost, external_cost,
           vehicles ( id, license_plate, type )
@@ -62,7 +71,8 @@ export default function VehiclesReportPage() {
         .gte("shipment_date", startDate)
         .lte("shipment_date", endDate)
         .is("deleted_at", null)
-        .order("shipment_date", { ascending: true });
+        .order("shipment_date", { ascending: true })
+        .order("created_at", { ascending: true });
 
       if (error) throw error;
       setLogs((data || []) as any[]);
@@ -78,32 +88,70 @@ export default function VehiclesReportPage() {
     setExpandedId(null);
   }, [month]);
 
+  const calculatedLogs = useMemo<CalculatedShipmentLog[]>(() => {
+    const dailyCounts = new Map<string, number>();
+    return [...logs]
+      .sort((a, b) => a.shipment_date.localeCompare(b.shipment_date) || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+      .map(log => {
+        const key = `${log.vehicle_id || "UNKNOWN"}_${log.shipment_date}`;
+        const dailyTripNo = (dailyCounts.get(key) || 0) + 1;
+        dailyCounts.set(key, dailyTripNo);
+
+        if (log.vehicles?.type !== "nội_bộ") {
+          return {
+            ...log,
+            daily_trip_no: dailyTripNo,
+            effective_driver_cost: 0,
+            effective_assistant_cost: 0,
+            effective_external_cost: Number(log.external_cost || 0),
+            rate_was_recalculated: false,
+          };
+        }
+
+        const driverCount = [log.driver_1_name_snapshot, log.driver_2_name_snapshot].filter(name => name?.trim()).length;
+        const assistantCount = [log.assistant_1_name_snapshot, log.assistant_2_name_snapshot].filter(name => name?.trim()).length;
+        const driverRate = dailyTripNo <= 3 ? 170000 : 230000;
+        const assistantRate = dailyTripNo <= 3 ? 120000 : 170000;
+        const effectiveDriverCost = driverRate * driverCount;
+        const effectiveAssistantCost = assistantRate * assistantCount;
+
+        return {
+          ...log,
+          daily_trip_no: dailyTripNo,
+          effective_driver_cost: effectiveDriverCost,
+          effective_assistant_cost: effectiveAssistantCost,
+          effective_external_cost: 0,
+          rate_was_recalculated: effectiveDriverCost !== Number(log.driver_cost || 0) || effectiveAssistantCost !== Number(log.assistant_cost || 0),
+        };
+      });
+  }, [logs]);
+
   // Aggregations
   const stats = useMemo(() => {
-    let totalTrips = logs.length;
+    const totalTrips = calculatedLogs.length;
     let totalInternalDriver = 0;
     let totalInternalAst = 0;
     let totalExternal = 0;
     let countInternalTrip = 0;
     let countExternalTrip = 0;
 
-    for (const lg of logs) {
+    for (const lg of calculatedLogs) {
       if (lg.vehicles?.type === "nội_bộ") {
-        totalInternalDriver += Number(lg.driver_cost || 0);
-        totalInternalAst += Number(lg.assistant_cost || 0);
+        totalInternalDriver += lg.effective_driver_cost;
+        totalInternalAst += lg.effective_assistant_cost;
         countInternalTrip++;
       } else if (lg.vehicles?.type === "thuê_ngoài") {
-        totalExternal += Number(lg.external_cost || 0);
+        totalExternal += lg.effective_external_cost;
         countExternalTrip++;
       } else {
-        totalExternal += Number(lg.external_cost || 0);
+        totalExternal += lg.effective_external_cost;
       }
     }
 
     const totalCost = totalInternalDriver + totalInternalAst + totalExternal;
 
     return { totalTrips, totalInternalDriver, totalInternalAst, totalExternal, countInternalTrip, countExternalTrip, totalCost };
-  }, [logs]);
+  }, [calculatedLogs]);
 
   const vehicleGroups = useMemo(() => {
     const map = new Map<string, {
@@ -112,10 +160,10 @@ export default function VehiclesReportPage() {
       driverCost: number,
       assistantCost: number,
       externalCost: number,
-      logs: ShipmentLog[]
+      logs: CalculatedShipmentLog[]
     }>();
 
-    logs.forEach(log => {
+    calculatedLogs.forEach(log => {
       const vid = log.vehicle_id || "UNKNOWN";
       if (!map.has(vid)) {
         map.set(vid, {
@@ -129,16 +177,16 @@ export default function VehiclesReportPage() {
       }
       const v = map.get(vid)!;
       v.totalTrips++;
-      v.driverCost += Number(log.driver_cost || 0);
-      v.assistantCost += Number(log.assistant_cost || 0);
-      v.externalCost += Number(log.external_cost || 0);
+      v.driverCost += log.effective_driver_cost;
+      v.assistantCost += log.effective_assistant_cost;
+      v.externalCost += log.effective_external_cost;
       v.logs.push(log);
     });
 
     const arr = Array.from(map.values());
     arr.sort((a, b) => (b.driverCost + b.assistantCost + b.externalCost) - (a.driverCost + a.assistantCost + a.externalCost));
     return arr;
-  }, [logs]);
+  }, [calculatedLogs]);
 
   function doExport() {
     const data: any[] = [];
@@ -154,9 +202,11 @@ export default function VehiclesReportPage() {
           "Phụ xe 1 (Snapshot)": x.assistant_1_name_snapshot || "-",
           "Phụ xe 2 (Snapshot)": x.assistant_2_name_snapshot || "-",
           "Ngày chạy": x.shipment_date,
+          "Chuyến thứ trong ngày": x.daily_trip_no,
           "Số phiếu": x.shipment_no,
-          "Lương Tài Xế (Hoặc Cước)": g.vehicle?.type === "nội_bộ" ? (x.driver_cost || 0) : (x.external_cost || 0),
-          "Lương Phụ Xe (Tổng)": g.vehicle?.type === "nội_bộ" ? (x.assistant_cost || 0) : 0,
+          "Lương Tài Xế (Hoặc Cước)": g.vehicle?.type === "nội_bộ" ? x.effective_driver_cost : x.effective_external_cost,
+          "Lương Phụ Xe (Tổng)": g.vehicle?.type === "nội_bộ" ? x.effective_assistant_cost : 0,
+          "Đã tính lại rate": x.rate_was_recalculated ? "Có" : "Không",
         });
       });
     });
@@ -227,6 +277,9 @@ export default function VehiclesReportPage() {
           </div>
 
           <div className="data-table-wrap !rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 bg-white/50 backdrop-blur-sm" style={{ padding: 24 }}>
+            <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-xs font-bold text-indigo-800">
+              Chi phí xe nội bộ được xếp lại theo từng xe/ngày trên các phiếu còn hiệu lực: chuyến 1–3 dùng rate thường, từ chuyến 4 dùng rate cao.
+            </div>
             
             <div className="flex justify-between items-end mb-4">
                <h3 className="text-sm font-black uppercase tracking-widest text-slate-700 flex items-center gap-2"><Pin size={16} strokeWidth={2.5} /> Bảng Chi Lương Tháng (Nhấn vào Biển số để xem chi tiết)</h3>
@@ -314,11 +367,14 @@ export default function VehiclesReportPage() {
                                  </thead>
                                  <tbody className="divide-y divide-slate-50">
                                    {g.logs.map((log) => {
-                                      const logTotal = isInternal ? (log.driver_cost + log.assistant_cost) : log.external_cost;
+                                      const logTotal = isInternal ? (log.effective_driver_cost + log.effective_assistant_cost) : log.effective_external_cost;
                                       return (
                                         <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                                            <td className="px-4 py-3 font-bold text-slate-600 text-xs">{log.shipment_date}</td>
-                                           <td className="px-4 py-3 font-mono font-bold text-indigo-600 text-xs">{log.shipment_no}</td>
+                                           <td className="px-4 py-3 font-mono font-bold text-indigo-600 text-xs">
+                                             <div>{log.shipment_no}</div>
+                                             <div className="mt-1 text-[9px] text-slate-500 font-black uppercase">Chuyến thứ {log.daily_trip_no}</div>
+                                           </td>
                                            <td className="px-4 py-3 font-black text-slate-800 text-xs">
                                               <div className="flex flex-col gap-0.5">
                                                 {log.driver_1_name_snapshot ? <div>Lái 1: {log.driver_1_name_snapshot}</div> : null}
@@ -338,9 +394,10 @@ export default function VehiclesReportPage() {
                                                 <span className={isInternal ? 'text-blue-700' : 'text-orange-700'}>{logTotal.toLocaleString()} đ</span>
                                                 {isInternal && (
                                                   <span className="text-[9px] font-bold text-slate-400 uppercase">
-                                                    Lái: {log.driver_cost.toLocaleString()}đ | Phụ: {log.assistant_cost.toLocaleString()}đ
+                                                    Lái: {log.effective_driver_cost.toLocaleString()}đ | Phụ: {log.effective_assistant_cost.toLocaleString()}đ
                                                   </span>
                                                 )}
+                                                {log.rate_was_recalculated && <span className="text-[9px] font-black text-amber-600 uppercase">Đã xếp lại rate</span>}
                                               </div>
                                            </td>
                                         </tr>

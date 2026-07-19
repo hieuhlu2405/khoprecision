@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { exportTemplateBundle, type TemplateExportFile } from "@/lib/excel-utils";
 import { fetchAllRows } from "@/lib/supabase-fetch-all";
-import { ArrowUpDown, CircleDollarSign, FileText, Filter, Printer, ScrollText, Trash2, Truck, UserRound, X } from "lucide-react";
+import { ArrowUpDown, CircleDollarSign, FileText, Filter, PencilLine, Plus, Printer, Save, ScrollText, Trash2, Truck, UserRound, X } from "lucide-react";
 
 type ShipmentLog = {
   id: string;
@@ -23,6 +23,7 @@ type ShipmentLog = {
   created_at: string;
   // Join data
   inventory_transactions?: { customer_id: string; product_id: string; qty: number; unit_cost: number | null }[];
+  shipment_item_correction_audit?: { reason: string; corrected_at: string }[];
 };
 
 type Product = { id: string; sku: string; name: string; spec: string; uom: string; sap_code: string; external_sku: string; customer_id: string; unit_price: number | null };
@@ -42,6 +43,41 @@ type ShipmentTransaction = {
   product_spec_snapshot: string | null;
 };
 type ShipmentPlanDeliveryPoint = { id: string; customer_id: string | null; delivery_customer_id: string | null };
+type CorrectionBaseTransaction = {
+  id: string;
+  delivery_plan_id: string | null;
+  product_id: string;
+  qty: number;
+};
+type CorrectionAdjustment = {
+  id: string;
+  adjusted_from_transaction_id: string;
+  tx_type: "adjust_in" | "adjust_out";
+  qty: number;
+};
+type CorrectionAuditRow = {
+  shipment_id: string;
+  reason: string;
+  corrected_at: string;
+};
+type CorrectionPlan = {
+  id: string;
+  product_id: string;
+  customer_id: string | null;
+  delivery_customer_id: string | null;
+  plan_date: string;
+  planned_qty: number;
+  backlog_qty: number;
+  actual_qty: number;
+  is_completed: boolean;
+};
+type CorrectionLine = {
+  key: string;
+  originalPlanId: string | null;
+  planId: string;
+  currentQty: number;
+  targetQty: string;
+};
 
 const vndFormatter = new Intl.NumberFormat("vi-VN", {
   style: "currency",
@@ -69,6 +105,14 @@ export default function DeliveryLogPage() {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<"print" | "cancel" | null>(null);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [correctionLog, setCorrectionLog] = useState<ShipmentLog | null>(null);
+  const [correctionPlans, setCorrectionPlans] = useState<CorrectionPlan[]>([]);
+  const [correctionLines, setCorrectionLines] = useState<CorrectionLine[]>([]);
+  const [correctionBeforeByPlan, setCorrectionBeforeByPlan] = useState<Record<string, number>>({});
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [correctionLoading, setCorrectionLoading] = useState(false);
+  const [correctionSaving, setCorrectionSaving] = useState(false);
 
   // Advanced Filtering & Sorting
   const [colFilters, setColFilters] = useState<Record<string, { mode: "contains" | "equals"; value: string }>>({});
@@ -139,7 +183,25 @@ export default function DeliveryLogPage() {
       const { data, error } = await query;
       if (error) throw error;
 
-      setLogs(data || []);
+      const baseLogs = (data || []) as ShipmentLog[];
+      let auditRows: CorrectionAuditRow[] = [];
+      if (baseLogs.length > 0) {
+        const { data: auditData } = await supabase
+          .from("shipment_item_correction_audit")
+          .select("shipment_id, reason, corrected_at")
+          .in("shipment_id", baseLogs.map(log => log.id))
+          .order("corrected_at", { ascending: false });
+        auditRows = (auditData || []) as CorrectionAuditRow[];
+      }
+
+      const auditsByShipment = new Map<string, { reason: string; corrected_at: string }[]>();
+      auditRows.forEach(row => {
+        const rows = auditsByShipment.get(row.shipment_id) || [];
+        rows.push({ reason: row.reason, corrected_at: row.corrected_at });
+        auditsByShipment.set(row.shipment_id, rows);
+      });
+
+      setLogs(baseLogs.map(log => ({ ...log, shipment_item_correction_audit: auditsByShipment.get(log.id) || [] })));
       setHasMore((data || []).length === currentLimit);
     } catch (err: unknown) {
       showToast(getErrorMessage(err, "Không thể tải nhật ký giao hàng."), "error");
@@ -179,9 +241,9 @@ export default function DeliveryLogPage() {
     if (bulkAction !== null) return;
 
     const ok = await showConfirm({
-      message: `Hủy chuyến hàng ${log.shipment_no}? Tồn kho sẽ được hoàn lại.`,
+      message: `Chỉ dùng khi xe CHƯA chạy. Hủy chuyến ${log.shipment_no}? Tồn kho và kế hoạch sẽ được hoàn lại. Nếu xe đã chạy nhưng phiếu sai, hãy dùng Điều chỉnh hàng.`,
       danger: true,
-      confirmLabel: "XÁC NHẬN HỦY"
+      confirmLabel: "XE CHƯA CHẠY - XÁC NHẬN HỦY"
     });
     if (!ok) return;
 
@@ -212,9 +274,9 @@ export default function DeliveryLogPage() {
     const remainingLabel = shipmentLabels.length > 8 ? ` và ${shipmentLabels.length - 8} chuyến khác` : "";
 
     const ok = await showConfirm({
-      message: `Hủy ${selectedIds.size} chuyến: ${visibleLabels}${remainingLabel}? Tồn kho sẽ được hoàn lại. Nếu một chuyến lỗi thì toàn bộ danh sách sẽ không thay đổi.`,
+      message: `Chỉ dùng khi các xe CHƯA chạy. Hủy ${selectedIds.size} chuyến: ${visibleLabels}${remainingLabel}? Tồn kho và kế hoạch sẽ được hoàn lại. Nếu một chuyến lỗi thì toàn bộ danh sách sẽ không thay đổi.`,
       danger: true,
-      confirmLabel: `HỦY ${selectedIds.size} CHUYẾN`
+      confirmLabel: `XE CHƯA CHẠY - HỦY ${selectedIds.size} CHUYẾN`
     });
     if (!ok) return;
 
@@ -232,6 +294,180 @@ export default function DeliveryLogPage() {
       showToast(getErrorMessage(err, "Không thể hủy các chuyến đã chọn."), "error");
     } finally {
       setBulkAction(null);
+    }
+  };
+
+  const canAdjustShipments = profile?.role === "admin" || profile?.role === "manager";
+
+  const openShipmentCorrection = async (log: ShipmentLog) => {
+    if (!canAdjustShipments || bulkAction !== null) return;
+    setCorrectionLog(log);
+    setCorrectionLines([]);
+    setCorrectionPlans([]);
+    setCorrectionBeforeByPlan({});
+    setCorrectionReason("");
+    setCorrectionOpen(true);
+    setCorrectionLoading(true);
+
+    try {
+      const baseTxs = await fetchAllRows<CorrectionBaseTransaction>(
+        supabase
+          .from("inventory_transactions")
+          .select("id, delivery_plan_id, product_id, qty")
+          .eq("shipment_id", log.id)
+          .eq("tx_type", "out")
+          .is("adjusted_from_transaction_id", null)
+          .is("deleted_at", null)
+          .order("id")
+      );
+
+      if (baseTxs.length === 0) throw new Error("Chuyến không còn dòng xuất kho hợp lệ để điều chỉnh.");
+      if (baseTxs.some(tx => !tx.delivery_plan_id)) {
+        throw new Error("Chuyến có dòng hàng cũ chưa gắn kế hoạch. Cần kiểm tra dữ liệu trước khi điều chỉnh.");
+      }
+
+      const baseIds = baseTxs.map(tx => tx.id);
+      const adjustments = baseIds.length > 0
+        ? await fetchAllRows<CorrectionAdjustment>(
+            supabase
+              .from("inventory_transactions")
+              .select("id, adjusted_from_transaction_id, tx_type, qty")
+              .in("adjusted_from_transaction_id", baseIds)
+              .is("deleted_at", null)
+              .order("id")
+          )
+        : [];
+
+      const adjustmentByBase = new Map<string, number>();
+      adjustments.forEach(adj => {
+        const signedQty = adj.tx_type === "adjust_in" ? Number(adj.qty) : -Number(adj.qty);
+        adjustmentByBase.set(adj.adjusted_from_transaction_id, (adjustmentByBase.get(adj.adjusted_from_transaction_id) || 0) + signedQty);
+      });
+
+      const currentByPlan = new Map<string, number>();
+      baseTxs.forEach(tx => {
+        const planId = tx.delivery_plan_id!;
+        const effectiveQty = Number(tx.qty) + (adjustmentByBase.get(tx.id) || 0);
+        currentByPlan.set(planId, (currentByPlan.get(planId) || 0) + effectiveQty);
+      });
+
+      let planQuery = supabase
+        .from("delivery_plans")
+        .select("id, product_id, customer_id, delivery_customer_id, plan_date, planned_qty, backlog_qty, actual_qty, is_completed")
+        .eq("plan_date", log.shipment_date)
+        .or("planned_qty.gt.0,backlog_qty.gt.0")
+        .is("deleted_at", null)
+        .order("id");
+      planQuery = log.customer_id ? planQuery.eq("customer_id", log.customer_id) : planQuery.is("customer_id", null);
+      const datePlans = await fetchAllRows<CorrectionPlan>(planQuery);
+
+      const currentPlanIds = Array.from(currentByPlan.keys());
+      const missingPlanIds = currentPlanIds.filter(id => !datePlans.some(plan => plan.id === id));
+      const missingPlans = missingPlanIds.length > 0
+        ? await fetchAllRows<CorrectionPlan>(
+            supabase
+              .from("delivery_plans")
+              .select("id, product_id, customer_id, delivery_customer_id, plan_date, planned_qty, backlog_qty, actual_qty, is_completed")
+              .in("id", missingPlanIds)
+              .is("deleted_at", null)
+              .order("id")
+          )
+        : [];
+
+      const allPlans = [...datePlans, ...missingPlans.filter(plan => !datePlans.some(existing => existing.id === plan.id))]
+        .sort((a, b) => {
+          const skuA = products.find(product => product.id === a.product_id)?.sku || "";
+          const skuB = products.find(product => product.id === b.product_id)?.sku || "";
+          return skuA.localeCompare(skuB, "vi");
+        });
+
+      const initialLines = currentPlanIds.map((planId, index) => ({
+        key: `correction-${log.id}-${index}-${planId}`,
+        originalPlanId: planId,
+        planId,
+        currentQty: currentByPlan.get(planId) || 0,
+        targetQty: String(currentByPlan.get(planId) || 0),
+      }));
+
+      setCorrectionPlans(allPlans);
+      setCorrectionLines(initialLines);
+      setCorrectionBeforeByPlan(Object.fromEntries(currentByPlan));
+    } catch (error: unknown) {
+      showToast(getErrorMessage(error, "Không thể tải dữ liệu điều chỉnh chuyến."), "error");
+      setCorrectionOpen(false);
+      setCorrectionLog(null);
+    } finally {
+      setCorrectionLoading(false);
+    }
+  };
+
+  const updateCorrectionLine = (key: string, patch: Partial<CorrectionLine>) => {
+    setCorrectionLines(lines => lines.map(line => line.key === key ? { ...line, ...patch } : line));
+  };
+
+  const addCorrectionLine = () => {
+    const usedPlanIds = new Set(correctionLines.map(line => line.planId).filter(Boolean));
+    const firstAvailable = correctionPlans.find(plan => !usedPlanIds.has(plan.id));
+    if (!firstAvailable) return showToast("Không còn mã kế hoạch nào để thêm vào chuyến.", "info");
+    setCorrectionLines(lines => [...lines, {
+      key: `correction-new-${Date.now()}`,
+      originalPlanId: null,
+      planId: firstAvailable.id,
+      currentQty: 0,
+      targetQty: "",
+    }]);
+  };
+
+  const saveShipmentCorrection = async () => {
+    if (!correctionLog || correctionSaving) return;
+    const reason = correctionReason.trim();
+    if (reason.length < 3) return showToast("Vui lòng nhập lý do điều chỉnh ít nhất 3 ký tự.", "warning");
+    if (correctionLines.length === 0) return showToast("Chuyến phải còn ít nhất một dòng hàng.", "warning");
+
+    const planIds = correctionLines.map(line => line.planId);
+    if (planIds.some(id => !id)) return showToast("Có dòng chưa chọn mã kế hoạch.", "warning");
+    if (new Set(planIds).size !== planIds.length) return showToast("Một mã kế hoạch chỉ được xuất hiện một dòng.", "warning");
+
+    const normalizedLines = correctionLines.map(line => ({
+      plan_id: line.planId,
+      target_qty: Number(line.targetQty),
+    }));
+    if (normalizedLines.some(line => !Number.isFinite(line.target_qty) || line.target_qty < 0)) {
+      return showToast("Số lượng sau điều chỉnh phải là số không âm.", "warning");
+    }
+    if (!normalizedLines.some(line => line.target_qty > 0)) {
+      return showToast("Chuyến phải còn ít nhất một dòng có số lượng lớn hơn 0.", "warning");
+    }
+
+    const beforeMap = new Map(Object.entries(correctionBeforeByPlan));
+    const afterMap = new Map(normalizedLines.map(line => [line.plan_id, line.target_qty]));
+    const changed = new Set([...beforeMap.keys(), ...afterMap.keys()]);
+    const hasChanges = Array.from(changed).some(planId => (beforeMap.get(planId) || 0) !== (afterMap.get(planId) || 0));
+    if (!hasChanges) return showToast("Chưa có thay đổi về mã hoặc số lượng.", "info");
+
+    const ok = await showConfirm({
+      message: `Điều chỉnh hàng trên chuyến ${correctionLog.shipment_no}? Kho, Đã giao và Nợ sẽ được tính lại cùng lúc. Số chuyến và rate Logistics không thay đổi.`,
+      confirmLabel: "XÁC NHẬN ĐIỀU CHỈNH",
+      danger: true,
+    });
+    if (!ok) return;
+
+    setCorrectionSaving(true);
+    try {
+      const { error } = await supabase.rpc("adjust_shipment_items_v1", {
+        p_shipment_id: correctionLog.id,
+        p_lines: normalizedLines,
+        p_reason: reason,
+      });
+      if (error) throw error;
+      showToast(`Đã điều chỉnh chuyến ${correctionLog.shipment_no}.`, "success");
+      setCorrectionOpen(false);
+      setCorrectionLog(null);
+      await fetchLogs(limit);
+    } catch (error: unknown) {
+      showToast(getErrorMessage(error, "Không thể điều chỉnh chuyến."), "error");
+    } finally {
+      setCorrectionSaving(false);
     }
   };
 
@@ -308,7 +544,8 @@ export default function DeliveryLogPage() {
           const totalQty = items.reduce((sum, it) => sum + it.actual, 0);
           const rowOffset = Math.max(0, items.length - 1);
           const safeCustomerCode = (cust.code || "KH").replace(/[\\/:*?"<>|]/g, "-");
-          const baseFilename = `PGH_REPRINT_${safeShipmentNo}_${safeCustomerCode}`;
+          const wasCorrected = (log.shipment_item_correction_audit || []).length > 0;
+          const baseFilename = `PGH_REPRINT_${safeShipmentNo}_${safeCustomerCode}${wasCorrected ? "_DIEU_CHINH" : ""}`;
           let fileName = baseFilename;
           let duplicateIndex = 2;
           while (usedFilenames.has(fileName)) fileName = `${baseFilename}_${duplicateIndex++}`;
@@ -324,6 +561,7 @@ export default function DeliveryLogPage() {
             'B10': { value: cust.address || "", font: { name: 'Times New Roman', size: 13 } },
             'B11': { value: entity.name || "", font: { name: 'Times New Roman', size: 13, bold: true } },
             'B12': { value: entity.address || "", font: { name: 'Times New Roman', size: 13 } },
+            'H12': { value: wasCorrected ? "BẢN IN LẠI - ĐÃ ĐIỀU CHỈNH" : "", font: { name: 'Times New Roman', size: 10, bold: true, color: { argb: wasCorrected ? 'FFB45309' : 'FF000000' } } },
             [`G${17 + rowOffset}`]: { value: totalQty, font: { name: 'Times New Roman', size: 13, bold: true } },
             [`A${19 + rowOffset}`]: { value: "BÊN GIAO", font: { name: 'Times New Roman', size: 12, bold: true } },
             [`F${19 + rowOffset}`]: { value: "BÊN NHẬN", font: { name: 'Times New Roman', size: 12, bold: true } },
@@ -583,7 +821,7 @@ export default function DeliveryLogPage() {
                   disabled={bulkAction !== null || selectedLogs.length !== selectedIds.size}
                   className="btn btn-sm bg-red-50 text-red-600 border-red-100 hover:bg-red-100 font-bold text-[10px] rounded-xl px-4 min-h-11"
                 >
-                  <Trash2 size={14} strokeWidth={2.5} /> {bulkAction === "cancel" ? "ĐANG HỦY..." : `HỦY ${selectedIds.size} CHUYẾN`}
+                  <Trash2 size={14} strokeWidth={2.5} /> {bulkAction === "cancel" ? "ĐANG HỦY..." : `HỦY TRƯỚC KHI CHẠY (${selectedIds.size})`}
                 </button>
               )}
             </div>
@@ -623,6 +861,19 @@ export default function DeliveryLogPage() {
                       </td>
                       <td className="px-6 py-4 border-r border-slate-200" style={{ width: colWidths["shipment_no"] || 150 }}>
                         <span className="font-black text-indigo-600 text-base tracking-wider">{log.shipment_no}</span>
+                        {(log.shipment_item_correction_audit || []).length > 0 && (
+                          <div
+                            className="mt-1"
+                            title={(log.shipment_item_correction_audit || []).map(audit => `${new Date(audit.corrected_at).toLocaleString("vi-VN")}: ${audit.reason}`).join("\n")}
+                          >
+                            <div className="inline-flex px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[9px] font-black uppercase">
+                              Đã điều chỉnh {(log.shipment_item_correction_audit || []).length} lần
+                            </div>
+                            <div className="mt-1 max-w-[220px] truncate text-[10px] font-bold text-amber-700">
+                              Lý do mới nhất: {(log.shipment_item_correction_audit || [])[0]?.reason}
+                            </div>
+                          </div>
+                        )}
                         {log.note && <div className="text-[10px] text-black font-black italic mt-0.5" style={{ color: '#000000' }}>{log.note}</div>}
                       </td>
                       <td className="px-6 py-4 font-medium text-black text-[14px] border-r border-slate-200" style={{ color: '#000000', width: colWidths["shipment_date"] || 120 }}>
@@ -706,6 +957,16 @@ export default function DeliveryLogPage() {
                       </td>
                       <td className="px-6 py-4 text-center" style={{ width: 120 }}>
                         <div className="flex items-center justify-center gap-2">
+                          {canAdjustShipments && (
+                            <button
+                              onClick={() => openShipmentCorrection(log)}
+                              disabled={bulkAction !== null || correctionSaving}
+                              className="w-10 h-10 flex items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 transition-all shadow-sm"
+                              title="Điều chỉnh hàng trên chuyến"
+                            >
+                              <PencilLine size={18} strokeWidth={2.4} />
+                            </button>
+                          )}
                              <button
                                 onClick={() => handleReprintPGH([log])}
                                 disabled={bulkAction !== null}
@@ -719,7 +980,7 @@ export default function DeliveryLogPage() {
                               onClick={() => handleUndoSingle(log)}
                               disabled={bulkAction !== null}
                               className="w-10 h-10 flex items-center justify-center rounded-xl bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 transition-all shadow-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
-                              title="Hủy chuyến hàng"
+                              title="Hủy trước khi xe chạy"
                             >
                               <X size={18} strokeWidth={2.6} />
                             </button>
@@ -750,6 +1011,138 @@ export default function DeliveryLogPage() {
           </div>
         </div>
       </div>
+
+      {correctionOpen && correctionLog && (
+        <div className="fixed inset-0 z-[1200] bg-slate-950/55 backdrop-blur-sm p-3 sm:p-6 flex items-center justify-center" onClick={() => !correctionSaving && setCorrectionOpen(false)}>
+          <div className="w-full max-w-5xl max-h-[92dvh] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden" onClick={event => event.stopPropagation()}>
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-start justify-between gap-4 bg-slate-50">
+              <div className="min-w-0">
+                <h2 className="text-lg font-black text-slate-900 flex items-center gap-2"><PencilLine size={19} /> Điều chỉnh hàng trên chuyến</h2>
+                <p className="text-xs font-bold text-slate-500 mt-1">{correctionLog.shipment_no} • {correctionLog.shipment_date.split("-").reverse().join("/")} • Không tạo chuyến mới, không đổi rate</p>
+              </div>
+              <button className="w-10 h-10 shrink-0 rounded-xl hover:bg-slate-200 flex items-center justify-center" disabled={correctionSaving} onClick={() => setCorrectionOpen(false)} aria-label="Đóng"><X size={20} /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+              {correctionLoading ? (
+                <div className="py-16 text-center font-bold text-slate-400">Đang tải hàng và kế hoạch liên quan...</div>
+              ) : (
+                <>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-800">
+                    Chỉ chọn được mã đã có kế hoạch đúng ngày và đúng khách. Được phép giao thừa kế hoạch; database vẫn chặn âm kho.
+                  </div>
+
+                  <div className="space-y-3">
+                    {correctionLines.map((line, index) => {
+                      const plan = correctionPlans.find(item => item.id === line.planId);
+                      const product = products.find(item => item.id === plan?.product_id);
+                      const deliveryPoint = customers.find(item => item.id === (plan?.delivery_customer_id || plan?.customer_id));
+                      const targetQty = Number(line.targetQty || 0);
+                      const totalTarget = Number(plan?.planned_qty || 0) + Number(plan?.backlog_qty || 0);
+                      const projectedActual = Number(plan?.actual_qty || 0) - (line.originalPlanId === line.planId ? line.currentQty : 0) + targetQty;
+                      const statusText = projectedActual < totalTarget ? `Nợ ${totalTarget - projectedActual}` : projectedActual > totalTarget ? `Thừa ${projectedActual - totalTarget}` : "Đủ";
+                      const originalPlan = line.originalPlanId && line.originalPlanId !== line.planId
+                        ? correctionPlans.find(item => item.id === line.originalPlanId)
+                        : null;
+                      const originalProduct = products.find(item => item.id === originalPlan?.product_id);
+                      const originalTotalTarget = Number(originalPlan?.planned_qty || 0) + Number(originalPlan?.backlog_qty || 0);
+                      const originalProjectedActual = Math.max(0, Number(originalPlan?.actual_qty || 0) - line.currentQty);
+                      const originalStatusText = originalProjectedActual < originalTotalTarget
+                        ? `Nợ ${originalTotalTarget - originalProjectedActual}`
+                        : originalProjectedActual > originalTotalTarget
+                          ? `Thừa ${originalProjectedActual - originalTotalTarget}`
+                          : "Đủ";
+
+                      return (
+                        <div key={line.key} className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_170px_150px_44px] gap-3 items-end">
+                          <div className="min-w-0">
+                            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Mã có kế hoạch</label>
+                            <select
+                              className="select select-bordered w-full min-h-11 text-base sm:text-sm font-bold"
+                              value={line.planId}
+                              onChange={event => {
+                                const nextPlanId = event.target.value;
+                                if (correctionLines.some(other => other.key !== line.key && other.planId === nextPlanId)) {
+                                  showToast("Mã kế hoạch này đã có trong danh sách.", "warning");
+                                  return;
+                                }
+                                updateCorrectionLine(line.key, { planId: nextPlanId });
+                              }}
+                            >
+                              {correctionPlans.map(option => {
+                                const optionProduct = products.find(item => item.id === option.product_id);
+                                const optionPoint = customers.find(item => item.id === (option.delivery_customer_id || option.customer_id));
+                                return <option key={option.id} value={option.id}>{optionProduct?.sku || "Không rõ mã"} - {optionPoint?.code || "Không rõ điểm giao"}</option>;
+                              })}
+                            </select>
+                            <div className="mt-1 text-xs text-slate-500 truncate" title={`${product?.name || ""} ${product?.spec || ""}`}>{product?.name || "Không rõ tên"} {product?.spec ? `• ${product.spec}` : ""} • {deliveryPoint?.name || "Không rõ khách"}</div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Số lượng thực giao</label>
+                            <input
+                              type="number"
+                              min="0"
+                              inputMode="decimal"
+                              className="input input-bordered w-full min-h-11 text-base font-black text-right"
+                              value={line.targetQty}
+                              onChange={event => updateCorrectionLine(line.key, { targetQty: event.target.value })}
+                            />
+                            <div className="text-[10px] font-bold text-slate-400 mt-1">Trên chuyến trước sửa: {line.currentQty.toLocaleString("vi-VN")}</div>
+                          </div>
+
+                          <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 min-h-11">
+                            <div className="text-[10px] font-black text-slate-400 uppercase">Sau khi lưu</div>
+                            <div className={`text-sm font-black ${statusText.startsWith("Nợ") ? "text-red-600" : statusText.startsWith("Thừa") ? "text-amber-600" : "text-emerald-600"}`}>{statusText}</div>
+                            <div className="text-[10px] text-slate-500">Đã giao {projectedActual.toLocaleString("vi-VN")}/{totalTarget.toLocaleString("vi-VN")}</div>
+                            {originalPlan && (
+                              <div className="mt-1 border-t border-slate-200 pt-1 text-[10px] font-bold text-red-600">
+                                Mã cũ {originalProduct?.sku || "không rõ"}: {originalStatusText}
+                              </div>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            className="w-11 h-11 rounded-xl border border-red-200 bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100 disabled:opacity-40"
+                            disabled={correctionLines.length === 1}
+                            onClick={() => setCorrectionLines(lines => lines.filter(item => item.key !== line.key))}
+                            title={`Bỏ dòng ${index + 1}`}
+                          >
+                            <Trash2 size={17} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <button type="button" onClick={addCorrectionLine} className="btn btn-sm min-h-11 bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 font-black">
+                    <Plus size={16} /> Thêm mã có kế hoạch
+                  </button>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Lý do điều chỉnh *</label>
+                    <textarea
+                      className="textarea textarea-bordered w-full min-h-24 text-base sm:text-sm"
+                      placeholder="Ví dụ: Phiếu tích nhầm mã B, thực tế khách nhận mã A..."
+                      value={correctionReason}
+                      maxLength={500}
+                      onChange={event => setCorrectionReason(event.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="px-4 sm:px-6 py-4 border-t border-slate-200 bg-white flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <button className="btn min-h-11" disabled={correctionSaving} onClick={() => setCorrectionOpen(false)}>Hủy</button>
+              <button className="btn min-h-11 bg-indigo-600 hover:bg-indigo-700 text-white border-none font-black" disabled={correctionLoading || correctionSaving} onClick={saveShipmentCorrection}>
+                <Save size={16} /> {correctionSaving ? "Đang lưu..." : "Lưu điều chỉnh"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

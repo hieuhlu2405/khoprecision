@@ -1,5 +1,17 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-20 - Dieu chinh chuyen da chay va xep lai rate Logistics
+
+- Nhanh phu: `codex/logistics-shipment-corrections`. Da tach ro nghiep vu: trang Ke hoach giao hang chi tao chuyen moi; bo giao dien ghep hang vao chuyen cu. SQL moi cung khoa duong ghep cu de tranh goi nham tu ben ngoai giao dien.
+- Da sua `app/(protected)/delivery-plan/log/page.tsx`: Admin/Manager co nut `Dieu chinh hang tren chuyen`, cho sua so luong, doi ma, them/bot dong va bat buoc ghi ly do. Ma them/doi chi chon duoc ke hoach dung ngay va dung khach/diem giao; duoc giao thua ke hoach. Mot lan luu tinh lai kho, Da giao va No trong cung mot giao dich; loi giua chung thi khong luu nua chung. Phieu in lai co dau `DA DIEU CHINH`.
+- Da sua `app/(protected)/inventory/outbound/page.tsx`: dong xuat thuoc chuyen khong con nut sua/dieu chinh/huy tai trang Xuat kho, chi dan `Sua tai Nhat ky`; tranh hai noi cung sua mot phieu. Ghi chu `Xe <lai xe> - <so PXK>` cua dong moi duoc tao lai, khong noi de/ghi de ghi chu bang ly do dieu chinh; ly do nam o bang nhat ky rieng.
+- Da sua `app/(protected)/delivery-plan/page.tsx`: khi chon xe hien ro `Hom nay da chay X chuyen` va chuyen sap tao; chi dem phieu con hieu luc. Trang ke hoach hien dung mot nhan trong ba nhan `No`, `Du`, `Thua`; `Thua` thay cho chu `Vuot` va khong chong voi `No`.
+- Da sua `app/(protected)/vehicles/report/page.tsx`: bao cao xe noi bo tu xep lai thu tu tren cac phieu con hieu luc theo tung xe/ngay; chuyen 1-3 dung rate thuong, tu chuyen 4 dung rate cao. Vi vay cac phieu cu da huy do sai noi dung khong con lam tang so chuyen/rate tren bao cao. File Excel cung dung so da xep lai va ghi ro chuyen thu may.
+- SQL moi `supabase-sql/20260719_shipment_correction_and_logistics_safety.sql`, CHUA CHAY LIVE: tao bang nhat ky dieu chinh, RPC dieu chinh tron ven, chan sua phieu thuoc chuyen tai trang kho, chan ghep chuyen cu va them khoa khi hai nguoi tao cung xe/ngay. SQL khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`; co `ALTER TABLE`, `DROP POLICY`, `CREATE OR REPLACE FUNCTION`, chi tao hang rao/bang lich su va thay cach xu ly, khong xoa giao dich cu.
+- SQL audit chi doc `supabase-sql/20260719_audit_shipment_correction_logistics.sql`, CHUA CHAY LIVE: tim ngay/xe co rate cu lech voi cac phieu con hieu luc, `actual_qty` lech giao dich kho, va backlog trung khoa. File chi co `SELECT`, khong sua du lieu.
+- `npm run build` pass ngay 2026-07-20. `git diff --check` pass sau khi don khoang trang. Chua test mobile bang browser/screenshot theo yeu cau chu du an; chua dang nhap va chua test production.
+- Thu tu test bat buoc sau khi deploy nhanh phu: chay audit chi doc va luu ket qua; chay SQL fix; tao chuyen moi; dieu chinh 500 thanh 300; giao thua 500 thanh 550; doi ma A sang B co ke hoach; thu doi sang ma khong co ke hoach phai bi chan; thu sua dong chuyen tai Xuat kho phai khong co nut; xem nhan No/Du/Thua; doi chieu ton kho; xem lai Bao cao Logistics cua ngay tung huy phieu sai. Test tai 390px, 430px, 768px, 1366px.
+
 ## Cap nhat 2026-07-19 - Nhat ky giao hang: thao tac nhieu chuyen, gia tri va o so an toan
 
 - Da sua `app/(protected)/delivery-plan/log/page.tsx`: chon nhieu chuyen co the in lai trong mot goi ZIP; moi chuyen/moi diem giao van la mot file rieng. Neu thieu chi tiet, phap nhan hoac diem giao thi dung va bao ro, khong thong bao thanh cong gia.

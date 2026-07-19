@@ -24,11 +24,9 @@ import {
   Plus,
   Printer,
   Save,
-  Sparkles,
   Truck,
   Copy,
   ClipboardList,
-  Paperclip,
   RefreshCw,
   Trash2,
   X,
@@ -377,8 +375,6 @@ export default function DeliveryPlanPage() {
   const [tripCountAlert, setTripCountAlert] = useState<number>(0);
   const [shipmentEntityId, setShipmentEntityId] = useState<string>("");
   const [shipmentProcessing, setShipmentProcessing] = useState(false);
-  const [recentShipments, setRecentShipments] = useState<ShipmentLog[]>([]);
-  const [selectedMergeShipmentId, setSelectedMergeShipmentId] = useState<string | null>(null);
 
   // Tab state: 'plan' | 'history'
   const [activeTab, setActiveTab] = useState<'plan' | 'history'>('plan');
@@ -806,8 +802,6 @@ export default function DeliveryPlanPage() {
       setOverrideAst1Name("");
       setOverrideAst2Name("");
       setTripCountAlert(0);
-      setRecentShipments([]);
-      setSelectedMergeShipmentId(null);
 
       setShipmentProcessing(false);
       setShipmentModalOpen(true);
@@ -904,9 +898,9 @@ export default function DeliveryPlanPage() {
         p_driver_2_name: overrideDriver2Name || null,
         p_assistant_1_name: overrideAst1Name || null,
         p_assistant_2_name: overrideAst2Name || null,
-        p_note: selectedMergeShipmentId ? `Ghép thêm hàng vào chuyến ${recentShipments.find(s => s.id === selectedMergeShipmentId)?.shipment_no}` : `Xuất kho chuyến hàng`,
+        p_note: `Xuất kho chuyến hàng`,
         p_shipment_date: selectedOutboundDay,
-        p_existing_shipment_id: selectedMergeShipmentId,
+        p_existing_shipment_id: null,
       });
       if (error) throw error;
 
@@ -2150,6 +2144,8 @@ export default function DeliveryPlanPage() {
                           const isChanged = editData?.qty !== undefined || editData?.note !== undefined || editData?.note2 !== undefined;
                           const itdr = getVNTimeStr() === d;
                           const isDone = plannedQty > 0 && !!plan?.is_completed;
+                          const hasSurplus = plannedQty > 0 && actualQty > plannedQty;
+                          const surplusQty = hasSurplus ? actualQty - plannedQty : 0;
                           const hasNote = !!(editData?.note ?? plan?.note);
                           const progressPct = plannedQty > 0 ? Math.min(100, Math.round((actualQty / plannedQty) * 100)) : 0;
                           const hasPartialShipment = actualQty > 0 && !isDone;
@@ -2211,7 +2207,8 @@ export default function DeliveryPlanPage() {
                                     ${disabled ? 'opacity-70 bg-transparent border-transparent' :
                                       isChanged
                                         ? 'border-amber-400 bg-white text-amber-700 shadow-md shadow-amber-200/40 z-10 relative scale-105'
-                                        : isDone ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600 shadow-inner'
+                                        : hasSurplus ? 'border-amber-300 bg-amber-50/60 text-amber-700 shadow-inner'
+                                          : isDone ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600 shadow-inner'
                                           : hasPartialShipment ? 'border-yellow-300 bg-yellow-50/50 text-yellow-700'
                                             : 'border-transparent bg-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-400'
                                     }
@@ -2222,7 +2219,7 @@ export default function DeliveryPlanPage() {
                                   data-plan-day-index={dayIndex}
                                   value={val === "0" ? "" : val}
                                   placeholder="-"
-                                  title={isDone ? `Đã xuất đủ: ${actualQty}/${plannedQty}` : hasPartialShipment ? `Đang xuất dở: ${actualQty}/${plannedQty}` : (editData?.note ?? plan?.note ?? "")}
+                                  title={hasSurplus ? `Đã giao ${actualQty}/${plannedQty} - Thừa ${surplusQty}` : isDone ? `Đã xuất đủ: ${actualQty}/${plannedQty}` : hasPartialShipment ? `Đang xuất dở: ${actualQty}/${plannedQty}` : (editData?.note ?? plan?.note ?? "")}
                                   onChange={e => {
                                     const v = e.target.value.replace(/\D/g, "");
                                     handleQtyChange(p.id, row.deliveryCustomerId, d, v);
@@ -2232,7 +2229,7 @@ export default function DeliveryPlanPage() {
                                 />
                                 {(isDone || hasPartialShipment) && (
                                   <div className="absolute bottom-0 left-1 right-1 h-1 rounded-full bg-slate-200 overflow-hidden">
-                                    <div className={`h-full rounded-full transition-all ${isDone ? 'bg-emerald-500' : progressPct > 50 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${progressPct}%` }} />
+                                    <div className={`h-full rounded-full transition-all ${hasSurplus ? 'bg-amber-500' : isDone ? 'bg-emerald-500' : progressPct > 50 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${progressPct}%` }} />
                                   </div>
                                 )}
                                 {hasPartialShipment && (
@@ -2264,9 +2261,15 @@ export default function DeliveryPlanPage() {
                                         <X size={16} strokeWidth={2.5} />
                                       </button>
                                     )}
-                                    <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm" title={`Đã xuất kho: ${actualQty}`}>
-                                      <Check className="h-3 w-3 text-white" strokeWidth={3.5} />
-                                    </div>
+                                    {hasSurplus ? (
+                                      <div className="h-5 px-1.5 bg-amber-500 text-white rounded-full flex items-center justify-center shadow-sm text-[8px] font-black whitespace-nowrap" title={`Đã giao ${actualQty}/${plannedQty}`}>
+                                        THỪA {surplusQty.toLocaleString("vi-VN")}
+                                      </div>
+                                    ) : (
+                                      <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm" title={`Đã xuất kho: ${actualQty}`}>
+                                        <Check className="h-3 w-3 text-white" strokeWidth={3.5} />
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                                 {isChanged && (
@@ -2531,9 +2534,6 @@ export default function DeliveryPlanPage() {
                         onChange={async (e) => {
                           const val = e.target.value;
                           setShipmentVehicleId(val);
-                          setSelectedMergeShipmentId(null);
-                          setRecentShipments([]);
-
                           const v = vehicles.find(x => x.id === val);
                           if (v) {
                             setOverrideDriver1Name(v.driver_1_name || "");
@@ -2544,19 +2544,6 @@ export default function DeliveryPlanPage() {
                             const { count } = await supabase.from("shipment_logs").select("*", { count: "exact", head: true }).eq("vehicle_id", val).eq("shipment_date", selectedOutboundDay).is("deleted_at", null);
                             setTripCountAlert(count || 0);
 
-                            const twelveHoursAgo = new Date(new Date().getTime() - 12 * 60 * 60 * 1000).toISOString();
-                            const { data: recent } = await supabase
-                              .from("shipment_logs")
-                              .select("*")
-                              .eq("vehicle_id", val)
-                              .eq("shipment_date", selectedOutboundDay)
-                              .gt("created_at", twelveHoursAgo)
-                              .is("deleted_at", null)
-                              .order("created_at", { ascending: false });
-
-                            if (recent) {
-                              setRecentShipments(recent);
-                            }
                           } else {
                             setOverrideDriver1Name("");
                             setOverrideDriver2Name("");
@@ -2576,79 +2563,11 @@ export default function DeliveryPlanPage() {
                       </select>
 
                       {shipmentVehicleId && (
-                        <div className="mt-2 space-y-2">
-                          {recentShipments.length > 0 ? (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="mt-4"
-                            >
-                              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Phát hiện các chuyến xe khả dụng (12h qua):</div>
-                              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                                {recentShipments.map(shipment => (
-                                  <div
-                                    key={shipment.id}
-                                    onClick={() => setSelectedMergeShipmentId(shipment.id)}
-                                    className={`p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between ${selectedMergeShipmentId === shipment.id ? 'bg-amber-50 border-amber-400 shadow-md' : 'bg-white border-slate-200 hover:border-amber-200 hover:bg-amber-50/50'}`}
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg transition-colors ${selectedMergeShipmentId === shipment.id ? 'bg-amber-400 text-white shadow-inner' : 'bg-slate-100 text-slate-400'}`}>
-                                        <Paperclip size={14} strokeWidth={2.5} />
-                                      </div>
-                                      <div>
-                                        <div className={`text-[11px] font-black uppercase tracking-tight transition-colors ${selectedMergeShipmentId === shipment.id ? 'text-amber-700' : 'text-slate-700'}`}>
-                                          Gộp vào Chuyến <span className={`${selectedMergeShipmentId === shipment.id ? 'text-amber-600' : 'text-indigo-600'}`}>#{shipment.shipment_no}</span>
-                                        </div>
-                                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-                                          Tạo lúc: {new Date(shipment.created_at).toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour: '2-digit', minute: '2-digit' })} ({Math.round((new Date().getTime() - new Date(shipment.created_at).getTime()) / 60000)} phút trước)
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${selectedMergeShipmentId === shipment.id ? 'border-amber-500 bg-amber-500' : 'border-slate-300'}`}>
-                                      {selectedMergeShipmentId === shipment.id && <div className="w-2 h-2 rounded-full bg-white animate-pulse" />}
-                                    </div>
-                                  </div>
-                                ))}
-
-                                <div
-                                  onClick={() => setSelectedMergeShipmentId(null)}
-                                  className={`p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between mt-3 ${selectedMergeShipmentId === null ? 'bg-indigo-50 border-indigo-400 shadow-md' : 'bg-white border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/50'}`}
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg transition-colors ${selectedMergeShipmentId === null ? 'bg-indigo-500 text-white shadow-inner' : 'bg-slate-100 text-slate-400'}`}>
-                                      <Sparkles className="h-4 w-4" strokeWidth={2.35} />
-                                    </div>
-                                    <div>
-                                      <div className={`text-[11px] font-black uppercase tracking-tight transition-colors ${selectedMergeShipmentId === null ? 'text-indigo-700' : 'text-slate-700'}`}>
-                                        Tạo chuyến mới
-                                      </div>
-                                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-                                        (Hệ thống sẽ tính cước tài xế mới)
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${selectedMergeShipmentId === null ? 'border-indigo-500 bg-indigo-500' : 'border-slate-300'}`}>
-                                    {selectedMergeShipmentId === null && <div className="w-2 h-2 rounded-full bg-white animate-pulse" />}
-                                  </div>
-                                </div>
-                              </div>
-                            </motion.div>
-                          ) : (
-                            tripCountAlert > 0 && vehicles.find(v => v.id === shipmentVehicleId)?.type === "nội_bộ" && (
-                              <div className={`text-[11px] font-black px-2 py-1 flex items-center gap-1 rounded border inline-flex ${tripCountAlert >= 3 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
-                                {tripCountAlert >= 3 ? (
-                                  <>
-                                    <Flame className="h-3.5 w-3.5" strokeWidth={2.4} />
-                                    LƯU Ý: Chuyến thứ {tripCountAlert + 1} (Rate 230k/170k)
-                                  </>
-                                ) : (
-                                  <>
-                                    <Truck className="h-3.5 w-3.5" strokeWidth={2.4} />
-                                    Chuyến thứ {tripCountAlert + 1} (Rate 170k/120k)
-                                  </>
-                                )}
-                              </div>
-                            )
+                        <div className={`mt-2 text-[11px] font-black px-3 py-2 flex items-center gap-1.5 rounded-lg border ${tripCountAlert >= 3 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
+                          {tripCountAlert >= 3 ? <Flame className="h-3.5 w-3.5" strokeWidth={2.4} /> : <Truck className="h-3.5 w-3.5" strokeWidth={2.4} />}
+                          Hôm nay đã chạy {tripCountAlert} chuyến • Chuyến sắp tạo là chuyến thứ {tripCountAlert + 1}
+                          {vehicles.find(v => v.id === shipmentVehicleId)?.type === "nội_bộ" && (
+                            <span>({tripCountAlert >= 3 ? 'Rate 230k/170k' : 'Rate 170k/120k'})</span>
                           )}
                         </div>
                       )}

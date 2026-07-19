@@ -33,6 +33,7 @@ type Customer = {
 
 type OutboundTx = {
   id: string;
+  shipment_id: string | null;
   tx_date: string;
   customer_id: string | null;
   product_id: string;
@@ -1186,10 +1187,16 @@ export default function InventoryOutboundPage() {
                     <td style={{ ...tdStyle, width: colWidths["createdAt"] || 160, fontSize: 11, color: "#4b5563" }}>{fmtDatetime(r.created_at)}</td>
                     <td style={{ ...tdStyle, width: 120, textAlign: "center" }}>
                        <div className="flex gap-2 justify-center">
-                          <button onClick={() => toggleExpanded(r.id)} className="btn-icon">{isExpanded ? "▲" : "▼"}</button>
-                          {canEditRow(r.tx_date) && <button onClick={() => openEdit(r)} className="btn-icon"><Edit3 size={15} strokeWidth={2.5} /></button>}
-                          <button onClick={() => openAdjustment(r)} className="btn-icon"><Wrench size={15} strokeWidth={2.5} /></button>
-                          {canDeleteRow(r.tx_date) && <button onClick={() => handleDelete(r.id)} className="btn-icon text-red-500"><Trash2 size={15} strokeWidth={2.5} /></button>}
+                          {hasAdjs && <button onClick={() => toggleExpanded(r.id)} className="btn-icon">{isExpanded ? "▲" : "▼"}</button>}
+                          {r.shipment_id ? (
+                            <span className="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-black leading-tight">Sửa tại Nhật ký</span>
+                          ) : (
+                            <>
+                              {canEditRow(r.tx_date) && <button onClick={() => openEdit(r)} className="btn-icon"><Edit3 size={15} strokeWidth={2.5} /></button>}
+                              <button onClick={() => openAdjustment(r)} className="btn-icon"><Wrench size={15} strokeWidth={2.5} /></button>
+                              {canDeleteRow(r.tx_date) && <button onClick={() => handleDelete(r.id)} className="btn-icon text-red-500"><Trash2 size={15} strokeWidth={2.5} /></button>}
+                            </>
+                          )}
                        </div>
                     </td>
                   </tr>
