@@ -3024,14 +3024,6 @@ export default function DeliveryPlanPage() {
           background: rgba(255, 255, 255, 0.9) !important;
           backdrop-filter: blur(8px);
         }
-        input::-webkit-outer-spin-button,
-        input::-webkit-inner-spin-button {
-          -webkit-appearance: none;
-          margin: 0;
-        }
-        input[type=number] {
-          -moz-appearance: textfield;
-        }
       `}</style>
     </motion.div>
   );

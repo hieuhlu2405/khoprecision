@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { UIProvider } from "@/app/context/UIContext";
+import NumberInputSafetyGuard from "@/app/components/ui/NumberInputSafetyGuard";
 import {
   Activity,
   AlertTriangle,
@@ -452,6 +453,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
 
   return (
     <UIProvider>
+      <NumberInputSafetyGuard />
       <div style={{ display: "flex", minHeight: "100dvh" }}>
         {isMobile && (
           <div

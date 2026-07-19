@@ -1,13 +1,24 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-19 - Nhat ky giao hang: thao tac nhieu chuyen, gia tri va o so an toan
+
+- Da sua `app/(protected)/delivery-plan/log/page.tsx`: chon nhieu chuyen co the in lai trong mot goi ZIP; moi chuyen/moi diem giao van la mot file rieng. Neu thieu chi tiet, phap nhan hoac diem giao thi dung va bao ro, khong thong bao thanh cong gia.
+- Nut huy nhieu chuyen tren web khong con goi tung chuyen. Da tao SQL moi `supabase-sql/20260719_bulk_undo_shipments_atomic.sql`, DA CHAY LIVE ngay 2026-07-19 theo xac nhan cua chu du an, tao RPC `undo_shipments_v1(uuid[])`: chi Admin, toi da 100 chuyen, khoa du lieu theo thu tu on dinh, giu soft-delete va goi luong hoan kho/backlog hien co trong mot giao dich; mot chuyen loi thi toan bo danh sach rollback.
+- SQL bulk khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`; co `CREATE OR REPLACE FUNCTION`, chi tao cach database xu ly huy nhieu chuyen, khong xoa lich su.
+- Da doi cot `Tong hang` thanh `Gia tri chuyen hang`: cong `so luong * unit_cost` da luu luc chot; neu dong cu thieu `unit_cost` thi fallback `products.unit_price`; neu ca hai cung thieu thi UI hien canh bao. Da tao audit chi doc `supabase-sql/20260719_audit_delivery_log_bulk_and_value.sql`, DA CHAY LIVE ngay 2026-07-19; ket qua cac chuyen cu 07-15/05/2026 co mot so dong thieu gia da luu, nhung `lines_missing_all_price = 0`, nen tat ca van co gia hien tai tu Ma hang de hien thi. UI ghi ro `Co dung gia hien tai` cho cac chuyen nay, tranh hieu nham la gia lich su.
+- Da them `app/components/ui/NumberInputSafetyGuard.tsx` va CSS chung: tat nut mui ten tang/giam cua o so tren toan web; phim mui ten len/xuong khong doi gia tri; cuon chuot tren o so dang focus khong tu tang/giam. Van nhap tay va giu ban phim so mobile.
+- `npm run build` pass ngay 2026-07-19. ESLint rieng trang Nhat ky va guard o so pass. Chua test mobile bang browser/screenshot.
+- Backend da chay live; sau khi web deploy can audit lai quyen RPC neu chua co ket qua `function_exists=true`, `anon_can_execute=false`, `authenticated_can_execute=true`.
+- Ca can test: Admin huy 2 chuyen hop le; tron 1 chuyen da huy voi 1 chuyen con hieu luc thi khong chuyen nao thay doi; Staff goi thang RPC bi chan; doi chieu ton kho/actual_qty/backlog; in 2 chuyen va mot chuyen nhieu Vendor; kiem tien vai chuyen; test o so va layout tai 390px, 430px, 768px, 1366px.
+
 ## Cap nhat 2026-07-18 - Mo quyen them ma hang va khoa nhom Bao cao
 
 - Nguyen nhan loi them ma hang theo code: nut `Them ma hang` hien cho Staff, nhung policy `products_insert` tren database chi chap nhan `public.is_manager()`, nen Staff bi RLS chan. Day la ket luan dua tren code, chua phai du lieu production.
-- Da tao SQL moi `supabase-sql/20260718_open_product_create_and_restrict_reports.sql`, CHUA CHAY LIVE. SQL cho moi tai khoan da duyet/dang hoat dong them ma hang; tai khoan cho duyet, bi khoa hoac da ngung van bi chan.
+- Da tao SQL moi `supabase-sql/20260718_open_product_create_and_restrict_reports.sql`, DA CHAY LIVE ngay 2026-07-19 theo xac nhan cua chu du an. SQL cho moi tai khoan da duyet/dang hoat dong them ma hang; tai khoan cho duyet, bi khoa hoac da ngung van bi chan.
 - SQL tao helper `can_view_reports()`, khoa bang snapshot bao cao va RPC Sales de chi Admin hoac phong `accounting` duoc xem/ghi. SQL boc RPC Sales cu bang lop kiem tra quyen, khong doi cach tinh doanh thu.
 - Da sua `app/(protected)/layout.tsx`: nhom Bao cao va 6 man hinh con chi hien voi Admin/Ke toan; Manager Kho va cac chuc danh khac gõ thang URL cung bi chan tai khung bao ve chung.
 - SQL khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`; co `DROP POLICY`, `ALTER FUNCTION`, `CREATE OR REPLACE FUNCTION`, chi thay hang rao quyen va boc ham Sales, khong xoa du lieu nghiep vu.
-- Can chay SQL live, deploy web, sau do test: Staff them 1 ma hang; tai khoan khoa khong them duoc; Staff/Manager Kho khong thay va khong mo duoc 6 trang Bao cao; Ke toan/Admin van mo, xem Sales, xem/luu/vo hieu hoa snapshot bao cao duoc.
+- Can test sau khi web deploy: Staff them 1 ma hang; tai khoan khoa khong them duoc; Staff/Manager Kho khong thay va khong mo duoc 6 trang Bao cao; Ke toan/Admin van mo, xem Sales, xem/luu/vo hieu hoa snapshot bao cao duoc.
 
 ## Cap nhat 2026-07-16 - Fix RLS khi Admin ngung tai khoan nhan vien
 

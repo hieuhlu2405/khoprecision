@@ -3,9 +3,9 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
-import { motion, AnimatePresence } from "framer-motion";
-import { exportTemplateBundle, exportToExcel, type TemplateExportFile } from "@/lib/excel-utils";
-import { ArrowUpDown, FileText, Filter, Package, Printer, ScrollText, Trash2, Truck, UserRound, X } from "lucide-react";
+import { exportTemplateBundle, type TemplateExportFile } from "@/lib/excel-utils";
+import { fetchAllRows } from "@/lib/supabase-fetch-all";
+import { ArrowUpDown, CircleDollarSign, FileText, Filter, Printer, ScrollText, Trash2, Truck, UserRound, X } from "lucide-react";
 
 type ShipmentLog = {
   id: string;
@@ -22,14 +22,36 @@ type ShipmentLog = {
   note: string;
   created_at: string;
   // Join data
-  inventory_transactions?: { customer_id: string; product_id: string; qty: number }[];
+  inventory_transactions?: { customer_id: string; product_id: string; qty: number; unit_cost: number | null }[];
 };
 
-type Product = { id: string; sku: string; name: string; spec: string; uom: string; sap_code: string; external_sku: string; customer_id: string };
+type Product = { id: string; sku: string; name: string; spec: string; uom: string; sap_code: string; external_sku: string; customer_id: string; unit_price: number | null };
 type Customer = { id: string; code: string; name: string; address: string; external_code: string; selling_entity_id: string };
 type Entity = { id: string; code: string; name: string; address: string };
 type Vehicle = { id: string; license_plate: string; model: string; type: string };
 type Profile = { id: string; role: string; department: string };
+type ShipmentTransaction = {
+  id: string;
+  shipment_id: string;
+  delivery_plan_id: string | null;
+  customer_id: string | null;
+  delivery_customer_id: string | null;
+  product_id: string;
+  qty: number;
+  product_name_snapshot: string | null;
+  product_spec_snapshot: string | null;
+};
+type ShipmentPlanDeliveryPoint = { id: string; customer_id: string | null; delivery_customer_id: string | null };
+
+const vndFormatter = new Intl.NumberFormat("vi-VN", {
+  style: "currency",
+  currency: "VND",
+  maximumFractionDigits: 0,
+});
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
 
 export default function DeliveryLogPage() {
   const { showToast, showConfirm } = useUI();
@@ -46,6 +68,7 @@ export default function DeliveryLogPage() {
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<"print" | "cancel" | null>(null);
 
   // Advanced Filtering & Sorting
   const [colFilters, setColFilters] = useState<Record<string, { mode: "contains" | "equals"; value: string }>>({});
@@ -71,23 +94,27 @@ export default function DeliveryLogPage() {
   };
 
   const loadBaseData = useCallback(async () => {
-    const [rP, rC, rE, rV, { data: u }] = await Promise.all([
-      supabase.from("products").select("*").is("deleted_at", null),
-      supabase.from("customers").select("*").is("deleted_at", null),
-      supabase.from("selling_entities").select("*"),
-      supabase.from("vehicles").select("*"),
-      supabase.auth.getUser()
-    ]);
-    setProducts(rP.data || []);
-    setCustomers(rC.data || []);
-    setEntities(rE.data || []);
-    setVehicles(rV.data || []);
-    
-    if (u?.user) {
-      const { data: p } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).single();
-      setProfile(p as Profile);
+    try {
+      const [productRows, customerRows, rE, rV, { data: u }] = await Promise.all([
+        fetchAllRows<Product>(supabase.from("products").select("id, sku, name, spec, uom, sap_code, external_sku, customer_id, unit_price").is("deleted_at", null).order("id")),
+        fetchAllRows<Customer>(supabase.from("customers").select("id, code, name, address, external_code, selling_entity_id").is("deleted_at", null).order("id")),
+        supabase.from("selling_entities").select("*"),
+        supabase.from("vehicles").select("*"),
+        supabase.auth.getUser()
+      ]);
+      setProducts(productRows);
+      setCustomers(customerRows);
+      setEntities(rE.data || []);
+      setVehicles(rV.data || []);
+
+      if (u?.user) {
+        const { data: p } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).single();
+        setProfile(p as Profile);
+      }
+    } catch (error: unknown) {
+      showToast(getErrorMessage(error, "Không thể tải dữ liệu mã hàng, khách hàng hoặc xe."), "error");
     }
-  }, []);
+  }, [showToast]);
 
   const fetchLogs = useCallback(async (currentLimit: number, isInitial = false) => {
     if (isInitial) setLoading(true);
@@ -98,7 +125,7 @@ export default function DeliveryLogPage() {
         .from("shipment_logs")
         .select(`
           *,
-          inventory_transactions(customer_id, product_id, qty)
+          inventory_transactions(customer_id, product_id, qty, unit_cost)
         `)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
@@ -114,8 +141,8 @@ export default function DeliveryLogPage() {
 
       setLogs(data || []);
       setHasMore((data || []).length === currentLimit);
-    } catch (err: any) {
-      showToast(err.message, "error");
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, "Không thể tải nhật ký giao hàng."), "error");
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -130,6 +157,10 @@ export default function DeliveryLogPage() {
     fetchLogs(limit, true);
   }, [search, limit, fetchLogs]);
 
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [search, colFilters]);
+
   const handleLoadMore = () => {
     setLimit(prev => prev + 100);
   };
@@ -143,16 +174,9 @@ export default function DeliveryLogPage() {
     });
   };
 
-  const toggleSelectAll = () => {
-    if (selectedIds.size === logs.length && logs.length > 0) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(logs.map(l => l.id)));
-    }
-  };
-
   const handleUndoSingle = async (log: ShipmentLog) => {
     if (profile?.role !== 'admin') return showToast("Chỉ Admin mới có quyền hủy.", "error");
+    if (bulkAction !== null) return;
 
     const ok = await showConfirm({
       message: `Hủy chuyến hàng ${log.shipment_no}? Tồn kho sẽ được hoàn lại.`,
@@ -161,13 +185,16 @@ export default function DeliveryLogPage() {
     });
     if (!ok) return;
 
+    setBulkAction("cancel");
     try {
       const { error } = await supabase.rpc("undo_shipment", { p_shipment_id: log.id });
       if (error) throw error;
       showToast(`Đã hủy chuyến ${log.shipment_no}`, "success");
-      fetchLogs(limit);
-    } catch (err: any) {
-      showToast(err.message, "error");
+      await fetchLogs(limit);
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, "Không thể hủy chuyến hàng."), "error");
+    } finally {
+      setBulkAction(null);
     }
   };
 
@@ -175,132 +202,158 @@ export default function DeliveryLogPage() {
     if (profile?.role !== 'admin') return showToast("Chỉ Admin mới có quyền hủy.", "error");
     if (selectedIds.size === 0) return;
 
+    const selectedLogs = logs.filter(log => selectedIds.has(log.id));
+    if (selectedLogs.length !== selectedIds.size) {
+      setSelectedIds(new Set());
+      return showToast("Danh sách đã thay đổi. Vui lòng chọn lại các chuyến cần hủy.", "warning");
+    }
+    const shipmentLabels = selectedLogs.map(log => log.shipment_no);
+    const visibleLabels = shipmentLabels.slice(0, 8).join(", ");
+    const remainingLabel = shipmentLabels.length > 8 ? ` và ${shipmentLabels.length - 8} chuyến khác` : "";
+
     const ok = await showConfirm({
-      message: `Bạn có chắc chắn muốn hủy ${selectedIds.size} chuyến hàng đã chọn?`,
+      message: `Hủy ${selectedIds.size} chuyến: ${visibleLabels}${remainingLabel}? Tồn kho sẽ được hoàn lại. Nếu một chuyến lỗi thì toàn bộ danh sách sẽ không thay đổi.`,
       danger: true,
-      confirmLabel: "HỦY HÀNG LOẠT"
+      confirmLabel: `HỦY ${selectedIds.size} CHUYẾN`
     });
     if (!ok) return;
 
-    setLoading(true);
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const id of selectedIds) {
-      try {
-        const { error } = await supabase.rpc("undo_shipment", { p_shipment_id: id });
-        if (error) failCount++;
-        else successCount++;
-      } catch {
-        failCount++;
-      }
+    setBulkAction("cancel");
+    try {
+      const { data, error } = await supabase.rpc("undo_shipments_v1", {
+        p_shipment_ids: selectedLogs.map(log => log.id),
+      });
+      if (error) throw error;
+      const cancelledCount = Number(data?.shipment_count) || selectedLogs.length;
+      showToast(`Đã hủy an toàn ${cancelledCount} chuyến. Lịch sử vẫn được giữ lại.`, "success");
+      setSelectedIds(new Set());
+      await fetchLogs(limit);
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, "Không thể hủy các chuyến đã chọn."), "error");
+    } finally {
+      setBulkAction(null);
     }
-
-    showToast(`Đã hủy ${successCount} chuyến. Thất bại: ${failCount}`, failCount > 0 ? "warning" : "success");
-    setSelectedIds(new Set());
-    fetchLogs(limit);
   };
 
-  const handleReprintPGH = async (log: ShipmentLog) => {
-    showToast(`Đang chuẩn bị PGH ${log.shipment_no}...`, "info");
+  const handleReprintPGH = async (targetLogs: ShipmentLog[]) => {
+    if (targetLogs.length === 0) return;
+    setBulkAction("print");
+    showToast(`Đang chuẩn bị phiếu của ${targetLogs.length} chuyến...`, "info");
     try {
-      // ... same logic ...
-      const { data: txs, error } = await supabase
-        .from("inventory_transactions")
-        .select("*")
-        .eq("shipment_id", log.id);
-      
-      if (error) throw error;
-      if (!txs || txs.length === 0) throw new Error("Không tìm thấy chi tiết chuyến hàng.");
+      const targetIds = targetLogs.map(log => log.id);
+      const txs = await fetchAllRows<ShipmentTransaction>(
+        supabase
+          .from("inventory_transactions")
+          .select("id, shipment_id, delivery_plan_id, customer_id, delivery_customer_id, product_id, qty, product_name_snapshot, product_spec_snapshot")
+          .in("shipment_id", targetIds)
+          .is("deleted_at", null)
+          .order("id")
+      );
+      const txsByShipment = new Map<string, ShipmentTransaction[]>();
+      txs.forEach(tx => txsByShipment.set(tx.shipment_id, [...(txsByShipment.get(tx.shipment_id) || []), tx]));
+      const missingShipments = targetLogs.filter(log => !(txsByShipment.get(log.id)?.length));
+      if (missingShipments.length > 0) {
+        throw new Error(`Không tìm thấy chi tiết của chuyến: ${missingShipments.map(log => log.shipment_no).join(", ")}. Chưa tải phiếu nào.`);
+      }
 
-      const entity = entities.find(e => e.id === log.entity_id);
-      const dateLabel = log.shipment_date.split("-").reverse().join("/");
-      const safeShipmentNo = log.shipment_no.replace(/[\\/:*?"<>|]/g, "-");
-
-      const planIds = Array.from(new Set(txs.map(tx => tx.delivery_plan_id).filter(Boolean)));
+      const planIds = Array.from(new Set(txs.map(tx => tx.delivery_plan_id).filter((id): id is string => Boolean(id))));
       const planDeliveryPoints = new Map<string, string>();
       if (planIds.length > 0) {
-        const { data: shipmentPlans, error: planError } = await supabase
-          .from("delivery_plans")
-          .select("id, customer_id, delivery_customer_id")
-          .in("id", planIds);
-        if (!planError) {
-          (shipmentPlans || []).forEach(plan => {
-            const deliveryPointId = plan.delivery_customer_id || plan.customer_id;
-            if (deliveryPointId) planDeliveryPoints.set(plan.id, deliveryPointId);
-          });
-        }
+        const shipmentPlans = await fetchAllRows<ShipmentPlanDeliveryPoint>(
+          supabase
+            .from("delivery_plans")
+            .select("id, customer_id, delivery_customer_id")
+            .in("id", planIds)
+            .order("id")
+        );
+        shipmentPlans.forEach(plan => {
+          const deliveryPointId = plan.delivery_customer_id || plan.customer_id;
+          if (deliveryPointId) planDeliveryPoints.set(plan.id, deliveryPointId);
+        });
       }
-
-      const txGroups = new Map<string, typeof txs>();
-      txs.forEach(tx => {
-        const key = tx.delivery_customer_id
-          || planDeliveryPoints.get(tx.delivery_plan_id)
-          || tx.customer_id
-          || log.customer_id
-          || "unknown";
-        txGroups.set(key, [...(txGroups.get(key) || []), tx]);
-      });
 
       const files: TemplateExportFile[] = [];
-      for (const [deliveryCustomerId, vendorTxs] of txGroups) {
-        const cust = customers.find(c => c.id === deliveryCustomerId);
-        const items = vendorTxs.map(t => {
-          const p = products.find(prod => prod.id === t.product_id);
-          return {
-            sku: p?.sku || t.product_name_snapshot || "",
-            product_name: p?.name || t.product_name_snapshot || "",
-            spec: p?.spec || t.product_spec_snapshot || "",
-            sap_code: p?.sap_code || "",
-            external_sku: p?.external_sku || "",
-            uom: p?.uom || "PCS",
-            actual: t.qty,
-          };
-        });
+      const usedFilenames = new Set<string>();
+      for (const log of targetLogs) {
+        const entity = entities.find(e => e.id === log.entity_id);
+        if (!entity) throw new Error(`Chuyến ${log.shipment_no} thiếu thông tin pháp nhân. Chưa tải phiếu nào.`);
+        const dateLabel = log.shipment_date.split("-").reverse().join("/");
+        const safeShipmentNo = log.shipment_no.replace(/[\\/:*?"<>|]/g, "-");
+        const txGroups = new Map<string, ShipmentTransaction[]>();
+        for (const tx of txsByShipment.get(log.id) || []) {
+          const deliveryCustomerId = tx.delivery_customer_id
+            || (tx.delivery_plan_id ? planDeliveryPoints.get(tx.delivery_plan_id) : null)
+            || tx.customer_id
+            || log.customer_id;
+          if (!deliveryCustomerId) throw new Error(`Chuyến ${log.shipment_no} thiếu điểm giao. Chưa tải phiếu nào.`);
+          txGroups.set(deliveryCustomerId, [...(txGroups.get(deliveryCustomerId) || []), tx]);
+        }
 
-        const totalQty = items.reduce((sum, it) => sum + it.actual, 0);
-        const rowOffset = items.length - 1;
-        const safeCustomerCode = (cust?.code || "KH").replace(/[\\/:*?"<>|]/g, "-");
-        const fileName = `PGH_REPRINT_${safeShipmentNo}_${safeCustomerCode}`;
-        const cellData: any = {
-          'A2': { value: entity?.name || "", font: { name: 'Times New Roman', size: 18, bold: true } },
-          'A3': { value: entity?.address || "", font: { name: 'Times New Roman', size: 18 } },
-          'H7': { value: log.shipment_no, font: { name: 'Times New Roman', size: 13, bold: true } },
-          'H8': { value: dateLabel, font: { name: 'Times New Roman', size: 13, bold: true } },
-          'H9': { value: cust?.code || "", font: { name: 'Times New Roman', size: 13, bold: true } },
-          'H11': { value: cust?.external_code || "", font: { name: 'Times New Roman', size: 13, bold: true } },
-          'B9': { value: cust?.name || "", font: { name: 'Times New Roman', size: 13, bold: true } },
-          'B10': { value: cust?.address || "", font: { name: 'Times New Roman', size: 13 } },
-          'B11': { value: entity?.name || "", font: { name: 'Times New Roman', size: 13, bold: true } },
-          'B12': { value: entity?.address || "", font: { name: 'Times New Roman', size: 13 } },
-          [`G${17 + rowOffset}`]: { value: totalQty, font: { name: 'Times New Roman', size: 13, bold: true } },
-          [`A${19 + rowOffset}`]: { value: "BÊN GIAO", font: { name: 'Times New Roman', size: 12, bold: true } },
-          [`F${19 + rowOffset}`]: { value: "BÊN NHẬN", font: { name: 'Times New Roman', size: 12, bold: true } },
-          [`A${20 + rowOffset}`]: { value: entity?.name || "", font: { name: 'Times New Roman', size: 12, bold: true } },
-          [`F${20 + rowOffset}`]: { value: cust?.name || "", font: { name: 'Times New Roman', size: 12, bold: true } },
-        };
-        ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(col => {
-          cellData[`${col}15`] = { value: null, font: { name: 'Times New Roman', size: 13, bold: true } };
-        });
-        const tableData = items.map((it, i) => [
-          i + 1, it.sku, it.sap_code, it.external_sku, `${it.product_name} ${it.spec ? "(" + it.spec + ")" : ""}`, it.uom, it.actual
-        ]);
-        files.push({ filename: fileName, cellData, tableData, rowOffset });
+        for (const [deliveryCustomerId, vendorTxs] of txGroups) {
+          const cust = customers.find(c => c.id === deliveryCustomerId);
+          if (!cust) throw new Error(`Chuyến ${log.shipment_no} không tìm thấy khách/điểm giao. Chưa tải phiếu nào.`);
+          const items = vendorTxs.map(t => {
+            const p = products.find(prod => prod.id === t.product_id);
+            return {
+              sku: p?.sku || t.product_name_snapshot || "",
+              product_name: p?.name || t.product_name_snapshot || "",
+              spec: p?.spec || t.product_spec_snapshot || "",
+              sap_code: p?.sap_code || "",
+              external_sku: p?.external_sku || "",
+              uom: p?.uom || "PCS",
+              actual: Number(t.qty) || 0,
+            };
+          });
+
+          const totalQty = items.reduce((sum, it) => sum + it.actual, 0);
+          const rowOffset = Math.max(0, items.length - 1);
+          const safeCustomerCode = (cust.code || "KH").replace(/[\\/:*?"<>|]/g, "-");
+          const baseFilename = `PGH_REPRINT_${safeShipmentNo}_${safeCustomerCode}`;
+          let fileName = baseFilename;
+          let duplicateIndex = 2;
+          while (usedFilenames.has(fileName)) fileName = `${baseFilename}_${duplicateIndex++}`;
+          usedFilenames.add(fileName);
+          const cellData: TemplateExportFile["cellData"] = {
+            'A2': { value: entity.name || "", font: { name: 'Times New Roman', size: 18, bold: true } },
+            'A3': { value: entity.address || "", font: { name: 'Times New Roman', size: 18 } },
+            'H7': { value: log.shipment_no, font: { name: 'Times New Roman', size: 13, bold: true } },
+            'H8': { value: dateLabel, font: { name: 'Times New Roman', size: 13, bold: true } },
+            'H9': { value: cust.code || "", font: { name: 'Times New Roman', size: 13, bold: true } },
+            'H11': { value: cust.external_code || "", font: { name: 'Times New Roman', size: 13, bold: true } },
+            'B9': { value: cust.name || "", font: { name: 'Times New Roman', size: 13, bold: true } },
+            'B10': { value: cust.address || "", font: { name: 'Times New Roman', size: 13 } },
+            'B11': { value: entity.name || "", font: { name: 'Times New Roman', size: 13, bold: true } },
+            'B12': { value: entity.address || "", font: { name: 'Times New Roman', size: 13 } },
+            [`G${17 + rowOffset}`]: { value: totalQty, font: { name: 'Times New Roman', size: 13, bold: true } },
+            [`A${19 + rowOffset}`]: { value: "BÊN GIAO", font: { name: 'Times New Roman', size: 12, bold: true } },
+            [`F${19 + rowOffset}`]: { value: "BÊN NHẬN", font: { name: 'Times New Roman', size: 12, bold: true } },
+            [`A${20 + rowOffset}`]: { value: entity.name || "", font: { name: 'Times New Roman', size: 12, bold: true } },
+            [`F${20 + rowOffset}`]: { value: cust.name || "", font: { name: 'Times New Roman', size: 12, bold: true } },
+          };
+          ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(col => {
+            cellData[`${col}15`] = { value: null, font: { name: 'Times New Roman', size: 13, bold: true } };
+          });
+          const tableData = items.map((it, i) => [
+            i + 1, it.sku, it.sap_code, it.external_sku, `${it.product_name} ${it.spec ? "(" + it.spec + ")" : ""}`, it.uom, it.actual
+          ]);
+          files.push({ filename: fileName, cellData, tableData, rowOffset });
+        }
       }
+      const safeToday = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()).replaceAll("-", "");
+      const bundleFilename = targetLogs.length === 1
+        ? `PGH_REPRINT_${targetLogs[0].shipment_no.replace(/[\\/:*?"<>|]/g, "-")}_TAT_CA_DIEM`
+        : `PGH_REPRINT_${targetLogs.length}_CHUYEN_${safeToday}`;
       await exportTemplateBundle(
         '/templates/maupgh.xlsx',
         files,
         16,
-        `PGH_REPRINT_${safeShipmentNo}_TAT_CA_DIEM`
+        bundleFilename
       );
-      showToast(
-        txGroups.size > 1
-          ? `Đã tải ${txGroups.size} phiếu theo từng điểm trong 1 file ZIP.`
-          : `Đã tải file PGH ${log.shipment_no}`,
-        "success"
-      );
-    } catch (err: any) {
-      showToast(err.message, "error");
+      showToast(`Đã tải ${files.length} phiếu của ${targetLogs.length} chuyến.`, "success");
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, "Không thể tạo phiếu giao hàng."), "error");
+    } finally {
+      setBulkAction(null);
     }
   };
 
@@ -369,7 +422,10 @@ export default function DeliveryLogPage() {
                 <select 
                   className="select select-bordered select-sm w-full mb-3 text-xs" 
                   value={colFilters[colKey]?.mode || "contains"}
-                  onChange={e => setColFilters(p => ({ ...p, [colKey]: { mode: e.target.value as any, value: p[colKey]?.value || "" } }))}
+                  onChange={e => {
+                    const mode = e.target.value === "equals" ? "equals" : "contains";
+                    setColFilters(p => ({ ...p, [colKey]: { mode, value: p[colKey]?.value || "" } }));
+                  }}
                 >
                   <option value="contains">Chứa cụm từ</option>
                   <option value="equals">Bằng chính xác</option>
@@ -398,6 +454,30 @@ export default function DeliveryLogPage() {
       );
   }
 
+  const productById = useMemo(() => new Map(products.map(product => [product.id, product])), [products]);
+  const getShipmentValue = useCallback((log: ShipmentLog) => (
+    (log.inventory_transactions || []).reduce((sum, tx) => {
+      const savedPrice = tx.unit_cost;
+      const currentPrice = productById.get(tx.product_id)?.unit_price;
+      const price = savedPrice !== null && savedPrice !== undefined ? Number(savedPrice) : Number(currentPrice || 0);
+      return sum + (Number(tx.qty) || 0) * (Number.isFinite(price) ? price : 0);
+    }, 0)
+  ), [productById]);
+  const hasMissingShipmentPrice = useCallback((log: ShipmentLog) => (
+    (log.inventory_transactions || []).some(tx => {
+      const savedPrice = tx.unit_cost;
+      const currentPrice = productById.get(tx.product_id)?.unit_price;
+      return (savedPrice === null || savedPrice === undefined) && (currentPrice === null || currentPrice === undefined);
+    })
+  ), [productById]);
+  const usesCurrentShipmentPrice = useCallback((log: ShipmentLog) => (
+    (log.inventory_transactions || []).some(tx => (
+      (tx.unit_cost === null || tx.unit_cost === undefined)
+      && productById.get(tx.product_id)?.unit_price !== null
+      && productById.get(tx.product_id)?.unit_price !== undefined
+    ))
+  ), [productById]);
+
   const finalLogs = useMemo(() => {
     let list = [...logs];
     
@@ -414,9 +494,8 @@ export default function DeliveryLogPage() {
             const allCustIds = Array.from(new Set([l.customer_id, ...txCustIds])).filter(Boolean);
             target = allCustIds.map(cid => customers.find(x => x.id === cid)?.code || "").join(" ");
         }
-        else if (key === "total_qty") {
-            const sum = (l.inventory_transactions || []).reduce((a, b) => a + (b.qty || 0), 0);
-            target = String(sum);
+        else if (key === "total_value") {
+            target = String(getShipmentValue(l));
         }
         else if (key === "sku_count") {
             const set = new Set((l.inventory_transactions || []).map(t => t.product_id));
@@ -436,13 +515,13 @@ export default function DeliveryLogPage() {
     // Sorting
     if (sortCol && sortDir) {
       list.sort((a, b) => {
-        let vA: any = a[sortCol as keyof ShipmentLog] || "";
-        let vB: any = b[sortCol as keyof ShipmentLog] || "";
+        let vA: string | number = String(a[sortCol as keyof ShipmentLog] || "");
+        let vB: string | number = String(b[sortCol as keyof ShipmentLog] || "");
         
         if (sortCol === "shipment_no") { vA = a.shipment_no; vB = b.shipment_no; }
-        else if (sortCol === "total_qty") {
-            vA = (a.inventory_transactions || []).reduce((sum, t) => sum + (t.qty || 0), 0);
-            vB = (b.inventory_transactions || []).reduce((sum, t) => sum + (t.qty || 0), 0);
+        else if (sortCol === "total_value") {
+            vA = getShipmentValue(a);
+            vB = getShipmentValue(b);
         }
 
         if (vA < vB) return sortDir === "asc" ? -1 : 1;
@@ -452,7 +531,18 @@ export default function DeliveryLogPage() {
     }
 
     return list;
-  }, [logs, colFilters, sortCol, sortDir, customers, entities, vehicles]);
+  }, [logs, colFilters, sortCol, sortDir, customers, vehicles, getShipmentValue]);
+
+  const selectedLogs = useMemo(() => logs.filter(log => selectedIds.has(log.id)), [logs, selectedIds]);
+  const allVisibleSelected = finalLogs.length > 0 && finalLogs.every(log => selectedIds.has(log.id));
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allVisibleSelected) finalLogs.forEach(log => next.delete(log.id));
+      else finalLogs.forEach(log => next.add(log.id));
+      return next;
+    });
+  };
 
   return (
     <div className="min-h-screen">
@@ -468,40 +558,52 @@ export default function DeliveryLogPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
           <div className="relative group">
             <input
               type="text"
               placeholder="Tìm Số phiếu, Biển số..."
-              className="input input-bordered input-sm pl-4 w-80 font-bold text-xs rounded-xl focus:ring-2 focus:ring-indigo-500/20 border-slate-200"
+              className="input input-bordered input-sm pl-4 w-full sm:w-80 font-bold text-xs rounded-xl focus:ring-2 focus:ring-indigo-500/20 border-slate-200"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          {selectedIds.size > 0 && profile?.role === 'admin' && (
-            <button
-              onClick={handleBulkUndo}
-              className="btn btn-sm bg-red-50 text-red-600 border-red-100 hover:bg-red-100 font-bold text-[10px] rounded-xl px-4"
-            >
-              <Trash2 size={14} strokeWidth={2.5} /> HỦY {selectedIds.size} CHUYẾN
-            </button>
+          {selectedIds.size > 0 && (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => handleReprintPGH(selectedLogs)}
+                disabled={bulkAction !== null || selectedLogs.length !== selectedIds.size}
+                className="btn btn-sm bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 font-bold text-[10px] rounded-xl px-4 min-h-11"
+              >
+                <Printer size={14} strokeWidth={2.5} /> {bulkAction === "print" ? "ĐANG TẠO PHIẾU..." : `IN LẠI ${selectedIds.size} CHUYẾN`}
+              </button>
+              {profile?.role === 'admin' && (
+                <button
+                  onClick={handleBulkUndo}
+                  disabled={bulkAction !== null || selectedLogs.length !== selectedIds.size}
+                  className="btn btn-sm bg-red-50 text-red-600 border-red-100 hover:bg-red-100 font-bold text-[10px] rounded-xl px-4 min-h-11"
+                >
+                  <Trash2 size={14} strokeWidth={2.5} /> {bulkAction === "cancel" ? "ĐANG HỦY..." : `HỦY ${selectedIds.size} CHUYẾN`}
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
 
       {/* Main Table */}
       <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden">
-        <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 250px)" }}>
+        <div className="overflow-auto" style={{ maxHeight: "calc(100dvh - 250px)" }}>
           <table className="w-full text-sm !border-separate !border-spacing-0" style={{ tableLayout: 'fixed' }}>
             <thead>
               <tr>
                 <th className="px-4 py-4 text-center border-b border-r border-slate-200 w-12 bg-slate-50/80 backdrop-blur-md sticky top-0 z-20">
-                   <input type="checkbox" className="checkbox checkbox-xs rounded border-slate-300" checked={selectedIds.size === logs.length && logs.length > 0} onChange={toggleSelectAll} />
+                   <input type="checkbox" className="checkbox checkbox-xs rounded border-slate-300" checked={allVisibleSelected} disabled={bulkAction !== null} onChange={toggleSelectAll} aria-label="Chọn tất cả chuyến đang hiển thị" />
                 </th>
                 <ThCell label="Số phiếu" colKey="shipment_no" w="150px" />
                 <ThCell label="Ngày xuất" colKey="shipment_date" w="120px" />
                 <ThCell label="Khách hàng" colKey="customer" w="250px" />
-                <ThCell label="Tổng hàng" colKey="total_qty" w="120px" />
+                <ThCell label="Giá trị chuyến hàng" colKey="total_value" w="170px" />
                 <ThCell label="Xe / Tài xế" colKey="driver" w="250px" />
                 <th className="px-6 py-4 text-center font-black text-xs text-black uppercase tracking-wider border-b border-slate-200 bg-slate-50/80 backdrop-blur-md sticky top-0 z-20 w-[120px]" style={{ color: '#000000' }}>Thao tác</th>
               </tr>
@@ -513,13 +615,11 @@ export default function DeliveryLogPage() {
                 <tr><td colSpan={7} className="py-20 text-center text-slate-300 font-bold italic">Không tìm thấy chuyến hàng nào.</td></tr>
               ) : (
                 finalLogs.map(log => {
-                  const cust = customers.find(c => c.id === log.customer_id);
-                  const ent = entities.find(e => e.id === log.entity_id);
                   const isSel = selectedIds.has(log.id);
                   return (
                     <tr key={log.id} className={`group hover:bg-slate-50/80 transition-colors ${isSel ? 'bg-indigo-50' : 'odd:bg-white even:bg-slate-50/30'}`}>
                       <td className="px-4 py-4 text-center border-r border-slate-200" style={{ width: 48 }}>
-                        <input type="checkbox" className="checkbox checkbox-xs rounded border-slate-300" checked={isSel} onChange={() => toggleSelect(log.id)} />
+                        <input type="checkbox" className="checkbox checkbox-xs rounded border-slate-300" checked={isSel} disabled={bulkAction !== null} onChange={() => toggleSelect(log.id)} aria-label={`Chọn chuyến ${log.shipment_no}`} />
                       </td>
                       <td className="px-6 py-4 border-r border-slate-200" style={{ width: colWidths["shipment_no"] || 150 }}>
                         <span className="font-black text-indigo-600 text-base tracking-wider">{log.shipment_no}</span>
@@ -548,19 +648,19 @@ export default function DeliveryLogPage() {
                           })()}
                         </div>
                       </td>
-                      <td className="px-6 py-4 border-r border-slate-200" style={{ width: colWidths["total_qty"] || 120 }}>
+                      <td className="px-6 py-4 border-r border-slate-200" style={{ width: colWidths["total_value"] || 170 }}>
                         {(() => {
-                           const txs = log.inventory_transactions || [];
-                           const totalQty = txs.reduce((a, b) => a + (b.qty || 0), 0);
-                           const skuCount = new Set(txs.map(t => t.product_id)).size;
-                           
+                           const totalValue = getShipmentValue(log);
+                           const missingPrice = hasMissingShipmentPrice(log);
+                           const usesCurrentPrice = usesCurrentShipmentPrice(log);
                            return (
                              <div className="flex flex-col">
-                               <div className="font-black text-black text-[15px] leading-tight" style={{ color: '#000000' }}>
-                                 {totalQty > 0 ? totalQty.toLocaleString("vi-VN") : "0"} <span className="text-[10px] text-black font-bold uppercase ml-0.5" style={{ color: '#000000' }}>Sản phẩm</span>
+                               <div className="font-black text-emerald-700 text-[15px] leading-tight whitespace-nowrap">
+                                 {vndFormatter.format(totalValue)}
                                </div>
-                               <div className="text-[10px] text-slate-500 font-black uppercase tracking-tighter mt-0.5">
-                                 <Package size={12} strokeWidth={2.5} className="inline-block mr-1 align-[-2px]" /> {skuCount} mã hàng
+                               <div className={`text-[10px] font-black mt-1 ${missingPrice ? "text-red-600" : "text-slate-500"}`}>
+                                 <CircleDollarSign size={12} strokeWidth={2.5} className="inline-block mr-1 align-[-2px]" />
+                                 {missingPrice ? "Có mã thiếu đơn giá" : usesCurrentPrice ? "Có dùng giá hiện tại" : "Giá tại lúc chốt chuyến"}
                                </div>
                              </div>
                            );
@@ -607,7 +707,8 @@ export default function DeliveryLogPage() {
                       <td className="px-6 py-4 text-center" style={{ width: 120 }}>
                         <div className="flex items-center justify-center gap-2">
                              <button
-                                onClick={() => handleReprintPGH(log)}
+                                onClick={() => handleReprintPGH([log])}
+                                disabled={bulkAction !== null}
                                 className="w-10 h-10 flex items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-all shadow-sm"
                                 title="In lại Phiếu giao hàng"
                               >
@@ -616,7 +717,8 @@ export default function DeliveryLogPage() {
                           {profile?.role === 'admin' && (
                             <button
                               onClick={() => handleUndoSingle(log)}
-                              className="w-10 h-10 flex items-center justify-center rounded-xl bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 transition-all shadow-sm opacity-0 group-hover:opacity-100"
+                              disabled={bulkAction !== null}
+                              className="w-10 h-10 flex items-center justify-center rounded-xl bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 transition-all shadow-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
                               title="Hủy chuyến hàng"
                             >
                               <X size={18} strokeWidth={2.6} />

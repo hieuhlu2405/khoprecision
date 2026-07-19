@@ -269,6 +269,18 @@ select:not([class]):focus {
   transform: scale(1.005);
 }
 
+/* Numeric values must be typed deliberately; browsers must not show step buttons. */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
 /* =====================================================================
    Table
    ===================================================================== */
