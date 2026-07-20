@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
-import { getTodayVNStr } from "@/lib/date-utils";
+import { formatDateTimeVN, getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { fetchAllRows } from "@/lib/supabase-fetch-all";
 import { ArrowUpDown, Box, Edit3, FileSpreadsheet, Filter, Plus, Search, Trash2, Wrench, X } from "lucide-react";
@@ -81,11 +81,7 @@ function fmtDate(d: string | null): string {
 }
 
 function fmtDatetime(d: string | null): string {
-  if (!d) return "";
-  const dp = d.slice(0, 10).split("-");
-  const tp = d.slice(11, 19);
-  if (dp.length === 3) return `${dp[2]}-${dp[1]}-${dp[0]} ${tp}`;
-  return d.replace("T", " ").slice(0, 19);
+  return formatDateTimeVN(d);
 }
 
 const thStyle = { textAlign: "left", background: "#f8fafc", whiteSpace: "nowrap" } as const;

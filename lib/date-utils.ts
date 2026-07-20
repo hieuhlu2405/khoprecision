@@ -35,7 +35,7 @@ export function formatDateTimeVN(d: string | Date | null | undefined): string {
   const date = toVNTime(d);
   if (!date) return "";
 
-  return new Intl.DateTimeFormat("vi-VN", {
+  const parts = new Intl.DateTimeFormat("vi-VN", {
     timeZone: "Asia/Ho_Chi_Minh",
     day: "2-digit",
     month: "2-digit",
@@ -43,8 +43,12 @@ export function formatDateTimeVN(d: string | Date | null | undefined): string {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hour12: false,
-  }).format(date).replace(/\//g, "-");
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const getPart = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+
+  return `${getPart("day")}-${getPart("month")}-${getPart("year")} ${getPart("hour")}:${getPart("minute")}:${getPart("second")}`;
 }
 
 /**

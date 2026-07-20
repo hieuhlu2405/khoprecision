@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
-import { getTodayVNStr } from "@/lib/date-utils";
+import { formatDateTimeVN, getTodayVNStr } from "@/lib/date-utils";
 import { ArrowUpDown, Filter, Plus, RefreshCw, Search } from "lucide-react";
 
 type Stocktake = {
@@ -38,15 +38,7 @@ function properFmtDate(d: string): string {
 }
 
 function fmtDatetime(dt: string): string {
-  if (!dt) return "";
-  const d = new Date(dt);
-  const day = String(d.getDate()).padStart(2, "0");
-  const mo = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
-  return `${day}-${mo}-${yyyy} ${hh}:${mm}:${ss}`;
+  return formatDateTimeVN(dt);
 }
 
 const thStyle = { textAlign: "left", border: "1px solid #ddd", padding: "10px 8px", background: "#f8fafc", whiteSpace: "nowrap" } as const;
