@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
+import { formatDateTimeVN } from "@/lib/date-utils";
 import { AlertTriangle, RotateCcw, ShieldCheck, UserMinus } from "lucide-react";
 
 type Role = "admin" | "manager" | "staff";
@@ -41,11 +42,7 @@ const DEPT_LABELS: Record<Dept, string> = {
 };
 
 function fmtDatetime(d: string | null): string {
-  if (!d) return "";
-  const dp = d.slice(0, 10).split("-");
-  const tp = d.slice(11, 19);
-  if (dp.length === 3) return `${dp[2]}-${dp[1]}-${dp[0]} ${tp}`;
-  return d.replace("T", " ").slice(0, 19);
+  return formatDateTimeVN(d);
 }
 
 const thStyle = {

@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, TableSkeleton, ErrorBanner, LoadingInline } from "@/app/components/ui/Loading";
 import { exportToExcel, readExcel } from "@/lib/excel-utils";
+import { formatDateTimeVN } from "@/lib/date-utils";
 import { ArrowDown, ArrowUp, ArrowUpDown, FileSpreadsheet, Filter, ListPlus, Plus, Save, Tags, Upload, X } from "lucide-react";
 
 type Profile = { id: string; role: "admin" | "manager" | "staff"; department: string; };
@@ -139,11 +140,7 @@ export default function ProductsPage() {
   }
 
   function fmtDatetime(d: string | null): string {
-    if (!d) return "";
-    const dp = d.slice(0, 10).split("-");
-    const tp = d.slice(11, 19);
-    if (dp.length === 3) return `${dp[2]}-${dp[1]}-${dp[0]} ${tp}`;
-    return d.replace("T", " ").slice(0, 19);
+    return formatDateTimeVN(d);
   }
 
   const thStyle = { 

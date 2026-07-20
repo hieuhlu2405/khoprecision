@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
-import { getTodayVNStr } from "@/lib/date-utils";
+import { formatDateTimeVN, getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { Pagination } from "@/app/components/ui/Pagination";
 import { ArrowUpDown, Check, FileSpreadsheet, Filter, Flag, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
@@ -93,11 +93,7 @@ function fmtDate(iso: string) {
 }
 
 function fmtDatetime(iso: string) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const date = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  return `${date} ${time}`;
+  return formatDateTimeVN(iso);
 }
 
 const btnSmallClass = "btn btn-secondary btn-sm";

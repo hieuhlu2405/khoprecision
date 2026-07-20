@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
+import { formatDateTimeVN } from "@/lib/date-utils";
 import { Building2, ChevronRight, FileSpreadsheet, Handshake, Link2, Plus } from "lucide-react";
 
 type Customer = {
@@ -71,11 +72,7 @@ export default function CustomersPage() {
   };
 
   function fmtDatetime(d: string | null): string {
-    if (!d) return "";
-    const dp = d.slice(0, 10).split("-");
-    const tp = d.slice(11, 19);
-    if (dp.length === 3) return `${dp[2]}-${dp[1]}-${dp[0]} ${tp}`;
-    return d.replace("T", " ").slice(0, 19);
+    return formatDateTimeVN(d);
   }
 
   const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");

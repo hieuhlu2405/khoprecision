@@ -1,5 +1,12 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-20 - Sua gio hien thi bi cham 7 tieng
+
+- Nguyen nhan theo code: mot so trang cat thang chuoi `timestamptz` Supabase nen hien gio UTC, vi du `03:30`, thay vi doi sang gio Viet Nam `10:30`.
+- Da doi cac man co cot thoi gian sang dung chung `formatDateTimeVN` voi mui gio `Asia/Ho_Chi_Minh`: Nhap kho, Nhap phoi, Hang tra ve, Ton dau ky, Kiem ke, Ma hang, Khach hang, Phap nhan va Admin tai khoan. Trang Xuat kho da dung cach nay tu truoc.
+- Khong sua SQL/database, khong sua thoi diem goc, ngay giao dich, so luong hay ton kho. Phieu cu se tu hien dung gio sau khi web moi duoc deploy.
+- `npm run build` pass ngay 2026-07-20. Chua test sau dang nhap tren production; chua test mobile bang browser/screenshot vi khong doi layout.
+
 ## Cap nhat 2026-07-20 - Dieu chinh chuyen da chay va xep lai rate Logistics
 
 - Nhanh phu: `codex/logistics-shipment-corrections`. Da tach ro nghiep vu: trang Ke hoach giao hang chi tao chuyen moi; bo giao dien ghep hang vao chuyen cu. SQL moi cung khoa duong ghep cu de tranh goi nham tu ben ngoai giao dien.

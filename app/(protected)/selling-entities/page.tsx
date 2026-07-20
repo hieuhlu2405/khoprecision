@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
+import { formatDateTimeVN } from "@/lib/date-utils";
 import { Building2, FileText, MapPin, Save } from "lucide-react";
 
 type SellingEntity = {
@@ -53,11 +54,7 @@ export default function SellingEntitiesPage() {
   const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
 
   function fmtDatetime(d: string | null): string {
-    if (!d) return "";
-    const dp = d.slice(0, 10).split("-");
-    const tp = d.slice(11, 19);
-    if (dp.length === 3) return `${dp[2]}-${dp[1]}-${dp[0]} ${tp}`;
-    return d.replace("T", " ").slice(0, 19);
+    return formatDateTimeVN(d);
   }
 
   function resetForm() {
