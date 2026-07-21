@@ -1,15 +1,13 @@
 # Handoff Du An
 
-## Cap nhat 2026-07-22 - Audit va sua lech Da giao lich su cho chuyen dang hieu luc
+## Cap nhat 2026-07-22 - Audit lech phieu va so dieu chinh lich su
 
-- Audit production cua chu du an xac nhan 14 dong `delivery_plans.actual_qty` lech tong giao dich xuat kho con hieu luc. Tat ca giao dich deu thuoc chuyen dang hieu luc; khong co truong hop chuyen da huy nhung giao dich kho con active.
-- Hai lech lon co nguyen nhan ro: `A-1` ngay 2026-07-03 co `adjust_out 90`, ly do `dem nham`, nhung actual van 520 thay vi 430; `B518 02` ngay 2026-07-03 co `adjust_in 1800`, ly do `loi danh may`, nhung actual van 200 thay vi 2000. Muoi hai dong con lai cung luu actual khac so tren chuyen active.
-- Audit chuoi backlog cho thay khong duoc chay lai backlog tu cac ngay cu: mot so khoan lech da duoc bu tru, dua vao ke hoach ngay sau hoac xu ly van hanh; tinh lai tu dau co the cong No trung vao hien tai. Vi vay SQL sua lich su chi doi 14 `actual_qty`, giu nguyen `is_completed`, backlog va ke hoach cac ngay sau.
-- Da tao `supabase-sql/20260722_repair_historical_delivery_actuals.sql`, CHUA CHAY LIVE: tu doi chieu dung 14 gia tri cu va tinh lai giao dich active truoc khi sua; neu production da thay doi thi dung toan bo; ghi bang audit truoc/sau; bat co bo qua dong bo backlog trong luc sua; khong sua/xoa giao dich kho.
-- Da tao hau kiem chi doc `supabase-sql/20260722_audit_historical_delivery_actuals_postfix.sql`, CHUA CHAY LIVE. Ket qua dung sau sua la `No rows returned`.
-- Da sua UI Ke hoach giao hang: `is_completed` duoc hieu la ngay da chot; nhan `No/THUA/Du` tinh rieng theo `actual_qty` so voi `planned_qty + backlog_qty`. Mot o chi hien mot nhan, khong de ngay da chot nhung giao thieu bi hien nham la Du.
-- Da sua RPC dieu chinh chuyen: neu ngay da chot thi giu trang thai chot khi sua so thuc giao; van tinh lai backlog cho thao tac dieu chinh nghiep vu moi. Luong sua 14 dong lich su dung SQL rieng va khong day lai backlog.
-- Nhanh `codex/logistics-shipment-corrections` da nhap cac sua moi nhat cua `main`, gom sua gio Viet Nam va nguon khach hang giao hang. `npm run build` pass ngay 2026-07-22. Chua test mobile bang browser/screenshot theo yeu cau chu du an.
+- Audit production xac nhan 14 ke hoach co so `actual_qty` khac tong giao dich xuat kho con hieu luc; tat ca giao dich deu thuoc chuyen dang hieu luc, khong co chuyen da huy con sot giao dich active.
+- Chu du an xac nhan so da dieu chinh moi la so dung, so tren phieu goc la so sai. Ket luan truoc do dinh lay giao dich/phieu lam chuan de ghi de `actual_qty` la nguoc nghiep vu.
+- Da rut khoi nhanh hai file `20260722_repair_historical_delivery_actuals.sql` va `20260722_audit_historical_delivery_actuals_postfix.sql`. TUYET DOI KHONG CHAY ban repair neu da tai/copy truoc do; file do co nguy co dua so dung ve so phieu sai.
+- Chua sua du lieu production. Can xac dinh ro voi tung dong: so sau dieu chinh dung nam o adjustment hay `delivery_plans.actual_qty`, sau do sua phieu/giao dich kho theo so dung va giu lich su, khong ghi de nguoc lai.
+- UI Ke hoach giao hang van duoc sua de `is_completed` la trang thai ngay da chot, con nhan `No/THUA/Du` tinh theo so thuc giao. RPC dieu chinh chuyen moi van giu trang thai chot khi sua.
+- Nhanh `codex/logistics-shipment-corrections` da nhap cac sua moi nhat cua `main`. `npm run build` da pass truoc khi rut SQL sai; chua test mobile bang browser/screenshot.
 
 ## Cap nhat 2026-07-22 - Audit sai khach hang khi tu in phieu giao hang
 
