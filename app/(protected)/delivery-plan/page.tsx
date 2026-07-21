@@ -143,6 +143,21 @@ type TextFilter = { mode: "contains" | "equals"; value: string };
 type ColFilter = TextFilter;
 type SortDir = "asc" | "desc" | null;
 
+// Ke hoach cu co the con giu customer_id truoc khi ma hang duoc doi khach.
+// Vendor/diem giao la lua chon ro rang; neu khong co vendor, danh muc ma hang
+// la nguon hien tai duy nhat cho khach nhan phieu giao hang.
+function resolvePlanDeliveryCustomerId(plan: Pick<Plan, "customer_id" | "delivery_customer_id">, product?: Pick<Product, "customer_id">) {
+  return plan.delivery_customer_id || product?.customer_id || plan.customer_id || null;
+}
+
+function resolvePlanOwnerCustomerId(
+  plan: Pick<Plan, "customer_id" | "delivery_customer_id">,
+  product?: Pick<Product, "customer_id">,
+  deliveryCustomer?: Pick<Customer, "id" | "parent_customer_id">,
+) {
+  return product?.customer_id || deliveryCustomer?.parent_customer_id || plan.customer_id || deliveryCustomer?.id || null;
+}
+
 function getVNTimeStr() {
   return getTodayVNStr();
 }
@@ -614,8 +629,8 @@ export default function DeliveryPlanPage() {
 
       const items = plansForDay.map(p => {
         const prod = products.find(x => x.id === p.product_id);
-        const cust = customers.find(x => x.id === (p.delivery_customer_id || p.customer_id || prod?.customer_id));
-        const ownerCust = customers.find(x => x.id === (p.customer_id || prod?.customer_id)) || cust;
+        const cust = customers.find(x => x.id === resolvePlanDeliveryCustomerId(p, prod));
+        const ownerCust = customers.find(x => x.id === resolvePlanOwnerCustomerId(p, prod, cust)) || cust;
         const ent = ownerCust?.selling_entity_id ? entities.find(e => e.id === ownerCust.selling_entity_id) : null;
         const totalTarget = (p.planned_qty || 0) + (p.backlog_qty || 0);
         return {
@@ -761,8 +776,8 @@ export default function DeliveryPlanPage() {
         const plan = plans.find(p => p.id === planId);
         if (!plan || plan.is_completed) continue;
         const prod = products.find(x => x.id === plan.product_id);
-        const cust = customers.find(x => x.id === (plan.delivery_customer_id || plan.customer_id || prod?.customer_id));
-        const ownerCust = customers.find(x => x.id === (plan.customer_id || prod?.customer_id)) || cust;
+        const cust = customers.find(x => x.id === resolvePlanDeliveryCustomerId(plan, prod));
+        const ownerCust = customers.find(x => x.id === resolvePlanOwnerCustomerId(plan, prod, cust)) || cust;
         const ent = ownerCust?.selling_entity_id ? entities.find(e => e.id === ownerCust.selling_entity_id) : null;
         items.push({
           plan_id: plan.id,
@@ -792,7 +807,14 @@ export default function DeliveryPlanPage() {
         setShipmentProcessing(false);
         return;
       }
-      const firstCust = customers.find(x => x.id === (plans.find(p => p.id === items[0].plan_id)?.customer_id));
+      const firstPlan = plans.find(p => p.id === items[0].plan_id);
+      const firstProduct = products.find(p => p.id === firstPlan?.product_id);
+      const firstDeliveryCustomer = firstPlan
+        ? customers.find(c => c.id === resolvePlanDeliveryCustomerId(firstPlan, firstProduct))
+        : undefined;
+      const firstCust = firstPlan
+        ? customers.find(c => c.id === resolvePlanOwnerCustomerId(firstPlan, firstProduct, firstDeliveryCustomer))
+        : undefined;
       if (firstCust?.selling_entity_id) setShipmentEntityId(firstCust.selling_entity_id);
 
       setShipmentItems(items);
@@ -887,7 +909,14 @@ export default function DeliveryPlanPage() {
       }));
 
       const firstItem = shipmentItems[0];
-      const custId = plans.find(p => p.id === firstItem.plan_id)?.customer_id || null;
+      const firstPlan = plans.find(p => p.id === firstItem.plan_id);
+      const firstProduct = products.find(p => p.id === firstPlan?.product_id);
+      const firstDeliveryCustomer = firstPlan
+        ? customers.find(c => c.id === resolvePlanDeliveryCustomerId(firstPlan, firstProduct))
+        : undefined;
+      const custId = firstPlan
+        ? resolvePlanOwnerCustomerId(firstPlan, firstProduct, firstDeliveryCustomer)
+        : null;
 
       const { data, error } = await supabase.rpc("shipment_outbound_delivery", {
         p_payload: payload,
@@ -1422,8 +1451,20 @@ export default function DeliveryPlanPage() {
           if (key === "sku") target = p.sku;
           else if (key === "name") target = p.name;
           else if (key === "customer") {
-            const c = customers.find(x => x.id === p.customer_id);
-            target = c ? `${c.code} ${c.name}` : "";
+            const relatedCustomerIds = new Set<string>();
+            if (p.customer_id) relatedCustomerIds.add(p.customer_id);
+            customers.forEach(c => {
+              if (c.parent_customer_id === p.customer_id) relatedCustomerIds.add(c.id);
+            });
+            plans.forEach(pl => {
+              if (pl.product_id === p.id && pl.delivery_customer_id) relatedCustomerIds.add(pl.delivery_customer_id);
+            });
+            const relatedCustomers = customers
+              .filter(c => relatedCustomerIds.has(c.id))
+              .map(c => `${c.code} ${c.name}`.toLowerCase());
+            return relatedCustomers.some(customerTarget =>
+              f.mode === "contains" ? customerTarget.includes(v) : customerTarget === v
+            );
           }
 
           if (f.mode === "contains") return target.toLowerCase().includes(v);
@@ -1519,6 +1560,14 @@ export default function DeliveryPlanPage() {
             const editKey = `${p.id}_${row.deliveryCustomerId || "null"}_${key}`;
             const hasActiveEdit = edits[editKey] !== undefined;
             return dbQty > 0 || hasActiveEdit;
+          });
+        } else if (key === "customer" && f.value) {
+          const filterValue = f.value.toLowerCase();
+          filteredRows = filteredRows.filter(row => {
+            const customerId = row.deliveryCustomerId || p.customer_id;
+            const customer = customers.find(c => c.id === customerId);
+            const target = customer ? `${customer.code} ${customer.name}`.toLowerCase() : "";
+            return f.mode === "contains" ? target.includes(filterValue) : target === filterValue;
           });
         }
       });
@@ -2143,12 +2192,14 @@ export default function DeliveryPlanPage() {
                           const val = editData?.qty !== undefined ? editData.qty : (plannedQty > 0 ? plannedQty.toString() : "");
                           const isChanged = editData?.qty !== undefined || editData?.note !== undefined || editData?.note2 !== undefined;
                           const itdr = getVNTimeStr() === d;
-                          const isDone = plannedQty > 0 && !!plan?.is_completed;
+                          const isClosed = plannedQty > 0 && !!plan?.is_completed;
                           const hasSurplus = plannedQty > 0 && actualQty > plannedQty;
+                          const hasDebt = isClosed && actualQty < plannedQty;
                           const surplusQty = hasSurplus ? actualQty - plannedQty : 0;
+                          const debtQty = hasDebt ? plannedQty - actualQty : 0;
                           const hasNote = !!(editData?.note ?? plan?.note);
                           const progressPct = plannedQty > 0 ? Math.min(100, Math.round((actualQty / plannedQty) * 100)) : 0;
-                          const hasPartialShipment = actualQty > 0 && !isDone;
+                          const hasPartialShipment = actualQty > 0 && !isClosed;
                           const colW = mobilePlanModeActive ? 118 : (colWidths[d] || 100);
                           const disabled = !canEditDate(d);
 
@@ -2208,18 +2259,19 @@ export default function DeliveryPlanPage() {
                                       isChanged
                                         ? 'border-amber-400 bg-white text-amber-700 shadow-md shadow-amber-200/40 z-10 relative scale-105'
                                         : hasSurplus ? 'border-amber-300 bg-amber-50/60 text-amber-700 shadow-inner'
-                                          : isDone ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600 shadow-inner'
+                                          : hasDebt ? 'border-red-300 bg-red-50/60 text-red-700 shadow-inner'
+                                            : isClosed ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600 shadow-inner'
                                           : hasPartialShipment ? 'border-yellow-300 bg-yellow-50/50 text-yellow-700'
                                             : 'border-transparent bg-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-400'
                                     }
-                                    ${itdr && !isChanged && !isDone ? 'text-red-600' : ''}
+                                    ${itdr && !isChanged && !isClosed ? 'text-red-600' : ''}
                                   `}
                                   disabled={disabled}
                                   data-plan-row-index={virtualRow.index}
                                   data-plan-day-index={dayIndex}
                                   value={val === "0" ? "" : val}
                                   placeholder="-"
-                                  title={hasSurplus ? `Đã giao ${actualQty}/${plannedQty} - Thừa ${surplusQty}` : isDone ? `Đã xuất đủ: ${actualQty}/${plannedQty}` : hasPartialShipment ? `Đang xuất dở: ${actualQty}/${plannedQty}` : (editData?.note ?? plan?.note ?? "")}
+                                  title={hasSurplus ? `Đã giao ${actualQty}/${plannedQty} - Thừa ${surplusQty}` : hasDebt ? `Đã giao ${actualQty}/${plannedQty} - Nợ ${debtQty}` : isClosed ? `Đã giao đủ: ${actualQty}/${plannedQty}` : hasPartialShipment ? `Đang xuất dở: ${actualQty}/${plannedQty}` : (editData?.note ?? plan?.note ?? "")}
                                   onChange={e => {
                                     const v = e.target.value.replace(/\D/g, "");
                                     handleQtyChange(p.id, row.deliveryCustomerId, d, v);
@@ -2227,9 +2279,9 @@ export default function DeliveryPlanPage() {
                                   onFocus={e => e.target.select()}
                                   onKeyDown={handlePlanCellKeyDown}
                                 />
-                                {(isDone || hasPartialShipment) && (
+                                {(isClosed || hasPartialShipment) && (
                                   <div className="absolute bottom-0 left-1 right-1 h-1 rounded-full bg-slate-200 overflow-hidden">
-                                    <div className={`h-full rounded-full transition-all ${hasSurplus ? 'bg-amber-500' : isDone ? 'bg-emerald-500' : progressPct > 50 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${progressPct}%` }} />
+                                    <div className={`h-full rounded-full transition-all ${hasSurplus ? 'bg-amber-500' : hasDebt ? 'bg-red-500' : isClosed ? 'bg-emerald-500' : progressPct > 50 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${progressPct}%` }} />
                                   </div>
                                 )}
                                 {hasPartialShipment && (
@@ -2237,7 +2289,7 @@ export default function DeliveryPlanPage() {
                                     {actualQty}/{plannedQty}
                                   </div>
                                 )}
-                                {plan?.is_backlog && !isDone && (
+                                {plan?.is_backlog && !isClosed && (
                                   <div
                                     className={`absolute -top-2 right-1 text-[8px] font-black text-white px-1.5 py-0.5 rounded shadow-sm z-30 animate-pulse tracking-widest pointer-events-auto transition-all ${plan?.backlog_source === 'edit' ? 'bg-amber-500' : 'bg-red-500'} ${disabled ? 'opacity-80' : 'cursor-pointer hover:scale-110'} ${plan?.backlog_source === 'edit' ? 'hover:bg-amber-600' : 'hover:bg-red-600'}`}
                                     title={plan?.backlog_source === 'edit'
@@ -2250,7 +2302,7 @@ export default function DeliveryPlanPage() {
                                   </div>
                                 )}
 
-                                {isDone && (
+                                {isClosed && (
                                   <div className="absolute top-1 right-1 flex items-center gap-1.5 z-20">
                                     {profile?.role === 'admin' && (
                                       <button
@@ -2264,6 +2316,10 @@ export default function DeliveryPlanPage() {
                                     {hasSurplus ? (
                                       <div className="h-5 px-1.5 bg-amber-500 text-white rounded-full flex items-center justify-center shadow-sm text-[8px] font-black whitespace-nowrap" title={`Đã giao ${actualQty}/${plannedQty}`}>
                                         THỪA {surplusQty.toLocaleString("vi-VN")}
+                                      </div>
+                                    ) : hasDebt ? (
+                                      <div className="h-5 px-1.5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-sm text-[8px] font-black whitespace-nowrap" title={`Đã giao ${actualQty}/${plannedQty}`}>
+                                        NỢ {debtQty.toLocaleString("vi-VN")}
                                       </div>
                                     ) : (
                                       <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm" title={`Đã xuất kho: ${actualQty}`}>
@@ -2713,7 +2769,7 @@ export default function DeliveryPlanPage() {
         const closableCount = dayPlans.filter(p => !p.is_completed).length;
         const reviewItems = dayPlans.map((p): ClosePlanReviewItem => {
           const prod = products.find(x => x.id === p.product_id);
-          const cust = customers.find(x => x.id === (p.delivery_customer_id || p.customer_id || prod?.customer_id));
+          const cust = customers.find(x => x.id === resolvePlanDeliveryCustomerId(p, prod));
           const plannedQty = p.planned_qty || 0;
           const backlogQty = p.backlog_qty || 0;
           const targetQty = plannedQty + backlogQty;
