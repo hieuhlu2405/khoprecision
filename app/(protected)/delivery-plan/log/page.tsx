@@ -22,7 +22,7 @@ type ShipmentLog = {
   note: string;
   created_at: string;
   // Join data
-  inventory_transactions?: { customer_id: string; product_id: string; qty: number; unit_cost: number | null }[];
+  inventory_transactions?: { id: string; customer_id: string; product_id: string; qty: number; unit_cost: number | null; tx_type: string; adjusted_from_transaction_id: string | null }[];
   shipment_item_correction_audit?: { reason: string; corrected_at: string }[];
 };
 
@@ -77,6 +77,23 @@ type CorrectionLine = {
   planId: string;
   currentQty: number;
   targetQty: string;
+};
+
+const fetchQuantityAdjustments = async (baseTransactionIds: string[]) => {
+  if (baseTransactionIds.length === 0) return [] as CorrectionAdjustment[];
+  const chunks: string[][] = [];
+  for (let index = 0; index < baseTransactionIds.length; index += 150) {
+    chunks.push(baseTransactionIds.slice(index, index + 150));
+  }
+  const rows = await Promise.all(chunks.map(ids => fetchAllRows<CorrectionAdjustment>(
+    supabase
+      .from("inventory_transactions")
+      .select("id, adjusted_from_transaction_id, tx_type, qty")
+      .in("adjusted_from_transaction_id", ids)
+      .is("deleted_at", null)
+      .order("id")
+  )));
+  return rows.flat();
 };
 
 const vndFormatter = new Intl.NumberFormat("vi-VN", {
@@ -169,7 +186,7 @@ export default function DeliveryLogPage() {
         .from("shipment_logs")
         .select(`
           *,
-          inventory_transactions(customer_id, product_id, qty, unit_cost)
+          inventory_transactions(id, customer_id, product_id, qty, unit_cost, tx_type, adjusted_from_transaction_id)
         `)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
@@ -183,13 +200,30 @@ export default function DeliveryLogPage() {
       const { data, error } = await query;
       if (error) throw error;
 
-      const baseLogs = (data || []) as ShipmentLog[];
+      const baseLogs = ((data || []) as ShipmentLog[]).map(log => ({
+        ...log,
+        inventory_transactions: (log.inventory_transactions || []).filter(tx => tx.tx_type === "out" && !tx.adjusted_from_transaction_id),
+      }));
+      const baseTransactionIds = baseLogs.flatMap(log => (log.inventory_transactions || []).map(tx => tx.id));
+      const quantityAdjustments = await fetchQuantityAdjustments(baseTransactionIds);
+      const adjustmentByBase = new Map<string, number>();
+      quantityAdjustments.forEach(adjustment => {
+        const signedQty = adjustment.tx_type === "adjust_in" ? Number(adjustment.qty) : -Number(adjustment.qty);
+        adjustmentByBase.set(adjustment.adjusted_from_transaction_id, (adjustmentByBase.get(adjustment.adjusted_from_transaction_id) || 0) + signedQty);
+      });
+      const effectiveLogs = baseLogs.map(log => ({
+        ...log,
+        inventory_transactions: (log.inventory_transactions || []).map(tx => ({
+          ...tx,
+          qty: Number(tx.qty) + (adjustmentByBase.get(tx.id) || 0),
+        })),
+      }));
       let auditRows: CorrectionAuditRow[] = [];
-      if (baseLogs.length > 0) {
+      if (effectiveLogs.length > 0) {
         const { data: auditData } = await supabase
           .from("shipment_item_correction_audit")
           .select("shipment_id, reason, corrected_at")
-          .in("shipment_id", baseLogs.map(log => log.id))
+          .in("shipment_id", effectiveLogs.map(log => log.id))
           .order("corrected_at", { ascending: false });
         auditRows = (auditData || []) as CorrectionAuditRow[];
       }
@@ -201,7 +235,7 @@ export default function DeliveryLogPage() {
         auditsByShipment.set(row.shipment_id, rows);
       });
 
-      setLogs(baseLogs.map(log => ({ ...log, shipment_item_correction_audit: auditsByShipment.get(log.id) || [] })));
+      setLogs(effectiveLogs.map(log => ({ ...log, shipment_item_correction_audit: auditsByShipment.get(log.id) || [] })));
       setHasMore((data || []).length === currentLimit);
     } catch (err: unknown) {
       showToast(getErrorMessage(err, "Không thể tải nhật ký giao hàng."), "error");
@@ -482,17 +516,31 @@ export default function DeliveryLogPage() {
           .from("inventory_transactions")
           .select("id, shipment_id, delivery_plan_id, customer_id, delivery_customer_id, product_id, qty, product_name_snapshot, product_spec_snapshot")
           .in("shipment_id", targetIds)
+          .eq("tx_type", "out")
+          .is("adjusted_from_transaction_id", null)
           .is("deleted_at", null)
           .order("id")
       );
+      const reprintAdjustments = await fetchQuantityAdjustments(txs.map(tx => tx.id));
+      const reprintAdjustmentByBase = new Map<string, number>();
+      reprintAdjustments.forEach(adjustment => {
+        const signedQty = adjustment.tx_type === "adjust_in" ? Number(adjustment.qty) : -Number(adjustment.qty);
+        reprintAdjustmentByBase.set(adjustment.adjusted_from_transaction_id, (reprintAdjustmentByBase.get(adjustment.adjusted_from_transaction_id) || 0) + signedQty);
+      });
+      const effectiveTxs = txs.map(tx => ({
+        ...tx,
+        qty: Number(tx.qty) + (reprintAdjustmentByBase.get(tx.id) || 0),
+      }));
+      if (effectiveTxs.some(tx => tx.qty < 0)) throw new Error("Có dòng sau điều chỉnh bị âm. Chưa tải phiếu nào.");
+      const printableTxs = effectiveTxs.filter(tx => tx.qty > 0);
       const txsByShipment = new Map<string, ShipmentTransaction[]>();
-      txs.forEach(tx => txsByShipment.set(tx.shipment_id, [...(txsByShipment.get(tx.shipment_id) || []), tx]));
+      printableTxs.forEach(tx => txsByShipment.set(tx.shipment_id, [...(txsByShipment.get(tx.shipment_id) || []), tx]));
       const missingShipments = targetLogs.filter(log => !(txsByShipment.get(log.id)?.length));
       if (missingShipments.length > 0) {
         throw new Error(`Không tìm thấy chi tiết của chuyến: ${missingShipments.map(log => log.shipment_no).join(", ")}. Chưa tải phiếu nào.`);
       }
 
-      const planIds = Array.from(new Set(txs.map(tx => tx.delivery_plan_id).filter((id): id is string => Boolean(id))));
+      const planIds = Array.from(new Set(printableTxs.map(tx => tx.delivery_plan_id).filter((id): id is string => Boolean(id))));
       const planDeliveryPoints = new Map<string, string>();
       if (planIds.length > 0) {
         const shipmentPlans = await fetchAllRows<ShipmentPlanDeliveryPoint>(
@@ -544,7 +592,8 @@ export default function DeliveryLogPage() {
           const totalQty = items.reduce((sum, it) => sum + it.actual, 0);
           const rowOffset = Math.max(0, items.length - 1);
           const safeCustomerCode = (cust.code || "KH").replace(/[\\/:*?"<>|]/g, "-");
-          const wasCorrected = (log.shipment_item_correction_audit || []).length > 0;
+          const wasCorrected = (log.shipment_item_correction_audit || []).length > 0
+            || vendorTxs.some(tx => reprintAdjustmentByBase.has(tx.id));
           const baseFilename = `PGH_REPRINT_${safeShipmentNo}_${safeCustomerCode}${wasCorrected ? "_DIEU_CHINH" : ""}`;
           let fileName = baseFilename;
           let duplicateIndex = 2;
