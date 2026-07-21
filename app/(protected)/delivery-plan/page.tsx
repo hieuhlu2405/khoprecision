@@ -1428,8 +1428,20 @@ export default function DeliveryPlanPage() {
           if (key === "sku") target = p.sku;
           else if (key === "name") target = p.name;
           else if (key === "customer") {
-            const c = customers.find(x => x.id === p.customer_id);
-            target = c ? `${c.code} ${c.name}` : "";
+            const relatedCustomerIds = new Set<string>();
+            if (p.customer_id) relatedCustomerIds.add(p.customer_id);
+            customers.forEach(c => {
+              if (c.parent_customer_id === p.customer_id) relatedCustomerIds.add(c.id);
+            });
+            plans.forEach(pl => {
+              if (pl.product_id === p.id && pl.delivery_customer_id) relatedCustomerIds.add(pl.delivery_customer_id);
+            });
+            const relatedCustomers = customers
+              .filter(c => relatedCustomerIds.has(c.id))
+              .map(c => `${c.code} ${c.name}`.toLowerCase());
+            return relatedCustomers.some(customerTarget =>
+              f.mode === "contains" ? customerTarget.includes(v) : customerTarget === v
+            );
           }
 
           if (f.mode === "contains") return target.toLowerCase().includes(v);
@@ -1525,6 +1537,14 @@ export default function DeliveryPlanPage() {
             const editKey = `${p.id}_${row.deliveryCustomerId || "null"}_${key}`;
             const hasActiveEdit = edits[editKey] !== undefined;
             return dbQty > 0 || hasActiveEdit;
+          });
+        } else if (key === "customer" && f.value) {
+          const filterValue = f.value.toLowerCase();
+          filteredRows = filteredRows.filter(row => {
+            const customerId = row.deliveryCustomerId || p.customer_id;
+            const customer = customers.find(c => c.id === customerId);
+            const target = customer ? `${customer.code} ${customer.name}`.toLowerCase() : "";
+            return f.mode === "contains" ? target.includes(filterValue) : target === filterValue;
           });
         }
       });
