@@ -1,5 +1,17 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-22 - Audit sai khach hang khi tu in phieu giao hang
+
+- Da audit read-only tren database live ngay 2026-07-22: 938 ma hang, 3.980 dong ke hoach. Co 52 dong lich su/ke hoach co `customer_id` khac khach hien tai trong Ma hang; trong do chi 3 dong dang mo va co so luong can giao bi rui ro in/ghi nham: `26053 0304` (300), `26053 02` (351), `26053 01` (50), deu dang giu `YZ D` trong ke hoach trong khi Ma hang hien tai la `YZ A`. Khong co dong Vendor dang mo nao nam ngoai cong ty me hien tai.
+- Nguyen nhan da xac nhan tu code va du lieu live: ban sua ngay 2026-06-30 moi doi nguon khach cho file `Xuat Nhap`; luong tu tao/in PGH, chon phap nhan, ghi giao dich xuat kho va day backlog van co cho uu tien `delivery_plans.customer_id` cu. Ham backlog cu tiep tuc sao chep khach cu sang ngay sau.
+- Da sua `app/(protected)/delivery-plan/page.tsx`: gom quy tac xac dinh khach ve mot cho; neu co Vendor thi dung Vendor, neu khong co Vendor thi dung khach hien tai cua Ma hang. Ap dung cho tu xuat/in PGH, chot chuyen, chon phap nhan, `shipment_logs.customer_id` va modal chot no.
+- Da tao audit chi doc `supabase-sql/20260722_audit_delivery_plan_customer_drift.sql` de liet ke dong lech va tach ro: dang co nguy co, dong mo khong co so luong, hay lich su khong duoc sua.
+- Da tao fix backend `supabase-sql/20260722_fix_delivery_customer_source_of_truth.sql`, DA CHAY LIVE ngay 2026-07-22 theo xac nhan cua chu du an (`Success. No rows returned`). SQL tao 2 hang rao trigger de ke hoach/giao dich giao hang moi tu doi chieu voi khach hien tai cua Ma hang, chan Vendor khong thuoc cong ty me, thay `sync_delivery_backlog` de khong keo khach cu sang ngay sau, va sua cac dong chua tung xuat/chua hoan thanh. SQL khong sua dong da xuat, khong xoa lich su.
+- Hau kiem read-only tren live sau khi chay SQL: `OPEN_AND_AT_RISK = 0`, Vendor sai cong ty me dang mo = 0. Ba dong ngay 2026-07-22 da ve dung `YZ A`: `26053 0304` = 300, `26053 02` = 351, `26053 01` = 50; ca ba chua xuat va chua hoan thanh.
+- Scan lenh nguy hiem: khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`. Co `DROP TRIGGER`, `CREATE OR REPLACE FUNCTION`, `UPDATE delivery_plans`: chi thay hang rao/cach database xu ly va gan lai dong chua xuat, khong xoa du lieu.
+- `npm run build` pass ngay 2026-07-22. ESLint rieng trang delivery plan van fail do 29 loi `any`/`prefer-const` cu cua file; thay doi nay khong them loi lint moi. Chua test mobile bang browser/screenshot vi khong doi layout.
+- Chu du an da dong y commit/push rieng ban sua nay ngay 2026-07-22; khong gop nhanh preview `codex/logistics-shipment-corrections`. Sau deploy can test tu in 3 ma tren phai hien `YZ A`; chot thu mot phieu va doi chieu `inventory_transactions.customer_id`; test mot Vendor hop le; thu Vendor sai cong ty me phai bi chan.
+
 ## Cap nhat 2026-07-20 - Sua gio hien thi bi cham 7 tieng
 
 - Nguyen nhan theo code: mot so trang cat thang chuoi `timestamptz` Supabase nen hien gio UTC, vi du `03:30`, thay vi doi sang gio Viet Nam `10:30`.

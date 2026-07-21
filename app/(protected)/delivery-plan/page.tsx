@@ -145,6 +145,21 @@ type TextFilter = { mode: "contains" | "equals"; value: string };
 type ColFilter = TextFilter;
 type SortDir = "asc" | "desc" | null;
 
+// Ke hoach cu co the con giu customer_id truoc khi ma hang duoc doi khach.
+// Vendor/diem giao la lua chon ro rang; neu khong co vendor, danh muc ma hang
+// la nguon hien tai duy nhat cho khach nhan phieu giao hang.
+function resolvePlanDeliveryCustomerId(plan: Pick<Plan, "customer_id" | "delivery_customer_id">, product?: Pick<Product, "customer_id">) {
+  return plan.delivery_customer_id || product?.customer_id || plan.customer_id || null;
+}
+
+function resolvePlanOwnerCustomerId(
+  plan: Pick<Plan, "customer_id" | "delivery_customer_id">,
+  product?: Pick<Product, "customer_id">,
+  deliveryCustomer?: Pick<Customer, "id" | "parent_customer_id">,
+) {
+  return product?.customer_id || deliveryCustomer?.parent_customer_id || plan.customer_id || deliveryCustomer?.id || null;
+}
+
 function getVNTimeStr() {
   return getTodayVNStr();
 }
@@ -618,8 +633,8 @@ export default function DeliveryPlanPage() {
 
       const items = plansForDay.map(p => {
         const prod = products.find(x => x.id === p.product_id);
-        const cust = customers.find(x => x.id === (p.delivery_customer_id || p.customer_id || prod?.customer_id));
-        const ownerCust = customers.find(x => x.id === (p.customer_id || prod?.customer_id)) || cust;
+        const cust = customers.find(x => x.id === resolvePlanDeliveryCustomerId(p, prod));
+        const ownerCust = customers.find(x => x.id === resolvePlanOwnerCustomerId(p, prod, cust)) || cust;
         const ent = ownerCust?.selling_entity_id ? entities.find(e => e.id === ownerCust.selling_entity_id) : null;
         const totalTarget = (p.planned_qty || 0) + (p.backlog_qty || 0);
         return {
@@ -765,8 +780,8 @@ export default function DeliveryPlanPage() {
         const plan = plans.find(p => p.id === planId);
         if (!plan || plan.is_completed) continue;
         const prod = products.find(x => x.id === plan.product_id);
-        const cust = customers.find(x => x.id === (plan.delivery_customer_id || plan.customer_id || prod?.customer_id));
-        const ownerCust = customers.find(x => x.id === (plan.customer_id || prod?.customer_id)) || cust;
+        const cust = customers.find(x => x.id === resolvePlanDeliveryCustomerId(plan, prod));
+        const ownerCust = customers.find(x => x.id === resolvePlanOwnerCustomerId(plan, prod, cust)) || cust;
         const ent = ownerCust?.selling_entity_id ? entities.find(e => e.id === ownerCust.selling_entity_id) : null;
         items.push({
           plan_id: plan.id,
@@ -796,7 +811,14 @@ export default function DeliveryPlanPage() {
         setShipmentProcessing(false);
         return;
       }
-      const firstCust = customers.find(x => x.id === (plans.find(p => p.id === items[0].plan_id)?.customer_id));
+      const firstPlan = plans.find(p => p.id === items[0].plan_id);
+      const firstProduct = products.find(p => p.id === firstPlan?.product_id);
+      const firstDeliveryCustomer = firstPlan
+        ? customers.find(c => c.id === resolvePlanDeliveryCustomerId(firstPlan, firstProduct))
+        : undefined;
+      const firstCust = firstPlan
+        ? customers.find(c => c.id === resolvePlanOwnerCustomerId(firstPlan, firstProduct, firstDeliveryCustomer))
+        : undefined;
       if (firstCust?.selling_entity_id) setShipmentEntityId(firstCust.selling_entity_id);
 
       setShipmentItems(items);
@@ -893,7 +915,14 @@ export default function DeliveryPlanPage() {
       }));
 
       const firstItem = shipmentItems[0];
-      const custId = plans.find(p => p.id === firstItem.plan_id)?.customer_id || null;
+      const firstPlan = plans.find(p => p.id === firstItem.plan_id);
+      const firstProduct = products.find(p => p.id === firstPlan?.product_id);
+      const firstDeliveryCustomer = firstPlan
+        ? customers.find(c => c.id === resolvePlanDeliveryCustomerId(firstPlan, firstProduct))
+        : undefined;
+      const custId = firstPlan
+        ? resolvePlanOwnerCustomerId(firstPlan, firstProduct, firstDeliveryCustomer)
+        : null;
 
       const { data, error } = await supabase.rpc("shipment_outbound_delivery", {
         p_payload: payload,
@@ -2814,7 +2843,7 @@ export default function DeliveryPlanPage() {
         const closableCount = dayPlans.filter(p => !p.is_completed).length;
         const reviewItems = dayPlans.map((p): ClosePlanReviewItem => {
           const prod = products.find(x => x.id === p.product_id);
-          const cust = customers.find(x => x.id === (p.delivery_customer_id || p.customer_id || prod?.customer_id));
+          const cust = customers.find(x => x.id === resolvePlanDeliveryCustomerId(p, prod));
           const plannedQty = p.planned_qty || 0;
           const backlogQty = p.backlog_qty || 0;
           const targetQty = plannedQty + backlogQty;
