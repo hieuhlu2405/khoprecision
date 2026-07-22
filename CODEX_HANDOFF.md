@@ -1,5 +1,15 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-23 - Toi gian trang thai o ke hoach va khoa nut huy cu
+
+- Chu du an da test preview va xac nhan logic cong/tru trong dieu chinh chuyen on. Feedback UI: cac chu `DU`, `NO/THIEU`, `DA GIAO...` lam o ke hoach roi; yeu cau quay ve cach gon cu.
+- Da sua `app/(protected)/delivery-plan/page.tsx`: bo toan bo nhan chu trang thai ben duoi o. O chi con thanh tien trinh; ma da giao du hoac thua hien dau tich tron xanh la nam cung hang voi thanh tien trinh, khong che so ke hoach hay o ben canh. Giao thua cung dung mau xanh nhu da du; chi tiet so thua van co trong tooltip khi dua chuot vao o.
+- Da xac nhan theo code nut `Admin: Huy lenh xuat kho nay` la luong cu, bi thua va mau thuan voi Nhat ky giao hang: no goi `undo_outbound_delivery(plan_id)` de huy theo tung ma ke hoach, co the vo hieu hoa nhieu giao dich cua ma do trong khi phieu chuyen/Logistics van con. Da go nut nay, ham goi lien quan, va nut `Huy chuyen hang` cu trong bang lich su tai trang Ke hoach. Bang lich su tai day chi con de xem; dieu chinh/huy tap trung tai Nhat ky giao hang.
+- Da tao SQL moi `supabase-sql/20260723_block_legacy_plan_level_outbound_undo.sql`, CHUA CHAY LIVE: thay RPC cu `undo_outbound_delivery(uuid)` bang thong bao khoa ro rang, buoc nguoi dung sang Nhat ky giao hang. SQL khong sua/xoa giao dich kho, ke hoach hay lich su; khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`; co `CREATE OR REPLACE FUNCTION`, chi thay cach database xu ly duong huy cu.
+- Hau kiem chi doc `supabase-sql/20260723_audit_block_legacy_plan_level_outbound_undo_postfix.sql`, CHUA CHAY LIVE; ket qua dung la `No rows returned`.
+- `npm run build` pass ngay 2026-07-23. ESLint trang Ke hoach con 27 loi va 18 canh bao cu; khong co loi tai cum hien thi/huy vua sua. Chua test mobile bang browser/screenshot theo yeu cau truoc do cua chu du an.
+- Sau deploy: chay SQL khoa va hau kiem; xem ma chua giao/doi dang giao chi co thanh tien trinh, ma du/thua co dau tich xanh; dam bao khong con nut huy trong o ke hoach va bang lich su; thao tac `Huy phieu tao nham` chi con tai Nhat ky giao hang.
+
 ## Cap nhat 2026-07-23 - Chon ma dieu chinh theo toan bo ke hoach trong ngay va sua nhan Thua
 
 - Phat hien khi test preview: chuyen co 5 ma trong khi trang Ke hoach co gan 100 ma cung ngay, nhung modal dieu chinh chi hien 5 ma. Nguyen nhan theo code: frontend va RPC loc theo `shipment_logs.customer_id` dai dien, trong khi luong tao chuyen cho phep mot chuyen gom nhieu khach/diem giao; cac ma cu tren chuyen chi duoc chen lai nhu ngoai le.

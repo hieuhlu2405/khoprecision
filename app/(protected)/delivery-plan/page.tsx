@@ -28,7 +28,6 @@ import {
   Copy,
   ClipboardList,
   RefreshCw,
-  Trash2,
   X,
   Zap,
 } from "lucide-react";
@@ -693,33 +692,6 @@ export default function DeliveryPlanPage() {
     }
   };
 
-  const handleUndoOutbound = async (plan_id: string) => {
-    if (profile?.role !== "admin") {
-      showToast("Chỉ Admin mới có quyền hủy lệnh xuất kho.", "error");
-      return;
-    }
-
-    const ok = await showConfirm({
-      message: "Bạn có chắc chắn muốn HỦY lệnh xuất kho này? Tồn kho sẽ được cộng lại và kế hoạch sẽ quay về trạng thái 'Chờ xuất'.",
-      danger: true,
-      confirmLabel: "HỦY LỆNH XUẤT"
-    });
-    if (!ok) return;
-
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.rpc("undo_outbound_delivery", { p_plan_id: plan_id });
-      if (error) throw error;
-      showToast("Đã hủy lệnh xuất kho thành công!", "success");
-      loadData();
-    } catch (err: any) {
-      console.error(err);
-      showToast(err.message, "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // === SHIPMENT-BASED HANDLERS ===
   const togglePlanSelection = (planId: string) => {
     setSelectedPlanIds(prev => {
@@ -1014,28 +986,6 @@ export default function DeliveryPlanPage() {
       showToast(err.message, "error");
     } finally {
       setHistoryLoading(false);
-    }
-  };
-
-  const handleUndoShipment = async (shipmentId: string, shipmentNo: string) => {
-    if (profile?.role !== "admin") {
-      showToast("Chỉ Admin mới có quyền hủy chuyến hàng.", "error");
-      return;
-    }
-    const ok = await showConfirm({
-      message: `Bạn có chắc chắn muốn HỦY chuyến hàng ${shipmentNo}? Tồn kho sẽ được cộng lại.`,
-      danger: true,
-      confirmLabel: "HỦY CHUYẾN"
-    });
-    if (!ok) return;
-    try {
-      const { error } = await supabase.rpc("undo_shipment", { p_shipment_id: shipmentId });
-      if (error) throw error;
-      showToast(`Đã hủy chuyến ${shipmentNo} thành công!`, "success");
-      loadShipmentHistory();
-      loadData();
-    } catch (err: any) {
-      showToast(err.message, "error");
     }
   };
 
@@ -2195,8 +2145,8 @@ export default function DeliveryPlanPage() {
                           const isClosed = plannedQty > 0 && !!plan?.is_completed;
                           const hasSurplus = plannedQty > 0 && actualQty > plannedQty;
                           const hasDebt = isClosed && actualQty < plannedQty;
+                          const hasSatisfiedPlan = plannedQty > 0 && actualQty >= plannedQty;
                           const surplusQty = hasSurplus ? actualQty - plannedQty : 0;
-                          const debtQty = hasDebt ? plannedQty - actualQty : 0;
                           const hasNote = !!(editData?.note ?? plan?.note);
                           const progressPct = plannedQty > 0 ? Math.min(100, Math.round((actualQty / plannedQty) * 100)) : 0;
                           const hasPartialShipment = actualQty > 0 && !isClosed;
@@ -2258,9 +2208,8 @@ export default function DeliveryPlanPage() {
                                     ${disabled ? 'opacity-70 bg-transparent border-transparent' :
                                       isChanged
                                         ? 'border-amber-400 bg-white text-amber-700 shadow-md shadow-amber-200/40 z-10 relative scale-105'
-                                        : hasSurplus ? 'border-amber-300 bg-amber-50/60 text-amber-700 shadow-inner'
-                                          : hasDebt ? 'border-red-300 bg-red-50/60 text-red-700 shadow-inner'
-                                            : isClosed ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600 shadow-inner'
+                                        : hasDebt ? 'border-red-300 bg-red-50/60 text-red-700 shadow-inner'
+                                          : hasSatisfiedPlan ? 'border-emerald-200 bg-emerald-50/50 text-emerald-600 shadow-inner'
                                           : hasPartialShipment ? 'border-yellow-300 bg-yellow-50/50 text-yellow-700'
                                             : 'border-transparent bg-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-400'
                                     }
@@ -2271,7 +2220,7 @@ export default function DeliveryPlanPage() {
                                   data-plan-day-index={dayIndex}
                                   value={val === "0" ? "" : val}
                                   placeholder="-"
-                                  title={hasSurplus ? `Đã giao ${actualQty}/${plannedQty} - Thừa ${surplusQty}` : hasDebt ? `Đã giao ${actualQty}/${plannedQty} - Nợ ${debtQty}` : isClosed ? `Đã giao đủ: ${actualQty}/${plannedQty}` : hasPartialShipment ? `Đang xuất dở: ${actualQty}/${plannedQty}` : (editData?.note ?? plan?.note ?? "")}
+                                  title={hasSurplus ? `Đã giao ${actualQty}/${plannedQty} - Thừa ${surplusQty}` : hasDebt ? `Đã giao ${actualQty}/${plannedQty} - Nợ ${plannedQty - actualQty}` : isClosed ? `Đã giao đủ: ${actualQty}/${plannedQty}` : hasPartialShipment ? `Đang xuất dở: ${actualQty}/${plannedQty}` : (editData?.note ?? plan?.note ?? "")}
                                   onChange={e => {
                                     const v = e.target.value.replace(/\D/g, "");
                                     handleQtyChange(p.id, row.deliveryCustomerId, d, v);
@@ -2280,8 +2229,15 @@ export default function DeliveryPlanPage() {
                                   onKeyDown={handlePlanCellKeyDown}
                                 />
                                 {(isClosed || hasPartialShipment) && (
-                                  <div className="mt-0.5 mx-1 h-0.5 rounded-full bg-slate-200 overflow-hidden">
-                                    <div className={`h-full rounded-full transition-all ${hasSurplus ? 'bg-amber-500' : hasDebt ? 'bg-red-500' : isClosed ? 'bg-emerald-500' : progressPct > 50 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${progressPct}%` }} />
+                                  <div className="mt-1 mx-1 flex items-center gap-1">
+                                    <div className="h-1 min-w-0 flex-1 rounded-full bg-slate-200 overflow-hidden">
+                                      <div className={`h-full rounded-full transition-all ${hasDebt ? 'bg-red-500' : hasSatisfiedPlan ? 'bg-emerald-500' : progressPct > 50 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${progressPct}%` }} />
+                                    </div>
+                                    {hasSatisfiedPlan && (
+                                      <div className="w-4 h-4 shrink-0 bg-emerald-500 rounded-full flex items-center justify-center" title={hasSurplus ? `Đã giao thừa ${surplusQty.toLocaleString("vi-VN")}` : `Đã giao đủ ${actualQty.toLocaleString("vi-VN")}`}>
+                                        <Check className="h-2.5 w-2.5 text-white" strokeWidth={3.5} />
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                                 {plan?.is_backlog && !isClosed && (
@@ -2297,36 +2253,6 @@ export default function DeliveryPlanPage() {
                                   </div>
                                 )}
 
-                                {(isClosed || hasPartialShipment) && (
-                                  <div className="mt-0.5 h-3 flex items-center justify-center gap-1 overflow-hidden">
-                                    {profile?.role === 'admin' && (
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); handleUndoOutbound(plan!.id); }}
-                                        className="w-3 h-3 shrink-0 bg-white border border-red-200 text-red-500 rounded-full flex items-center justify-center hover:bg-red-50 hover:border-red-400 transition-all opacity-0 group-hover/cell:opacity-100"
-                                        title="Admin: Hủy lệnh xuất kho này"
-                                      >
-                                        <X size={9} strokeWidth={2.5} />
-                                      </button>
-                                    )}
-                                    {hasSurplus ? (
-                                      <div className="min-w-0 max-w-full px-1.5 text-[9px] font-black text-amber-700 truncate whitespace-nowrap" title={`Đã giao ${actualQty}/${plannedQty} - Thừa ${surplusQty}`}>
-                                        THỪA +{surplusQty.toLocaleString("vi-VN")}
-                                      </div>
-                                    ) : hasDebt ? (
-                                      <div className="min-w-0 max-w-full px-1.5 text-[9px] font-black text-red-600 truncate whitespace-nowrap" title={`Đã giao ${actualQty}/${plannedQty} - Nợ ${debtQty}`}>
-                                        NỢ {debtQty.toLocaleString("vi-VN")}
-                                      </div>
-                                    ) : isClosed ? (
-                                      <div className="flex items-center gap-1 text-[9px] font-black text-emerald-600 whitespace-nowrap" title={`Đã xuất kho: ${actualQty}`}>
-                                        <Check className="h-3 w-3" strokeWidth={3.5} /> ĐỦ
-                                      </div>
-                                    ) : (
-                                      <div className="min-w-0 max-w-full px-1 text-[9px] font-black text-yellow-700 truncate whitespace-nowrap" title={`Đang xuất dở: ${actualQty}/${plannedQty}`}>
-                                        ĐÃ GIAO {actualQty.toLocaleString("vi-VN")}/{plannedQty.toLocaleString("vi-VN")}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
                                 {isChanged && (
                                   <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full animate-bounce z-20" title="Chưa lưu" />
                                 )}
@@ -2373,18 +2299,17 @@ export default function DeliveryPlanPage() {
                     <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest text-center">NGÀY ĐI</th>
                     <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest">KHÁCH HÀNG (ĐA ĐIỂM)</th>
                     <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest">XE / TÀI XẾ</th>
-                    <th className="px-6 py-4 font-black text-[11px] text-slate-500 uppercase tracking-widest text-right">THAO TÁC</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {historyLoading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i} className="animate-pulse">
-                        <td colSpan={5} className="px-6 py-8 bg-slate-50/20" />
+                        <td colSpan={4} className="px-6 py-8 bg-slate-50/20" />
                       </tr>
                     ))
                   ) : shipmentHistory.length === 0 ? (
-                    <tr><td colSpan={5} className="px-6 py-32 text-center text-slate-300 font-bold italic">Chưa có chuyến hàng nào được tạo.</td></tr>
+                    <tr><td colSpan={4} className="px-6 py-32 text-center text-slate-300 font-bold italic">Chưa có chuyến hàng nào được tạo.</td></tr>
                   ) : shipmentHistory.map(s => {
                     const txs = (s as any).inventory_transactions || [];
                     const uniqueCusts: any[] = [];
@@ -2432,17 +2357,6 @@ export default function DeliveryPlanPage() {
                               </div>
                             );
                           })()}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => handleUndoShipment(s.id, s.shipment_no)}
-                              className="w-8 h-8 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 transition-colors"
-                              title="Admin: Hủy chuyến hàng"
-                            >
-                              <Trash2 size={18} strokeWidth={2.5} />
-                            </button>
-                          </div>
                         </td>
                       </tr>
                     );
