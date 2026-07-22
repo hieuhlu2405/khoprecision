@@ -34,6 +34,7 @@ type Profile = { id: string; role: string; department: string };
 type ShipmentTransaction = {
   id: string;
   shipment_id: string;
+  shipment_line_no: number | null;
   delivery_plan_id: string | null;
   customer_id: string | null;
   delivery_customer_id: string | null;
@@ -45,6 +46,7 @@ type ShipmentTransaction = {
 type ShipmentPlanDeliveryPoint = { id: string; customer_id: string | null; delivery_customer_id: string | null };
 type CorrectionBaseTransaction = {
   id: string;
+  shipment_line_no: number | null;
   delivery_plan_id: string | null;
   product_id: string;
   qty: number;
@@ -374,11 +376,12 @@ export default function DeliveryLogPage() {
       const baseTxs = await fetchAllRows<CorrectionBaseTransaction>(
         supabase
           .from("inventory_transactions")
-          .select("id, delivery_plan_id, product_id, qty")
+          .select("id, shipment_line_no, delivery_plan_id, product_id, qty")
           .eq("shipment_id", log.id)
           .eq("tx_type", "out")
           .is("adjusted_from_transaction_id", null)
           .is("deleted_at", null)
+          .order("shipment_line_no", { ascending: true, nullsFirst: false })
           .order("id")
       );
 
@@ -574,11 +577,13 @@ export default function DeliveryLogPage() {
       const txs = await fetchAllRows<ShipmentTransaction>(
         supabase
           .from("inventory_transactions")
-          .select("id, shipment_id, delivery_plan_id, customer_id, delivery_customer_id, product_id, qty, product_name_snapshot, product_spec_snapshot")
+          .select("id, shipment_id, shipment_line_no, delivery_plan_id, customer_id, delivery_customer_id, product_id, qty, product_name_snapshot, product_spec_snapshot")
           .in("shipment_id", targetIds)
           .eq("tx_type", "out")
           .is("adjusted_from_transaction_id", null)
           .is("deleted_at", null)
+          .order("shipment_id")
+          .order("shipment_line_no", { ascending: true, nullsFirst: false })
           .order("id")
       );
       const reprintAdjustments = await fetchQuantityAdjustments(txs.map(tx => tx.id));

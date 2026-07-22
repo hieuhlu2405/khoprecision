@@ -1,12 +1,23 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-23 - Giu dung thu tu ma khi in lai phieu giao hang
+
+- Chu du an bao cao: thu tu ma tren file in lai co the khac file in khi tao chuyen. Da xac nhan nguyen nhan theo code: file dau dung thu tu `shipmentItems` tren modal, con in lai query `inventory_transactions.order('id')`; `id` la UUID ngau nhien va database chua luu so thu tu dong, nen A-B-C co the thanh C-A-B.
+- Da sua `app/(protected)/delivery-plan/log/page.tsx`: dong giao dich chuyen nap them `shipment_line_no`; ca modal dieu chinh va luong in lai sap theo `shipment_line_no`, sau do moi dung `id` lam thu tu du phong. Khi tach file theo tung khach/diem giao, thu tu tuong doi cua cac ma van duoc giu.
+- Da tao SQL moi `supabase-sql/20260723_preserve_shipment_print_line_order.sql`, CHUA CHAY LIVE: them cot/index `shipment_line_no`; wrapper tao chuyen goi core an toan hien tai roi ghi so 1-2-3 theo dung thu tu payload trong cung giao dich; wrapper dieu chinh cung ghi lai thu tu sau sua. Neu khong gan du thu tu, toan bo tao/sua chuyen rollback, khong luu nua chung. Core tao/dieu chinh khong mo quyen goi truc tiep.
+- SQL co backfill metadata cho dong chuyen cu theo thu tu on dinh ten ma + SKU de cac lan in lai sau khong dao tiep. Thu tu goc cua phieu cu khong duoc luu nen khong the cam ket khoi phuc chinh xac thu tu da in lan dau; phieu moi sau migration va phieu cu sau mot lan dieu chinh se co thu tu chuan duoc luu.
+- SQL khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`; co `ALTER TABLE`, `UPDATE inventory_transactions`, `ALTER FUNCTION`, `CREATE OR REPLACE FUNCTION`. `UPDATE` chi dien so thu tu dong con hieu luc, khong doi so luong, ton kho, khach, ngay, gia, Da giao, backlog hay Logistics.
+- Hau kiem chi doc `supabase-sql/20260723_audit_shipment_print_line_order_postfix.sql`, CHUA CHAY LIVE; ket qua dung la `No rows returned`.
+- `npx eslint app/(protected)/delivery-plan/log/page.tsx` va `npm run build` pass ngay 2026-07-23. Chua test mobile bang browser/screenshot theo yeu cau truoc do cua chu du an.
+- Can test sau deploy: tao chuyen theo thu tu A-B-C va in lan dau; vao Nhat ky in lai phai van A-B-C; dieu chinh thanh A-C-B hoac them D cuoi danh sach, luu va in lai phai theo dung thu tu modal dieu chinh; thu chuyen nhieu diem giao; doi chieu so luong/tong hang khong doi.
+
 ## Cap nhat 2026-07-23 - Toi gian trang thai o ke hoach va khoa nut huy cu
 
 - Chu du an da test preview va xac nhan logic cong/tru trong dieu chinh chuyen on. Feedback UI: cac chu `DU`, `NO/THIEU`, `DA GIAO...` lam o ke hoach roi; yeu cau quay ve cach gon cu.
 - Da sua `app/(protected)/delivery-plan/page.tsx`: bo toan bo nhan chu trang thai ben duoi o. O chi con thanh tien trinh; ma da giao du hoac thua hien dau tich tron xanh la nam cung hang voi thanh tien trinh, khong che so ke hoach hay o ben canh. Giao thua cung dung mau xanh nhu da du; chi tiet so thua van co trong tooltip khi dua chuot vao o.
 - Da xac nhan theo code nut `Admin: Huy lenh xuat kho nay` la luong cu, bi thua va mau thuan voi Nhat ky giao hang: no goi `undo_outbound_delivery(plan_id)` de huy theo tung ma ke hoach, co the vo hieu hoa nhieu giao dich cua ma do trong khi phieu chuyen/Logistics van con. Da go nut nay, ham goi lien quan, va nut `Huy chuyen hang` cu trong bang lich su tai trang Ke hoach. Bang lich su tai day chi con de xem; dieu chinh/huy tap trung tai Nhat ky giao hang.
-- Da tao SQL moi `supabase-sql/20260723_block_legacy_plan_level_outbound_undo.sql`, CHUA CHAY LIVE: thay RPC cu `undo_outbound_delivery(uuid)` bang thong bao khoa ro rang, buoc nguoi dung sang Nhat ky giao hang. SQL khong sua/xoa giao dich kho, ke hoach hay lich su; khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`; co `CREATE OR REPLACE FUNCTION`, chi thay cach database xu ly duong huy cu.
-- Hau kiem chi doc `supabase-sql/20260723_audit_block_legacy_plan_level_outbound_undo_postfix.sql`, CHUA CHAY LIVE; ket qua dung la `No rows returned`.
+- SQL `supabase-sql/20260723_block_legacy_plan_level_outbound_undo.sql` DA CHAY LIVE thanh cong ngay 2026-07-23 theo xac nhan cua chu du an: thay RPC cu `undo_outbound_delivery(uuid)` bang thong bao khoa ro rang, buoc nguoi dung sang Nhat ky giao hang. SQL khong sua/xoa giao dich kho, ke hoach hay lich su; khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`; co `CREATE OR REPLACE FUNCTION`, chi thay cach database xu ly duong huy cu.
+- Hau kiem chi doc `supabase-sql/20260723_audit_block_legacy_plan_level_outbound_undo_postfix.sql` DA CHAY LIVE thanh cong ngay 2026-07-23 theo xac nhan cua chu du an; ket qua sach `No rows returned`.
 - `npm run build` pass ngay 2026-07-23. ESLint trang Ke hoach con 27 loi va 18 canh bao cu; khong co loi tai cum hien thi/huy vua sua. Chua test mobile bang browser/screenshot theo yeu cau truoc do cua chu du an.
 - Sau deploy: chay SQL khoa va hau kiem; xem ma chua giao/doi dang giao chi co thanh tien trinh, ma du/thua co dau tich xanh; dam bao khong con nut huy trong o ke hoach va bang lich su; thao tac `Huy phieu tao nham` chi con tai Nhat ky giao hang.
 
