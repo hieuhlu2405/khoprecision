@@ -50,6 +50,8 @@ type Product = {
   sap_code: string | null;
   external_sku: string | null;
   customer_id: string | null;
+  is_active: boolean;
+  deleted_at: string | null;
 };
 type Customer = {
   id: string;
@@ -60,6 +62,7 @@ type Customer = {
   external_code: string | null;
   selling_entity_id?: string | null;
   parent_customer_id: string | null;
+  deleted_at: string | null;
 };
 type SellingEntity = { id: string; code: string; name: string; address?: string; tax_code?: string; phone?: string };
 type Plan = {
@@ -136,6 +139,7 @@ type ClosePlanReviewItem = {
   targetQty: number;
   actualQty: number;
   diffQty: number;
+  missingReference: boolean;
 };
 
 type TextFilter = { mode: "contains" | "equals"; value: string };
@@ -332,7 +336,9 @@ export default function DeliveryPlanPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [productLookup, setProductLookup] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerLookup, setCustomerLookup] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [entities, setEntities] = useState<SellingEntity[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
@@ -496,13 +502,15 @@ export default function DeliveryPlanPage() {
       setProfile(pData as Profile);
 
       const [allProducts, allCustomers, allEntities, allVehicles] = await Promise.all([
-        fetchAllRows(supabase.from("products").select("id, sku, name, spec, uom, sap_code, external_sku, customer_id").is("deleted_at", null).eq("is_active", true)),
-        fetchAllRows(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id").is("deleted_at", null)),
+        fetchAllRows<Product>(supabase.from("products").select("id, sku, name, spec, uom, sap_code, external_sku, customer_id, is_active, deleted_at").is("deleted_at", null)),
+        fetchAllRows<Customer>(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id, deleted_at").is("deleted_at", null)),
         fetchAllRows(supabase.from("selling_entities").select("id, code, name, address, tax_code, phone").is("deleted_at", null)),
         fetchAllRows(supabase.from("vehicles").select("*").eq("is_active", true).order("license_plate")),
       ]);
-      setProducts(allProducts);
-      setCustomers(allCustomers);
+      setProductLookup(allProducts);
+      setProducts(allProducts.filter(product => !product.deleted_at && product.is_active));
+      setCustomerLookup(allCustomers);
+      setCustomers(allCustomers.filter(customer => !customer.deleted_at));
       setEntities(allEntities);
       setVehicles(allVehicles);
 
@@ -1277,15 +1285,40 @@ export default function DeliveryPlanPage() {
   };
 
   // === CHỐT NỢ HÀNG NGÀY: Mở Modal chi tiết ===
-  const handleOpenCloseBacklogModal = (dateStr: string) => {
+  const handleOpenCloseBacklogModal = async (dateStr: string) => {
     // Chốt chặn #1: Chặn mở Modal khi có edits chưa lưu
     if (Object.keys(edits).length > 0) {
       showToast("Vui lòng nhấn 'LƯU KẾ HOẠCH' hoặc 'Hủy thay đổi' trước khi thực hiện chốt nợ!", "warning");
       return;
     }
-    setModalSortCol('customer');
-    setModalSortDir('asc');
-    setCloseBacklogDay(dateStr);
+    try {
+      const [latestProducts, latestCustomers, latestDayPlans] = await Promise.all([
+        fetchAllRows<Product>(supabase.from("products").select("id, sku, name, spec, uom, sap_code, external_sku, customer_id, is_active, deleted_at").is("deleted_at", null)),
+        fetchAllRows<Customer>(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id, deleted_at").is("deleted_at", null)),
+        fetchAllRows<Plan>(
+          supabase
+            .from("delivery_plans")
+            .select("*")
+            .eq("plan_date", dateStr)
+            .is("deleted_at", null)
+        ),
+      ]);
+
+      setProductLookup(latestProducts);
+      setProducts(latestProducts.filter(product => !product.deleted_at && product.is_active));
+      setCustomerLookup(latestCustomers);
+      setCustomers(latestCustomers.filter(customer => !customer.deleted_at));
+      setPlans(current => [
+        ...current.filter(plan => plan.plan_date !== dateStr),
+        ...latestDayPlans,
+      ]);
+      setModalSortCol('customer');
+      setModalSortDir('asc');
+      setCloseBacklogDay(dateStr);
+    } catch (err: unknown) {
+      console.error(err);
+      showToast("Không tải được dữ liệu mới nhất. Chưa mở chốt ngày để tránh copy sai.", "error");
+    }
   };
 
   // === CHỐT NỢ HÀNG NGÀY: Xác nhận & ghi DB ===
@@ -2681,22 +2714,23 @@ export default function DeliveryPlanPage() {
         });
         const closableCount = dayPlans.filter(p => !p.is_completed).length;
         const reviewItems = dayPlans.map((p): ClosePlanReviewItem => {
-          const prod = products.find(x => x.id === p.product_id);
-          const cust = customers.find(x => x.id === resolvePlanDeliveryCustomerId(p, prod));
+          const prod = productLookup.find(x => x.id === p.product_id);
+          const cust = customerLookup.find(x => x.id === resolvePlanDeliveryCustomerId(p, prod));
           const plannedQty = p.planned_qty || 0;
           const backlogQty = p.backlog_qty || 0;
           const targetQty = plannedQty + backlogQty;
           const actualQty = p.actual_qty || 0;
           return {
             id: p.id,
-            customerCode: cust?.code || "N/A",
-            sku: prod?.sku || "N/A",
+            customerCode: cust?.code || "[Không tìm thấy KH]",
+            sku: prod?.sku || `[Không tìm thấy mã ${p.product_id.slice(0, 8)}]`,
             productName: prod?.name || "",
             plannedQty,
             backlogQty,
             targetQty,
             actualQty,
             diffQty: Math.abs(targetQty - actualQty),
+            missingReference: !prod || !cust,
           };
         });
         const sortItems = (items: ClosePlanReviewItem[]) => items.slice().sort((a, b) => {
@@ -2738,6 +2772,10 @@ export default function DeliveryPlanPage() {
           return lines.join("\n");
         };
         const handleCopyCloseSummary = async () => {
+          if (reviewItems.some(item => item.missingReference)) {
+            showToast("Có dòng không còn tra được mã hàng hoặc khách hàng. Chưa copy để tránh gửi sai.", "error");
+            return;
+          }
           try {
             await navigator.clipboard.writeText(buildCopyText());
             showToast("Đã copy dữ liệu chốt ngày.", "success");

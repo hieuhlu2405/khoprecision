@@ -1,5 +1,13 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-23 - Fix N/A khi copy du lieu chot ke hoach ngay
+
+- Nguyen nhan theo code: trang Ke hoach chi nap ma hang dang active, trong khi dong ke hoach cu van giu `product_id` cua ma vua ngung dung; modal chot ngay dung danh sach active de tra ma nen hien `N/A`. Modal cung chua tai lai ngay khi mo, nen co the dung danh muc cu neu ma/khach vua duoc sua o noi khac.
+- Da sua `app/(protected)/delivery-plan/page.tsx`: tach danh muc active dung cho nhap ke hoach khoi danh muc day du chua ca ma inactive de tra ke hoach cu; khi mo chot ngay, tai lai ma hang, khach hang va dung cac dong ke hoach cua ngay do truoc khi hien.
+- Ma inactive van tra duoc ma de copy, nhung khong quay lai danh sach nhap ke hoach. Ma/khach da xoa mem bi RLS cua database an; neu gap dong nay, web hien canh bao ro va chan copy thay vi chen `N/A`.
+- Khong sua SQL/database, khong xoa du lieu, khong doi so ke hoach/Da xuat/backlog hay logic chot. Can test sau deploy: ma active, ma vua doi ten/SKU, ma inactive/xoa mem con ke hoach; mo chot ngay va copy phai dung ma/khach/so luong.
+- `npm run build` pass ngay 2026-07-23. ESLint rieng trang Ke hoach con 27 loi va 18 canh bao cu; lan sua nay khong them loi lint moi. Chua test mobile bang browser/screenshot. Sau deploy can mo ngay co ma tung hien `N/A`, doi chieu danh sach va bam Copy du lieu.
+
 ## Cap nhat 2026-07-23 - Giu dung thu tu ma khi in lai phieu giao hang
 
 - Chu du an bao cao: thu tu ma tren file in lai co the khac file in khi tao chuyen. Da xac nhan nguyen nhan theo code: file dau dung thu tu `shipmentItems` tren modal, con in lai query `inventory_transactions.order('id')`; `id` la UUID ngau nhien va database chua luu so thu tu dong, nen A-B-C co the thanh C-A-B.
