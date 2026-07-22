@@ -1,5 +1,15 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-22 - Huy phieu tao nham va tu tao lai trong ngay
+
+- Chu du an chot khong lam chuc nang gop/tao lai tu dong. Neu mot chuyen thuc te bi tao tach nham thanh nhieu phieu, Admin huy cac phieu sai va tu tao lai mot phieu dung; ap dung du xe da chay hay chua, nhung chi trong dung ngay xuat.
+- Da doi UI Nhat ky giao hang: `Huy truoc khi chay` thanh `Huy phieu tao nham`; huy mot hoac nhieu phieu deu mo modal rieng, bat buoc nhap ly do, noi ro ton kho/Da giao/No se hoan lai va neu xe da chay thi phai tao lai phieu dung ngay. Khi tao lai, Admin duoc nhac ghi chu cac so phieu cu duoc thay the.
+- Da tao SQL `supabase-sql/20260722_zzz_cancel_mistaken_shipments_same_day.sql`, CHUA CHAY LIVE: tao audit ly do huy; chi Admin; chi phieu dung ngay Viet Nam; khoa dong; hieu hoa mem phieu/giao dich va adjustment lien quan; tinh lai `actual_qty` tu cac giao dich con hieu luc; dong bo backlog; kiem tra am kho; mot loi thi rollback toan bo. Duong RPC huy cu bi khoa, buoc web dung luong moi co ly do.
+- SQL khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`; co `ALTER FUNCTION`, `ALTER TABLE`, `DROP POLICY`, `CREATE OR REPLACE FUNCTION`, chi boc/doi ten ham cu va tao hang rao/audit, khong xoa lich su.
+- Hau kiem chi doc `supabase-sql/20260722_audit_cancel_mistaken_shipments_postfix.sql`, CHUA CHAY LIVE; ket qua dung la `No rows returned`.
+- ESLint rieng `app/(protected)/delivery-plan/log/page.tsx` va `npm run build` pass ngay 2026-07-22. Chua test mobile bang browser/screenshot theo yeu cau chu du an.
+- Thu tu test: chay SQL moi, chay hau kiem; tren preview tao 2 phieu cung ngay dai dien 1 chuyen thuc te, chon ca 2 va huy voi ly do; doi chieu ton/Da giao/No da hoan; tao lai 1 phieu du hang, ghi chu 2 so cu; doi chieu ton/Da giao/No ve nhu truoc; Logistics chi con 1 chuyen active. Thu huy phieu ngay cu phai bi chan.
+
 ## Cap nhat 2026-07-22 - Audit va sua lech Da giao lich su cho chuyen dang hieu luc
 
 - Audit production cua chu du an xac nhan 14 dong `delivery_plans.actual_qty` lech tong giao dich xuat kho con hieu luc. Tat ca giao dich deu thuoc chuyen dang hieu luc; khong co truong hop chuyen da huy nhung giao dich kho con active.

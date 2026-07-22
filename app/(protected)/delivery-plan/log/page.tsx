@@ -106,6 +106,10 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
+function getTodayVN() {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+}
+
 export default function DeliveryLogPage() {
   const { showToast, showConfirm } = useUI();
   const [logs, setLogs] = useState<ShipmentLog[]>([]);
@@ -122,6 +126,9 @@ export default function DeliveryLogPage() {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<"print" | "cancel" | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelLogs, setCancelLogs] = useState<ShipmentLog[]>([]);
+  const [cancelReason, setCancelReason] = useState("");
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const [correctionLog, setCorrectionLog] = useState<ShipmentLog | null>(null);
   const [correctionPlans, setCorrectionPlans] = useState<CorrectionPlan[]>([]);
@@ -270,62 +277,38 @@ export default function DeliveryLogPage() {
     });
   };
 
-  const handleUndoSingle = async (log: ShipmentLog) => {
-    if (profile?.role !== 'admin') return showToast("Chỉ Admin mới có quyền hủy.", "error");
-    if (bulkAction !== null) return;
-
-    const ok = await showConfirm({
-      message: `Chỉ dùng khi xe CHƯA chạy. Hủy chuyến ${log.shipment_no}? Tồn kho và kế hoạch sẽ được hoàn lại. Nếu xe đã chạy nhưng phiếu sai, hãy dùng Điều chỉnh hàng.`,
-      danger: true,
-      confirmLabel: "XE CHƯA CHẠY - XÁC NHẬN HỦY"
-    });
-    if (!ok) return;
-
-    setBulkAction("cancel");
-    try {
-      const { error } = await supabase.rpc("undo_shipment", { p_shipment_id: log.id });
-      if (error) throw error;
-      showToast(`Đã hủy chuyến ${log.shipment_no}`, "success");
-      await fetchLogs(limit);
-    } catch (err: unknown) {
-      showToast(getErrorMessage(err, "Không thể hủy chuyến hàng."), "error");
-    } finally {
-      setBulkAction(null);
+  const openMistakenCancellation = (targetLogs: ShipmentLog[]) => {
+    if (profile?.role !== "admin") return showToast("Chỉ Admin mới có quyền hủy phiếu tạo nhầm.", "error");
+    if (bulkAction !== null || targetLogs.length === 0) return;
+    if (targetLogs.some(log => log.shipment_date !== getTodayVN())) {
+      return showToast("Chỉ được hủy và tạo lại phiếu trong đúng ngày xuất. Phiếu ngày cũ phải dùng Điều chỉnh hàng.", "warning");
     }
+    setCancelLogs(targetLogs);
+    setCancelReason("");
+    setCancelOpen(true);
   };
 
-  const handleBulkUndo = async () => {
-    if (profile?.role !== 'admin') return showToast("Chỉ Admin mới có quyền hủy.", "error");
-    if (selectedIds.size === 0) return;
-
-    const selectedLogs = logs.filter(log => selectedIds.has(log.id));
-    if (selectedLogs.length !== selectedIds.size) {
-      setSelectedIds(new Set());
-      return showToast("Danh sách đã thay đổi. Vui lòng chọn lại các chuyến cần hủy.", "warning");
-    }
-    const shipmentLabels = selectedLogs.map(log => log.shipment_no);
-    const visibleLabels = shipmentLabels.slice(0, 8).join(", ");
-    const remainingLabel = shipmentLabels.length > 8 ? ` và ${shipmentLabels.length - 8} chuyến khác` : "";
-
-    const ok = await showConfirm({
-      message: `Chỉ dùng khi các xe CHƯA chạy. Hủy ${selectedIds.size} chuyến: ${visibleLabels}${remainingLabel}? Tồn kho và kế hoạch sẽ được hoàn lại. Nếu một chuyến lỗi thì toàn bộ danh sách sẽ không thay đổi.`,
-      danger: true,
-      confirmLabel: `XE CHƯA CHẠY - HỦY ${selectedIds.size} CHUYẾN`
-    });
-    if (!ok) return;
+  const saveMistakenCancellation = async () => {
+    if (profile?.role !== "admin" || bulkAction !== null || cancelLogs.length === 0) return;
+    const reason = cancelReason.trim();
+    if (reason.length < 3) return showToast("Vui lòng nhập lý do hủy ít nhất 3 ký tự.", "warning");
 
     setBulkAction("cancel");
     try {
-      const { data, error } = await supabase.rpc("undo_shipments_v1", {
-        p_shipment_ids: selectedLogs.map(log => log.id),
+      const { data, error } = await supabase.rpc("cancel_mistaken_shipments_v1", {
+        p_shipment_ids: cancelLogs.map(log => log.id),
+        p_reason: reason,
       });
       if (error) throw error;
-      const cancelledCount = Number(data?.shipment_count) || selectedLogs.length;
-      showToast(`Đã hủy an toàn ${cancelledCount} chuyến. Lịch sử vẫn được giữ lại.`, "success");
+      const cancelledCount = Number(data?.shipment_count) || cancelLogs.length;
+      showToast(`Đã hủy ${cancelledCount} phiếu tạo nhầm. Nếu xe thực tế đã chạy, hãy tạo lại phiếu đúng ngay trong ngày.`, "success");
       setSelectedIds(new Set());
+      setCancelOpen(false);
+      setCancelLogs([]);
+      setCancelReason("");
       await fetchLogs(limit);
     } catch (err: unknown) {
-      showToast(getErrorMessage(err, "Không thể hủy các chuyến đã chọn."), "error");
+      showToast(getErrorMessage(err, "Không thể hủy phiếu tạo nhầm."), "error");
     } finally {
       setBulkAction(null);
     }
@@ -866,11 +849,11 @@ export default function DeliveryLogPage() {
               </button>
               {profile?.role === 'admin' && (
                 <button
-                  onClick={handleBulkUndo}
+                  onClick={() => openMistakenCancellation(selectedLogs)}
                   disabled={bulkAction !== null || selectedLogs.length !== selectedIds.size}
                   className="btn btn-sm bg-red-50 text-red-600 border-red-100 hover:bg-red-100 font-bold text-[10px] rounded-xl px-4 min-h-11"
                 >
-                  <Trash2 size={14} strokeWidth={2.5} /> {bulkAction === "cancel" ? "ĐANG HỦY..." : `HỦY TRƯỚC KHI CHẠY (${selectedIds.size})`}
+                  <Trash2 size={14} strokeWidth={2.5} /> {bulkAction === "cancel" ? "ĐANG HỦY..." : `HỦY PHIẾU TẠO NHẦM (${selectedIds.size})`}
                 </button>
               )}
             </div>
@@ -1026,10 +1009,11 @@ export default function DeliveryLogPage() {
                               </button>
                           {profile?.role === 'admin' && (
                             <button
-                              onClick={() => handleUndoSingle(log)}
+                              onClick={() => openMistakenCancellation([log])}
                               disabled={bulkAction !== null}
                               className="w-10 h-10 flex items-center justify-center rounded-xl bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 transition-all shadow-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
-                              title="Hủy trước khi xe chạy"
+                              title="Hủy phiếu tạo nhầm trong ngày"
+                              aria-label={`Hủy phiếu tạo nhầm ${log.shipment_no}`}
                             >
                               <X size={18} strokeWidth={2.6} />
                             </button>
@@ -1060,6 +1044,46 @@ export default function DeliveryLogPage() {
           </div>
         </div>
       </div>
+
+      {cancelOpen && cancelLogs.length > 0 && (
+        <div className="fixed inset-0 z-[1250] bg-slate-950/55 backdrop-blur-sm p-3 sm:p-6 flex items-center justify-center" onClick={() => bulkAction === null && setCancelOpen(false)}>
+          <div className="w-full max-w-xl max-h-[92dvh] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden" onClick={event => event.stopPropagation()}>
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-start justify-between gap-4 bg-red-50">
+              <div className="min-w-0">
+                <h2 className="text-lg font-black text-red-700 flex items-center gap-2"><Trash2 size={19} /> Hủy phiếu tạo nhầm</h2>
+                <p className="text-xs font-bold text-slate-600 mt-1">Chỉ dùng trong đúng ngày xuất • Lịch sử vẫn được giữ lại</p>
+              </div>
+              <button className="w-10 h-10 shrink-0 rounded-xl hover:bg-red-100 flex items-center justify-center" disabled={bulkAction !== null} onClick={() => setCancelOpen(false)} aria-label="Đóng"><X size={20} /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-800">
+                Hủy {cancelLogs.length} phiếu: {cancelLogs.map(log => log.shipment_no).join(", ")}. Tồn kho, Đã giao và Nợ sẽ được hoàn lại. Nếu xe thực tế đã chạy, Admin phải tạo lại phiếu đúng ngay sau khi hủy.
+              </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-800">
+                Khi tạo lại, ghi chú rõ các số phiếu cũ được thay thế. Báo cáo Logistics chỉ tính các phiếu còn hiệu lực.
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Lý do hủy *</label>
+                <textarea
+                  className="textarea textarea-bordered w-full min-h-24 text-base sm:text-sm"
+                  placeholder="Ví dụ: Tạo tách nhầm thành 2 phiếu, xe thực tế chỉ chạy 1 chuyến..."
+                  value={cancelReason}
+                  maxLength={500}
+                  onChange={event => setCancelReason(event.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="px-4 sm:px-6 py-4 border-t border-slate-200 bg-white flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <button className="btn min-h-11" disabled={bulkAction !== null} onClick={() => setCancelOpen(false)}>Không hủy</button>
+              <button className="btn min-h-11 bg-red-600 hover:bg-red-700 text-white border-none font-black" disabled={bulkAction !== null} onClick={saveMistakenCancellation}>
+                <Trash2 size={16} /> {bulkAction === "cancel" ? "Đang hủy..." : `Hủy ${cancelLogs.length} phiếu tạo nhầm`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {correctionOpen && correctionLog && (
         <div className="fixed inset-0 z-[1200] bg-slate-950/55 backdrop-blur-sm p-3 sm:p-6 flex items-center justify-center" onClick={() => !correctionSaving && setCorrectionOpen(false)}>
