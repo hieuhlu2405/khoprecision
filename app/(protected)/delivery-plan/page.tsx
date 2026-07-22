@@ -2254,7 +2254,7 @@ export default function DeliveryPlanPage() {
                                 )}
                                 <input
                                   type="text"
-                                  className={`w-full text-center py-1.5 px-1 rounded-lg border-2 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-black text-sm
+                                  className={`w-full h-7 text-center py-0.5 px-1 rounded-lg border-2 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-black text-sm
                                     ${disabled ? 'opacity-70 bg-transparent border-transparent' :
                                       isChanged
                                         ? 'border-amber-400 bg-white text-amber-700 shadow-md shadow-amber-200/40 z-10 relative scale-105'
@@ -2280,13 +2280,8 @@ export default function DeliveryPlanPage() {
                                   onKeyDown={handlePlanCellKeyDown}
                                 />
                                 {(isClosed || hasPartialShipment) && (
-                                  <div className="absolute bottom-0 left-1 right-1 h-1 rounded-full bg-slate-200 overflow-hidden">
+                                  <div className="mt-0.5 mx-1 h-0.5 rounded-full bg-slate-200 overflow-hidden">
                                     <div className={`h-full rounded-full transition-all ${hasSurplus ? 'bg-amber-500' : hasDebt ? 'bg-red-500' : isClosed ? 'bg-emerald-500' : progressPct > 50 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${progressPct}%` }} />
-                                  </div>
-                                )}
-                                {hasPartialShipment && (
-                                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] font-black text-yellow-600 bg-yellow-50 px-1 rounded border border-yellow-200 opacity-0 group-hover/cell:opacity-100 transition-opacity z-20 whitespace-nowrap">
-                                    {actualQty}/{plannedQty}
                                   </div>
                                 )}
                                 {plan?.is_backlog && !isClosed && (
@@ -2302,28 +2297,32 @@ export default function DeliveryPlanPage() {
                                   </div>
                                 )}
 
-                                {isClosed && (
-                                  <div className="absolute top-1 right-1 flex items-center gap-1.5 z-20">
+                                {(isClosed || hasPartialShipment) && (
+                                  <div className="mt-0.5 h-3 flex items-center justify-center gap-1 overflow-hidden">
                                     {profile?.role === 'admin' && (
                                       <button
                                         onClick={(e) => { e.stopPropagation(); handleUndoOutbound(plan!.id); }}
-                                        className="w-5 h-5 bg-white border border-red-200 text-red-500 rounded-full flex items-center justify-center shadow-sm hover:bg-red-50 hover:border-red-400 transition-all opacity-0 group-hover/cell:opacity-100"
+                                        className="w-3 h-3 shrink-0 bg-white border border-red-200 text-red-500 rounded-full flex items-center justify-center hover:bg-red-50 hover:border-red-400 transition-all opacity-0 group-hover/cell:opacity-100"
                                         title="Admin: Hủy lệnh xuất kho này"
                                       >
-                                        <X size={16} strokeWidth={2.5} />
+                                        <X size={9} strokeWidth={2.5} />
                                       </button>
                                     )}
                                     {hasSurplus ? (
-                                      <div className="h-5 px-1.5 bg-amber-500 text-white rounded-full flex items-center justify-center shadow-sm text-[8px] font-black whitespace-nowrap" title={`Đã giao ${actualQty}/${plannedQty}`}>
-                                        THỪA {surplusQty.toLocaleString("vi-VN")}
+                                      <div className="min-w-0 max-w-full px-1.5 text-[9px] font-black text-amber-700 truncate whitespace-nowrap" title={`Đã giao ${actualQty}/${plannedQty} - Thừa ${surplusQty}`}>
+                                        THỪA +{surplusQty.toLocaleString("vi-VN")}
                                       </div>
                                     ) : hasDebt ? (
-                                      <div className="h-5 px-1.5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-sm text-[8px] font-black whitespace-nowrap" title={`Đã giao ${actualQty}/${plannedQty}`}>
+                                      <div className="min-w-0 max-w-full px-1.5 text-[9px] font-black text-red-600 truncate whitespace-nowrap" title={`Đã giao ${actualQty}/${plannedQty} - Nợ ${debtQty}`}>
                                         NỢ {debtQty.toLocaleString("vi-VN")}
                                       </div>
+                                    ) : isClosed ? (
+                                      <div className="flex items-center gap-1 text-[9px] font-black text-emerald-600 whitespace-nowrap" title={`Đã xuất kho: ${actualQty}`}>
+                                        <Check className="h-3 w-3" strokeWidth={3.5} /> ĐỦ
+                                      </div>
                                     ) : (
-                                      <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm" title={`Đã xuất kho: ${actualQty}`}>
-                                        <Check className="h-3 w-3 text-white" strokeWidth={3.5} />
+                                      <div className="min-w-0 max-w-full px-1 text-[9px] font-black text-yellow-700 truncate whitespace-nowrap" title={`Đang xuất dở: ${actualQty}/${plannedQty}`}>
+                                        ĐÃ GIAO {actualQty.toLocaleString("vi-VN")}/{plannedQty.toLocaleString("vi-VN")}
                                       </div>
                                     )}
                                   </div>

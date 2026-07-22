@@ -1,5 +1,16 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-23 - Chon ma dieu chinh theo toan bo ke hoach trong ngay va sua nhan Thua
+
+- Phat hien khi test preview: chuyen co 5 ma trong khi trang Ke hoach co gan 100 ma cung ngay, nhung modal dieu chinh chi hien 5 ma. Nguyen nhan theo code: frontend va RPC loc theo `shipment_logs.customer_id` dai dien, trong khi luong tao chuyen cho phep mot chuyen gom nhieu khach/diem giao; cac ma cu tren chuyen chi duoc chen lai nhu ngoai le.
+- Da sua `app/(protected)/delivery-plan/log/page.tsx`: nap toan bo ma co `planned_qty + backlog_qty > 0` dung ngay cua chuyen, khong loc theo khach dai dien. Bo dropdown dai; thay bang cua so tim theo ma/ten/khach, 3 bo loc `Con phai giao`/`Tat ca ke hoach`/`Da co tren chuyen`, cho chon nhieu ma khi them, danh dau va khoa ma da co de tranh trung. Doi ma dung nut rieng; tung ma van hien dung khach/diem giao, Ke hoach, Da giao, Con lai va trang thai. Tim ma khong co ke hoach se hien ro khong the them va phai bo sung ke hoach truoc. Truoc lan xac nhan cuoi, modal liet ke tung ma va so luong truoc -> sau de tranh bam nham.
+- Da tao SQL moi `supabase-sql/20260723_fix_shipment_correction_all_daily_plans.sql`, CHUA CHAY LIVE: thay `adjust_shipment_items_v1` de bo dieu kien sai theo khach dai dien, van bat buoc ma thuoc dung ngay chuyen va co ke hoach/no lon hon 0; moi dong giao dich tiep tuc lay dung `customer_id` va `delivery_customer_id` tu ke hoach cua chinh dong do. Toan bo khoa dong, cap nhat kho/Da giao/backlog, chan am kho va rollback khi loi duoc giu nguyen.
+- SQL khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`; co `CREATE OR REPLACE FUNCTION`, chi thay cach database kiem tra ma hop le, khong xoa lich su. Da doi chieu than function moi voi ban live gan nhat; ngoai bo loc khach dai dien va thong bao loi, logic con lai trung khop.
+- Hau kiem chi doc `supabase-sql/20260723_audit_shipment_correction_all_daily_plans_postfix.sql`, CHUA CHAY LIVE; ket qua dung la `No rows returned`.
+- Da sua `app/(protected)/delivery-plan/page.tsx`: nhan `THUA +x`, `NO x`, `DU` va `DA GIAO x/y` nam thanh dong gon ben duoi so ke hoach, khong con dung badge noi de len gia tri; thanh tien do cung nam trong o, khong lan sang o tren/duoi/trai/phai.
+- `npx eslint app/(protected)/delivery-plan/log/page.tsx` va `npm run build` pass ngay 2026-07-23. ESLint rieng trang Ke hoach van co dung 29 loi `any`/`prefer-const` cu, khong co loi moi tai cum giao dien vua sua. Chua test mobile bang browser/screenshot theo yeu cau truoc do cua chu du an.
+- Thu tu test sau deploy: chay SQL moi, chay hau kiem; mo chuyen 5 ma va xem tab `Tat ca ke hoach` co toan bo ma dung ngay; tim/them ma cua khach khac, doi ma va doi chieu dung khach/diem giao, ton, Da giao, No/Thua; tim ma khong co ke hoach phai bi chan; kiem nhan Thua tai 390px, 430px, 768px va 1366px.
+
 ## Cap nhat 2026-07-22 - Huy phieu tao nham va tu tao lai trong ngay
 
 - Chu du an chot khong lam chuc nang gop/tao lai tu dong. Neu mot chuyen thuc te bi tao tach nham thanh nhieu phieu, Admin huy cac phieu sai va tu tao lai mot phieu dung; ap dung du xe da chay hay chua, nhung chi trong dung ngay xuat.

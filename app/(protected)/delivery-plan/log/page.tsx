@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { exportTemplateBundle, type TemplateExportFile } from "@/lib/excel-utils";
 import { fetchAllRows } from "@/lib/supabase-fetch-all";
-import { ArrowUpDown, CircleDollarSign, FileText, Filter, PencilLine, Plus, Printer, Save, ScrollText, Trash2, Truck, UserRound, X } from "lucide-react";
+import { ArrowUpDown, Check, CircleDollarSign, FileText, Filter, PencilLine, Plus, Printer, Save, Search, ScrollText, Trash2, Truck, UserRound, X } from "lucide-react";
 
 type ShipmentLog = {
   id: string;
@@ -78,6 +78,10 @@ type CorrectionLine = {
   currentQty: number;
   targetQty: string;
 };
+type CorrectionPickerMode =
+  | { kind: "add" }
+  | { kind: "replace"; lineKey: string };
+type CorrectionPickerFilter = "remaining" | "all" | "in_trip";
 
 const fetchQuantityAdjustments = async (baseTransactionIds: string[]) => {
   if (baseTransactionIds.length === 0) return [] as CorrectionAdjustment[];
@@ -110,6 +114,14 @@ function getTodayVN() {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
 }
 
+function normalizeSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("vi")
+    .trim();
+}
+
 export default function DeliveryLogPage() {
   const { showToast, showConfirm } = useUI();
   const [logs, setLogs] = useState<ShipmentLog[]>([]);
@@ -137,6 +149,11 @@ export default function DeliveryLogPage() {
   const [correctionReason, setCorrectionReason] = useState("");
   const [correctionLoading, setCorrectionLoading] = useState(false);
   const [correctionSaving, setCorrectionSaving] = useState(false);
+  const [correctionPickerOpen, setCorrectionPickerOpen] = useState(false);
+  const [correctionPickerMode, setCorrectionPickerMode] = useState<CorrectionPickerMode>({ kind: "add" });
+  const [correctionPickerFilter, setCorrectionPickerFilter] = useState<CorrectionPickerFilter>("remaining");
+  const [correctionPickerSearch, setCorrectionPickerSearch] = useState("");
+  const [correctionPickerSelected, setCorrectionPickerSelected] = useState<Set<string>>(new Set());
 
   // Advanced Filtering & Sorting
   const [colFilters, setColFilters] = useState<Record<string, { mode: "contains" | "equals"; value: string }>>({});
@@ -315,6 +332,30 @@ export default function DeliveryLogPage() {
   };
 
   const canAdjustShipments = profile?.role === "admin" || profile?.role === "manager";
+  const correctionUsedPlanIds = useMemo(
+    () => new Set(correctionLines.map(line => line.planId).filter(Boolean)),
+    [correctionLines]
+  );
+  const correctionPickerPlans = useMemo(() => {
+    const query = normalizeSearchText(correctionPickerSearch);
+    return correctionPlans.filter(plan => {
+      const product = products.find(item => item.id === plan.product_id);
+      const deliveryPoint = customers.find(item => item.id === (plan.delivery_customer_id || plan.customer_id));
+      const isInTrip = correctionUsedPlanIds.has(plan.id);
+      const totalTarget = Number(plan.planned_qty || 0) + Number(plan.backlog_qty || 0);
+      const remaining = totalTarget - Number(plan.actual_qty || 0);
+      if (correctionPickerFilter === "remaining" && (remaining <= 0 || isInTrip)) return false;
+      if (correctionPickerFilter === "in_trip" && !isInTrip) return false;
+      if (!query) return true;
+      return normalizeSearchText([
+        product?.sku,
+        product?.name,
+        product?.spec,
+        deliveryPoint?.code,
+        deliveryPoint?.name,
+      ].filter(Boolean).join(" ")).includes(query);
+    });
+  }, [correctionPickerFilter, correctionPickerSearch, correctionPlans, correctionUsedPlanIds, customers, products]);
 
   const openShipmentCorrection = async (log: ShipmentLog) => {
     if (!canAdjustShipments || bulkAction !== null) return;
@@ -323,6 +364,9 @@ export default function DeliveryLogPage() {
     setCorrectionPlans([]);
     setCorrectionBeforeByPlan({});
     setCorrectionReason("");
+    setCorrectionPickerOpen(false);
+    setCorrectionPickerSearch("");
+    setCorrectionPickerSelected(new Set());
     setCorrectionOpen(true);
     setCorrectionLoading(true);
 
@@ -368,14 +412,13 @@ export default function DeliveryLogPage() {
         currentByPlan.set(planId, (currentByPlan.get(planId) || 0) + effectiveQty);
       });
 
-      let planQuery = supabase
+      const planQuery = supabase
         .from("delivery_plans")
         .select("id, product_id, customer_id, delivery_customer_id, plan_date, planned_qty, backlog_qty, actual_qty, is_completed")
         .eq("plan_date", log.shipment_date)
         .or("planned_qty.gt.0,backlog_qty.gt.0")
         .is("deleted_at", null)
         .order("id");
-      planQuery = log.customer_id ? planQuery.eq("customer_id", log.customer_id) : planQuery.is("customer_id", null);
       const datePlans = await fetchAllRows<CorrectionPlan>(planQuery);
 
       const currentPlanIds = Array.from(currentByPlan.keys());
@@ -422,17 +465,40 @@ export default function DeliveryLogPage() {
     setCorrectionLines(lines => lines.map(line => line.key === key ? { ...line, ...patch } : line));
   };
 
-  const addCorrectionLine = () => {
-    const usedPlanIds = new Set(correctionLines.map(line => line.planId).filter(Boolean));
-    const firstAvailable = correctionPlans.find(plan => !usedPlanIds.has(plan.id));
-    if (!firstAvailable) return showToast("Không còn mã kế hoạch nào để thêm vào chuyến.", "info");
-    setCorrectionLines(lines => [...lines, {
-      key: `correction-new-${Date.now()}`,
-      originalPlanId: null,
-      planId: firstAvailable.id,
-      currentQty: 0,
-      targetQty: "",
-    }]);
+  const openCorrectionPicker = (mode: CorrectionPickerMode) => {
+    setCorrectionPickerMode(mode);
+    setCorrectionPickerFilter(mode.kind === "add" ? "remaining" : "all");
+    setCorrectionPickerSearch("");
+    setCorrectionPickerSelected(new Set());
+    setCorrectionPickerOpen(true);
+  };
+
+  const confirmCorrectionPicker = () => {
+    const selectedPlanIds = Array.from(correctionPickerSelected);
+    if (selectedPlanIds.length === 0) {
+      showToast("Vui lòng chọn ít nhất một mã có kế hoạch.", "warning");
+      return;
+    }
+
+    if (correctionPickerMode.kind === "replace") {
+      const nextPlanId = selectedPlanIds[0];
+      updateCorrectionLine(correctionPickerMode.lineKey, { planId: nextPlanId });
+    } else {
+      const stamp = Date.now();
+      setCorrectionLines(lines => [
+        ...lines,
+        ...selectedPlanIds.map((planId, index) => ({
+          key: `correction-new-${stamp}-${index}-${planId}`,
+          originalPlanId: null,
+          planId,
+          currentQty: 0,
+          targetQty: "",
+        })),
+      ]);
+    }
+
+    setCorrectionPickerOpen(false);
+    setCorrectionPickerSelected(new Set());
   };
 
   const saveShipmentCorrection = async () => {
@@ -462,8 +528,19 @@ export default function DeliveryLogPage() {
     const hasChanges = Array.from(changed).some(planId => (beforeMap.get(planId) || 0) !== (afterMap.get(planId) || 0));
     if (!hasChanges) return showToast("Chưa có thay đổi về mã hoặc số lượng.", "info");
 
+    const changedPlans = Array.from(changed)
+      .filter(planId => (beforeMap.get(planId) || 0) !== (afterMap.get(planId) || 0))
+      .map(planId => {
+        const plan = correctionPlans.find(item => item.id === planId);
+        const product = products.find(item => item.id === plan?.product_id);
+        const deliveryPoint = customers.find(item => item.id === (plan?.delivery_customer_id || plan?.customer_id));
+        return `• ${product?.sku || "Không rõ mã"} (${deliveryPoint?.code || "không rõ điểm giao"}): ${(beforeMap.get(planId) || 0).toLocaleString("vi-VN")} → ${(afterMap.get(planId) || 0).toLocaleString("vi-VN")}`;
+      });
+    const visibleChanges = changedPlans.slice(0, 8);
+    if (changedPlans.length > visibleChanges.length) visibleChanges.push(`• Và ${changedPlans.length - visibleChanges.length} mã khác`);
+
     const ok = await showConfirm({
-      message: `Điều chỉnh hàng trên chuyến ${correctionLog.shipment_no}? Kho, Đã giao và Nợ sẽ được tính lại cùng lúc. Số chuyến và rate Logistics không thay đổi.`,
+      message: `Điều chỉnh hàng trên chuyến ${correctionLog.shipment_no}?\n\n${visibleChanges.join("\n")}\n\nKho, Đã giao và Nợ/Thừa sẽ được tính lại cùng lúc. Số chuyến và rate Logistics không thay đổi.`,
       confirmLabel: "XÁC NHẬN ĐIỀU CHỈNH",
       danger: true,
     });
@@ -1102,7 +1179,7 @@ export default function DeliveryLogPage() {
               ) : (
                 <>
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-800">
-                    Chỉ chọn được mã đã có kế hoạch đúng ngày và đúng khách. Được phép giao thừa kế hoạch; database vẫn chặn âm kho.
+                    Chỉ chọn được mã đã có kế hoạch đúng ngày của chuyến. Mỗi mã giữ đúng khách và điểm giao trong kế hoạch; được phép giao thừa, database vẫn chặn âm kho.
                   </div>
 
                   <div className="space-y-3">
@@ -1130,25 +1207,20 @@ export default function DeliveryLogPage() {
                         <div key={line.key} className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_170px_150px_44px] gap-3 items-end">
                           <div className="min-w-0">
                             <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Mã có kế hoạch</label>
-                            <select
-                              className="select select-bordered w-full min-h-11 text-base sm:text-sm font-bold"
-                              value={line.planId}
-                              onChange={event => {
-                                const nextPlanId = event.target.value;
-                                if (correctionLines.some(other => other.key !== line.key && other.planId === nextPlanId)) {
-                                  showToast("Mã kế hoạch này đã có trong danh sách.", "warning");
-                                  return;
-                                }
-                                updateCorrectionLine(line.key, { planId: nextPlanId });
-                              }}
-                            >
-                              {correctionPlans.map(option => {
-                                const optionProduct = products.find(item => item.id === option.product_id);
-                                const optionPoint = customers.find(item => item.id === (option.delivery_customer_id || option.customer_id));
-                                return <option key={option.id} value={option.id}>{optionProduct?.sku || "Không rõ mã"} - {optionPoint?.code || "Không rõ điểm giao"}</option>;
-                              })}
-                            </select>
-                            <div className="mt-1 text-xs text-slate-500 truncate" title={`${product?.name || ""} ${product?.spec || ""}`}>{product?.name || "Không rõ tên"} {product?.spec ? `• ${product.spec}` : ""} • {deliveryPoint?.name || "Không rõ khách"}</div>
+                            <div className="min-h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="font-black text-sm text-slate-900 truncate">{product?.sku || "Không rõ mã"}</div>
+                                <div className="text-xs text-slate-500 truncate" title={`${product?.name || ""} ${product?.spec || ""}`}>{product?.name || "Không rõ tên"} {product?.spec ? `• ${product.spec}` : ""}</div>
+                                <div className="text-[10px] font-bold text-indigo-600 truncate">{deliveryPoint?.code || "Không rõ điểm giao"} • {deliveryPoint?.name || "Không rõ khách"}</div>
+                              </div>
+                              <button
+                                type="button"
+                                className="shrink-0 min-h-10 px-3 rounded-lg border border-indigo-200 bg-white text-indigo-700 text-xs font-black hover:bg-indigo-50"
+                                onClick={() => openCorrectionPicker({ kind: "replace", lineKey: line.key })}
+                              >
+                                {line.originalPlanId ? "Đổi mã" : "Chọn lại"}
+                              </button>
+                            </div>
                           </div>
 
                           <div>
@@ -1189,8 +1261,8 @@ export default function DeliveryLogPage() {
                     })}
                   </div>
 
-                  <button type="button" onClick={addCorrectionLine} className="btn btn-sm min-h-11 bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 font-black">
-                    <Plus size={16} /> Thêm mã có kế hoạch
+                  <button type="button" onClick={() => openCorrectionPicker({ kind: "add" })} className="btn btn-sm min-h-11 bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 font-black">
+                    <Plus size={16} /> Thêm mã đã có kế hoạch hôm nay
                   </button>
 
                   <div>
@@ -1210,8 +1282,138 @@ export default function DeliveryLogPage() {
             <div className="px-4 sm:px-6 py-4 border-t border-slate-200 bg-white flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
               <button className="btn min-h-11" disabled={correctionSaving} onClick={() => setCorrectionOpen(false)}>Hủy</button>
               <button className="btn min-h-11 bg-indigo-600 hover:bg-indigo-700 text-white border-none font-black" disabled={correctionLoading || correctionSaving} onClick={saveShipmentCorrection}>
-                <Save size={16} /> {correctionSaving ? "Đang lưu..." : "Lưu điều chỉnh"}
+                <Save size={16} /> {correctionSaving ? "Đang lưu..." : "Xác nhận điều chỉnh"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {correctionOpen && correctionLog && correctionPickerOpen && (
+        <div className="fixed inset-0 z-[1350] bg-slate-950/65 backdrop-blur-sm p-0 sm:p-6 flex items-end sm:items-center justify-center" onClick={() => setCorrectionPickerOpen(false)}>
+          <div className="w-full sm:max-w-4xl h-[94dvh] sm:h-auto sm:max-h-[88dvh] bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden" onClick={event => event.stopPropagation()}>
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-lg font-black text-slate-900">
+                  {correctionPickerMode.kind === "replace" ? "Đổi sang mã nào?" : "Thêm mã đã có kế hoạch hôm nay"}
+                </h3>
+                <p className="text-xs font-bold text-slate-500 mt-1">
+                  Ngày {correctionLog.shipment_date.split("-").reverse().join("/")} • {correctionPlans.length} mã có kế hoạch • Có thể thuộc nhiều khách/điểm giao
+                </p>
+              </div>
+              <button type="button" className="w-11 h-11 shrink-0 rounded-xl hover:bg-slate-200 flex items-center justify-center" onClick={() => setCorrectionPickerOpen(false)} aria-label="Đóng danh sách mã">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="px-4 sm:px-6 py-3 border-b border-slate-200 bg-white space-y-3">
+              <label className="relative block">
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  autoFocus
+                  type="search"
+                  className="input input-bordered w-full min-h-12 pl-10 text-base"
+                  placeholder="Tìm mã, tên hàng hoặc khách hàng..."
+                  value={correctionPickerSearch}
+                  onChange={event => setCorrectionPickerSearch(event.target.value)}
+                />
+              </label>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {([
+                  ["remaining", "Còn phải giao"],
+                  ["all", "Tất cả kế hoạch"],
+                  ["in_trip", "Đã có trên chuyến"],
+                ] as [CorrectionPickerFilter, string][]).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`min-h-10 px-3 rounded-xl border text-xs font-black whitespace-nowrap ${correctionPickerFilter === value ? "bg-indigo-600 border-indigo-600 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                    onClick={() => setCorrectionPickerFilter(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-slate-50">
+              {correctionPickerPlans.length === 0 ? (
+                <div className="min-h-48 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center flex flex-col items-center justify-center">
+                  <Search size={28} className="text-slate-300 mb-3" />
+                  <div className="font-black text-slate-700">Không tìm thấy mã phù hợp</div>
+                  <div className="text-sm text-slate-500 mt-1 max-w-lg">
+                    {correctionPickerSearch.trim()
+                      ? `Nếu “${correctionPickerSearch.trim()}” không có trong tab Tất cả kế hoạch thì mã này chưa có kế hoạch ngày ${correctionLog.shipment_date.split("-").reverse().join("/")} và không thể thêm vào chuyến.`
+                      : "Hãy đổi bộ lọc hoặc kiểm tra xem các mã còn lại đã nằm trên chuyến hay chưa."}
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  {correctionPickerPlans.map(plan => {
+                    const product = products.find(item => item.id === plan.product_id);
+                    const deliveryPoint = customers.find(item => item.id === (plan.delivery_customer_id || plan.customer_id));
+                    const totalTarget = Number(plan.planned_qty || 0) + Number(plan.backlog_qty || 0);
+                    const actualQty = Number(plan.actual_qty || 0);
+                    const remainingQty = Math.max(0, totalTarget - actualQty);
+                    const surplusQty = Math.max(0, actualQty - totalTarget);
+                    const isInTrip = correctionUsedPlanIds.has(plan.id);
+                    const isSelected = correctionPickerSelected.has(plan.id);
+                    const statusText = remainingQty > 0 ? `Còn ${remainingQty.toLocaleString("vi-VN")}` : surplusQty > 0 ? `Thừa ${surplusQty.toLocaleString("vi-VN")}` : "Đủ";
+                    return (
+                      <button
+                        key={plan.id}
+                        type="button"
+                        disabled={isInTrip}
+                        className={`min-w-0 rounded-2xl border p-3 sm:p-4 text-left transition-all ${isInTrip ? "bg-slate-100 border-slate-200 opacity-65 cursor-not-allowed" : isSelected ? "bg-indigo-50 border-indigo-500 ring-2 ring-indigo-200" : "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm"}`}
+                        onClick={() => {
+                          if (correctionPickerMode.kind === "replace") {
+                            setCorrectionPickerSelected(new Set([plan.id]));
+                            return;
+                          }
+                          setCorrectionPickerSelected(selected => {
+                            const next = new Set(selected);
+                            if (next.has(plan.id)) next.delete(plan.id);
+                            else next.add(plan.id);
+                            return next;
+                          });
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`mt-0.5 w-6 h-6 shrink-0 rounded-lg border flex items-center justify-center ${isSelected ? "bg-indigo-600 border-indigo-600 text-white" : "bg-white border-slate-300 text-transparent"}`}>
+                            <Check size={16} strokeWidth={3} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-black text-slate-900">{product?.sku || "Không rõ mã"}</span>
+                              {isInTrip && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-600">ĐÃ CÓ TRÊN CHUYẾN</span>}
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${remainingQty > 0 ? "bg-red-50 text-red-600" : surplusQty > 0 ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-600"}`}>{statusText}</span>
+                            </div>
+                            <div className="mt-1 text-xs text-slate-600 line-clamp-2">{product?.name || "Không rõ tên"}{product?.spec ? ` • ${product.spec}` : ""}</div>
+                            <div className="mt-2 text-xs font-bold text-indigo-700 truncate">{deliveryPoint?.code || "Không rõ điểm giao"} • {deliveryPoint?.name || "Không rõ khách"}</div>
+                            <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                              <div><span className="block text-slate-400">Kế hoạch</span><strong className="text-slate-700">{totalTarget.toLocaleString("vi-VN")}</strong></div>
+                              <div><span className="block text-slate-400">Đã giao</span><strong className="text-slate-700">{actualQty.toLocaleString("vi-VN")}</strong></div>
+                              <div><span className="block text-slate-400">Còn lại</span><strong className={remainingQty > 0 ? "text-red-600" : "text-slate-700"}>{remainingQty.toLocaleString("vi-VN")}</strong></div>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="px-4 sm:px-6 py-4 border-t border-slate-200 bg-white flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="text-xs font-bold text-slate-500 text-center sm:text-left">
+                {correctionPickerSelected.size > 0 ? `Đã chọn ${correctionPickerSelected.size} mã` : "Chưa chọn mã nào"}
+              </div>
+              <div className="flex flex-col-reverse sm:flex-row gap-2">
+                <button type="button" className="btn min-h-11" onClick={() => setCorrectionPickerOpen(false)}>Quay lại</button>
+                <button type="button" className="btn min-h-11 bg-indigo-600 hover:bg-indigo-700 text-white border-none font-black" disabled={correctionPickerSelected.size === 0} onClick={confirmCorrectionPicker}>
+                  <Check size={17} /> {correctionPickerMode.kind === "replace" ? "Chọn mã này" : `Thêm ${correctionPickerSelected.size || ""} mã`}
+                </button>
+              </div>
             </div>
           </div>
         </div>
