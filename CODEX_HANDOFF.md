@@ -1,5 +1,14 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-24 - Dong bo danh muc active giua Ke hoach va Canh bao thieu hang
+
+- Nguyen nhan theo code: `app/(protected)/delivery-plan/shortage/page.tsx` chi loc `products.deleted_at IS NULL`, khong loc `products.is_active = true`, nen ma da ngung dung van duoc ghep voi ke hoach cu va hien trong Canh bao thieu hang.
+- Da tao nguon danh muc dung chung `lib/product-catalog.ts`. Ca Ke hoach giao hang va Canh bao thieu hang deu lay thong tin hien tai tu `products`, va cau query Supabase chi yeu cau ma `is_active = true` va `deleted_at IS NULL`; helper co them lop loc phong thu va dung `fetchAllRows` de khong bi gioi han 1.000 dong.
+- Tra cuu chot ngay cu duoc tach rieng: chi nap them ma inactive chua xoa de doc dung lich su cu, khong dua cac ma nay quay lai bang Ke hoach hoac Canh bao thieu hang. Ma da xoa mem van bi loai va neu lich su thieu tham chieu thi luong copy tiep tuc bi chan.
+- Khong tao/chay SQL, khong xoa hay sua ton kho, ke hoach, giao dich va lich su. Rui ro mat du lieu/sai so lieu: thap; thay doi chi an ma inactive khoi bao cao canh bao.
+- `npm run build` pass ngay 2026-07-24. Helper danh muc moi va trang Canh bao thieu hang: 0 loi ESLint; trang Canh bao con 3 canh bao cu. Trang Ke hoach con 27 loi va 18 canh bao cu, khong phat sinh tu cum dong bo danh muc. Chua test mobile bang browser/screenshot.
+- Can test sau deploy: inactive mot ma dang co ke hoach/no trong 7 ngay, bam Lam moi va xac nhan ma bien mat; active lai ma va xac nhan ma xuat hien lai neu van thieu.
+
 ## Cap nhat 2026-07-23 - Fix N/A khi copy du lieu chot ke hoach ngay
 
 - Nguyen nhan theo code: trang Ke hoach chi nap ma hang dang active, trong khi dong ke hoach cu van giu `product_id` cua ma vua ngung dung; modal chot ngay dung danh sach active de tra ma nen hien `N/A`. Modal cung chua tai lai ngay khi mo, nen co the dung danh muc cu neu ma/khach vua duoc sua o noi khac.

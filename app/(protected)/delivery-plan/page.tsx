@@ -35,24 +35,18 @@ import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-u
 import { formatDateVN, formatDateTimeVN, getTodayVNStr, getVNTimeNow } from "@/lib/date-utils";
 import { exportToExcel, readExcel, exportWithTemplate, exportDeliveryDraftExcel, exportDeliveryFuturePlanMatrixExcel } from "@/lib/excel-utils";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
+import {
+  fetchActiveProductCatalog,
+  fetchNonDeletedProductReferences,
+  type ProductCatalogItem,
+} from "@/lib/product-catalog";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
 
 type Profile = { id: string; role: "admin" | "manager" | "staff"; department: string };
-type Product = {
-  id: string;
-  sku: string;
-  name: string;
-  spec: string | null;
-  uom: string;
-  sap_code: string | null;
-  external_sku: string | null;
-  customer_id: string | null;
-  is_active: boolean;
-  deleted_at: string | null;
-};
+type Product = ProductCatalogItem;
 type Customer = {
   id: string;
   code: string;
@@ -501,14 +495,14 @@ export default function DeliveryPlanPage() {
       const { data: pData } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).single();
       setProfile(pData as Profile);
 
-      const [allProducts, allCustomers, allEntities, allVehicles] = await Promise.all([
-        fetchAllRows<Product>(supabase.from("products").select("id, sku, name, spec, uom, sap_code, external_sku, customer_id, is_active, deleted_at").is("deleted_at", null)),
+      const [activeProducts, allCustomers, allEntities, allVehicles] = await Promise.all([
+        fetchActiveProductCatalog(),
         fetchAllRows<Customer>(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id, deleted_at").is("deleted_at", null)),
         fetchAllRows(supabase.from("selling_entities").select("id, code, name, address, tax_code, phone").is("deleted_at", null)),
         fetchAllRows(supabase.from("vehicles").select("*").eq("is_active", true).order("license_plate")),
       ]);
-      setProductLookup(allProducts);
-      setProducts(allProducts.filter(product => !product.deleted_at && product.is_active));
+      setProductLookup(activeProducts);
+      setProducts(activeProducts);
       setCustomerLookup(allCustomers);
       setCustomers(allCustomers.filter(customer => !customer.deleted_at));
       setEntities(allEntities);
@@ -1292,8 +1286,9 @@ export default function DeliveryPlanPage() {
       return;
     }
     try {
-      const [latestProducts, latestCustomers, latestDayPlans] = await Promise.all([
-        fetchAllRows<Product>(supabase.from("products").select("id, sku, name, spec, uom, sap_code, external_sku, customer_id, is_active, deleted_at").is("deleted_at", null)),
+      const [latestActiveProducts, latestProductReferences, latestCustomers, latestDayPlans] = await Promise.all([
+        fetchActiveProductCatalog(),
+        fetchNonDeletedProductReferences(),
         fetchAllRows<Customer>(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id, deleted_at").is("deleted_at", null)),
         fetchAllRows<Plan>(
           supabase
@@ -1304,8 +1299,8 @@ export default function DeliveryPlanPage() {
         ),
       ]);
 
-      setProductLookup(latestProducts);
-      setProducts(latestProducts.filter(product => !product.deleted_at && product.is_active));
+      setProductLookup(latestProductReferences);
+      setProducts(latestActiveProducts);
       setCustomerLookup(latestCustomers);
       setCustomers(latestCustomers.filter(customer => !customer.deleted_at));
       setPlans(current => [

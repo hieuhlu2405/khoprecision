@@ -7,13 +7,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-utils";
 import { getVNTimeNow } from "@/lib/date-utils";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
+import { fetchActiveProductCatalog, type ProductCatalogItem } from "@/lib/product-catalog";
 import { AlertTriangle, ArrowUpDown, CalendarDays, CheckCircle2, Filter, Package, RefreshCw, Zap } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
 
-type Product = { id: string; sku: string; name: string; spec: string | null; customer_id: string | null };
+type Product = ProductCatalogItem;
 type Customer = { id: string; code: string; name: string; parent_customer_id: string | null };
 type Plan = { id: string; product_id: string; customer_id: string | null; delivery_customer_id?: string | null; plan_date: string; planned_qty: number; actual_qty: number; backlog_qty?: number; note?: string | null; note_2?: string | null; note_edited_at?: string | null; note_2_edited_at?: string | null };
 type PastNote = { id: string; product_id: string; customer_id: string | null; delivery_customer_id: string | null; note: string | null; note_2: string | null; note_edited_at: string | null; note_2_edited_at: string | null; plan_date: string };
@@ -213,12 +214,18 @@ export default function ShortageReportPage() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return window.location.href = "/login";
 
-      const [rP, rC] = await Promise.all([
-        supabase.from("products").select("id, sku, name, spec, customer_id").is("deleted_at", null),
-        supabase.from("customers").select("id, code, name, parent_customer_id").is("deleted_at", null),
+      const [activeProducts, activeCustomers] = await Promise.all([
+        fetchActiveProductCatalog(),
+        fetchAllRows<Customer>(
+          supabase
+            .from("customers")
+            .select("id, code, name, parent_customer_id")
+            .is("deleted_at", null)
+            .order("code")
+        ),
       ]);
-      setProducts(rP.data || []);
-      setCustomers((rC.data || []) as Customer[]);
+      setProducts(activeProducts);
+      setCustomers(activeCustomers);
 
       const startDate = days[0];
       const endDate = days[6];
@@ -285,11 +292,11 @@ export default function ShortageReportPage() {
 
       if (stockRows) {
         const smap: Record<string, number> = {};
-        (stockRows || []).forEach((r: any) => { smap[r.product_id] = (smap[r.product_id] || 0) + Number(r.current_qty); });
+        stockRows.forEach(r => { smap[r.product_id] = (smap[r.product_id] || 0) + Number(r.current_qty); });
         setStockMap(smap);
       }
-    } catch (err: any) {
-      showToast(err.message, "error");
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Không thể tải cảnh báo thiếu hàng.", "error");
     } finally {
       setLoading(false);
     }
