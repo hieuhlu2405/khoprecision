@@ -333,7 +333,7 @@ export default function DeliveryLogPage() {
     }
   };
 
-  const canAdjustShipments = profile?.role === "admin" || profile?.role === "manager";
+  const canAdjustShipments = profile?.role === "admin";
   const correctionUsedPlanIds = useMemo(
     () => new Set(correctionLines.map(line => line.planId).filter(Boolean)),
     [correctionLines]
@@ -360,7 +360,8 @@ export default function DeliveryLogPage() {
   }, [correctionPickerFilter, correctionPickerSearch, correctionPlans, correctionUsedPlanIds, customers, products]);
 
   const openShipmentCorrection = async (log: ShipmentLog) => {
-    if (!canAdjustShipments || bulkAction !== null) return;
+    if (!canAdjustShipments) return showToast("Chỉ Admin mới có quyền chỉnh sửa phiếu giao hàng.", "error");
+    if (bulkAction !== null) return;
     setCorrectionLog(log);
     setCorrectionLines([]);
     setCorrectionPlans([]);
@@ -505,6 +506,7 @@ export default function DeliveryLogPage() {
   };
 
   const saveShipmentCorrection = async () => {
+    if (!canAdjustShipments) return showToast("Chỉ Admin mới có quyền chỉnh sửa phiếu giao hàng.", "error");
     if (!correctionLog || correctionSaving) return;
     const reason = correctionReason.trim();
     if (reason.length < 3) return showToast("Vui lòng nhập lý do điều chỉnh ít nhất 3 ký tự.", "warning");

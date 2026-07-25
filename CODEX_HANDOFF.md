@@ -1,5 +1,14 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-25 - Chi Admin duoc chinh sua va huy phieu tai Nhat ky giao hang
+
+- Da sua `app/(protected)/delivery-plan/log/page.tsx`: nut chinh sua phieu va nut huy phieu tao nham chi hien khi `profiles.role = admin`; Manager va moi role khac khong con thay, ham mo/luu modal cung tu chan neu bi goi lach tu giao dien.
+- Duong huy phieu `cancel_mistaken_shipments_v1` da co san hang rao `public.is_admin()` trong database, khong can viet lai.
+- Da tao SQL moi `supabase-sql/20260725_restrict_delivery_log_actions_to_admin.sql`, CHUA CHAY LIVE: thay wrapper `adjust_shipment_items_v1` de database tu kiem tra `public.is_admin()` truoc khi cho chinh sua; core van bi thu hoi quyen goi truc tiep. SQL khong xoa/sua giao dich cu, khong doi so luong, ton kho, Da giao, No/Thua hay Logistics.
+- SQL khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`; co `CREATE OR REPLACE FUNCTION`, `REVOKE`, `GRANT`, chi thay hang rao quyen.
+- Da tao hau kiem chi doc `supabase-sql/20260725_audit_delivery_log_actions_admin_only.sql`, CHUA CHAY LIVE; ket qua dung sau khi chay fix la `No rows returned`.
+- Can test sau deploy/chay SQL: Admin thay va dung duoc hai nut; Manager/Staff/Sales/Kho/Ke toan khong thay; goi thang hai RPC bang role khac phai bi database tu choi. Chua test mobile bang browser/screenshot.
+
 ## Cap nhat 2026-07-24 - Dong bo danh muc active giua Ke hoach va Canh bao thieu hang
 
 - Nguyen nhan theo code: `app/(protected)/delivery-plan/shortage/page.tsx` chi loc `products.deleted_at IS NULL`, khong loc `products.is_active = true`, nen ma da ngung dung van duoc ghep voi ke hoach cu va hien trong Canh bao thieu hang.
