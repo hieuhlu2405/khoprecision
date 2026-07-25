@@ -1137,7 +1137,7 @@ export default function DeliveryLogPage() {
       </div>
 
       {cancelOpen && cancelLogs.length > 0 && (
-        <div className="fixed inset-0 z-[1250] bg-slate-950/55 backdrop-blur-sm p-3 sm:p-6 flex items-center justify-center" onClick={() => bulkAction === null && setCancelOpen(false)}>
+        <div className="fixed inset-0 z-[1250] bg-slate-950/55 backdrop-blur-sm p-3 sm:p-6 flex items-center justify-center" onPointerDown={(e) => e.target === e.currentTarget && bulkAction === null && setCancelOpen(false)}>
           <div className="w-full max-w-xl max-h-[92dvh] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden" onClick={event => event.stopPropagation()}>
             <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-start justify-between gap-4 bg-red-50">
               <div className="min-w-0">
@@ -1177,7 +1177,7 @@ export default function DeliveryLogPage() {
       )}
 
       {correctionOpen && correctionLog && (
-        <div className="fixed inset-0 z-[1200] bg-slate-950/55 backdrop-blur-sm p-3 sm:p-6 flex items-center justify-center" onClick={() => !correctionSaving && setCorrectionOpen(false)}>
+        <div className="fixed inset-0 z-[1200] bg-slate-950/55 backdrop-blur-sm p-3 sm:p-6 flex items-center justify-center" onPointerDown={(e) => e.target === e.currentTarget && !correctionSaving && setCorrectionOpen(false)}>
           <div className="w-full max-w-5xl max-h-[92dvh] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden" onClick={event => event.stopPropagation()}>
             <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-start justify-between gap-4 bg-slate-50">
               <div className="min-w-0">
@@ -1304,7 +1304,7 @@ export default function DeliveryLogPage() {
       )}
 
       {correctionOpen && correctionLog && correctionPickerOpen && (
-        <div className="fixed inset-0 z-[1350] bg-slate-950/65 backdrop-blur-sm p-0 sm:p-6 flex items-end sm:items-center justify-center" onClick={() => setCorrectionPickerOpen(false)}>
+        <div className="fixed inset-0 z-[1350] bg-slate-950/65 backdrop-blur-sm p-0 sm:p-6 flex items-end sm:items-center justify-center" onPointerDown={(e) => e.target === e.currentTarget && setCorrectionPickerOpen(false)}>
           <div className="w-full sm:max-w-4xl h-[94dvh] sm:h-auto sm:max-h-[88dvh] bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden" onClick={event => event.stopPropagation()}>
             <div className="px-4 sm:px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-start justify-between gap-3">
               <div className="min-w-0">

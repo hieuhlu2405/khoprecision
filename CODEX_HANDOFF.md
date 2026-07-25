@@ -1,5 +1,14 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-26 - Giu modal khi keo chon chu va chuan hoa thong bao loi
+
+- Da thay cach dong nen modal tu `click` sang `pointer down` va chi dong khi thao tac bat dau ngay tren nen. Da ap dung cho cac modal co the dong bang nen tai Ho so, Khach hang, Xe, Phap nhan, Cong no, Nhap/Xuat kho, Ke hoach giao hang, Nhat ky giao hang va Bao cao. Keo boi den chu tu input/textarea ra ngoai modal roi nha chuot khong con bi hieu nham la bam dong.
+- Da tao `lib/user-error.ts` lam mot noi chuan hoa thong bao loi: loi ky thuat/loi backend duoc doi thanh tieng Viet ngan gon va moi loi co dong `Cach xu ly`. Toast loi va `ErrorBanner` deu dung chung co che nay.
+- Toast loi da giu ky tu xuong dong, tu ngat chu, co vung cuon khi dai va hien 9 giay. Danh sach nhieu ma khong du ton tai Xuat kho va Xuat chuyen hien moi ma mot dong thay vi dinh thanh mot hang ngang.
+- Da sua mot chuoi loi font `Khong co du lieu` tai bieu do Gia tri ton kho.
+- Khong sua SQL/backend, khong xoa hay doi du lieu kho. Rui ro mat du lieu/sai so lieu: thap; thay doi chi o cach dong modal va hien thong bao.
+- `npm run build` pass ngay 2026-07-26. ESLint rieng 3 file dung chung moi/sua (`UIContext`, `Loading`, `user-error`) pass. Theo yeu cau cua chu du an, khong tu dang nhap web de test; can chu du an kiem tra tren production thao tac keo chon chu va ca xuat nhieu ma thieu ton.
+
 ## Cap nhat 2026-07-26 - Admin duoc huy phieu cua ngay lien truoc
 
 - Da sua `app/(protected)/delivery-plan/log/page.tsx`: Admin duoc mo luong `Huy phieu tao nham` cho phieu cua hom nay hoac ngay lien truoc theo gio Viet Nam. Phieu cu hon van bi chan. Modal noi ro chi huy khi xe khong chay that/phieu tao nham; huy se loai phieu khoi Logistics.

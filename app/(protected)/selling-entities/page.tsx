@@ -382,7 +382,7 @@ export default function SellingEntitiesPage() {
 
       {/* Create/Edit Modal */}
       {open && (
-        <div className="modal-overlay" onClick={() => setOpen(false)}>
+        <div className="modal-overlay" onPointerDown={(e) => e.target === e.currentTarget && setOpen(false)}>
           <div className="modal-box" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title flex items-center gap-3">
               <Building2 size={24} strokeWidth={2.5} />

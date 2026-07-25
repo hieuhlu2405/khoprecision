@@ -2412,7 +2412,7 @@ export default function DeliveryPlanPage() {
         const disabled = !canEditDate(date);
 
         return (
-          <div className="delivery-mobile-note-overlay" onClick={() => setMobileDetailRowId(null)}>
+          <div className="delivery-mobile-note-overlay" onPointerDown={(e) => e.target === e.currentTarget && setMobileDetailRowId(null)}>
             <div className="delivery-mobile-note-sheet" onClick={event => event.stopPropagation()}>
               <div className="delivery-mobile-note-header">
                 <div>
@@ -2863,8 +2863,8 @@ export default function DeliveryPlanPage() {
         };
 
         return (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => !saving && setCloseBacklogDay(null)}>
-            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" />
+          <div className="fixed inset-0 z-[60] flex items-center justify-center" onPointerDown={(e) => e.target === e.currentTarget && !saving && setCloseBacklogDay(null)}>
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onPointerDown={() => !saving && setCloseBacklogDay(null)} />
             <div className="relative bg-white rounded-2xl shadow-2xl w-[calc(100vw-24px)] max-w-5xl max-h-[90dvh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
               {/* Header */}
               <div className="px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white">

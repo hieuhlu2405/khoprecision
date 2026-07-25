@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 import { AlertTriangle, Check, CircleHelp, Info, X } from "lucide-react";
+import { formatUserError } from "@/lib/user-error";
 
 /* -----------------------------------------------------------------------
    Types
@@ -63,10 +64,11 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
 
   const showToast = useCallback((message: string, type: ToastType = "info") => {
     const id = String(++idCounter.current);
-    setToasts((prev) => [...prev, { id, type, message }]);
+    const displayMessage = type === "error" ? formatUserError(message) : message;
+    setToasts((prev) => [...prev, { id, type, message: displayMessage }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
+    }, type === "error" ? 9000 : 4000);
   }, []);
 
   const showConfirm = useCallback(
@@ -161,6 +163,8 @@ function ToastItem({
         boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
         minWidth: 240,
         maxWidth: 400,
+        maxHeight: "min(70dvh, 560px)",
+        overflowY: "auto",
         fontSize: 14,
         lineHeight: "1.4",
         animation: "toast-in 0.25s ease",
@@ -184,7 +188,7 @@ function ToastItem({
       >
         <ToastIcon size={13} strokeWidth={3} />
       </span>
-      <span style={{ flex: 1, color: "#1e293b" }}>{toast.message}</span>
+      <span style={{ flex: 1, color: "#1e293b", whiteSpace: "pre-line", overflowWrap: "anywhere" }}>{toast.message}</span>
       <button
         onClick={() => onRemove(toast.id)}
         style={{
@@ -230,7 +234,7 @@ function ConfirmDialog({
         padding: 24,
         backdropFilter: "blur(2px)",
       }}
-      onClick={onCancel}
+      onPointerDown={(e) => e.target === e.currentTarget && onCancel()}
     >
       <div
         style={{

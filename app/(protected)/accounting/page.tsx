@@ -1071,7 +1071,7 @@ export default function AccountingPage() {
       </div>
 
       {invoiceModalOpen && (
-        <div className="modal-overlay" onClick={() => setInvoiceModalOpen(false)}>
+        <div className="modal-overlay" onPointerDown={(e) => e.target === e.currentTarget && setInvoiceModalOpen(false)}>
           <div className="modal-box" style={{ maxWidth: 880 }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
@@ -1223,7 +1223,7 @@ export default function AccountingPage() {
       )}
 
       {termsModalOpen && (
-        <div className="modal-overlay" onClick={() => setTermsModalOpen(false)}>
+        <div className="modal-overlay" onPointerDown={(e) => e.target === e.currentTarget && setTermsModalOpen(false)}>
           <div className="modal-box" style={{ maxWidth: 960, overflowX: "hidden" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
@@ -1479,7 +1479,7 @@ export default function AccountingPage() {
         const StatusIcon = meta.icon;
         const invoicePayments = payments.filter((p) => p.invoice_id === detailInvoice.id && !p.deleted_at);
         return (
-          <div className="modal-overlay" onClick={() => setDetailInvoice(null)}>
+          <div className="modal-overlay" onPointerDown={(e) => e.target === e.currentTarget && setDetailInvoice(null)}>
             <div className="modal-box" style={{ maxWidth: 980 }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
@@ -1577,7 +1577,7 @@ export default function AccountingPage() {
       })()}
 
       {paymentInvoice && (
-        <div className="modal-overlay" onClick={() => setPaymentInvoice(null)}>
+        <div className="modal-overlay" onPointerDown={(e) => e.target === e.currentTarget && setPaymentInvoice(null)}>
           <div className="modal-box" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>

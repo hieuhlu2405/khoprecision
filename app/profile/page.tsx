@@ -2,6 +2,7 @@
 
 import { createElement, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { formatUserError } from "@/lib/user-error";
 import { LoadingPage } from "@/app/components/ui/Loading";
 import { Building2, Camera, CheckCircle2, Clock3, Lock, RotateCcw, Theater, X } from "lucide-react";
 
@@ -204,8 +205,8 @@ export default function ProfilePage() {
   if (loading) return <LoadingPage text="Đang tải hồ sơ cá nhân..." />;
 
   if (error && !profile) return (
-    <div style={{ padding: 24, color: "#dc2626", background: "#fef2f2", borderRadius: 8, maxWidth: 500 }}>
-      {error}
+    <div style={{ padding: 24, color: "#dc2626", background: "#fef2f2", borderRadius: 8, maxWidth: 500, whiteSpace: "pre-wrap" }}>
+      {error ? formatUserError(error) : ""}
     </div>
   );
 
@@ -240,7 +241,7 @@ export default function ProfilePage() {
 
           <div style={{ padding: "12px 24px 8px" }}>
             {notice && <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: "#dcfce7", color: "#166534", fontSize: 13, fontWeight: 700 }}>{notice}</div>}
-            {error && <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: "#fef2f2", color: "#991b1b", fontSize: 13, fontWeight: 700 }}>{error}</div>}
+            {error && <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: "#fef2f2", color: "#991b1b", fontSize: 13, fontWeight: 700, whiteSpace: "pre-wrap" }}>{formatUserError(error)}</div>}
             {[
               { label: "Vai trò", value: ROLE_LABELS[profile.role ?? ""] ?? profile.role, icon: Theater },
               { label: "Bộ phận", value: DEPT_LABELS[profile.department ?? ""] ?? profile.department, icon: Building2 },
@@ -262,7 +263,7 @@ export default function ProfilePage() {
       )}
 
       {pendingAvatar && (
-        <div className="modal-overlay" onClick={closeAvatarEditor}>
+        <div className="modal-overlay" onPointerDown={(e) => e.target === e.currentTarget && closeAvatarEditor()}>
           <div className="modal-box" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 18 }}>
               <div>

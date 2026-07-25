@@ -1134,7 +1134,7 @@ export default function InventoryInboundPage() {
       </div>
 
       {editOpen && editing && (
-        <div className="modal-overlay" onClick={() => setEditOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="modal-overlay" onPointerDown={(e) => e.target === e.currentTarget && setEditOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div className="modal-box bg-white p-6 rounded-2xl shadow-2xl w-[500px]" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-bold mb-4">Sửa giao dịch</h2>
              <div className="grid gap-4">
@@ -1152,7 +1152,7 @@ export default function InventoryInboundPage() {
       )}
 
       {adjOpen && adjBaseTx && (
-        <div className="modal-overlay" onClick={() => setAdjOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="modal-overlay" onPointerDown={(e) => e.target === e.currentTarget && setAdjOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div className="modal-box bg-white p-8 rounded-2xl shadow-2xl w-[600px] animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <h2 className="text-2xl font-black mb-6 flex items-center gap-2 uppercase tracking-tighter"><Wrench size={24} strokeWidth={2.5} /> ĐIỀU CHỈNH KHO</h2>
             <div className="p-5 bg-slate-50 rounded-2xl mb-6 border border-slate-100">

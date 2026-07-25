@@ -824,7 +824,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
               background: "rgba(15,23,42,0.46)",
               backdropFilter: "blur(2px)",
             }}
-            onClick={() => setProfileModalOpen(false)}
+            onPointerDown={(e) => e.target === e.currentTarget && setProfileModalOpen(false)}
           >
             <div
               style={{
@@ -938,7 +938,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
               background: "rgba(15,23,42,0.50)",
               backdropFilter: "blur(2px)",
             }}
-            onClick={closeAvatarEditor}
+            onPointerDown={(e) => e.target === e.currentTarget && closeAvatarEditor()}
           >
             <div
               style={{
@@ -1033,7 +1033,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
               background: "rgba(15,23,42,0.46)",
               backdropFilter: "blur(2px)",
             }}
-            onClick={() => setLogoutConfirmOpen(false)}
+            onPointerDown={(e) => e.target === e.currentTarget && setLogoutConfirmOpen(false)}
           >
             <div
               style={{

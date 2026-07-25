@@ -1,4 +1,5 @@
 import { AlertTriangle, X } from "lucide-react";
+import { formatUserError } from "@/lib/user-error";
 
 export function LoadingPage({ text = "Đang tải..." }: { text?: string }) {
   return (
@@ -48,10 +49,11 @@ export function TableSkeleton({ rows = 6, cols = 5 }: { rows?: number; cols?: nu
 
 export function ErrorBanner({ message, onDismiss }: { message: string; onDismiss?: () => void }) {
   if (!message) return null;
+  const displayMessage = formatUserError(message);
   return (
     <div className="error-banner">
       <span className="error-banner-icon"><AlertTriangle size={16} strokeWidth={2.5} /></span>
-      <span style={{ flex: 1, whiteSpace: "pre-wrap" }}>{message}</span>
+      <span style={{ flex: 1, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{displayMessage}</span>
       {onDismiss && (
         <button
           onClick={onDismiss}

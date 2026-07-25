@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { formatUserError } from "@/lib/user-error";
 import { ArrowLeft, ArrowUpDown, FileText, Filter, Printer } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -421,7 +422,7 @@ export default function ReportHistoryDetailPage() {
   }
 
   if (loading) return <div style={{ padding: 24, fontFamily: "inherit" }}>Đang tải...</div>;
-  if (error) return <div style={{ padding: 24, fontFamily: "inherit" }}><pre style={{ color: "crimson" }}>{error}</pre><button onClick={() => router.push("/inventory/report-history")} style={{ padding: 10, cursor: "pointer", marginTop: 12 }}>← Quay lại</button></div>;
+  if (error) return <div style={{ padding: 24, fontFamily: "inherit" }}><pre style={{ color: "crimson", whiteSpace: "pre-wrap", fontFamily: "inherit" }}>{formatUserError(error)}</pre><button onClick={() => router.push("/inventory/report-history")} style={{ padding: 10, cursor: "pointer", marginTop: 12 }}>← Quay lại</button></div>;
   if (!closure) return null;
 
   const summary = closure.summary_json || {};

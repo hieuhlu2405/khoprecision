@@ -11,6 +11,7 @@ import { useDebounce } from "@/app/hooks/useDebounce";
 import { exportToExcel } from "@/lib/excel-utils";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
+import { formatUserError } from "@/lib/user-error";
 import { AlertTriangle, ArrowUpDown, BarChart3, CalendarDays, ClipboardList, FileSpreadsheet, Filter, Package, PlusCircle, Repeat2, Search, Snowflake, Tags, Target, TrendingDown, Trophy, User, Wallet, XCircle } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -814,7 +815,7 @@ function ClusteredBarChartSafe({ data, title, label1, label2, color1 = "#94a3b8"
   minHeight?: number;
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  if (!data.length) return <div style={{ padding: "16px 0", color: "#94a3b8", textAlign: "center", fontSize: 13 }}>KhÃ´ng cÃ³ dá»¯ liá»‡u</div>;
+  if (!data.length) return <div style={{ padding: "16px 0", color: "#94a3b8", textAlign: "center", fontSize: 13 }}>Không có dữ liệu</div>;
   const maxVal = Math.max(...data.flatMap(d => [d.val1, d.val2]), 1);
 
   return (
@@ -1679,7 +1680,7 @@ export default function InventoryValueReportPage() {
         </button>
       </div>
 
-      {error && <div className="alert alert-error" style={{ marginBottom: 20 }}>{error}</div>}
+      {error && <div className="alert alert-error" style={{ marginBottom: 20, whiteSpace: "pre-wrap" }}>{formatUserError(error)}</div>}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20, marginBottom: 32 }}>
         {reportMode === "current" ? (

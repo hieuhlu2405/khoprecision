@@ -974,7 +974,7 @@ export default function InventoryReportPage() {
 
       {/* ---- History Modal ---- */}
       {historyModalOpen && historyProduct && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setHistoryModalOpen(false)}>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onPointerDown={(e) => e.target === e.currentTarget && setHistoryModalOpen(false)}>
           <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-[800px] w-full flex flex-col" style={{ maxHeight: "85vh" }} onClick={e => e.stopPropagation()}>
             <div className="p-6 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3">

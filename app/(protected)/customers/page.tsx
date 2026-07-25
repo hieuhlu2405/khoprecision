@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { formatUserError } from "@/lib/user-error";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
@@ -417,7 +418,7 @@ export default function CustomersPage() {
 
       {/* Modal */}
       {open && (
-        <div className="modal-overlay" onClick={() => setOpen(false)}>
+        <div className="modal-overlay" onPointerDown={(e) => e.target === e.currentTarget && setOpen(false)}>
           <div className="modal-box" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
             <h2 className="modal-title">
               {editing ? "Sửa khách hàng" : parentCustomerId ? "Thêm Vendor con" : "Thêm Công ty Mẹ mới"}
@@ -486,7 +487,7 @@ export default function CustomersPage() {
               )}
             </div>
 
-            {error && <div className="mt-3 text-red-500 text-xs font-bold">{error}</div>}
+            {error && <div className="mt-3 text-red-500 text-xs font-bold whitespace-pre-wrap">{formatUserError(error)}</div>}
 
             <div className="modal-footer">
               <button onClick={() => { setOpen(false); setError(""); }} className="btn btn-secondary">Hủy</button>

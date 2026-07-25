@@ -92,7 +92,7 @@ const VehicleModal = memo(({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-box !rounded-[2rem] shadow-2xl border-none p-8" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-black text-slate-900 border-b border-slate-100 pb-4 mb-6 uppercase tracking-tighter italic flex items-center gap-2">
           {editingVehicle ? <Wrench size={20} strokeWidth={2.5} /> : <Sparkles size={20} strokeWidth={2.5} />}
