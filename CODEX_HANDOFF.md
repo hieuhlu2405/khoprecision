@@ -1,5 +1,15 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-26 - Admin duoc huy phieu cua ngay lien truoc
+
+- Da sua `app/(protected)/delivery-plan/log/page.tsx`: Admin duoc mo luong `Huy phieu tao nham` cho phieu cua hom nay hoac ngay lien truoc theo gio Viet Nam. Phieu cu hon van bi chan. Modal noi ro chi huy khi xe khong chay that/phieu tao nham; huy se loai phieu khoi Logistics.
+- Da tao SQL moi `supabase-sql/20260726_allow_admin_cancel_previous_day_shipment.sql`, DA CHAY LIVE thanh cong ngay 2026-07-26 theo xac nhan cua chu du an: thay RPC `cancel_mistaken_shipments_v1` de database cung chi cho Admin huy hom nay/ngay lien truoc. Luong van hieu hoa mem phieu va giao dich, ghi audit ly do, tinh lai ton kho/Da giao/No/backlog, loai phieu khoi Logistics, khoa du lieu va rollback toan bo neu co loi.
+- Hang rao bo sung: neu phieu ngay lien truoc co ma lien quan da phat sinh giao hang hoac da chot o ngay sau, database chan ca lan huy de tranh sua day chuyen backlog sau khi ngay moi da bat dau. Truong hop nay phai kiem tra rieng, khong duoc ep huy.
+- Hau kiem chi doc `supabase-sql/20260726_audit_admin_cancel_previous_day_shipment.sql` DA CHAY LIVE thanh cong ngay 2026-07-26 theo xac nhan cua chu du an; ket qua sach `No rows returned`.
+- Hai file SQL moi deu 1 dong; khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`. File fix co `CREATE OR REPLACE FUNCTION`, `UPDATE` theo co che xoa mem va tinh lai so lieu, khong xoa thang lich su.
+- `npm run build` va ESLint rieng trang Nhat ky giao hang pass ngay 2026-07-26. Chua test mobile bang browser/screenshot.
+- Can test sau deploy/chay SQL: Admin huy phieu 25/07 vao 26/07 khi ma ngay 26 chua giao/chot; doi chieu ton kho, Da giao, No/backlog va Logistics; thu phieu 24/07 phai bi chan; thu tai khoan khong phai Admin phai bi chan; thu truong hop ma ngay 26 da giao/chot phai rollback va bao ro.
+
 ## Cap nhat 2026-07-25 - Chi Admin duoc chinh sua va huy phieu tai Nhat ky giao hang
 
 - Da sua `app/(protected)/delivery-plan/log/page.tsx`: nut chinh sua phieu va nut huy phieu tao nham chi hien khi `profiles.role = admin`; Manager va moi role khac khong con thay, ham mo/luu modal cung tu chan neu bi goi lach tu giao dien.

@@ -116,6 +116,12 @@ function getTodayVN() {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
 }
 
+function getYesterdayVN() {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).format(
+    new Date(Date.now() - 24 * 60 * 60 * 1000)
+  );
+}
+
 function normalizeSearchText(value: string) {
   return value
     .normalize("NFD")
@@ -299,8 +305,9 @@ export default function DeliveryLogPage() {
   const openMistakenCancellation = (targetLogs: ShipmentLog[]) => {
     if (profile?.role !== "admin") return showToast("Chỉ Admin mới có quyền hủy phiếu tạo nhầm.", "error");
     if (bulkAction !== null || targetLogs.length === 0) return;
-    if (targetLogs.some(log => log.shipment_date !== getTodayVN())) {
-      return showToast("Chỉ được hủy và tạo lại phiếu trong đúng ngày xuất. Phiếu ngày cũ phải dùng Điều chỉnh hàng.", "warning");
+    const allowedDates = new Set([getTodayVN(), getYesterdayVN()]);
+    if (targetLogs.some(log => !allowedDates.has(log.shipment_date))) {
+      return showToast("Chỉ được hủy phiếu của hôm nay hoặc ngày liền trước. Phiếu cũ hơn phải kiểm tra riêng để tránh sai số liệu.", "warning");
     }
     setCancelLogs(targetLogs);
     setCancelReason("");
@@ -320,7 +327,7 @@ export default function DeliveryLogPage() {
       });
       if (error) throw error;
       const cancelledCount = Number(data?.shipment_count) || cancelLogs.length;
-      showToast(`Đã hủy ${cancelledCount} phiếu tạo nhầm. Nếu xe thực tế đã chạy, hãy tạo lại phiếu đúng ngay trong ngày.`, "success");
+      showToast(`Đã hủy ${cancelledCount} phiếu tạo nhầm. Phiếu đã được loại khỏi Logistics và số liệu liên quan đã được tính lại.`, "success");
       setSelectedIds(new Set());
       setCancelOpen(false);
       setCancelLogs([]);
@@ -1096,7 +1103,7 @@ export default function DeliveryLogPage() {
                               onClick={() => openMistakenCancellation([log])}
                               disabled={bulkAction !== null}
                               className="w-10 h-10 flex items-center justify-center rounded-xl bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 transition-all shadow-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
-                              title="Hủy phiếu tạo nhầm trong ngày"
+                              title="Hủy phiếu tạo nhầm của hôm nay hoặc ngày liền trước"
                               aria-label={`Hủy phiếu tạo nhầm ${log.shipment_no}`}
                             >
                               <X size={18} strokeWidth={2.6} />
@@ -1135,17 +1142,17 @@ export default function DeliveryLogPage() {
             <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-start justify-between gap-4 bg-red-50">
               <div className="min-w-0">
                 <h2 className="text-lg font-black text-red-700 flex items-center gap-2"><Trash2 size={19} /> Hủy phiếu tạo nhầm</h2>
-                <p className="text-xs font-bold text-slate-600 mt-1">Chỉ dùng trong đúng ngày xuất • Lịch sử vẫn được giữ lại</p>
+                <p className="text-xs font-bold text-slate-600 mt-1">Dùng cho hôm nay hoặc ngày liền trước • Lịch sử vẫn được giữ lại</p>
               </div>
               <button className="w-10 h-10 shrink-0 rounded-xl hover:bg-red-100 flex items-center justify-center" disabled={bulkAction !== null} onClick={() => setCancelOpen(false)} aria-label="Đóng"><X size={20} /></button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
               <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-800">
-                Hủy {cancelLogs.length} phiếu: {cancelLogs.map(log => log.shipment_no).join(", ")}. Tồn kho, Đã giao và Nợ sẽ được hoàn lại. Nếu xe thực tế đã chạy, Admin phải tạo lại phiếu đúng ngay sau khi hủy.
+                Hủy {cancelLogs.length} phiếu: {cancelLogs.map(log => log.shipment_no).join(", ")}. Tồn kho, Đã giao và Nợ sẽ được hoàn lại; phiếu không còn được tính trong Logistics. Chỉ hủy khi xe không chạy thật hoặc phiếu bị tạo nhầm.
               </div>
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-800">
-                Khi tạo lại, ghi chú rõ các số phiếu cũ được thay thế. Báo cáo Logistics chỉ tính các phiếu còn hiệu lực.
+                Với phiếu ngày liền trước, hệ thống sẽ chặn nếu mã liên quan ở ngày sau đã giao hoặc đã chốt. Khi tạo lại, ghi chú rõ các số phiếu cũ được thay thế.
               </div>
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Lý do hủy *</label>
