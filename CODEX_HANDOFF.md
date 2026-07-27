@@ -1,5 +1,13 @@
 # Handoff Du An
 
+## Cap nhat 2026-07-27 - Fix ban phim iPhone tai bo loc Ma hang
+
+- Nguyen nhan theo code: o nhap bo loc dang cap nhat `colFilters` sau moi ky tu. Viec nay lam header bang va popup loc bi tao lai; Safari/iPhone coi o nhap la o moi nen quay ve ban phim chu sau moi lan bam so/ky tu dac biet.
+- Da sua `app/(protected)/delivery-plan/page.tsx`: noi dung duoc giu tai o loc trong luc go; chi ap dung bo loc khi bam `Ap dung` hoac Enter. Them cau hinh tat tu sua/chinh ta va giu co chu 16px tren mobile de tranh iPhone tu zoom.
+- Khong sua SQL/backend, khong xoa hay doi ke hoach, giao dich kho hoac so lieu. Rui ro mat du lieu/sai so lieu: thap; thay doi chi o cach nhap bo loc.
+- `npm run build` pass ngay 2026-07-27. ESLint trang Ke hoach van dung 27 loi va 18 canh bao cu da co trong handoff; thay doi nay khong them loi moi.
+- Khong duoc cap quyen chay cong cu browser trong phien nay. Chua test mobile bang browser/screenshot. Can test production tren iPhone: mo loc cot Ma hang, chuyen sang ban phim so/ky tu dac biet, go lien tiep vi du `2618-03/04`, xac nhan ban phim khong tu quay ve bang chu; bam `Ap dung` hoac Enter va doi chieu ket qua loc.
+
 ## Cap nhat 2026-07-27 - Chuan bi fix huy giao dich kho bi chan am sai sau khi doi khach
 
 - Chu du an bao cao ma `YT2618 SP 0304`: ton den 14/07/2026 = 0; ngay 17/07 co hai dong nhap `+500`, mot dong la nhap trung; sau do 18/07 nhap `+326`, xuat `-200`, ngay 23/07 xuat `-500`. Huy mot dong `+500` dang bi chan am.

@@ -244,15 +244,21 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
       </select>
       <input
         value={val}
-        onChange={e => {
-          const nv = e.target.value;
-          setVal(nv);
-          onChange(nv ? { mode, value: nv } : null);
-        }}
+        onChange={e => setVal(e.target.value)}
         autoFocus
+        inputMode="text"
+        enterKeyHint="search"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         placeholder="Nhập nội dung..."
-        onKeyDown={e => { if (e.key === "Enter") { onClose(); } }}
-        className="input input-bordered input-sm w-full mb-4 text-xs bg-amber-50/30 border-amber-200/50"
+        onKeyDown={e => {
+          if (e.key === "Enter") {
+            onChange(val ? { mode, value: val } : null);
+            onClose();
+          }
+        }}
+        className="input input-bordered input-sm w-full mb-4 text-base sm:text-xs bg-amber-50/30 border-amber-200/50"
       />
       <div className="flex gap-2 justify-end">
         <button onClick={() => { onChange(null); onClose(); }} className="btn btn-ghost btn-xs text-[10px] uppercase font-bold">Xóa</button>
