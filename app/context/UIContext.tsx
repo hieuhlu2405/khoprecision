@@ -243,6 +243,9 @@ function ConfirmDialog({
           padding: "24px 28px",
           maxWidth: 440,
           width: "100%",
+          maxHeight: "calc(100dvh - 32px)",
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
           boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
           animation: "confirm-in 0.2s ease",
         }}
@@ -273,13 +276,14 @@ function ConfirmDialog({
             lineHeight: "1.6",
             marginBottom: 24,
             whiteSpace: "pre-wrap",
+            overflowWrap: "anywhere",
           }}
         >
           {options.message}
         </div>
 
         {/* Buttons */}
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
           <button
             onClick={onCancel}
             style={{
@@ -291,6 +295,7 @@ function ConfirmDialog({
               fontSize: 14,
               cursor: "pointer",
               fontWeight: 500,
+              minHeight: 44,
             }}
           >
             {options.cancelLabel ?? "Hủy"}
@@ -306,6 +311,7 @@ function ConfirmDialog({
               fontSize: 14,
               cursor: "pointer",
               fontWeight: 600,
+              minHeight: 44,
             }}
           >
             {options.confirmLabel ?? "Xác nhận"}

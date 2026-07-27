@@ -830,19 +830,33 @@ export default function InventoryInboundPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    const ok = await showConfirm({ message: "Xóa giao dịch này và tất cả các bản điều chỉnh liên quan?", danger: true });
+  async function handleDelete(row: InboundTx) {
+    const effectiveQty = row.finalQty ?? row.qty;
+    const ok = await showConfirm({
+      message: [
+        "Hủy giao dịch nhập kho này?",
+        `Ngày: ${fmtDate(row.tx_date)}`,
+        `Mã hàng: ${skuFor(row)}`,
+        `Số lượng hiện tại: ${fmtNum(effectiveQty)}`,
+        `Tạo lúc: ${fmtDatetime(row.created_at)}`,
+        "",
+        "Giao dịch và các điều chỉnh liên quan sẽ được đánh dấu hủy; lịch sử vẫn được giữ lại.",
+      ].join("\n"),
+      confirmLabel: "Hủy giao dịch",
+      cancelLabel: "Quay lại",
+      danger: true,
+    });
     if (!ok) return;
     try {
       const { data, error } = await supabase.rpc("inventory_soft_delete_manual_transactions", {
-        p_transaction_ids: [id]
+        p_transaction_ids: [row.id]
       });
       if (error) throw error;
 
       const adjCount = Number((data as { soft_deleted_adjustment_count?: number } | null)?.soft_deleted_adjustment_count || 0);
       const msg = adjCount > 0 
-        ? `Đã xóa 1 giao dịch và ${adjCount} bản điều chỉnh liên quan.`
-        : "Đã xóa giao dịch.";
+        ? `Đã hủy 1 giao dịch và ${adjCount} bản điều chỉnh liên quan. Lịch sử vẫn được giữ lại.`
+        : "Đã hủy giao dịch. Lịch sử vẫn được giữ lại.";
 
       showToast(msg, "info");
       load();
@@ -853,7 +867,25 @@ export default function InventoryInboundPage() {
 
   async function bulkDelete() {
     const ids = Array.from(selectedIds);
-    const ok = await showConfirm({ message: `Xóa ${ids.length} giao dịch đã chọn và tất cả điều chỉnh liên quan?`, danger: true });
+    const selectedRows = enrichedRows.filter((row) => selectedIds.has(row.id));
+    const preview = selectedRows
+      .slice(0, 5)
+      .map((row) => `${fmtDate(row.tx_date)} · ${skuFor(row)} · ${fmtNum(row.finalQty ?? row.qty)} · ${fmtDatetime(row.created_at)}`)
+      .join("\n");
+    const remainingCount = Math.max(0, selectedRows.length - 5);
+    const ok = await showConfirm({
+      message: [
+        `Hủy ${ids.length} giao dịch nhập kho đã chọn?`,
+        "",
+        preview,
+        remainingCount > 0 ? `... và ${remainingCount} giao dịch khác.` : "",
+        "",
+        "Các giao dịch và điều chỉnh liên quan sẽ được đánh dấu hủy; lịch sử vẫn được giữ lại.",
+      ].filter(Boolean).join("\n"),
+      confirmLabel: `Hủy ${ids.length} giao dịch`,
+      cancelLabel: "Quay lại",
+      danger: true,
+    });
     if (!ok) return;
     try {
       const { data, error } = await supabase.rpc("inventory_soft_delete_manual_transactions", {
@@ -863,8 +895,8 @@ export default function InventoryInboundPage() {
 
       const adjCount = Number((data as { soft_deleted_adjustment_count?: number } | null)?.soft_deleted_adjustment_count || 0);
       const msg = adjCount > 0 
-        ? `Đã xóa ${ids.length} giao dịch và ${adjCount} bản điều chỉnh liên quan.`
-        : `Đã xóa ${ids.length} giao dịch.`;
+        ? `Đã hủy ${ids.length} giao dịch và ${adjCount} bản điều chỉnh liên quan. Lịch sử vẫn được giữ lại.`
+        : `Đã hủy ${ids.length} giao dịch. Lịch sử vẫn được giữ lại.`;
 
       showToast(msg, "info");
       setSelectedIds(new Set());
@@ -1038,7 +1070,7 @@ export default function InventoryInboundPage() {
         {Object.keys(colFilters).length > 0 && (
           <button onClick={() => setColFilters({})} className="text-brand text-xs font-black uppercase underline">XÓA LỌC ({Object.keys(colFilters).length})</button>
         )}
-        {selectedIds.size > 0 && <button onClick={bulkDelete} className="btn btn-danger btn-sm">XÓA {selectedIds.size} DÒNG</button>}
+        {selectedIds.size > 0 && <button onClick={bulkDelete} className="btn btn-danger btn-sm">HỦY {selectedIds.size} DÒNG</button>}
       </div>
 
       {/* VIRTUAL TABLE */}
@@ -1107,7 +1139,7 @@ export default function InventoryInboundPage() {
                           <button onClick={() => toggleExpanded(r.id)} className="btn-icon">{isExpanded ? "▲" : "▼"}</button>
                           {canEdit && <button onClick={() => openEdit(r)} className="btn-icon"><Edit3 size={15} strokeWidth={2.5} /></button>}
                           <button onClick={() => openAdjustment(r)} className="btn-icon"><Wrench size={15} strokeWidth={2.5} /></button>
-                          {canDelete && <button onClick={() => handleDelete(r.id)} className="btn-icon text-red-500"><Trash2 size={15} strokeWidth={2.5} /></button>}
+                          {canDelete && <button onClick={() => handleDelete(r)} className="btn-icon text-red-500" title="Hủy giao dịch và giữ lại lịch sử"><Trash2 size={15} strokeWidth={2.5} /></button>}
                        </div>
                     </td>
                   </tr>
