@@ -37,7 +37,6 @@ import { exportToExcel, readExcel, exportWithTemplate, exportDeliveryDraftExcel,
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 import {
   fetchActiveProductCatalog,
-  fetchNonDeletedProductReferences,
   type ProductCatalogItem,
 } from "@/lib/product-catalog";
 
@@ -1292,9 +1291,8 @@ export default function DeliveryPlanPage() {
       return;
     }
     try {
-      const [latestActiveProducts, latestProductReferences, latestCustomers, latestDayPlans] = await Promise.all([
+      const [latestActiveProducts, latestCustomers, latestDayPlans] = await Promise.all([
         fetchActiveProductCatalog(),
-        fetchNonDeletedProductReferences(),
         fetchAllRows<Customer>(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id, deleted_at").is("deleted_at", null)),
         fetchAllRows<Plan>(
           supabase
@@ -1305,7 +1303,7 @@ export default function DeliveryPlanPage() {
         ),
       ]);
 
-      setProductLookup(latestProductReferences);
+      setProductLookup(latestActiveProducts);
       setProducts(latestActiveProducts);
       setCustomerLookup(latestCustomers);
       setCustomers(latestCustomers.filter(customer => !customer.deleted_at));
@@ -1326,48 +1324,71 @@ export default function DeliveryPlanPage() {
   const handleConfirmCloseBacklog = async () => {
     if (!closeBacklogDay) return;
 
-    const dayPlans = plans.filter(p =>
-      p.plan_date === closeBacklogDay &&
-      ((p.planned_qty || 0) + (p.backlog_qty || 0)) > 0
-    );
-    const closablePlans = dayPlans.filter(p => !p.is_completed);
-    const shortagePlans = dayPlans.filter(p => {
-      const targetQty = (p.planned_qty || 0) + (p.backlog_qty || 0);
-      return (p.actual_qty || 0) < targetQty;
-    });
-    const overPlans = dayPlans.filter(p => {
-      const targetQty = (p.planned_qty || 0) + (p.backlog_qty || 0);
-      return (p.actual_qty || 0) > targetQty;
-    });
-
-    if (closablePlans.length === 0) {
-      if (overPlans.length > 0) {
-        showToast(`Đã ghi nhận ${overPlans.length} mã giao thừa. Không có dòng thiếu/chưa giao cần chốt nợ.`, "info");
-      } else {
-        showToast("Không có kế hoạch nào cần chốt nợ cho ngày này.", "info");
-      }
-      setCloseBacklogDay(null);
-      return;
-    }
-
-    const [y, m, d] = closeBacklogDay.split("-");
-    const formattedDate = `${d}/${m}`;
-    const totalDebtQty = shortagePlans.reduce((sum, p) => {
-      const targetQty = (p.planned_qty || 0) + (p.backlog_qty || 0);
-      return sum + Math.max(targetQty - (p.actual_qty || 0), 0);
-    }, 0);
-
-    const confirmOk = await showConfirm({
-      message: `Bạn có muốn xác nhận chốt kế hoạch ngày ${formattedDate}?\n\nHệ thống sẽ đóng ${closablePlans.length} dòng chưa hoàn tất. Tổng thiếu cần theo dõi: ${totalDebtQty.toLocaleString()} PCS.\n\nXin lưu ý: Thao tác này là KHÔNG THỂ HOÀN TÁC! Hãy xác nhận và thông báo với bộ phận Kinh Doanh trước khi thực hiện thao tác này.`,
-      confirmLabel: "ĐỒNG Ý CHỐT NỢ",
-      cancelLabel: "HỦY",
-      danger: true
-    });
-
-    if (!confirmOk) return;
-
     setSaving(true);
     try {
+      // Tải lại ngay trước khi chốt để mã vừa inactive hoặc vừa đổi khách
+      // không thể lọt qua dữ liệu cũ đang nằm trong modal.
+      const [latestActiveProducts, latestCustomers, latestDayPlans] = await Promise.all([
+        fetchActiveProductCatalog(),
+        fetchAllRows<Customer>(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id, deleted_at").is("deleted_at", null)),
+        fetchAllRows<Plan>(
+          supabase
+            .from("delivery_plans")
+            .select("*")
+            .eq("plan_date", closeBacklogDay)
+            .is("deleted_at", null)
+        ),
+      ]);
+      const activeProductIds = new Set(latestActiveProducts.map(product => product.id));
+      const dayPlans = latestDayPlans.filter(p =>
+        activeProductIds.has(p.product_id) &&
+        ((p.planned_qty || 0) + (p.backlog_qty || 0)) > 0
+      );
+      const closablePlans = dayPlans.filter(p => !p.is_completed);
+      const shortagePlans = dayPlans.filter(p => {
+        const targetQty = (p.planned_qty || 0) + (p.backlog_qty || 0);
+        return (p.actual_qty || 0) < targetQty;
+      });
+      const overPlans = dayPlans.filter(p => {
+        const targetQty = (p.planned_qty || 0) + (p.backlog_qty || 0);
+        return (p.actual_qty || 0) > targetQty;
+      });
+
+      setProductLookup(latestActiveProducts);
+      setProducts(latestActiveProducts);
+      setCustomerLookup(latestCustomers);
+      setCustomers(latestCustomers.filter(customer => !customer.deleted_at));
+      setPlans(current => [
+        ...current.filter(plan => plan.plan_date !== closeBacklogDay),
+        ...latestDayPlans,
+      ]);
+
+      if (closablePlans.length === 0) {
+        if (overPlans.length > 0) {
+          showToast(`Đã ghi nhận ${overPlans.length} mã giao thừa. Không có dòng thiếu/chưa giao cần chốt nợ.`, "info");
+        } else {
+          showToast("Không có kế hoạch active nào cần chốt nợ cho ngày này.", "info");
+        }
+        setCloseBacklogDay(null);
+        return;
+      }
+
+      const [, m, d] = closeBacklogDay.split("-");
+      const formattedDate = `${d}/${m}`;
+      const totalDebtQty = shortagePlans.reduce((sum, p) => {
+        const targetQty = (p.planned_qty || 0) + (p.backlog_qty || 0);
+        return sum + Math.max(targetQty - (p.actual_qty || 0), 0);
+      }, 0);
+
+      const confirmOk = await showConfirm({
+        message: `Bạn có muốn xác nhận chốt kế hoạch ngày ${formattedDate}?\n\nHệ thống sẽ đóng ${closablePlans.length} dòng active chưa hoàn tất. Tổng thiếu cần theo dõi: ${totalDebtQty.toLocaleString()} PCS.\n\nXin lưu ý: Thao tác này là KHÔNG THỂ HOÀN TÁC! Hãy xác nhận và thông báo với bộ phận Kinh Doanh trước khi thực hiện thao tác này.`,
+        confirmLabel: "ĐỒNG Ý CHỐT NỢ",
+        cancelLabel: "HỦY",
+        danger: true
+      });
+
+      if (!confirmOk) return;
+
       const ids = closablePlans.map(p => p.id);
       const { error } = await supabase
         .from("delivery_plans")
@@ -2709,14 +2730,21 @@ export default function DeliveryPlanPage() {
 
       {/* === MODAL CHỐT NỢ HÀNG NGÀY === */}
       {closeBacklogDay && (() => {
+        const activeProductById = new Map(
+          productLookup
+            .filter(product => product.is_active && !product.deleted_at)
+            .map(product => [product.id, product])
+        );
         const dayPlans = plans.filter(p => {
           const targetQty = (p.planned_qty || 0) + (p.backlog_qty || 0);
-          return p.plan_date === closeBacklogDay && targetQty > 0;
+          return p.plan_date === closeBacklogDay && targetQty > 0 && activeProductById.has(p.product_id);
         });
         const closableCount = dayPlans.filter(p => !p.is_completed).length;
         const reviewItems = dayPlans.map((p): ClosePlanReviewItem => {
-          const prod = productLookup.find(x => x.id === p.product_id);
-          const cust = customerLookup.find(x => x.id === resolvePlanDeliveryCustomerId(p, prod));
+          const prod = activeProductById.get(p.product_id);
+          // Khách hiện tại trên danh mục Mã hàng là nguồn mới nhất.
+          // Không lấy customer_id cũ còn lưu trong kế hoạch lịch sử.
+          const cust = customerLookup.find(x => x.id === prod?.customer_id);
           const plannedQty = p.planned_qty || 0;
           const backlogQty = p.backlog_qty || 0;
           const targetQty = plannedQty + backlogQty;
