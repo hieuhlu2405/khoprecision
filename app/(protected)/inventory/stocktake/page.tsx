@@ -7,7 +7,9 @@ import { useRouter } from "next/navigation";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { formatDateTimeVN, getTodayVNStr } from "@/lib/date-utils";
-import { ArrowUpDown, Filter, Plus, RefreshCw, Search } from "lucide-react";
+import { exportToExcel } from "@/lib/excel-utils";
+import { fetchAllRows } from "@/lib/supabase-fetch-all";
+import { ArrowUpDown, FileSpreadsheet, Filter, Plus, RefreshCw, Search } from "lucide-react";
 
 type Stocktake = {
   id: string;
@@ -28,6 +30,34 @@ type Profile = {
   id: string;
   full_name: string;
   role: string;
+};
+
+type StocktakeExportLine = {
+  id: string;
+  product_id: string;
+  customer_id: string | null;
+  product_name_snapshot: string | null;
+  product_spec_snapshot: string | null;
+  unit_price_snapshot: number | string | null;
+  system_qty_before: number | string | null;
+  actual_qty_after: number | string | null;
+  qty_diff: number | string | null;
+  diff_percent: number | string | null;
+  is_large_diff: boolean;
+  diff_reason: string | null;
+  created_at: string;
+};
+
+type StocktakeExportProduct = {
+  id: string;
+  sku: string;
+  customer_id: string | null;
+};
+
+type StocktakeExportCustomer = {
+  id: string;
+  code: string;
+  name: string;
 };
 
 function properFmtDate(d: string): string {
@@ -88,18 +118,25 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
   const [mode, setMode] = useState<TextFilter["mode"]>(filter?.mode ?? "contains");
   const [val, setVal] = useState(filter?.value ?? "");
   return (
-    <div style={popupStyle} onClick={e => e.stopPropagation()}>
+    <form
+      className="stocktake-filter-popup"
+      style={popupStyle}
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => { if (e.key === "Escape") { e.preventDefault(); onClose(); } }}
+      onSubmit={e => { e.preventDefault(); e.stopPropagation(); onChange(val ? { mode, value: val } : null); onClose(); }}
+    >
       <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc cột</div>
-      <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
+      <select value={mode} onChange={e => setMode(e.target.value as TextFilter["mode"])} className="stocktake-filter-control" style={{ width: "100%", padding: 4, marginBottom: 6 }}>
         <option value="contains">Chứa</option>
         <option value="equals">Bằng</option>
       </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 8, backgroundColor: "#f3f2acbb", boxSizing: "border-box" }} autoFocus />
+      <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." className="stocktake-filter-control" style={{ width: "100%", padding: 4, marginBottom: 8, backgroundColor: "#f3f2acbb", boxSizing: "border-box" }} autoFocus />
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-        <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-        <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Áp dụng</button>
+        <button type="button" style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+        <button type="submit" style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }}>Áp dụng</button>
       </div>
-    </div>
+      <div className="stocktake-filter-hint">Enter để lọc · Esc để đóng</div>
+    </form>
   );
 }
 
@@ -108,23 +145,30 @@ function DateFilterPopup({ filter, onChange, onClose }: { filter: DateFilter | n
   const [val, setVal] = useState(filter?.value ?? "");
   const [valTo, setValTo] = useState(filter?.valueTo ?? "");
   return (
-    <div style={popupStyle} onClick={e => e.stopPropagation()}>
+    <form
+      className="stocktake-filter-popup"
+      style={popupStyle}
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => { if (e.key === "Escape") { e.preventDefault(); onClose(); } }}
+      onSubmit={e => { e.preventDefault(); e.stopPropagation(); onChange(val || valTo ? { mode, value: val, valueTo: valTo } : null); onClose(); }}
+    >
       <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>Lọc ngày</div>
-      <select value={mode} onChange={e => setMode(e.target.value as any)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 6 }}>
+      <select value={mode} onChange={e => setMode(e.target.value as DateFilter["mode"])} className="stocktake-filter-control" style={{ width: "100%", padding: 4, marginBottom: 6 }}>
         <option value="eq">Bằng</option>
         <option value="before">Trước ngày</option>
         <option value="after">Sau ngày</option>
         <option value="range">Từ … đến …</option>
       </select>
-      <input type="date" value={val} onChange={e => setVal(e.target.value)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} autoFocus />
+      <input type="date" value={val} onChange={e => setVal(e.target.value)} className="stocktake-filter-control" style={{ width: "100%", padding: 4, marginBottom: 4, boxSizing: "border-box" }} autoFocus />
       {mode === "range" && (
-        <input type="date" value={valTo} onChange={e => setValTo(e.target.value)} style={{ width: "100%", padding: 4, fontSize: 12, marginBottom: 4, boxSizing: "border-box" }} />
+        <input type="date" value={valTo} onChange={e => setValTo(e.target.value)} className="stocktake-filter-control" style={{ width: "100%", padding: 4, marginBottom: 4, boxSizing: "border-box" }} />
       )}
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 4 }}>
-        <button style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-        <button style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }} onClick={() => { onChange(val || valTo ? { mode, value: val, valueTo: valTo } : null); onClose(); }}>Áp dụng</button>
+        <button type="button" style={btnSmall} onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+        <button type="submit" style={{ ...btnSmall, background: "#0f172a", color: "white", border: "none" }}>Áp dụng</button>
       </div>
-    </div>
+      <div className="stocktake-filter-hint">Enter để lọc · Esc để đóng</div>
+    </form>
   );
 }
 
@@ -136,6 +180,8 @@ export default function StocktakeListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isAdminOrManager, setIsAdminOrManager] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [exportingId, setExportingId] = useState<string | null>(null);
 
   const [qStatus, setQStatus] = useState("all");
   const [qDateStr, setQDateStr] = useState("");
@@ -170,7 +216,9 @@ export default function StocktakeListPage() {
       ]);
       const role = pData?.role || "staff";
       const dept = pData?.department || "";
-      setIsAdminOrManager(isAd === true || role === "admin" || (role === "manager" && dept === "warehouse"));
+      const hasAdminAccess = isAd === true || role === "admin";
+      setIsAdmin(hasAdminAccess);
+      setIsAdminOrManager(hasAdminAccess || (role === "manager" && dept === "warehouse"));
 
       let q = supabase
         .from("inventory_stocktakes")
@@ -249,62 +297,100 @@ export default function StocktakeListPage() {
     }
   }
 
-  async function handleDelete(item: Stocktake) {
-    if (!isAdminOrManager) {
-      showToast("Bạn không có quyền xóa phiếu kiểm kê.", "error");
+  async function handleCancelDraft(item: Stocktake) {
+    if (!isAdmin) {
+      showToast("Chỉ Admin hoặc Super Admin được hủy bản nháp kiểm kê.", "error");
       return;
     }
-    const isConfirmed = item.status === "confirmed";
-    const msg = isConfirmed 
-      ? "CẢNH BÁO: Phiếu kiểm kê này ĐÃ CHỐT.\nViệc xóa phiếu sẽ hủy bỏ các giao dịch cân bằng kho liên quan và làm thay đổi số liệu báo cáo hiện tại.\nBạn có chắc chắn muốn tiếp tục?"
-      : "Bạn có chắc muốn xóa phiếu kiểm kê này?\nToàn bộ chi tiết kiểm kê liên quan cũng sẽ bị xóa.";
-    const ok = await showConfirm({ message: msg, danger: true, confirmLabel: "Xác nhận xóa" });
+    if (item.status !== "draft") {
+      showToast("Phiếu đã chốt không thể hủy tại danh sách kiểm kê.", "error");
+      return;
+    }
+    const ok = await showConfirm({
+      message: "Hủy bản nháp kiểm kê này?\n\nPhiếu và các dòng nháp sẽ được đánh dấu hủy để giữ lịch sử. Số tồn kho không bị thay đổi.",
+      danger: true,
+      confirmLabel: "Hủy bản nháp",
+    });
     if (!ok) return;
 
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return;
-      const uid = u.user.id;
-      const now = new Date().toISOString();
+      const { error: rpcError } = await supabase.rpc("cancel_inventory_stocktake_draft_v1", {
+        p_stocktake_id: item.id,
+      });
+      if (rpcError) throw rpcError;
 
-      // 1. Soft delete inventory transactions (The main fix)
-      const { error: errTx } = await supabase.from("inventory_transactions")
-        .update({ deleted_at: now, updated_by: uid })
-        .eq("stocktake_id", item.id)
-        .is("deleted_at", null);
-      if (errTx) console.warn("Failed soft delete stocktake transactions:", errTx);
+      showToast("Đã hủy bản nháp. Lịch sử được giữ và số tồn không thay đổi.", "success");
+      await loadData();
+    } catch (err: unknown) {
+      showToast("Không thể hủy bản nháp: " + ((err as Error)?.message || "Lỗi không xác định"), "error");
+    }
+  }
 
-      // 2. Soft delete stocktake lines
-      const { error: errLines } = await supabase.from("inventory_stocktake_lines")
-        .update({ deleted_at: now, updated_by: uid })
-        .eq("stocktake_id", item.id)
-        .is("deleted_at", null);
-      if (errLines) console.warn("Failed soft delete lines:", errLines);
+  async function handleExportExcel(item: Stocktake) {
+    setExportingId(item.id);
+    try {
+      const [stocktakeLines, productRows, customerRows] = await Promise.all([
+        fetchAllRows<StocktakeExportLine>(
+          supabase
+            .from("inventory_stocktake_lines")
+            .select("id, product_id, customer_id, product_name_snapshot, product_spec_snapshot, unit_price_snapshot, system_qty_before, actual_qty_after, qty_diff, diff_percent, is_large_diff, diff_reason, created_at")
+            .eq("stocktake_id", item.id)
+            .is("deleted_at", null)
+            .order("created_at", { ascending: true })
+        ),
+        fetchAllRows<StocktakeExportProduct>(
+          supabase.from("products").select("id, sku, customer_id").is("deleted_at", null)
+        ),
+        fetchAllRows<StocktakeExportCustomer>(
+          supabase.from("customers").select("id, code, name").is("deleted_at", null)
+        ),
+      ]);
 
-      // 3. Soft delete opening balances (if any linked to this)
-      const { error: errOB } = await supabase.from("inventory_opening_balances")
-        .update({ 
-          deleted_at: now, 
-          deleted_by: uid, 
-          edit_reason: "Xóa phiếu kiểm kê", 
-          edited_after_confirm: true, 
-          edited_after_confirm_at: now, 
-          edited_after_confirm_by: uid 
-        })
-        .eq("source_stocktake_id", item.id)
-        .is("deleted_at", null);
-      if (errOB) console.warn("Failed soft delete balances:", errOB);
+      if (stocktakeLines.length === 0) {
+        showToast("Phiếu này chưa có dòng kiểm kê để xuất Excel.", "warning");
+        return;
+      }
 
-      // 4. Soft delete stocktake header
-      const { error: errHeader } = await supabase.from("inventory_stocktakes")
-        .update({ deleted_at: now, deleted_by: uid })
-        .eq("id", item.id);
-      if (errHeader) throw errHeader;
-      
-      showToast("Đã xóa phiếu kiểm kê và các giao dịch liên quan thành công!", "success");
-      loadData();
-    } catch (err: any) {
-      showToast("Lỗi khi xóa: " + err.message, "error");
+      const productMap = new Map(productRows.map(product => [product.id, product]));
+      const customerMap = new Map(customerRows.map(customer => [customer.id, customer]));
+      const exportedRows = stocktakeLines.map((line, index) => {
+        const product = productMap.get(line.product_id);
+        const currentCustomerId = product ? product.customer_id : line.customer_id;
+        const customer = currentCustomerId ? customerMap.get(currentCustomerId) : null;
+        const unitPrice = Number(line.unit_price_snapshot || 0);
+        const qtyDiff = Number(line.qty_diff || 0);
+
+        return {
+          "STT": index + 1,
+          "Mã phiếu": item.id.slice(-6).toUpperCase(),
+          "Ngày kiểm kê": properFmtDate(item.stocktake_date),
+          "Trạng thái": item.status === "confirmed" ? "Đã chốt" : "Bản nháp",
+          "Khách hàng hiện tại": customer ? `${customer.code} - ${customer.name}` : "",
+          "Mã hàng": product?.sku || "",
+          "Tên hàng": line.product_name_snapshot || "",
+          "Quy cách": line.product_spec_snapshot || "",
+          "Tồn máy": Number(line.system_qty_before || 0),
+          "Thực tế": Number(line.actual_qty_after || 0),
+          "Chênh lệch": qtyDiff,
+          "% lệch": Number(line.diff_percent || 0),
+          "Cảnh báo lệch lớn": line.is_large_diff ? "Có" : "Không",
+          "Lý do chênh lệch": line.diff_reason || "",
+          "Đơn giá": unitPrice,
+          "Giá trị chênh lệch": qtyDiff * unitPrice,
+          "Ghi chú phiếu": item.note || "",
+        };
+      });
+
+      exportToExcel(
+        exportedRows,
+        `Phieu_kiem_ke_${item.stocktake_date.slice(0, 10)}_${item.id.slice(-6)}`,
+        "Phiếu kiểm kê"
+      );
+      showToast("Đã tạo file Excel cho phiếu kiểm kê.", "success");
+    } catch (err: unknown) {
+      showToast("Không thể xuất Excel: " + ((err as Error)?.message || "Lỗi không xác định"), "error");
+    } finally {
+      setExportingId(null);
     }
   }
 
@@ -578,21 +664,30 @@ export default function StocktakeListPage() {
                   <td className="py-4 px-4 border-r border-slate-50 text-[#000000] font-black text-[13px] break-all max-w-[200px] truncate" title={item.note || ""}>
                     {item.note || "—"}
                   </td>
-                  <td className="py-4 px-4 text-center w-[160px]">
-                    <div className="flex justify-center gap-2 mt-1">
+                  <td className="py-4 px-4 text-center">
+                    <div className="flex flex-wrap justify-center gap-2 mt-1">
                       <Link
                         href={`/inventory/stocktake/${item.id}`}
                         className="px-3 py-1 bg-white border border-slate-200 hover:border-brand hover:bg-brand/10 text-[11px] text-brand font-black uppercase tracking-widest shadow-sm rounded-lg transition-all"
                       >
                         Chi tiết
                       </Link>
-                      {isAdminOrManager && (
+                      <button
+                        onClick={() => handleExportExcel(item)}
+                        disabled={exportingId === item.id}
+                        className="px-3 py-1 bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50 text-[11px] text-emerald-700 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all disabled:opacity-50 inline-flex items-center gap-1"
+                        title="Xuất riêng phiếu kiểm kê này"
+                      >
+                        <FileSpreadsheet size={13} strokeWidth={2.5} />
+                        {exportingId === item.id ? "Đang xuất" : "Xuất Excel"}
+                      </button>
+                      {isAdmin && item.status === "draft" && (
                         <button
-                          onClick={() => handleDelete(item)}
+                          onClick={() => handleCancelDraft(item)}
                           className="px-3 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all"
-                          title={item.status === "confirmed" ? "Xóa phiếu đã chốt (Chỉ dành cho Admin)" : "Xóa phiếu"}
+                          title="Hủy mềm bản nháp; không thay đổi số tồn"
                         >
-                          Xóa
+                          Hủy nháp
                         </button>
                       )}
                     </div>

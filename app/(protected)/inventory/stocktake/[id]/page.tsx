@@ -11,12 +11,6 @@ import { computeSnapshotBounds } from "@/app/(protected)/inventory/shared/date-u
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 import { AlertTriangle, ArrowUpDown, CheckCircle2, ClipboardCheck, ClipboardList, Clock3, Filter, Package, PencilLine, Rocket, Save, X } from "lucide-react";
 
-type Profile = {
-  id: string;
-  full_name: string;
-  role: string;
-};
-
 type Stocktake = {
   id: string;
   stocktake_date: string;
@@ -127,18 +121,25 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
   const [mode, setMode] = useState<TextFilter["mode"]>(filter?.mode ?? "contains");
   const [val, setVal] = useState(filter?.value ?? "");
   return (
-    <div style={popupStyle} onClick={e => e.stopPropagation()}>
+    <form
+      className="stocktake-filter-popup"
+      style={popupStyle}
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => { if (e.key === "Escape") { e.preventDefault(); onClose(); } }}
+      onSubmit={e => { e.preventDefault(); e.stopPropagation(); onChange(val ? { mode, value: val } : null); onClose(); }}
+    >
       <div style={{ marginBottom: 6, fontWeight: 900, fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Lọc tài liệu</div>
-      <select value={mode} onChange={e => setMode(e.target.value as any)} className="select select-xs w-full mb-2 bg-slate-50 border-slate-200 font-bold outline-none">
+      <select value={mode} onChange={e => setMode(e.target.value as TextFilter["mode"])} className="stocktake-filter-control select select-xs w-full mb-2 bg-slate-50 border-slate-200 font-bold outline-none">
         <option value="contains">Chứa</option>
         <option value="equals">Bằng</option>
       </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." className="input input-xs w-full mb-3 bg-indigo-50/50 border-indigo-100 font-bold" autoFocus />
+      <input value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập giá trị..." className="stocktake-filter-control input input-xs w-full mb-3 bg-indigo-50/50 border-indigo-100 font-bold" autoFocus />
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-        <button className="btn btn-xs btn-ghost text-[10px] font-black uppercase tracking-widest" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-        <button className="btn btn-xs btn-primary font-black px-4 text-[10px] uppercase tracking-widest" onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }}>Lọc</button>
+        <button type="button" className="btn btn-xs btn-ghost text-[10px] font-black uppercase tracking-widest" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+        <button type="submit" className="btn btn-xs btn-primary font-black px-4 text-[10px] uppercase tracking-widest">Lọc</button>
       </div>
-    </div>
+      <div className="stocktake-filter-hint">Enter để lọc · Esc để đóng</div>
+    </form>
   );
 }
 
@@ -147,41 +148,55 @@ function NumFilterPopup({ filter, onChange, onClose }: { filter: NumFilter | nul
   const [val, setVal] = useState(filter?.value ?? "");
   const [valTo, setValTo] = useState(filter?.valueTo ?? "");
   return (
-    <div style={popupStyle} onClick={e => e.stopPropagation()}>
+    <form
+      className="stocktake-filter-popup"
+      style={popupStyle}
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => { if (e.key === "Escape") { e.preventDefault(); onClose(); } }}
+      onSubmit={e => { e.preventDefault(); e.stopPropagation(); onChange(val || valTo ? { mode, value: val, valueTo: valTo } : null); onClose(); }}
+    >
       <div style={{ marginBottom: 6, fontWeight: 900, fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Lọc số</div>
-      <select value={mode} onChange={e => setMode(e.target.value as any)} className="select select-xs w-full mb-2 bg-slate-50 border-slate-200 font-bold outline-none">
+      <select value={mode} onChange={e => setMode(e.target.value as NumFilter["mode"])} className="stocktake-filter-control select select-xs w-full mb-2 bg-slate-50 border-slate-200 font-bold outline-none">
         <option value="eq">Bằng (=)</option>
         <option value="gt">Lớn hơn (&gt;)</option>
         <option value="lt">Nhỏ hơn (&lt;)</option>
         <option value="range">Từ … đến …</option>
       </select>
-      <input value={val} onChange={e => setVal(e.target.value)} placeholder={mode === "range" ? "Từ" : "Giá trị"} className="input input-xs w-full mb-1 bg-slate-50 border-slate-200 font-bold" autoFocus />
+      <input value={val} onChange={e => setVal(e.target.value)} placeholder={mode === "range" ? "Từ" : "Giá trị"} className="stocktake-filter-control input input-xs w-full mb-1 bg-slate-50 border-slate-200 font-bold" autoFocus />
       {mode === "range" && (
-        <input value={valTo} onChange={e => setValTo(e.target.value)} placeholder="Đến" className="input input-xs w-full mb-1 bg-slate-50 border-slate-200 font-bold" />
+        <input value={valTo} onChange={e => setValTo(e.target.value)} placeholder="Đến" className="stocktake-filter-control input input-xs w-full mb-1 bg-slate-50 border-slate-200 font-bold" />
       )}
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 8 }}>
-        <button className="btn btn-xs btn-ghost text-[10px] font-black uppercase tracking-widest" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-        <button className="btn btn-xs btn-primary font-black px-4 text-[10px] uppercase tracking-widest" onClick={() => { onChange(val ? { mode, value: val, valueTo: valTo } : null); onClose(); }}>Lọc</button>
+        <button type="button" className="btn btn-xs btn-ghost text-[10px] font-black uppercase tracking-widest" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+        <button type="submit" className="btn btn-xs btn-primary font-black px-4 text-[10px] uppercase tracking-widest">Lọc</button>
       </div>
-    </div>
+      <div className="stocktake-filter-hint">Enter để lọc · Esc để đóng</div>
+    </form>
   );
 }
 
 function BoolFilterPopup({ filter, onChange, onClose }: { filter: BoolFilter | null; onChange: (f: BoolFilter | null) => void; onClose: () => void }) {
   const [val, setVal] = useState<BoolFilter["value"]>(filter?.value ?? "all");
   return (
-    <div style={popupStyle} onClick={e => e.stopPropagation()}>
+    <form
+      className="stocktake-filter-popup"
+      style={popupStyle}
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => { if (e.key === "Escape") { e.preventDefault(); onClose(); } }}
+      onSubmit={e => { e.preventDefault(); e.stopPropagation(); onChange(val !== "all" ? { value: val } : null); onClose(); }}
+    >
       <div style={{ marginBottom: 6, fontWeight: 900, fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Cảnh báo</div>
-      <select value={val} onChange={e => setVal(e.target.value as any)} className="select select-xs w-full mb-3 bg-slate-50 border-slate-200 font-bold outline-none">
+      <select value={val} onChange={e => setVal(e.target.value as BoolFilter["value"])} className="stocktake-filter-control select select-xs w-full mb-3 bg-slate-50 border-slate-200 font-bold outline-none">
         <option value="all">Tất cả</option>
         <option value="yes">Có cảnh báo</option>
         <option value="no">Bình thường</option>
       </select>
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-        <button className="btn btn-xs btn-ghost text-[10px] font-black uppercase tracking-widest" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
-        <button className="btn btn-xs btn-primary font-black px-4 text-[10px] uppercase tracking-widest" onClick={() => { onChange(val !== "all" ? { value: val } : null); onClose(); }}>Lọc</button>
+        <button type="button" className="btn btn-xs btn-ghost text-[10px] font-black uppercase tracking-widest" onClick={() => { onChange(null); onClose(); }}>Xóa</button>
+        <button type="submit" className="btn btn-xs btn-primary font-black px-4 text-[10px] uppercase tracking-widest">Lọc</button>
       </div>
-    </div>
+      <div className="stocktake-filter-hint">Enter để lọc · Esc để đóng</div>
+    </form>
   );
 }
 
@@ -191,7 +206,6 @@ export default function StocktakeDetailPage() {
   const { showConfirm, showToast } = useUI();
   const stocktakeId = params?.id as string;
 
-  const [me, setMe] = useState<Profile | null>(null);
   const [isAdminOrManager, setIsAdminOrManager] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -261,9 +275,6 @@ export default function StocktakeDetailPage() {
       if (!u.user) { window.location.href = "/login"; return; }
 
       const { data: pData } = await supabase.from("profiles").select("id, full_name, role").eq("id", u.user.id).single();
-      if (pData) {
-        setMe(pData as Profile);
-      }
       const { data: isAd } = await supabase.rpc("check_is_admin");
       const role = pData?.role || "staff";
       const isMngr = role === "manager" || role === "admin" || (isAd === true);
@@ -276,21 +287,26 @@ export default function StocktakeDetailPage() {
       setHeader(rH.data as Stocktake);
 
       const [allLines, allProducts, allCustomers] = await Promise.all([
-        fetchAllRows(
+        fetchAllRows<StocktakeLine>(
           supabase.from("inventory_stocktake_lines").select("*").eq("stocktake_id", stkId).is("deleted_at", null).order("created_at", { ascending: true })
         ),
-        fetchAllRows(
+        fetchAllRows<Product>(
           supabase.from("products").select("id, sku, name, spec, customer_id, unit_price").is("deleted_at", null)
         ),
-        fetchAllRows(
+        fetchAllRows<Customer>(
           supabase.from("customers").select("id, code, name").is("deleted_at", null)
         ),
       ]);
 
-      const DB_lines = allLines.map((dbLine: any) => ({
-        ...dbLine,
-        _newQtyInput: String(dbLine.actual_qty_after)
-      }));
+      const productById = new Map(allProducts.map(product => [product.id, product]));
+      const DB_lines = allLines.map(dbLine => {
+        const currentProduct = productById.get(dbLine.product_id);
+        return {
+          ...dbLine,
+          customer_id: currentProduct ? currentProduct.customer_id : dbLine.customer_id,
+          _newQtyInput: String(dbLine.actual_qty_after)
+        };
+      });
       setLines(DB_lines);
 
       setProducts(allProducts);
@@ -345,8 +361,8 @@ export default function StocktakeDetailPage() {
     let pct = 0;
     let isLarge = false;
 
-    if (l.system_qty_before > 0) {
-      pct = (Math.abs(diff) / l.system_qty_before) * 100;
+    if (l.system_qty_before !== 0) {
+      pct = (Math.abs(diff) / Math.abs(l.system_qty_before)) * 100;
       if (pct > 10) isLarge = true;
     } else {
       if (act === 0) {
@@ -429,7 +445,7 @@ export default function StocktakeDetailPage() {
         return {
           ...l,
           product_id: p.id,
-          customer_id: null,
+          customer_id: p.customer_id,
           product_name_snapshot: p.name,
           product_spec_snapshot: p.spec,
           unit_price_snapshot: p.unit_price || 0,
@@ -509,27 +525,13 @@ export default function StocktakeDetailPage() {
     if (!header || !validateSave()) return;
     setSaving(true);
     try {
-      const now = new Date().toISOString();
       const currentIsConfirmed = isConfirmingOverride || isConfirmed;
-
-      let headerUpdateData: any = {
-        stocktake_date: header.stocktake_date,
-        note: header.note,
-        updated_at: now,
-        updated_by: me?.id
-      };
-
-      if (currentIsConfirmed) {
-        if (header.status === "confirmed") {
-          headerUpdateData.post_confirm_edit_reason = editReason;
-          headerUpdateData.post_confirm_edited_at = now;
-          headerUpdateData.post_confirm_edited_by = me?.id;
-        } else {
-          headerUpdateData.status = "confirmed";
-          headerUpdateData.confirmed_at = now;
-          headerUpdateData.confirmed_by = me?.id;
-        }
-      }
+      const stocktakePayload = lines.map(line => ({
+        product_id: line.product_id,
+        system_qty_before: line.system_qty_before,
+        actual_qty_after: line.actual_qty_after,
+        diff_reason: line.diff_reason,
+      }));
 
       if (currentIsConfirmed) {
         // --- SỬ DỤNG ATOMIC RPC (PHƯƠNG PHÁP MỚI) ---
@@ -538,41 +540,20 @@ export default function StocktakeDetailPage() {
         const { error: rpcErr } = await supabase.rpc("confirm_inventory_stocktake_product_level", {
           p_header_id: header.id,
           p_stocktake_date: header.stocktake_date.slice(0, 10),
-          p_lines: lines, // Đẩy nguyên mảng lines vào, Database sẽ tự xử
+          p_lines: stocktakePayload,
           p_edit_reason: editReason // Nếu có lý do sửa sau khi chốt
         });
 
         if (rpcErr) throw rpcErr;
       } else {
-        // --- LƯU NHÁP (DRAFT) ---
-        // Đối với bản nháp, ta chỉ Save/Update Header và Lines đơn thuần
-        const { error: hdrErr } = await supabase.from("inventory_stocktakes").update(headerUpdateData).eq("id", header.id);
-        if (hdrErr) throw hdrErr;
-
-        await supabase.from("inventory_stocktake_lines")
-          .update({ deleted_at: now, updated_by: me?.id })
-          .eq("stocktake_id", header.id)
-          .is("deleted_at", null);
-
-        const inserts = lines.map(l => ({
-          stocktake_id: header.id,
-          customer_id: null,
-          product_id: l.product_id,
-          product_name_snapshot: l.product_name_snapshot,
-          product_spec_snapshot: l.product_spec_snapshot,
-          unit_price_snapshot: l.unit_price_snapshot,
-          system_qty_before: l.system_qty_before,
-          actual_qty_after: l.actual_qty_after,
-          qty_diff: l.qty_diff,
-          diff_percent: l.diff_percent,
-          is_large_diff: l.is_large_diff,
-          diff_reason: l.diff_reason,
-          created_by: me?.id,
-          updated_by: me?.id
-        }));
-
-        const { error: eInst } = await supabase.from("inventory_stocktake_lines").insert(inserts);
-        if (eInst) throw eInst;
+        // Lưu đầu phiếu và toàn bộ dòng nháp trong một giao dịch ở database.
+        const { error: draftErr } = await supabase.rpc("save_inventory_stocktake_draft_v1", {
+          p_header_id: header.id,
+          p_stocktake_date: header.stocktake_date.slice(0, 10),
+          p_note: header.note,
+          p_lines: stocktakePayload,
+        });
+        if (draftErr) throw draftErr;
       }
 
       showToast(currentIsConfirmed ? "Đã chốt phiếu thành công!" : "Đã lưu bản nháp!", "success");
@@ -633,7 +614,7 @@ export default function StocktakeDetailPage() {
     const logic = applyDiffLogic({ system_qty_before: sysQty } as StocktakeLine, sysQty);
     setLines(prev => [...prev, {
       id: "NEW_" + Date.now() + "_" + Math.random(),
-      product_id: product.id, customer_id: null,
+      product_id: product.id, customer_id: product.customer_id,
       product_name_snapshot: product.name, product_spec_snapshot: product.spec,
       unit_price_snapshot: product.unit_price || 0,
       system_qty_before: sysQty, actual_qty_after: sysQty,
@@ -666,7 +647,7 @@ export default function StocktakeDetailPage() {
         if (sysQty <= 0) continue;
         newLines.push({
           id: "NEW_" + Date.now() + "_" + Math.random(),
-          product_id: p.id, customer_id: null,
+          product_id: p.id, customer_id: p.customer_id,
           product_name_snapshot: p.name, product_spec_snapshot: p.spec,
           unit_price_snapshot: p.unit_price || 0,
           system_qty_before: sysQty, actual_qty_after: sysQty,

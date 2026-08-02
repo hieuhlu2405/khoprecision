@@ -993,6 +993,17 @@ main > div {
 
 .filter-info strong { color: var(--slate-800); }
 
+.stocktake-filter-control {
+  font-size: 12px;
+}
+
+.stocktake-filter-hint {
+  margin-top: 8px;
+  color: var(--slate-400);
+  font-size: 10px;
+  text-align: right;
+}
+
 /* Comparison Periods */
 .compare-periods {
   display: flex;
@@ -1172,6 +1183,16 @@ main > div {
     width: 100%;
     min-width: 0 !important;
     font-size: 16px;
+  }
+
+  .stocktake-filter-control {
+    min-height: 44px;
+    font-size: 16px !important;
+  }
+
+  .stocktake-filter-popup button {
+    min-height: 44px;
+    padding-inline: 14px;
   }
 
   .toolbar .btn,
