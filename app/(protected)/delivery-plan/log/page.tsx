@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { exportTemplateBundle, type TemplateExportFile } from "@/lib/excel-utils";
 import { fetchAllRows } from "@/lib/supabase-fetch-all";
+import { getErrorMessage } from "@/lib/user-error";
 import { ArrowUpDown, Check, CircleDollarSign, FileText, Filter, PencilLine, Plus, Printer, Save, Search, ScrollText, Trash2, Truck, UserRound, X } from "lucide-react";
 
 type ShipmentLog = {
@@ -107,10 +108,6 @@ const vndFormatter = new Intl.NumberFormat("vi-VN", {
   currency: "VND",
   maximumFractionDigits: 0,
 });
-
-function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message ? error.message : fallback;
-}
 
 function getTodayVN() {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());

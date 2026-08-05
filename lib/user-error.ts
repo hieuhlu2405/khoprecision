@@ -1,13 +1,35 @@
 const ACTION_PREFIX = "Cách xử lý:";
 
-const VIETNAMESE_HINTS = /[À-ỹ]|không|lỗi|thiếu|chưa|vui lòng|bị chặn|không thể|không được|chỉ admin|mã hàng|tồn kho/i;
+const VIETNAMESE_HINTS = /[À-ỹ]|không|lỗi|thiếu|chưa|vui lòng|bị chặn|không thể|không được|chỉ admin|mã hàng|tồn kho|khong|loi|thieu|chua|vui long|bi chan|chi admin|ma hang|ton kho|danh sach|chuyen|ly do|phieu/i;
 const TECHNICAL_HINTS = /(?:postgres|supabase|fetch failed|networkerror|failed to fetch|row-level security|violates|constraint|duplicate key|jwt|uuid|rpc|sqlstate|pgrst|schema cache|permission denied)/i;
+
+function formatInventoryShortage(raw: string): string | null {
+  const match = raw.match(
+    /Bi chan de bao ve kho:\s*ma hang\s*"([^"]+)",\s*ngay\s*(\d{4})-(\d{2})-(\d{2}),\s*ton tong theo ma bi am\s*([+-]?\d+(?:\.\d+)?)/i
+  );
+  if (!match) return null;
+
+  const [, productLabel, year, month, day, negativeQty] = match;
+  const shortageQty = Math.abs(Number(negativeQty));
+  const formattedQty = Number.isFinite(shortageQty)
+    ? shortageQty.toLocaleString("vi-VN", { maximumFractionDigits: 3 })
+    : negativeQty;
+
+  return [
+    "Không đủ tồn kho để thực hiện thao tác.",
+    `Mã hàng: ${productLabel}`,
+    `Ngày thiếu: ${day}/${month}/${year}`,
+    `Số lượng thiếu: ${formattedQty}`,
+  ].join("\n");
+}
 
 function vietnameseMessage(raw: string): string {
   const message = raw.trim().replace(/\r\n/g, "\n");
   const lower = message.toLowerCase();
 
   if (!message) return "Không thực hiện được thao tác.";
+  const inventoryShortage = formatInventoryShortage(message);
+  if (inventoryShortage) return inventoryShortage;
   if (/failed to fetch|networkerror|network request failed|load failed/i.test(message)) {
     return "Không kết nối được máy chủ.";
   }
@@ -54,14 +76,17 @@ function guidanceFor(message: string): string {
 }
 
 export function formatUserError(input: unknown, fallback = "Không thực hiện được thao tác."): string {
-  const raw = typeof input === "string"
-    ? input
-    : input instanceof Error
-      ? input.message
-      : (input && typeof input === "object" && "message" in input && typeof input.message === "string")
-        ? input.message
-        : fallback;
+  const raw = getErrorMessage(input, fallback);
   const message = vietnameseMessage(raw || fallback);
   if (message.includes(ACTION_PREFIX)) return message;
   return `${message}\n${ACTION_PREFIX} ${guidanceFor(message)}`;
+}
+
+export function getErrorMessage(input: unknown, fallback: string): string {
+  if (typeof input === "string" && input.trim()) return input;
+  if (input instanceof Error && input.message.trim()) return input.message;
+  if (input && typeof input === "object" && "message" in input && typeof input.message === "string" && input.message.trim()) {
+    return input.message;
+  }
+  return fallback;
 }
