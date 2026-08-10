@@ -4,6 +4,7 @@ import {
   type ReactNode,
   type RefObject,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -27,7 +28,6 @@ export function ColumnFilterPopover({
   children: ReactNode;
 }) {
   const popoverRef = useRef<HTMLDivElement>(null);
-  const focusAppliedRef = useRef(false);
   const mounted = useSyncExternalStore(subscribeToClient, () => true, () => false);
   const [position, setPosition] = useState<Position | null>(null);
 
@@ -84,14 +84,17 @@ export function ColumnFilterPopover({
     };
   }, [mounted, updatePosition]);
 
-  useLayoutEffect(() => {
-    if (!position || focusAppliedRef.current) return;
+  useEffect(() => {
+    if (!position) return;
 
-    const focusTarget = popoverRef.current?.querySelector<HTMLElement>("[data-filter-autofocus]");
-    if (!focusTarget) return;
+    // Wait until the click that opened the popup has fully finished. Focusing
+    // during that click can be undone when React replaces the clicked header.
+    const focusFrame = window.requestAnimationFrame(() => {
+      const focusTarget = popoverRef.current?.querySelector<HTMLElement>("[data-filter-autofocus]");
+      focusTarget?.focus({ preventScroll: true });
+    });
 
-    focusTarget.focus({ preventScroll: true });
-    focusAppliedRef.current = document.activeElement === focusTarget;
+    return () => window.cancelAnimationFrame(focusFrame);
   }, [position]);
 
   if (!mounted) return null;

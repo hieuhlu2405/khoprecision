@@ -1,5 +1,16 @@
 # Handoff Du An
 
+## Cap nhat 2026-08-10 - Sua dung thoi diem autofocus bo loc giao hang
+
+- Da tai hien tren production tai ca `Ke hoach giao hang` va `Canh bao thieu hang`: popup va o nhap deu hien, o nhap khong bi khoa, nhung `document.activeElement` van la `BODY` ngay sau khi bam, sau 50 ms va sau 300 ms. Bam truc tiep vao o thi focus duoc ngay. Ban production da co cac commit focus truoc do, nen khong phai do cache hay deploy cu.
+- Nguyen nhan theo code ket hop kiem tra production: cac cach cu dat focus ngay trong lan bam (`autoFocus`, layout effect, `flushSync` va query truc tiep) chay khi header/popup dang duoc React tao lai va portal dang tinh vi tri. Khi lan bam ket thuc, browser tra focus ve nen trang.
+- Da sua `app/components/ui/ColumnFilterPopover.tsx`: component dung chung chi focus o co `data-filter-autofocus` o frame ke tiep, sau khi popup da co vi tri va lan bam mo popup da ket thuc; co cleanup neu popup dong som.
+- Da sua `app/(protected)/delivery-plan/page.tsx` va `app/(protected)/delivery-plan/shortage/page.tsx`: bo `autoFocus`, `flushSync` va lenh query/focus lap lai; nut loc chi quan ly mo/dong popup. Viec focus nay con mot nguon duy nhat trong component dung chung.
+- Khong sua SQL/backend, khong doc/ghi database, khong doi cach loc, ke hoach, thieu hang hay ton kho. Khong co nguy co mat du lieu/sai so lieu tu thay doi nay; rui ro chi la thao tac focus tren giao dien.
+- `git diff --check` pass; ESLint component popup va trang Canh bao thieu hang khong co loi, con dung 3 canh bao cu; `npm run build` pass ngay 2026-08-10.
+- Chua test mobile bang browser/screenshot. Quyen mo `http://localhost:3000` trong in-app browser bi tu choi; khong dung cach lach quyen. Can test sau deploy tai 390px, 430px, 768px va 1366px: bam loc Ma hang/Ten hang/Khach hang/Ghi chu roi go ngay khong click them; nhap lien tuc; Enter va nut Ap dung cho cung ket qua.
+- Chua commit/push. Cac file SQL untracked va `lib/user-error.ts` dang co san trong worktree khong thuoc dot sua nay, khong duoc dua kem.
+
 ## Cap nhat 2026-08-10 - Buoc focus truc tiep trong lan bam nut loc
 
 - Chu du an xac nhan sau commit `0cc2a9e`, popup da mo nhung van chua tu dua con tro vao o nhap.

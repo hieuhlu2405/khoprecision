@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef, type CSSProperties, type KeyboardEvent } from "react";
-import { flushSync } from "react-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
@@ -262,7 +261,6 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
         data-filter-autofocus
         value={val}
         onChange={e => setVal(e.target.value)}
-        autoFocus
         inputMode="text"
         enterKeyHint="search"
         autoCapitalize="none"
@@ -1719,9 +1717,7 @@ export default function DeliveryPlanPage() {
                   return;
                 }
 
-                flushSync(() => setOpenPopup(colKey));
-                document.querySelector<HTMLElement>(".column-filter-popover [data-filter-autofocus]")
-                  ?.focus({ preventScroll: true });
+                setOpenPopup(colKey);
               }}
               title={`Lọc ${label}`}
               aria-label={`Lọc ${label}`}
