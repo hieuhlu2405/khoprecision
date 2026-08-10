@@ -258,6 +258,7 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
         <option value="equals">Bằng chính xác</option>
       </select>
       <input
+        data-filter-autofocus
         value={val}
         onChange={e => setVal(e.target.value)}
         autoFocus

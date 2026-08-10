@@ -1,5 +1,114 @@
 # Handoff Du An
 
+## Cap nhat 2026-08-10 - Giu focus khi nhap bo loc giao hang
+
+- Nguyen nhan theo code cua loi tai Canh bao thieu hang: moi ky tu dang go lap tuc cap nhat bo loc cua trang, lam hang tieu de/popup duoc tao lai va o nhap mat focus. Day la ket luan dua tren code, chua phai du lieu production.
+- Da sua `app/(protected)/delivery-plan/shortage/page.tsx`: giu tu khoa trong popup khi dang go; chi ap dung khi Enter hoac bam `Ap dung`; Esc dong popup; nut `Xoa` khong gui nham form. Co the go lien tuc nhieu ky tu ma khong cap nhat lai bang sau tung phim.
+- Da sua `app/components/ui/ColumnFilterPopover.tsx` va danh dau o nhap tai ca hai trang: sau khi popup hien, con tro tu dong vao dung o tu khoa, nguoi dung khong can click them lan nua.
+- Khong sua SQL/backend, khong doc/ghi database, khong doi cach tinh ke hoach, thieu hang hay ton kho. Rui ro mat du lieu/sai so lieu: thap; thay doi chi o thao tac loc.
+- ESLint component dung chung pass; trang Canh bao thieu hang con 3 canh bao cu, khong co loi. `npm run build` pass ngay 2026-08-10.
+- Chua test mobile bang browser/screenshot vi quyen mo localhost da bi tu choi trong phien nay. Can test tai 390px, 430px, 768px, 1366px: mo loc Ma hang/Ten hang/Khach hang/Ghi chu, go lien tuc nhieu ky tu, Enter va nut `Ap dung` phai cho cung ket qua.
+- Dot sua focus va handoff duoc commit/push len `main` ngay 2026-08-10 theo yeu cau chu du an; khong kem cac file SQL va `lib/user-error.ts` dang de local.
+
+## Cap nhat 2026-08-10 - Sua popup loc ke hoach giao hang va canh bao thieu hang
+
+- Nguyen nhan theo code: popup loc nam ben trong vung cuon cua bang, nen khi loc con it dong thi chieu cao bang co lai va cat mat phan duoi popup. Day la ket luan dua tren code, chua phai du lieu production.
+- Da tao component dung chung `app/components/ui/ColumnFilterPopover.tsx` de popup noi theo o tieu de nhung hien tren lop ngoai cua trang; khong con bi chieu cao/ngang cua bang cat, tu doi vi tri khi gan mep man hinh va cap nhat theo cuon/resize.
+- Da ap dung cho `app/(protected)/delivery-plan/page.tsx` va `app/(protected)/delivery-plan/shortage/page.tsx`.
+- Trang Ke hoach giao hang da doi popup loc chu thanh form: Enter va nut `Ap dung` chay cung mot luong; Esc dong popup; nut `Xoa` khong bi hieu nham la gui form.
+- Them CSS `column-filter-popover` trong `app/globals.css`; khong sua SQL/backend, khong doc/ghi database, khong doi cach tinh ke hoach, thieu hang hay ton kho. Rui ro mat du lieu/sai so lieu: thap; thay doi chi o hien thi va thao tac loc.
+- ESLint rieng component popup moi pass. ESLint hai trang van bao cac loi/canh bao cu; khong co loi moi tu component popup. `npm run build` pass ngay 2026-08-10.
+- Chua test mobile bang browser/screenshot: quyen tai Playwright va quyen mo localhost trong trinh duyet Codex deu bi tu choi. Can test sau deploy/local tai 390px, 430px, 768px, 1366px: loc de bang con 0-1 dong, mo lai popup va doi chieu du o/nut; tai Ke hoach giao hang nhap tu khoa roi bam Enter va doi chieu ket qua giong bam `Ap dung`.
+- Da commit/push 4 file giao dien cua dot sua popup len `main` tai commit `f6fce39`; cac SQL va thay doi local khac khong bi dua vao commit.
+
+## Cap nhat 2026-08-10 - Da cai live fix timeout dieu chinh chuyen
+
+- Chu du an xac nhan cac SQL 1 dong da duoc chay tren Supabase va `khong bao loi gi ca`. Ghi nhan `supabase-sql/20260806_fix_shipment_adjustment_timeout.sql` DA CHAY LIVE ngay 2026-08-10.
+- `supabase-sql/20260806_audit_shipment_adjustment_timeout_postfix.sql` cung duoc chu du an bao khong co loi. Chua co anh/bang ket qua de ghi chac chuoi `No rows returned`, nen neu Supabase co hien dong ket qua thi can gui lai khi co bat thuong.
+- Lan cai SQL chi thay function/quyen goi backend, khong tu sua phieu, ton kho, ke hoach hay backlog dang co; khong co hard delete. Vi vay chua co rui ro mat du lieu tu rieng buoc cai dat.
+- Trang thai con lai: can test tren web voi `PX-20260805-008`, them `NTCV CTL 03 = 200`; mong doi phieu co 28 dong, ke hoach ngay 05/08 thanh `actual 400/400`, ton cuoi ngay du kien 3.650, in lai dung thu tu. Sau do thu mot ma vuot ton de xac nhan database van chan va thong bao hien dung ma/ngay/so thieu.
+- Chua co xac nhan ket qua test web/chuyen. Chua commit/push cac file local cua dot sua nay.
+
+## Cap nhat 2026-08-06 - Chuan bi fix timeout dieu chinh chuyen nhieu dong
+
+- Da tao `supabase-sql/20260806_fix_shipment_adjustment_timeout.sql`; DA CHAY LIVE ngay 2026-08-10 theo xac nhan chu du an. File tao core moi `adjust_shipment_items_core_20260806` va thay cong public `adjust_shipment_items_v1`; ca hai tu kiem tra quyen Admin. Core cu 20260723 van duoc giu lai lam lich su nhung bi thu hoi quyen goi truc tiep.
+- Cach xu ly moi chi huy mem/tao lai dong cua plan co ma hoac so luong thuc su thay doi. Dong khong thay doi duoc giu nguyen. Khi thay dong, trigger tinh ton theo tung dong duoc tam bo qua trong chinh giao dich; sau do database hau kiem am kho mot lan cho tung ma co tong luong xuat tang. Van khoa phieu, plan, dong giao dich va ma hang; mot loi thi rollback toan bo, khong luu nua chung.
+- Sau khi thay dong, backend doi chieu dung tong so dong va thu tu in, tinh lai `actual_qty` va dong bo backlog chi cho plan thay doi, sau do ghi nhat ky truoc/sau vao `shipment_item_correction_audit`. Khong doi so chuyen/rate Logistics.
+- Da tao hau kiem chi doc `supabase-sql/20260806_audit_shipment_adjustment_timeout_postfix.sql`; chu du an xac nhan da chay ngay 2026-08-10 va khong bao loi. Ket qua dung la `No rows returned`; chua co anh/bang ket qua luu trong handoff.
+- Theo yeu cau chu du an, ca file fix va file hau kiem da duoc chuyen thanh dung 1 dong/file de dan truc tiep vao Supabase SQL Editor; chi doi dinh dang, khong doi logic.
+- Da sua `lib/user-error.ts`: loi `canceling statement due to statement timeout` nay hien ro `May chu xu ly qua lau nen chua luu duoc thay doi`, kem cach xu ly tai lai va bao Admin cung so phieu. Mapping loi thieu ton cu van duoc giu.
+- Scan SQL: khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`, `ALTER TABLE`. Co `CREATE OR REPLACE FUNCTION`, `UPDATE`, `INSERT`, `REVOKE/GRANT`: chi thay cach backend xu ly, huy mem/tao dong thay doi, tinh lai plan va ghi audit; khong xoa cung lich su.
+- Kiem tra local: SQL static safety pass; file postfix chi doc pass; test thong bao timeout pass; test thong bao thieu ton pass; ESLint `lib/user-error.ts` pass; `npm run build` pass ngay 2026-08-06. SQL da duoc Supabase chap nhan khong bao loi ngay 2026-08-10.
+- Thu tu dua live: (1) chay toan bo `20260806_fix_shipment_adjustment_timeout.sql`; neu loi thi transaction rollback; (2) chay `20260806_audit_shipment_adjustment_timeout_postfix.sql`, phai `No rows returned`; (3) deploy web; (4) Admin mo `PX-20260805-008`, them `NTCV CTL 03` so luong 200 va luu; (5) doi chieu phieu co 28 dong, `NTCV CTL 03` tren phieu 008 = 200, ke hoach 05/08 tu `actual 200/400` thanh `400/400`, ton cuoi ngay du kien tu 3.850 thanh 3.650; (6) in lai phieu, doi chieu thu tu va xem Nhat ky Logistics; (7) thu mot ma vuot ton de xac nhan database van chan va hien dung ma/ngay/so thieu.
+- SQL backend va hau kiem da chay ngay 2026-08-10; chua co xac nhan test thao tac chuyen tren web. Khong commit/push. Chua test mobile bang browser/screenshot; thay doi UI chi la noi dung toast, khong doi bo cuc.
+
+## Cap nhat 2026-08-06 - Audit PX-20260805-008 khong dieu chinh duoc
+
+- Da audit production bang tai khoan `staff/warehouse` chi doc; khong goi RPC ghi, khong sua/xoa du lieu. Phieu `PX-20260805-008` ngay 2026-08-05, xe `99C-291.48`, co 27 dong active. Day la chuyen nhieu dong nhat trong ngay; chuyen ke tiep co 16 dong.
+- Ma `NTCV CTL 03` active, khong nam san tren phieu 008. Ke hoach ngay 05/08 la 400, da giao 200, con 200. Chuyen dau `PX-20260805-003`, xe `99B-086.33`, da xuat dung 200. Ton ma cuoi ngay 05/08 la 3.850; neu them 200 vao phieu 008 thi con 3.650. Vi vay loi khong phai do ma nay thieu ton.
+- Da doi chieu 27 dong cu tren phieu 008: 27 ma va 27 plan rieng; line number du 1-27; khong thieu plan, khong sai ngay, khong sai product/customer, khong co plan active trung khoa trong 05-06/08. Du lieu phieu/ke hoach khong thay bat thuong co the giai thich viec bi chan.
+- Nguyen nhan co kha nang rat cao la timeout backend: luong dieu chinh hien tai huy mem va chen lai toan bo 27 dong, du chi them 1 ma; trigger kho chay hau kiem theo tung dong UPDATE va tung dong INSERT, tuc it nhat 55 lan cho payload 27 dong cu + 1 dong moi, moi lan lai goi phep tinh ton. Day cung la phieu co so dong vuot troi. Thong bao sau deploy van bi rut gon thanh cau chung, phu hop voi loi ky thuat ASCII nhu `canceling statement due to statement timeout`; chua co raw Postgres log nen chua khang dinh 100% chuoi loi.
+- Huong fix an toan neu chu du an yeu cau: backend chi xu ly/cap nhat plan thuc su thay doi, hoac bat batch replace khi thay dong va hau kiem am mot lan cho cac ma co luong xuat tang; van khoa ma, rollback toan bo va giu database la hang rao chan am. Dong thoi UI can hien rieng loi timeout thay vi cau chung.
+- Khong tao/chay SQL, khong commit/push.
+
+## Cap nhat 2026-08-05 - Hien ro loi khi dieu chinh chuyen
+
+- Nguyen nhan theo code: Supabase tra loi RPC duoi dang object co truong `message`, nhung trang Nhat ky giao hang chi doc doi tuong `Error`; vi vay loi that tu database bi bo va thay bang cau chung `Khong the dieu chinh chuyen`. Day la ket luan dua tren code, chua phai du lieu production.
+- Da sua `app/(protected)/delivery-plan/log/page.tsx` de doc duoc `message` cua loi Supabase va dua dung ly do vao toast.
+- Da sua `lib/user-error.ts`: nhan cac cau nghiep vu tieng Viet khong dau tu backend thay vi che thanh loi chung; rieng hang rao am kho duoc doi thanh 4 dong ro rang: ma hang, ngay thieu, so luong thieu va cach xu ly.
+- Khong sua SQL/backend, khong doc/ghi database production, khong doi cach tinh ton hay luu dieu chinh. Database van la noi chan am kho va thao tac van rollback toan bo neu loi; rui ro mat du lieu/sai so lieu: thap.
+- Da test mau loi object cua Supabase: `SKU-01 - Hang mau`, ngay `05/08/2026`, thieu `125,5` duoc hien dung. ESLint rieng 2 file sua pass. `npm run build` pass ngay 2026-08-05.
+- Chua test mobile bang browser/screenshot. Can test sau deploy tai 390px, 430px, 768px, 1366px: tang so luong mot ma vuot ton trong modal Dieu chinh; toast phai hien dung ma, ngay va so thieu; bam lai voi so hop le phai luu duoc.
+- Khong tao/chay SQL. Hai file code da commit/push len `main` tai commit `f045dac`; cac file SQL/audit dang co san trong worktree khong bi dua vao commit.
+
+## Cap nhat 2026-08-02 - Enter ap dung bo loc bang kiem ke
+
+- Nguyen nhan theo code: cac popup loc cot o danh sach phieu va chi tiet phieu chi gan hanh dong vao nut `Loc/Ap dung`; o nhap khong nam trong form nen bam Enter khong kich hoat loc.
+- Da sua `app/(protected)/inventory/stocktake/page.tsx` va `app/(protected)/inventory/stocktake/[id]/page.tsx`: Enter ap dung bo loc va dong popup; Esc dong popup; nut Xoa duoc dat ro la nut thuong de khong bi hieu nham thanh gui form. Ap dung cho loc chu, ngay, so va canh bao.
+- Da sua `app/globals.css`: popup hien goi y `Enter de loc - Esc de dong`; tren mobile input/select va nut trong popup cao toi thieu 44px, co chu 16px de de bam va tranh iPhone tu zoom.
+- Khong sua SQL/backend, khong doc/ghi du lieu production, khong doi cach tinh ton hay chot kiem ke. Rui ro mat du lieu/sai so lieu: thap; thay doi chi o thao tac loc tren giao dien.
+- `npm run build` pass ngay 2026-08-02. ESLint rieng 2 trang kiem ke con 10 loi va 11 canh bao cu; cum popup loc vua sua khong con dung `any`. Chua test mobile bang browser/screenshot. Can test sau deploy tai 390px, 430px, 768px, 1366px: loc Khach hang/Ma hang/Ten hang, loc so Ton may/Thuc te/Lech, loc Canh bao va loc ngay/trang thai o danh sach; Enter phai loc, Esc phai dong, nut chuot van hoat dong.
+- Khong commit/push. Day la ket luan dua tren code, chua phai du lieu production.
+
+## Cap nhat 2026-08-02 - Sua luong ban nhap kiem ke, hien khach hang va xuat Excel tung phieu
+
+- Nguyen nhan theo code cua loi Super Admin khong huy duoc ban nhap: trang danh sach tu goi 4 lenh cap nhat rieng cho giao dich kho, dong kiem ke, moc ton va dau phieu; 3 loi dau con bi bo qua. Luong nay khong tron ven, co the loi quyen hoac luu nua chung. Day la ket luan dua tren code, chua phai du lieu production.
+- Da tao `supabase-sql/20260802_fix_stocktake_draft_flow.sql`, CHUA CHAY LIVE. File tao 2 RPC backend:
+  - `save_inventory_stocktake_draft_v1`: Manager/Admin/Super Admin luu dau phieu va toan bo dong nhap trong mot giao dich; mot dong loi thi rollback toan bo.
+  - `cancel_inventory_stocktake_draft_v1`: chi Admin/Super Admin; chi cho trang thai `draft`; huy mem dau phieu va dong nhap trong mot giao dich. Neu ban nhap bat thuong da co giao dich kho hoac moc ton active, ham dung va khong thay doi gi. Phieu da chot bi chan.
+- Da tao hau kiem chi doc `supabase-sql/20260802_audit_stocktake_draft_flow_postfix.sql`, CHUA CHAY LIVE. Ket qua dung sau khi cai fix la `No rows returned`.
+- SQL fix khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`. Co `CREATE OR REPLACE FUNCTION` va `UPDATE` de thay cach backend luu/huy mem; khong hard delete va khong sua giao dich kho/moc ton cua phieu da chot.
+- Da sua `app/(protected)/inventory/stocktake/page.tsx`: bo luong xoa 4 buoc o frontend; nut nay doi thanh `Huy nhap`, chi hien cho Admin/Super Admin va chi tren ban nhap; moi phieu co nut `Xuat Excel` rieng. File xuat dung du lieu da luu cua dung phieu, gom khach hien tai, ma hang, ton may, thuc te, chenh lech, ly do, don gia va gia tri chenh lech.
+- Da sua `app/(protected)/inventory/stocktake/[id]/page.tsx`: khi nhap/chon ma hang, cot Khach hang lay tu `products.customer_id` hien tai; sau khi tai lai hoac chot phieu van hien theo Ma hang. Chi dung khach de hien thi, khong chia ton theo khach; backend kiem ke van tinh theo tong ma hang. Sua them cach tinh phan tram khi ton may am de khop backend.
+- `npm run build` pass truoc khi sua va pass sau cum sua ngay 2026-08-02. ESLint rieng 2 trang kiem ke con 15 loi va 11 canh bao tai cac dong cu (`any`, import/ham cu khong dung, hook va chuoi JSX); thay doi moi khong them loi `any`.
+- Thu tu dua live bat buoc: (1) chay `20260802_fix_stocktake_draft_flow.sql`; (2) chay `20260802_audit_stocktake_draft_flow_postfix.sql`, phai `No rows returned`; (3) moi deploy UI; (4) Super Admin huy mot ban nhap co dong va doi chieu ton khong doi; (5) Manager/Staff va phieu da chot phai khong huy duoc; (6) luu ban nhap, tai lai, chot va doi chieu du dong; (7) nhap ma hang, doi chieu ten khach; (8) xuat Excel mot phieu nhap va mot phieu da chot.
+- Khong chay SQL, khong sua du lieu production, khong commit/push. Chua test mobile bang browser/screenshot.
+
+## Cap nhat 2026-07-29 - An ma inactive va dung khach moi nhat trong modal chot no hang ngay
+
+- Nguyen nhan theo code: khi mo modal chot no, trang da tai danh muc active nhung lai gan `productLookup` bang toan bo ma chua xoa, gom ca ma `is_active = false`. Modal va ham xac nhan tiep tuc loc tren tat ca ke hoach trong ngay nen ma inactive van co the hien va bi chot.
+- Da sua `app/(protected)/delivery-plan/page.tsx`: luc mo modal chi giu danh muc active; modal co them lop loc ro rang `is_active = true` va `deleted_at IS NULL`; ma khach hien thi lay tu `products.customer_id` moi nhat, khong lay khach cu con luu trong ke hoach lich su.
+- Nut xac nhan chot no tai lai danh muc active, khach hang va ke hoach trong ngay ngay truoc khi hien confirm; chi dong cac ke hoach cua ma van active tai thoi diem do. Neu ma vua inactive hoac vua doi khach trong luc modal dang mo, du lieu moi se thay du lieu cu truoc khi ghi.
+- Khong sua SQL/backend, khong xoa hoac doi ke hoach cu, khong sua giao dich kho. Rui ro mat du lieu: thap. Rui ro sai so lieu/thao tac nham giam vi ma inactive khong con nam trong danh sach chot.
+- `npm run build` pass ngay 2026-07-29. ESLint rieng trang Ke hoach van con 27 loi va 17 canh bao cu; thay doi nay khong them loi moi.
+- Theo yeu cau cua chu du an, khong dang nhap web va khong dung phien web cua chu du an. Chua test mobile bang browser/screenshot.
+- Can test sau deploy: (1) inactive mot ma dang co ke hoach/no trong ngay, mo chot no va xac nhan ma khong hien; (2) doi khach tren Ma hang, mo lai modal va xac nhan ma hien khach moi; (3) mo modal roi inactive ma o phien khac, bam xac nhan va doi chieu ma do khong bi chot.
+- Day la ket luan dua tren code, chua phai du lieu production.
+
+## Cap nhat 2026-07-28 - Chuan bi audit loi trung khi tao chuyen
+
+- Chu du an bao cao tao chuyen ngay 2026-07-28 cho xe `99C-225.75` bi thong bao chung `Du lieu bi trung voi thong tin da co`; xe da co mot chuyen trong ngay nhung chuyen truoc khong giao 5 ma dang chon.
+- Theo code, mot xe duoc phep co nhieu chuyen trong ngay; chuyen da co chi anh huong thu tu chuyen/rate, khong yeu cau cac chuyen phai co ma hang khac nhau. Toast ngay 2026-07-26 dang rut gon moi loi co chu `duplicate/trung` nen che mat ten khoa database that.
+- Da tao audit chi doc `supabase-sql/20260728_audit_shipment_duplicate_error.sql`. Phan `customer_normalization_collision` DA CHAY LIVE ngay 2026-07-28 va xac dinh dung 1 xung dot: ma `93195D NHO 02`, ke hoach `0105a71c-7b60-446c-ab9e-d6a02355767e` van giu khach cu `9bb57e4a-9f70-4d23-a988-ac87d6fda43d`, trong khi Ma hang hien tai va ke hoach `d8e77554-5dd5-4a2f-babd-c97f26fdd918` deu dung khach moi `6bedc5aa-995c-4a53-b1a6-3ecdae0c67d8`. Khi tao chuyen, trigger co gang doi ke hoach cu sang khach moi va bi khoa duy nhat chan vi ke hoach moi da ton tai.
+- File audit chi co `SELECT/WITH`, khong co `INSERT`, `UPDATE`, `DELETE`, `DROP`, `TRUNCATE`, `ALTER` hay `CREATE`; khong sua production.
+- Chua sua du lieu. Truoc khi gop/huy mem mot trong hai ke hoach, can doi chieu `planned_qty`, `backlog_qty`, `actual_qty`, ghi chu va giao dich gan voi ca hai ID de tranh mat ke hoach hoac cong trung so luong.
+- Do Supabase SQL Editor chi hien bang ket qua cuoi cua file audit nhieu cau, da tao file chi tiet mot cau `supabase-sql/20260728_audit_shipment_duplicate_plan_detail.sql`, CHUA CHAY LIVE. File tra ve mot bang duy nhat gom 4 dong: hai ke hoach xung dot, giao dich gan voi hai ke hoach, chuoi ke hoach 27-30/07 va tom tat an toan.
+- Audit chi tiet DA CHAY LIVE ngay 2026-07-28: hai ke hoach deu chua co giao dich. Dong cu ngay 28/07 la ke hoach `150` cho `YZ NEW`, dong moi la backlog `220` cho `YZ E`; khong phai ban sao nen khong duoc gop/xoa bua. Ngay 29/07 con ke hoach `450` dang luu theo `YZ NEW`. Ghi chu nghiep vu xac nhan can tach diem giao `YZ NEW` va `YZ E`.
+- Da tao audit quan he diem giao `supabase-sql/20260728_audit_yz_new_delivery_relationship.sql`, CHUA CHAY LIVE. Neu `YZ NEW` la khach con cua `YZ E`, cach sua dung la giu `customer_id = YZ E` va chuyen `YZ NEW` vao `delivery_customer_id`, de hai nhu cau giao van tach rieng va khong xung dot khoa.
+- Chu du an lam ro quy tac: khach cua ke hoach phai luon lay tu khach dang gan tren Ma hang; `93195D NHO 02` dang gan `YZ E`, con `YZ NEW` khong tiep tuc duoc dung de tach khach/diem giao. Vi vay khong can chay audit quan he `YZ NEW` o tren cho ca sua nay.
+- Fix co dieu kien `supabase-sql/20260728_fix_93195d_nho_02_customer_plan_collision.sql` DA CHAY LIVE thanh cong ngay 2026-07-28: dong active ngay 28/07 la `YZ E`, `planned=150`, `backlog=220`, `actual=0`, tong can giao 370; dong cu 150 da duoc huy mem luc `2026-07-28 04:04:44.689951+00`; ke hoach 450 ngay 29/07 da doi sang `YZ E`. Khong co hard delete va khong sua giao dich kho.
+- Hau kiem chi doc `supabase-sql/20260728_audit_93195d_nho_02_customer_plan_collision_postfix.sql` DA CHAY LIVE thanh cong ngay 2026-07-28: `status=OK`, `problems=[]`. Xac nhan dong active 28/07 la `planned=150`, `backlog=220`, khach `YZ E`; dong cu da huy mem; dong 29/07 la `planned=450`, khach `YZ E`; khong con ke hoach tu 28/07 tro di cua ma nay giu khach khac Ma hang.
+
 ## Cap nhat 2026-07-27 - Fix ban phim iPhone tai bo loc Ma hang
 
 - Nguyen nhan theo code: o nhap bo loc dang cap nhat `colFilters` sau moi ky tu. Viec nay lam header bang va popup loc bi tao lai; Safari/iPhone coi o nhap la o moi nen quay ve ban phim chu sau moi lan bam so/ky tu dac biet.

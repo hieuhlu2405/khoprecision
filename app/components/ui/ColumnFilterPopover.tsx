@@ -66,7 +66,11 @@ export function ColumnFilterPopover({
     if (!mounted) return;
 
     updatePosition();
-    const frame = window.requestAnimationFrame(updatePosition);
+    const positionFrame = window.requestAnimationFrame(updatePosition);
+    const focusFrame = window.requestAnimationFrame(() => {
+      const focusTarget = popoverRef.current?.querySelector<HTMLElement>("[data-filter-autofocus]");
+      focusTarget?.focus({ preventScroll: true });
+    });
     const visualViewport = window.visualViewport;
 
     window.addEventListener("resize", updatePosition);
@@ -75,7 +79,8 @@ export function ColumnFilterPopover({
     visualViewport?.addEventListener("scroll", updatePosition);
 
     return () => {
-      window.cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(positionFrame);
+      window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
       visualViewport?.removeEventListener("resize", updatePosition);

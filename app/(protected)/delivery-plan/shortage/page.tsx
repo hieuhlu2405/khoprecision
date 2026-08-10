@@ -92,17 +92,43 @@ function mergeDeliveryNoteState(
 
 function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | null; onChange: (f: TextFilter | null) => void; onClose: () => void }) {
   const [val, setVal] = useState(filter?.value ?? "");
+
+  const applyFilter = () => {
+    onChange(val ? { mode: "contains", value: val } : null);
+    onClose();
+  };
+
   return (
-    <div className="p-4 bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200 shadow-2xl min-w-[240px]" onClick={e => e.stopPropagation()}>
+    <form
+      className="p-4 bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200 shadow-2xl min-w-[240px]"
+      onSubmit={event => {
+        event.preventDefault();
+        applyFilter();
+      }}
+      onKeyDown={event => {
+        if (event.key === "Escape") onClose();
+      }}
+      onClick={event => event.stopPropagation()}
+    >
       <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Lọc cột</div>
-      <input value={val} onChange={e => { setVal(e.target.value); onChange(e.target.value ? { mode: "contains", value: e.target.value } : null); }}
-        autoFocus placeholder="Nhập từ khóa..." className="input input-bordered input-sm w-full mb-3 text-xs"
-        onKeyDown={e => { if (e.key === "Enter") onClose(); }} />
+      <input
+        data-filter-autofocus
+        value={val}
+        onChange={event => setVal(event.target.value)}
+        autoFocus
+        inputMode="text"
+        enterKeyHint="search"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        placeholder="Nhập từ khóa..."
+        className="input input-bordered input-sm w-full mb-3 text-base sm:text-xs"
+      />
       <div className="flex justify-end gap-2">
-        <button onClick={() => { onChange(null); onClose(); }} className="btn btn-ghost btn-xs uppercase text-[10px] font-bold">Xóa</button>
-        <button onClick={() => onClose()} className="btn btn-primary btn-xs uppercase text-[10px] font-bold px-4">Đóng</button>
+        <button type="button" onClick={() => { onChange(null); onClose(); }} className="btn btn-ghost btn-xs uppercase text-[10px] font-bold">Xóa</button>
+        <button type="submit" className="btn btn-primary btn-xs uppercase text-[10px] font-bold px-4">Áp dụng</button>
       </div>
-    </div>
+    </form>
   );
 }
 
