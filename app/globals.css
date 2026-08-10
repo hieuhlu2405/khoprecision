@@ -648,6 +648,14 @@ input, select, textarea, button {
   -webkit-overflow-scrolling: touch;
 }
 
+.column-filter-popover {
+  position: fixed;
+  z-index: 1000;
+  max-width: calc(100vw - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 @media (max-width: 640px) {
   .product-editor-modal {
     width: 100%;

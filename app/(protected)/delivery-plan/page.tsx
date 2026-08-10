@@ -39,6 +39,7 @@ import {
   fetchActiveProductCatalog,
   type ProductCatalogItem,
 } from "@/lib/product-catalog";
+import { ColumnFilterPopover } from "@/app/components/ui/ColumnFilterPopover";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -230,12 +231,27 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
   const [mode, setMode] = useState<TextFilter["mode"]>(filter?.mode ?? "contains");
   const [val, setVal] = useState(filter?.value ?? "");
 
+  const applyFilter = () => {
+    onChange(val ? { mode, value: val } : null);
+    onClose();
+  };
+
   return (
-    <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xl min-w-[220px] backdrop-blur-xl bg-white/90" onClick={e => e.stopPropagation()}>
+    <form
+      className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xl min-w-[220px] backdrop-blur-xl bg-white/90"
+      onSubmit={event => {
+        event.preventDefault();
+        applyFilter();
+      }}
+      onKeyDown={event => {
+        if (event.key === "Escape") onClose();
+      }}
+      onClick={event => event.stopPropagation()}
+    >
       <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Lọc dữ liệu</div>
       <select
         value={mode}
-        onChange={e => setMode(e.target.value as any)}
+        onChange={e => setMode(e.target.value as TextFilter["mode"])}
         className="select select-bordered select-sm w-full mb-3 text-xs bg-white/50"
       >
         <option value="contains">Chứa cụm từ</option>
@@ -251,19 +267,13 @@ function TextFilterPopup({ filter, onChange, onClose }: { filter: TextFilter | n
         autoCorrect="off"
         spellCheck={false}
         placeholder="Nhập nội dung..."
-        onKeyDown={e => {
-          if (e.key === "Enter") {
-            onChange(val ? { mode, value: val } : null);
-            onClose();
-          }
-        }}
         className="input input-bordered input-sm w-full mb-4 text-base sm:text-xs bg-amber-50/30 border-amber-200/50"
       />
       <div className="flex gap-2 justify-end">
-        <button onClick={() => { onChange(null); onClose(); }} className="btn btn-ghost btn-xs text-[10px] uppercase font-bold">Xóa</button>
-        <button onClick={() => { onChange(val ? { mode, value: val } : null); onClose(); }} className="btn btn-primary btn-xs text-[10px] uppercase font-bold px-4">Áp dụng</button>
+        <button type="button" onClick={() => { onChange(null); onClose(); }} className="btn btn-ghost btn-xs text-[10px] uppercase font-bold">Xóa</button>
+        <button type="submit" className="btn btn-primary btn-xs text-[10px] uppercase font-bold px-4">Áp dụng</button>
       </div>
-    </div>
+    </form>
   );
 }
 
@@ -1715,7 +1725,7 @@ export default function DeliveryPlanPage() {
           className="delivery-th-resizer absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-500 transition-colors z-20"
         />
         {popupOpen && (
-          <div className="absolute top-[calc(100%+8px)] left-0 z-50 animate-in fade-in slide-in-from-top-2 duration-200 shadow-2xl rounded-xl overflow-hidden" onClick={e => e.stopPropagation()}>
+          <ColumnFilterPopover anchorRef={thRef}>
             {/^\d{4}-\d{2}-\d{2}$/.test(colKey) ? (
               <DateColFilterPopup
                 filter={colFilters[colKey]}
@@ -1737,7 +1747,7 @@ export default function DeliveryPlanPage() {
                 onClose={() => setOpenPopup(null)}
               />
             )}
-          </div>
+          </ColumnFilterPopover>
         )}
       </th>
     );

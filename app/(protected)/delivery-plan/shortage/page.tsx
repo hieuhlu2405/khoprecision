@@ -9,6 +9,7 @@ import { getVNTimeNow } from "@/lib/date-utils";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 import { fetchActiveProductCatalog, type ProductCatalogItem } from "@/lib/product-catalog";
 import { AlertTriangle, ArrowUpDown, CalendarDays, CheckCircle2, Filter, Package, RefreshCw, Zap } from "lucide-react";
+import { ColumnFilterPopover } from "@/app/components/ui/ColumnFilterPopover";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -486,7 +487,7 @@ export default function ShortageReportPage() {
         </div>
         <div onMouseDown={startResizing} className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-400 transition-colors z-20" />
         {popupOpen && (
-          <div className="absolute top-[calc(100%+8px)] left-0 z-[200]" onClick={e => e.stopPropagation()}>
+          <ColumnFilterPopover anchorRef={thRef}>
             {days.includes(colKey) ? (
               <DayFilterPopup dateStr={colKey} filter={colFilters[colKey] || null}
                 onChange={f => setColFilters(p => { const n = { ...p }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
@@ -496,7 +497,7 @@ export default function ShortageReportPage() {
                 onChange={f => setColFilters(p => { const n = { ...p }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
                 onClose={() => setOpenPopup(null)} />
             )}
-          </div>
+          </ColumnFilterPopover>
         )}
       </th>
     );
