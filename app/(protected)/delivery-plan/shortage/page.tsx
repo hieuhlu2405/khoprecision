@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { flushSync } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -504,7 +505,17 @@ export default function ShortageReportPage() {
               </button>
             )}
             {!isNum && (
-              <button onClick={() => setOpenPopup(popupOpen ? null : colKey)}
+              <button onClick={event => {
+                event.stopPropagation();
+                if (popupOpen) {
+                  setOpenPopup(null);
+                  return;
+                }
+
+                flushSync(() => setOpenPopup(colKey));
+                document.querySelector<HTMLElement>(".column-filter-popover [data-filter-autofocus]")
+                  ?.focus({ preventScroll: true });
+              }}
                 className={`p-0.5 rounded transition-all ${active ? (days.includes(colKey) ? "bg-red-600 text-white" : "bg-indigo-600 text-white") : "text-slate-400 hover:text-indigo-500 hover:bg-slate-100"}`}>
                 <Filter size={10} strokeWidth={3} />
               </button>

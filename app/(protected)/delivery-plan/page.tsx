@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef, type CSSProperties, type KeyboardEvent } from "react";
+import { flushSync } from "react-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
@@ -1711,7 +1712,17 @@ export default function DeliveryPlanPage() {
               </button>
             )}
             <button
-              onClick={(e) => { e.stopPropagation(); setOpenPopup(popupOpen ? null : colKey); }}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (popupOpen) {
+                  setOpenPopup(null);
+                  return;
+                }
+
+                flushSync(() => setOpenPopup(colKey));
+                document.querySelector<HTMLElement>(".column-filter-popover [data-filter-autofocus]")
+                  ?.focus({ preventScroll: true });
+              }}
               title={`Lọc ${label}`}
               aria-label={`Lọc ${label}`}
               className={`delivery-th-action-btn p-1 rounded transition-all border ${active ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-400 border-slate-200 hover:text-indigo-500"}`}

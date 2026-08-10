@@ -1,5 +1,14 @@
 # Handoff Du An
 
+## Cap nhat 2026-08-10 - Buoc focus truc tiep trong lan bam nut loc
+
+- Chu du an xac nhan sau commit `0cc2a9e`, popup da mo nhung van chua tu dua con tro vao o nhap.
+- Da bo cach chi cho callback sau render tu xu ly. Tai nut loc cua ca `app/(protected)/delivery-plan/page.tsx` va `app/(protected)/delivery-plan/shortage/page.tsx`, khi mo popup frontend dung `flushSync` de dung xong popup ngay trong su kien click, sau do focus truc tiep vao o co `data-filter-autofocus` truoc khi ket thuc lan bam. Cach nay giu focus nam trong thao tac nguoi dung, phu hop hon voi browser/Safari co han che autofocus bat dong bo.
+- Component `ColumnFilterPopover` van giu lop focus du phong sau khi popup da hien; nut loc la lop bat buoc chinh. Nut bam dong popup khong goi focus.
+- Khong sua SQL/backend, khong doc/ghi database, khong doi logic loc hay so lieu. Rui ro mat du lieu/sai so lieu: thap.
+- ESLint component popup pass; trang Canh bao thieu hang con 3 canh bao cu va khong co loi; `npm run build` pass ngay 2026-08-10.
+- Chua test mobile bang browser/screenshot do quyen localhost da bi tu choi trong phien nay. Fix truc tiep trong click va handoff duoc commit/push len `main` ngay 2026-08-10 theo yeu cau chu du an; khong kem cac file SQL va `lib/user-error.ts` dang de local.
+
 ## Cap nhat 2026-08-10 - Fix tiep autofocus popup loc sau phan hoi production
 
 - Chu du an xac nhan sau commit `e5e51a7`, mo popup loc van phai click them vao o nhap moi go duoc.
