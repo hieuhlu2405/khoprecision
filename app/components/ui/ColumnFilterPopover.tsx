@@ -27,6 +27,7 @@ export function ColumnFilterPopover({
   children: ReactNode;
 }) {
   const popoverRef = useRef<HTMLDivElement>(null);
+  const focusAppliedRef = useRef(false);
   const mounted = useSyncExternalStore(subscribeToClient, () => true, () => false);
   const [position, setPosition] = useState<Position | null>(null);
 
@@ -67,10 +68,6 @@ export function ColumnFilterPopover({
 
     updatePosition();
     const positionFrame = window.requestAnimationFrame(updatePosition);
-    const focusFrame = window.requestAnimationFrame(() => {
-      const focusTarget = popoverRef.current?.querySelector<HTMLElement>("[data-filter-autofocus]");
-      focusTarget?.focus({ preventScroll: true });
-    });
     const visualViewport = window.visualViewport;
 
     window.addEventListener("resize", updatePosition);
@@ -80,13 +77,22 @@ export function ColumnFilterPopover({
 
     return () => {
       window.cancelAnimationFrame(positionFrame);
-      window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
       visualViewport?.removeEventListener("resize", updatePosition);
       visualViewport?.removeEventListener("scroll", updatePosition);
     };
   }, [mounted, updatePosition]);
+
+  useLayoutEffect(() => {
+    if (!position || focusAppliedRef.current) return;
+
+    const focusTarget = popoverRef.current?.querySelector<HTMLElement>("[data-filter-autofocus]");
+    if (!focusTarget) return;
+
+    focusTarget.focus({ preventScroll: true });
+    focusAppliedRef.current = document.activeElement === focusTarget;
+  }, [position]);
 
   if (!mounted) return null;
 

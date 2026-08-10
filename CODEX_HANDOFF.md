@@ -1,5 +1,14 @@
 # Handoff Du An
 
+## Cap nhat 2026-08-10 - Fix tiep autofocus popup loc sau phan hoi production
+
+- Chu du an xac nhan sau commit `e5e51a7`, mo popup loc van phai click them vao o nhap moi go duoc.
+- Nguyen nhan theo code: lenh focus dang chay khi lop popup van `visibility: hidden` de tinh vi tri; trinh duyet bo qua focus tren phan tu dang an. Day la ket luan dua tren code ket hop phan hoi production, chua co browser/screenshot local.
+- Da sua `app/components/ui/ColumnFilterPopover.tsx`: bo focus chay song song voi luc tinh vi tri; chi focus sau khi state vi tri da cap nhat, popup da hien va o nhap co the nhan ban phim. Co kiem tra `document.activeElement` de chi ghi nhan khi focus thuc su thanh cong.
+- Khong sua SQL/backend, khong doc/ghi database, khong doi logic loc hay cach tinh so lieu. Rui ro mat du lieu/sai so lieu: thap.
+- ESLint component popup pass; `npm run build` pass ngay 2026-08-10. Chua test mobile bang browser/screenshot do quyen localhost da bi tu choi trong phien nay.
+- Fix tiep autofocus va cap nhat handoff duoc commit/push len `main` ngay 2026-08-10 theo yeu cau chu du an; khong kem cac file SQL va `lib/user-error.ts` dang de local.
+
 ## Cap nhat 2026-08-10 - Giu focus khi nhap bo loc giao hang
 
 - Nguyen nhan theo code cua loi tai Canh bao thieu hang: moi ky tu dang go lap tuc cap nhat bo loc cua trang, lam hang tieu de/popup duoc tao lai va o nhap mat focus. Day la ket luan dua tren code, chua phai du lieu production.
