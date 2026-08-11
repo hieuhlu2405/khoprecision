@@ -1,5 +1,16 @@
 # Handoff Du An
 
+## Cap nhat 2026-08-10 - Giu nguyen header de autofocus khong bi roi
+
+- Chu du an xac nhan production sau commit `8888831` van chua tu dua con tro vao o nhap khi bam loc tai ca `Ke hoach giao hang` va `Canh bao thieu hang`.
+- Nguyen nhan goc theo code: `ThCell` cua ca hai trang duoc khai bao ben trong page component. Moi lan `setOpenPopup` hoac page cap nhat state, React nhan mot kieu component header moi, thao ca header/popup/input cu va lap lai. Vi vay cac cach `autoFocus`, `flushSync`, layout effect hay requestAnimationFrame deu co the focus vao o vua tao xong roi lai mat khi header bi thay.
+- Da tach header thanh hai component on dinh o cap file: `DeliveryPlanThCell` va `ShortageThCell`. Page chi truyen state/hanh dong qua props; khi page render lai, cung mot component va cung input dang mo duoc giu nguyen. `ColumnFilterPopover` tiep tuc focus sau khi popup co vi tri, nhung nay focus khong con bi mat do input bi thao khoi trang.
+- Trang Canh bao thieu hang duoc bo sung ten/nhan truy cap cho nut loc va sap xep, giup thao tac va kiem tra ro dung cot.
+- Khong sua SQL/backend, khong doc/ghi database, khong doi cach loc, ke hoach, thieu hang hay ton kho. Khong co nguy co mat du lieu/sai so lieu tu thay doi nay; rui ro chi o giao dien loc.
+- `git diff --check` pass; ESLint component popup va trang Canh bao thieu hang khong co loi, con 2 canh bao cu; trang Ke hoach con cac loi lint cu ngoai cum vua sua; `npm run build` pass ngay 2026-08-10.
+- Chua test mobile bang browser/screenshot. Quyen localhost da bi tu choi; thao tac click production bang browser kiem thu bi timeout tren bang du lieu lon. Can test sau deploy tai 390px, 430px, 768px va 1366px: bam bat ky loc chu nao roi go ngay khong click them; nhap lien tuc; Enter va nut Ap dung cho cung ket qua.
+- Ban sua duoc commit/push rieng len nhanh `codex/delivery-filter-stable-focus` de chu du an test; chua dua vao `main`. Cac file SQL untracked va `lib/user-error.ts` dang co san trong worktree khong thuoc dot sua nay, khong duoc dua kem.
+
 ## Cap nhat 2026-08-10 - Sua dung thoi diem autofocus bo loc giao hang
 
 - Da tai hien tren production tai ca `Ke hoach giao hang` va `Canh bao thieu hang`: popup va o nhap deu hien, o nhap khong bi khoa, nhung `document.activeElement` van la `BODY` ngay sau khi bam, sau 50 ms va sau 300 ms. Bam truc tiep vao o thi focus duoc ngay. Ban production da co cac commit focus truoc do, nen khong phai do cache hay deploy cu.

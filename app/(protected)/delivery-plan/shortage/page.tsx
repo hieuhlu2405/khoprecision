@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef, type Dispatch, type SetStateAction } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -166,6 +166,149 @@ function DayFilterPopup({ dateStr, filter, onChange, onClose }: { dateStr: strin
         <button onClick={() => onClose()} className="btn btn-primary btn-xs uppercase text-[10px] font-bold px-4">Đóng</button>
       </div>
     </div>
+  );
+}
+
+function ShortageThCell({
+  label,
+  colKey,
+  sortable,
+  w,
+  align = "left",
+  sticky = false,
+  isNum = false,
+  isToday = false,
+  extra,
+  colFilters,
+  setColFilters,
+  sortCol,
+  onToggleSort,
+  openPopup,
+  setOpenPopup,
+  colWidths,
+  onResize,
+  days,
+}: {
+  label: string;
+  colKey: string;
+  sortable?: boolean;
+  w?: string;
+  align?: "left" | "right" | "center";
+  sticky?: boolean;
+  isNum?: boolean;
+  isToday?: boolean;
+  extra?: React.ReactNode;
+  colFilters: Record<string, TextFilter>;
+  setColFilters: Dispatch<SetStateAction<Record<string, TextFilter>>>;
+  sortCol: string | null;
+  onToggleSort: (col: string) => void;
+  openPopup: string | null;
+  setOpenPopup: Dispatch<SetStateAction<string | null>>;
+  colWidths: Record<string, number>;
+  onResize: (key: string, width: number) => void;
+  days: string[];
+}) {
+  const active = !!colFilters[colKey];
+  const isSortTarget = sortCol === colKey;
+  const popupOpen = openPopup === colKey;
+  const width = colWidths[colKey] || (w ? parseInt(w) : undefined);
+  const thRef = useRef<HTMLTableCellElement>(null);
+
+  const startResizing = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    const startX = event.pageX;
+    const startWidth = thRef.current?.offsetWidth || 0;
+    const onMouseMove = (moveEvent: MouseEvent) => onResize(colKey, Math.max(60, startWidth + (moveEvent.pageX - startX)));
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
+
+  return (
+    <th
+      ref={thRef}
+      style={{
+        width: width ? `${width}px` : w,
+        minWidth: width ? `${width}px` : w,
+        textAlign: align,
+        left: sticky ? 0 : undefined,
+        zIndex: sticky ? 110 : 100,
+        background: isToday ? "rgba(254,242,242,0.97)" : "rgba(255,255,255,0.97)",
+        backdropFilter: "blur(8px)",
+        borderBottom: "2px solid #f1f5f9",
+        flexShrink: 0,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        boxSizing: "border-box",
+        position: sticky ? "sticky" : "relative",
+      }}
+      className={`py-3 px-3 group select-none transition-colors ${sticky ? "shadow-[4px_0_12px_rgba(0,0,0,0.04)]" : ""} ${isToday ? "text-red-600" : "text-slate-700"}`}
+    >
+      <div className={`flex items-center gap-1.5 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+        {extra || <span className="font-black text-[10px] uppercase tracking-widest">{label}</span>}
+        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          {sortable && (
+            <button
+              onClick={event => {
+                event.stopPropagation();
+                onToggleSort(colKey);
+              }}
+              title={`Sắp xếp ${label}`}
+              aria-label={`Sắp xếp ${label}`}
+              className={`p-0.5 rounded transition-all ${isSortTarget ? "text-indigo-600 bg-indigo-50" : "text-slate-400 hover:text-indigo-500 hover:bg-slate-100"}`}
+            >
+              <ArrowUpDown size={10} strokeWidth={3} />
+            </button>
+          )}
+          {!isNum && (
+            <button
+              onClick={event => {
+                event.stopPropagation();
+                setOpenPopup(popupOpen ? null : colKey);
+              }}
+              title={`Lọc ${label}`}
+              aria-label={`Lọc ${label}`}
+              className={`p-0.5 rounded transition-all ${active ? (days.includes(colKey) ? "bg-red-600 text-white" : "bg-indigo-600 text-white") : "text-slate-400 hover:text-indigo-500 hover:bg-slate-100"}`}
+            >
+              <Filter size={10} strokeWidth={3} />
+            </button>
+          )}
+        </div>
+      </div>
+      <div onMouseDown={startResizing} className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-400 transition-colors z-20" />
+      {popupOpen && (
+        <ColumnFilterPopover anchorRef={thRef}>
+          {days.includes(colKey) ? (
+            <DayFilterPopup
+              dateStr={colKey}
+              filter={colFilters[colKey] || null}
+              onChange={filter => setColFilters(previous => {
+                const next = { ...previous };
+                if (filter) next[colKey] = filter;
+                else delete next[colKey];
+                return next;
+              })}
+              onClose={() => setOpenPopup(null)}
+            />
+          ) : (
+            <TextFilterPopup
+              filter={colFilters[colKey] || null}
+              onChange={filter => setColFilters(previous => {
+                const next = { ...previous };
+                if (filter) next[colKey] = filter;
+                else delete next[colKey];
+                return next;
+              })}
+              onClose={() => setOpenPopup(null)}
+            />
+          )}
+        </ColumnFilterPopover>
+      )}
+    </th>
   );
 }
 
@@ -458,84 +601,30 @@ export default function ShortageReportPage() {
 
   const todayStr = getTodayStr();
 
-  function ThCell({ label, colKey, sortable, w, align = "left", sticky = false, isNum = false, isToday = false, extra }: {
-    label: string; colKey: string; sortable?: boolean; w?: string; align?: "left" | "right" | "center";
-    sticky?: boolean; isNum?: boolean; isToday?: boolean; extra?: React.ReactNode;
-  }) {
-    const active = !!colFilters[colKey];
-    const isSortTarget = sortCol === colKey;
-    const popupOpen = openPopup === colKey;
-    const width = colWidths[colKey] || (w ? parseInt(w) : undefined);
-    const thRef = useRef<HTMLTableCellElement>(null);
+  const toggleShortageSort = (col: string) => {
+    if (sortCol === col) {
+      if (sortDir === "asc") setSortDir("desc");
+      else {
+        setSortCol(null);
+        setSortDir(null);
+      }
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  };
 
-    const startResizing = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      const startX = e.pageX;
-      const startWidth = thRef.current?.offsetWidth || 0;
-      const onMM = (me: MouseEvent) => onResize(colKey, Math.max(60, startWidth + (me.pageX - startX)));
-      const onMU = () => { document.removeEventListener("mousemove", onMM); document.removeEventListener("mouseup", onMU); };
-      document.addEventListener("mousemove", onMM);
-      document.addEventListener("mouseup", onMU);
-    };
-
-    return (
-      <th ref={thRef}
-        style={{
-          width: width ? `${width}px` : w, minWidth: width ? `${width}px` : w,
-          textAlign: align, left: sticky ? 0 : undefined,
-          zIndex: sticky ? 110 : 100,
-          background: isToday ? "rgba(254,242,242,0.97)" : "rgba(255,255,255,0.97)",
-          backdropFilter: "blur(8px)", borderBottom: "2px solid #f1f5f9",
-          flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center", boxSizing: "border-box",
-          position: sticky ? "sticky" : "relative"
-        }}
-        className={`py-3 px-3 group select-none transition-colors ${sticky ? "shadow-[4px_0_12px_rgba(0,0,0,0.04)]" : ""} ${isToday ? "text-red-600" : "text-slate-700"}`}
-      >
-        <div className={`flex items-center gap-1.5 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          {extra ? extra : <span className="font-black text-[10px] uppercase tracking-widest">{label}</span>}
-          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            {sortable && (
-              <button onClick={() => {
-                if (isSortTarget) { sortDir === "asc" ? setSortDir("desc") : (setSortCol(null), setSortDir(null)); }
-                else { setSortCol(colKey); setSortDir("asc"); }
-              }} className={`p-0.5 rounded transition-all ${isSortTarget ? "text-indigo-600 bg-indigo-50" : "text-slate-400 hover:text-indigo-500 hover:bg-slate-100"}`}>
-                <ArrowUpDown size={10} strokeWidth={3} />
-              </button>
-            )}
-            {!isNum && (
-              <button onClick={event => {
-                event.stopPropagation();
-                if (popupOpen) {
-                  setOpenPopup(null);
-                  return;
-                }
-
-                setOpenPopup(colKey);
-              }}
-                className={`p-0.5 rounded transition-all ${active ? (days.includes(colKey) ? "bg-red-600 text-white" : "bg-indigo-600 text-white") : "text-slate-400 hover:text-indigo-500 hover:bg-slate-100"}`}>
-                <Filter size={10} strokeWidth={3} />
-              </button>
-            )}
-          </div>
-        </div>
-        <div onMouseDown={startResizing} className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-400 transition-colors z-20" />
-        {popupOpen && (
-          <ColumnFilterPopover anchorRef={thRef}>
-            {days.includes(colKey) ? (
-              <DayFilterPopup dateStr={colKey} filter={colFilters[colKey] || null}
-                onChange={f => setColFilters(p => { const n = { ...p }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
-                onClose={() => setOpenPopup(null)} />
-            ) : (
-              <TextFilterPopup filter={colFilters[colKey] || null}
-                onChange={f => setColFilters(p => { const n = { ...p }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
-                onClose={() => setOpenPopup(null)} />
-            )}
-          </ColumnFilterPopover>
-        )}
-      </th>
-    );
-  }
-
+  const shortageHeaderCellProps = {
+    colFilters,
+    setColFilters,
+    sortCol,
+    onToggleSort: toggleShortageSort,
+    openPopup,
+    setOpenPopup,
+    colWidths,
+    onResize,
+    days,
+  };
   const formatShortDate = (dateStr: string) => {
     const d = new Date(dateStr + "T00:00:00");
     const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -592,16 +681,16 @@ export default function ShortageReportPage() {
           <table className="w-full text-xs !border-separate !border-spacing-0" style={{ tableLayout: "fixed", minWidth: (colWidths["sku"] || 200) + (colWidths["name"] || 300) + (colWidths["customer"] || 130) + (colWidths["note1"] || 150) + (colWidths["note2"] || 150) + (colWidths["stock"] || 120) + days.reduce((s, d) => s + (colWidths[d] || 110), 0) + (colWidths["max_shortage"] || 100) }}>
             <thead className="sticky top-0 z-[100] bg-white">
               <tr style={{ display: "flex", width: "100%" }}>
-                <ThCell label="Mã hàng" colKey="sku" sortable sticky w="200px" />
-                <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="300px" />
-                <ThCell label="Khách hàng" colKey="customer" sortable w="130px" align="center" />
-                <ThCell label="Ghi chú 1" colKey="note1" w="150px" />
-                <ThCell label="Ghi chú 2" colKey="note2" w="150px" />
-                <ThCell label="TỒN KHO" colKey="stock" sortable w="120px" align="right" isNum />
+                <ShortageThCell {...shortageHeaderCellProps} label="Mã hàng" colKey="sku" sortable sticky w="200px" />
+                <ShortageThCell {...shortageHeaderCellProps} label="Tên hàng / Quy cách" colKey="name" sortable w="300px" />
+                <ShortageThCell {...shortageHeaderCellProps} label="Khách hàng" colKey="customer" sortable w="130px" align="center" />
+                <ShortageThCell {...shortageHeaderCellProps} label="Ghi chú 1" colKey="note1" w="150px" />
+                <ShortageThCell {...shortageHeaderCellProps} label="Ghi chú 2" colKey="note2" w="150px" />
+                <ShortageThCell {...shortageHeaderCellProps} label="TỒN KHO" colKey="stock" sortable w="120px" align="right" isNum />
                 {days.map((d) => (
-                  <ThCell key={d} label="" colKey={d} w="110px" align="center" isToday={todayStr === d} extra={formatShortDate(d)} />
+                  <ShortageThCell {...shortageHeaderCellProps} key={d} label="" colKey={d} w="110px" align="center" isToday={todayStr === d} extra={formatShortDate(d)} />
                 ))}
-                <ThCell label="Cuối kỳ" colKey="max_shortage" sortable w="100px" align="center" isNum />
+                <ShortageThCell {...shortageHeaderCellProps} label="Cuối kỳ" colKey="max_shortage" sortable w="100px" align="center" isNum />
               </tr>
             </thead>
             <tbody>

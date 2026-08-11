@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, useRef, type CSSProperties, type KeyboardEvent } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef, type CSSProperties, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
@@ -332,6 +332,174 @@ function DateColFilterPopup({ filter, onChange, onClose, dateStr, uncompletedCou
         <button onClick={onClose} className="btn btn-primary btn-xs text-[10px] uppercase font-bold px-4">Đóng</button>
       </div>
     </div>
+  );
+}
+
+function DeliveryPlanThCell({
+  label,
+  colKey,
+  sortable,
+  w,
+  align = "left",
+  sticky = false,
+  stickyLeft = 0,
+  isToday = false,
+  extra,
+  colFilters,
+  setColFilters,
+  sortCol,
+  sortDir,
+  onToggleSort,
+  openPopup,
+  setOpenPopup,
+  colWidths,
+  mobilePlanModeActive,
+  onResize,
+  plans,
+  canEdit,
+  todayVN,
+  onOpenCloseModal,
+}: {
+  label: string;
+  colKey: string;
+  sortable?: boolean;
+  w?: string;
+  align?: "left" | "right" | "center";
+  sticky?: boolean;
+  stickyLeft?: number;
+  isToday?: boolean;
+  extra?: React.ReactNode;
+  colFilters: Record<string, ColFilter>;
+  setColFilters: Dispatch<SetStateAction<Record<string, ColFilter>>>;
+  sortCol: string | null;
+  sortDir: SortDir;
+  onToggleSort: (col: string) => void;
+  openPopup: string | null;
+  setOpenPopup: Dispatch<SetStateAction<string | null>>;
+  colWidths: Record<string, number>;
+  mobilePlanModeActive: boolean;
+  onResize: (key: string, width: number) => void;
+  plans: Plan[];
+  canEdit: boolean;
+  todayVN: string;
+  onOpenCloseModal: (dateStr: string) => void;
+}) {
+  const active = !!colFilters[colKey];
+  const isSortTarget = sortCol === colKey;
+  const popupOpen = openPopup === colKey;
+  const width = mobilePlanModeActive ? (w ? parseInt(w) : undefined) : (colWidths[colKey] || (w ? parseInt(w) : undefined));
+  const thRef = useRef<HTMLTableCellElement>(null);
+
+  const startResizing = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    const startX = event.pageX;
+    const startWidth = thRef.current?.offsetWidth || 0;
+    const onMouseMove = (moveEvent: MouseEvent) => onResize(colKey, Math.max(80, startWidth + (moveEvent.pageX - startX)));
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
+
+  return (
+    <th
+      ref={thRef}
+      style={{
+        width: width ? `${width}px` : w,
+        minWidth: width ? `${width}px` : w || "80px",
+        flexBasis: width ? `${width}px` : w,
+        textAlign: align,
+        left: sticky ? stickyLeft : undefined,
+        zIndex: sticky ? 41 : 40,
+        background: "rgba(255,255,255,0.95)",
+        backdropFilter: "blur(8px)",
+        borderBottom: "1px solid #e2e8f0",
+        flexShrink: 0,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        boxSizing: "border-box",
+      }}
+      className={`py-4 px-4 border-r border-slate-200/60 sticky top-0 group select-none ${sticky ? "shadow-[2px_0_10px_rgba(0,0,0,0.02)]" : ""} ${isToday ? "bg-red-50/50 text-red-600" : "text-slate-900"}`}
+    >
+      <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+        {extra || <span className="text-black font-black text-xs uppercase tracking-wider">{label}</span>}
+        <div className={`delivery-th-actions flex items-center gap-1 transition-opacity ${active ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+          {sortable && (
+            <button
+              onClick={event => {
+                event.stopPropagation();
+                onToggleSort(colKey);
+              }}
+              title={`Sắp xếp ${label}`}
+              aria-label={`Sắp xếp ${label}`}
+              className={`delivery-th-action-btn p-1 rounded bg-white shadow-sm border border-slate-200 transition-all ${isSortTarget ? "text-indigo-600 scale-110" : "text-slate-400 hover:text-indigo-500"}`}
+            >
+              {isSortTarget && sortDir === "asc" ? (
+                <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.5} />
+              ) : isSortTarget && sortDir === "desc" ? (
+                <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.5} />
+              ) : (
+                <ArrowDownUp className="h-3.5 w-3.5" strokeWidth={2.25} />
+              )}
+            </button>
+          )}
+          <button
+            onClick={event => {
+              event.stopPropagation();
+              setOpenPopup(popupOpen ? null : colKey);
+            }}
+            title={`Lọc ${label}`}
+            aria-label={`Lọc ${label}`}
+            className={`delivery-th-action-btn p-1 rounded transition-all border ${active ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-400 border-slate-200 hover:text-indigo-500"}`}
+          >
+            <Funnel className="h-3.5 w-3.5" strokeWidth={2.25} />
+          </button>
+        </div>
+      </div>
+      <div
+        onMouseDown={startResizing}
+        onDoubleClick={() => onResize(colKey, 150)}
+        className="delivery-th-resizer absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-500 transition-colors z-20"
+      />
+      {popupOpen && (
+        <ColumnFilterPopover anchorRef={thRef}>
+          {/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(colKey) ? (
+            <DateColFilterPopup
+              filter={colFilters[colKey]}
+              onChange={filter => setColFilters(previous => {
+                const next = { ...previous };
+                if (filter) next[colKey] = filter;
+                else delete next[colKey];
+                return next;
+              })}
+              onClose={() => setOpenPopup(null)}
+              dateStr={colKey}
+              uncompletedCount={plans.filter(plan => {
+                const targetQty = (plan.planned_qty || 0) + (plan.backlog_qty || 0);
+                const actualQty = plan.actual_qty || 0;
+                return plan.plan_date === colKey && targetQty > 0 && actualQty !== targetQty;
+              }).length}
+              canClose={canEdit && colKey <= todayVN}
+              onOpenCloseModal={onOpenCloseModal}
+            />
+          ) : (
+            <TextFilterPopup
+              filter={colFilters[colKey] as TextFilter}
+              onChange={filter => setColFilters(previous => {
+                const next = { ...previous };
+                if (filter) next[colKey] = filter;
+                else delete next[colKey];
+                return next;
+              })}
+              onClose={() => setOpenPopup(null)}
+            />
+          )}
+        </ColumnFilterPopover>
+      )}
+    </th>
   );
 }
 
@@ -1652,115 +1820,22 @@ export default function DeliveryPlanPage() {
     }
   };
 
-  function ThCell({ label, colKey, sortable, w, align = "left", sticky = false, stickyLeft = 0, isToday = false, extra }: { label: string; colKey: string; sortable?: boolean; w?: string; align?: "left" | "right" | "center"; sticky?: boolean; stickyLeft?: number; isToday?: boolean; extra?: React.ReactNode }) {
-    const active = !!colFilters[colKey];
-    const isSortTarget = sortCol === colKey;
-    const popupOpen = openPopup === colKey;
-    const width = mobilePlanModeActive ? (w ? parseInt(w) : undefined) : (colWidths[colKey] || (w ? parseInt(w) : undefined));
-    const thRef = useRef<HTMLTableCellElement>(null);
-
-    const startResizing = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      const startX = e.pageX;
-      const startWidth = thRef.current?.offsetWidth || 0;
-      const onMM = (me: MouseEvent) => onResize(colKey, Math.max(80, startWidth + (me.pageX - startX)));
-      const onMU = () => { document.removeEventListener("mousemove", onMM); document.removeEventListener("mouseup", onMU); };
-      document.addEventListener("mousemove", onMM);
-      document.addEventListener("mouseup", onMU);
-    };
-
-    return (
-      <th
-        ref={thRef}
-        style={{
-          width: width ? `${width}px` : w,
-          minWidth: width ? `${width}px` : w || "80px",
-          flexBasis: width ? `${width}px` : w,
-          textAlign: align,
-          left: sticky ? stickyLeft : undefined,
-          zIndex: sticky ? 41 : 40,
-          background: "rgba(255,255,255,0.95)",
-          backdropFilter: "blur(8px)",
-          borderBottom: "1px solid #e2e8f0",
-          flexShrink: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          boxSizing: 'border-box'
-        }}
-        className={`py-4 px-4 border-r border-slate-200/60 sticky top-0 group select-none ${sticky ? "shadow-[2px_0_10px_rgba(0,0,0,0.02)]" : ""} ${isToday ? "bg-red-50/50 text-red-600" : "text-slate-900"}`}
-      >
-        <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
-          {extra ? extra : <span className="text-black font-black text-xs uppercase tracking-wider">{label}</span>}
-          <div className={`delivery-th-actions flex items-center gap-1 transition-opacity ${active ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
-            {sortable && (
-              <button
-                onClick={(e) => { e.stopPropagation(); toggleSort(colKey); }}
-                title={`Sắp xếp ${label}`}
-                aria-label={`Sắp xếp ${label}`}
-                className={`delivery-th-action-btn p-1 rounded bg-white shadow-sm border border-slate-200 transition-all ${isSortTarget ? "text-indigo-600 scale-110" : "text-slate-400 hover:text-indigo-500"}`}
-              >
-                {isSortTarget && sortDir === "asc" ? (
-                  <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.5} />
-                ) : isSortTarget && sortDir === "desc" ? (
-                  <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.5} />
-                ) : (
-                  <ArrowDownUp className="h-3.5 w-3.5" strokeWidth={2.25} />
-                )}
-              </button>
-            )}
-            <button
-              onClick={(event) => {
-                event.stopPropagation();
-                if (popupOpen) {
-                  setOpenPopup(null);
-                  return;
-                }
-
-                setOpenPopup(colKey);
-              }}
-              title={`Lọc ${label}`}
-              aria-label={`Lọc ${label}`}
-              className={`delivery-th-action-btn p-1 rounded transition-all border ${active ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-400 border-slate-200 hover:text-indigo-500"}`}
-            >
-              <Funnel className="h-3.5 w-3.5" strokeWidth={2.25} />
-            </button>
-          </div>
-        </div>
-        <div
-          onMouseDown={startResizing}
-          onDoubleClick={() => onResize(colKey, 150)}
-          className="delivery-th-resizer absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-500 transition-colors z-20"
-        />
-        {popupOpen && (
-          <ColumnFilterPopover anchorRef={thRef}>
-            {/^\d{4}-\d{2}-\d{2}$/.test(colKey) ? (
-              <DateColFilterPopup
-                filter={colFilters[colKey]}
-                onChange={f => setColFilters(prev => { const n = { ...prev }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
-                onClose={() => setOpenPopup(null)}
-                dateStr={colKey}
-                uncompletedCount={plans.filter(p => {
-                  const targetQty = (p.planned_qty || 0) + (p.backlog_qty || 0);
-                  const actualQty = p.actual_qty || 0;
-                  return p.plan_date === colKey && targetQty > 0 && actualQty !== targetQty;
-                }).length}
-                canClose={canEdit && colKey <= todayVN}
-                onOpenCloseModal={handleOpenCloseBacklogModal}
-              />
-            ) : (
-              <TextFilterPopup
-                filter={colFilters[colKey] as TextFilter}
-                onChange={f => setColFilters(prev => { const n = { ...prev }; if (f) n[colKey] = f; else delete n[colKey]; return n; })}
-                onClose={() => setOpenPopup(null)}
-              />
-            )}
-          </ColumnFilterPopover>
-        )}
-      </th>
-    );
-  }
-
+  const deliveryPlanHeaderCellProps = {
+    colFilters,
+    setColFilters,
+    sortCol,
+    sortDir,
+    onToggleSort: toggleSort,
+    openPopup,
+    setOpenPopup,
+    colWidths,
+    mobilePlanModeActive,
+    onResize,
+    plans,
+    canEdit,
+    todayVN,
+    onOpenCloseModal: handleOpenCloseBacklogModal,
+  };
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -2060,7 +2135,7 @@ export default function DeliveryPlanPage() {
                         title="Chọn tất cả / Bỏ chọn tất cả"
                       />
                     </th>
-                    <ThCell
+                    <DeliveryPlanThCell {...deliveryPlanHeaderCellProps}
                       label={mobilePlanModeActive ? "Mã hàng / Quy cách" : "Mã hàng"}
                       colKey="sku"
                       sortable
@@ -2070,14 +2145,14 @@ export default function DeliveryPlanPage() {
                     />
                     {!mobilePlanModeActive && (
                       <>
-                        <ThCell label="Tên hàng / Quy cách" colKey="name" sortable w="320px" />
-                        <ThCell label="Khách hàng" colKey="customer" sortable w="140px" align="center" />
-                        <ThCell label="LƯU Ý 1" colKey="note_today" sortable={false} w="150px" />
-                        <ThCell label="LƯU Ý 2" colKey="note_today_2" sortable={false} w="150px" />
+                        <DeliveryPlanThCell {...deliveryPlanHeaderCellProps} label="Tên hàng / Quy cách" colKey="name" sortable w="320px" />
+                        <DeliveryPlanThCell {...deliveryPlanHeaderCellProps} label="Khách hàng" colKey="customer" sortable w="140px" align="center" />
+                        <DeliveryPlanThCell {...deliveryPlanHeaderCellProps} label="LƯU Ý 1" colKey="note_today" sortable={false} w="150px" />
+                        <DeliveryPlanThCell {...deliveryPlanHeaderCellProps} label="LƯU Ý 2" colKey="note_today_2" sortable={false} w="150px" />
                       </>
                     )}
                     {visibleDays.map(d => (
-                      <ThCell
+                      <DeliveryPlanThCell {...deliveryPlanHeaderCellProps}
                         key={d}
                         label={""}
                         colKey={d}
