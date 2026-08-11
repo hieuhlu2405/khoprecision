@@ -1,5 +1,11 @@
 # Handoff Du An
 
+## Cap nhat 2026-08-11 - Autofocus bo loc da test OK va gop main
+
+- Chu du an da test preview nhanh `codex/delivery-filter-stable-focus` va xac nhan autofocus bo loc tai ca `Ke hoach giao hang` va `Canh bao thieu hang` da OK.
+- Ban sua giu on dinh `DeliveryPlanThCell` va `ShortageThCell`, commit `1944b11`, duoc gop vao `main` ngay 2026-08-11 de Vercel production tu deploy.
+- Khong sua SQL/backend, khong doi cach tinh ke hoach, thieu hang hay ton kho; khong co thay doi du lieu. Cac file SQL untracked va `lib/user-error.ts` local khong duoc dua kem.
+
 ## Cap nhat 2026-08-10 - Giu nguyen header de autofocus khong bi roi
 
 - Chu du an xac nhan production sau commit `8888831` van chua tu dua con tro vao o nhap khi bam loc tai ca `Ke hoach giao hang` va `Canh bao thieu hang`.
