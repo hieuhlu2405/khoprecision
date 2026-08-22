@@ -200,7 +200,7 @@ export default function CustomersPage() {
     if (!canAdmin) { showToast("Chỉ Admin mới có quyền ngừng khách hàng / Vendor.", "error"); return; }
     const label = c.parent_customer_id ? "Vendor" : "khách hàng";
     const ok = await showConfirm({
-      message: `Ngừng dùng ${label} ${c.code}? Dòng này sẽ biến mất khỏi danh sách chọn mới nhưng lịch sử không bị xóa. Nếu đang được kế hoạch, kho hoặc công nợ sử dụng, database sẽ chặn.`,
+      message: `Ngừng dùng ${label} ${c.code}? Dòng này sẽ biến mất khỏi danh sách chọn mới. Lịch sử và kế hoạch đang giao vẫn được giữ nguyên để tiếp tục xử lý.`,
       danger: true,
       confirmLabel: "Ngừng dùng",
     });
@@ -217,7 +217,7 @@ export default function CustomersPage() {
     if (!canAdmin || selectedIds.size === 0) return;
     const selectedCount = selectedIds.size;
     const ok = await showConfirm({
-      message: `Ngừng dùng ${selectedCount} khách hàng / Vendor đã chọn? Lịch sử không bị xóa. Nếu một dòng đang được sử dụng, toàn bộ lần này sẽ dừng và không dòng nào thay đổi.`,
+      message: `Ngừng dùng ${selectedCount} khách hàng / Vendor đã chọn? Lịch sử và kế hoạch đang giao vẫn được giữ nguyên. Nếu còn Vendor con, mã hàng active hoặc công nợ mở, toàn bộ lần này sẽ dừng.`,
       danger: true,
       confirmLabel: "Ngừng dùng",
     });

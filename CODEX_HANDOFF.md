@@ -1,5 +1,15 @@
 # Handoff Du An
 
+## Cap nhat 2026-08-23 - Cho ngung Vendor khi con ke hoach dang giao
+
+- Chu du an test lai production sau ban 20260823 va backend bao con dung 1 ke hoach phai giao, cac rang buoc khac deu 0. Quyen Admin va viec tach lich su da hoat dong dung; hang rao ke hoach van chat hon nhu cau ngung Vendor.
+- Huong xu ly: cho Admin ngung Vendor du con ke hoach dang giao. Vendor bien mat khoi danh sach chon moi, nhung ke hoach dang giao va lich su van giu nguyen de nhan vien tiep tuc giao/chot; khong sua so luong, khong huy ke hoach, khong xoa giao dich.
+- Da tao `supabase-sql/20260823_fix_vendor_deactivation_allow_open_plans_zz.sql`, DA CHAY LIVE thanh cong ngay 2026-08-23. SQL chi thay cach RPC quyet dinh; van chan neu con Vendor con, ma hang active hoac cong no mo; van khoa dong, tu kiem tra Admin, ghi audit va rollback neu loi.
+- Da tao hau kiem chi doc `supabase-sql/20260823_audit_vendor_deactivation_allow_open_plans_postfix_zz.sql`; chu du an chua xac nhan rieng ket qua hau kiem.
+- Da sua cau xac nhan tren web cho dung backend moi: ke hoach dang giao duoc giu lai, khong con noi database se chan vi ke hoach.
+- `npm run build` pass ngay 2026-08-23. Quet hai SQL moi khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`; file hau kiem chi doc.
+- Chu du an da test production va xac nhan ngung Vendor thanh cong ngay 2026-08-23. Con can doi chieu tren web: 1 ke hoach dang giao van hien, dung so luong va van xu ly duoc; lich su kho van dung ten Vendor.
+
 ## Cap nhat 2026-08-23 - Cho ngung Vendor da co lich su nhung giu tra cuu cu
 
 - Chu du an test ngung mot Vendor va backend 20260821 chan vi Vendor co 5 dong Ke hoach giao hang va 6 dong Lich su kho. Nguyen nhan theo code: hang rao ban dau coi moi khoa ngoai lich su la viec dang mo, nen chan qua chat. Day la phan hoi production ket hop ket luan tu code; chua co ID/chi tiet 11 dong production.
