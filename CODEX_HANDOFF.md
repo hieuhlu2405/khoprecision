@@ -1,5 +1,16 @@
 # Handoff Du An
 
+## Cap nhat 2026-08-23 - Cho ngung Vendor da co lich su nhung giu tra cuu cu
+
+- Chu du an test ngung mot Vendor va backend 20260821 chan vi Vendor co 5 dong Ke hoach giao hang va 6 dong Lich su kho. Nguyen nhan theo code: hang rao ban dau coi moi khoa ngoai lich su la viec dang mo, nen chan qua chat. Day la phan hoi production ket hop ket luan tu code; chua co ID/chi tiet 11 dong production.
+- Huong sua an toan: khong gan `deleted_at` cho Vendor nua. Them `customers.is_active`; khi ngung chi dat `is_active=false`, nen Vendor bien mat khoi danh sach/chon moi nhung dong khach hang van ton tai de lich su kho, ke hoach cu va in lai con tra ten duoc.
+- Da tao `supabase-sql/20260823_fix_vendor_deactivation_keep_history.sql`, DA CHAY LIVE thanh cong ngay 2026-08-23 theo xac nhan cua chu du an (`Success. No rows returned`). RPC moi chi chan viec dang mo: Vendor con dang hoat dong, Ma hang active dang gan, Ke hoach con so luong phai giao, hoac Cong no mo. Giao dich kho va ke hoach da giao xong chi la lich su, khong chan ngung. Toan bo van khoa dong, ghi audit va rollback neu co loi.
+- SQL them cot/trang thai va trigger chan doi `deleted_at/is_active` truc tiep; `DROP TRIGGER` va `CREATE OR REPLACE FUNCTION` chi tao lai hang rao/cach database xu ly. Khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`.
+- Da tao hau kiem chi doc `supabase-sql/20260823_audit_vendor_deactivation_keep_history_postfix.sql`, DA CHAY LIVE thanh cong ngay 2026-08-23; ket qua `No rows returned`.
+- Da sua trang Khach hang/Vendor chi hien dong active; trang Ke hoach giu nap ca Vendor inactive de doc lich su, nhung khong tu tao dong nhap moi cho Vendor inactive. Backend da cai va hau kiem dat; con can deploy web.
+- `npm run build` pass ngay 2026-08-23. ESLint trang Khach hang/Vendor khong co loi, con 3 canh bao cu. Trang Ke hoach con 26 loi va 17 canh bao cu; thay doi `is_active` khong tao loi moi. Quet SQL fix khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`; file hau kiem chi doc.
+- Can test: ngung lai Vendor tren; neu 5 ke hoach da giao xong thi phai ngung duoc, 6 giao dich kho van tra dung Vendor; Vendor bien mat khoi danh sach va dong nhap ke hoach moi. Thu Vendor con ke hoach chua giao phai bi chan va khong thay doi.
+
 ## Cap nhat 2026-08-21 - Sua quyen Admin khi ngung Vendor
 
 - Nguyen nhan theo code: trang Khach hang/Vendor tu nhan Admin bang `profiles.role = admin`, trong khi database con cong nhan Super Admin qua `public.is_admin()`. Hai lop co the hieu khac nhau, nen tai khoan chu du an co quyen Admin o database van co the bi giao dien chan/bao sai quyen. Day la ket luan dua tren code, chua phai du lieu production.

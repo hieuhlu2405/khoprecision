@@ -57,6 +57,7 @@ type Customer = {
   selling_entity_id?: string | null;
   parent_customer_id: string | null;
   deleted_at: string | null;
+  is_active: boolean;
 };
 type SellingEntity = { id: string; code: string; name: string; address?: string; tax_code?: string; phone?: string };
 type Plan = {
@@ -680,7 +681,7 @@ export default function DeliveryPlanPage() {
 
       const [activeProducts, allCustomers, allEntities, allVehicles] = await Promise.all([
         fetchActiveProductCatalog(),
-        fetchAllRows<Customer>(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id, deleted_at").is("deleted_at", null)),
+        fetchAllRows<Customer>(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id, deleted_at, is_active").is("deleted_at", null)),
         fetchAllRows(supabase.from("selling_entities").select("id, code, name, address, tax_code, phone").is("deleted_at", null)),
         fetchAllRows(supabase.from("vehicles").select("*").eq("is_active", true).order("license_plate")),
       ]);
@@ -1471,7 +1472,7 @@ export default function DeliveryPlanPage() {
     try {
       const [latestActiveProducts, latestCustomers, latestDayPlans] = await Promise.all([
         fetchActiveProductCatalog(),
-        fetchAllRows<Customer>(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id, deleted_at").is("deleted_at", null)),
+        fetchAllRows<Customer>(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id, deleted_at, is_active").is("deleted_at", null)),
         fetchAllRows<Plan>(
           supabase
             .from("delivery_plans")
@@ -1508,7 +1509,7 @@ export default function DeliveryPlanPage() {
       // không thể lọt qua dữ liệu cũ đang nằm trong modal.
       const [latestActiveProducts, latestCustomers, latestDayPlans] = await Promise.all([
         fetchActiveProductCatalog(),
-        fetchAllRows<Customer>(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id, deleted_at").is("deleted_at", null)),
+        fetchAllRows<Customer>(supabase.from("customers").select("id, code, name, address, tax_code, external_code, selling_entity_id, parent_customer_id, deleted_at, is_active").is("deleted_at", null)),
         fetchAllRows<Plan>(
           supabase
             .from("delivery_plans")
@@ -1637,7 +1638,7 @@ export default function DeliveryPlanPage() {
             const relatedCustomerIds = new Set<string>();
             if (p.customer_id) relatedCustomerIds.add(p.customer_id);
             customers.forEach(c => {
-              if (c.parent_customer_id === p.customer_id) relatedCustomerIds.add(c.id);
+              if (c.parent_customer_id === p.customer_id && c.is_active !== false) relatedCustomerIds.add(c.id);
             });
             plans.forEach(pl => {
               if (pl.product_id === p.id && pl.delivery_customer_id) relatedCustomerIds.add(pl.delivery_customer_id);
@@ -1697,7 +1698,7 @@ export default function DeliveryPlanPage() {
       const vendorIdsWithPlans = new Set(pPlans.map(pl => pl.delivery_customer_id));
 
       // Các vendor thuộc quản lý của mẹ (auto-expand)
-      const childVendors = customers.filter(c => c.parent_customer_id === p.customer_id);
+      const childVendors = customers.filter(c => c.parent_customer_id === p.customer_id && c.is_active !== false);
 
       const combinedVendorIds = new Set([...vendorIdsWithPlans, ...childVendors.map(c => c.id)]);
 
@@ -2182,7 +2183,8 @@ export default function DeliveryPlanPage() {
                     const p = row.p;
                     const c = row.deliveryCustomerId ? customers.find(x => x.id === row.deliveryCustomerId) : customers.find(x => x.id === p.customer_id);
                     const isParentRow = row.deliveryCustomerId === null;
-                    const hasVendors = customers.some(x => x.parent_customer_id === p.customer_id);
+                    const hasVendors = customers.some(x => x.parent_customer_id === p.customer_id && x.is_active !== false)
+                      || plans.some(plan => plan.product_id === p.id && plan.delivery_customer_id !== null);
 
                     // Nhận diện cả dòng có planned_qty > 0 LẪN dòng chỉ có backlog_qty > 0 (nợ từ ngày trước)
                     const todayPlans = plans.filter(pl =>

@@ -19,6 +19,7 @@ type Customer = {
   tax_code: string | null;
   external_code: string | null;
   parent_customer_id: string | null; // NEW: null = Công ty Mẹ
+  is_active: boolean;
 };
 
 type SellingEntity = {
@@ -149,7 +150,7 @@ export default function CustomersPage() {
       setProfile(p as Profile);
       setCanAdmin(adminResult === true);
 
-      const { data, error: e2 } = await supabase.from("customers").select("*").is("deleted_at", null).order("code");
+      const { data, error: e2 } = await supabase.from("customers").select("*").is("deleted_at", null).eq("is_active", true).order("code");
       if (e2) throw e2;
       setRows((data ?? []) as Customer[]);
 
