@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { formatUserError } from "@/lib/user-error";
+import { formatUserError, getErrorMessage } from "@/lib/user-error";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
@@ -40,6 +40,7 @@ export default function CustomersPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [canAdmin, setCanAdmin] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
 
@@ -76,7 +77,7 @@ export default function CustomersPage() {
     return formatDateTimeVN(d);
   }
 
-  const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
+  const isManager = canAdmin || (profile?.role === "manager" && profile?.department === "warehouse");
 
   // ---- Tree structure ----
   const { parents, vendorsByParent } = useMemo(() => {
@@ -124,7 +125,7 @@ export default function CustomersPage() {
   }
 
   function openEdit(c: Customer) {
-    if (profile?.role !== "admin") { showToast("Chỉ Admin mới có quyền sửa", "error"); return; }
+    if (!canAdmin) { showToast("Chỉ Admin mới có quyền sửa", "error"); return; }
     setEditing(c);
     setCode(c.code); setName(c.name); setAddress(c.address || "");
     setTaxCode(c.tax_code || ""); setExternalCode(c.external_code || "");
@@ -138,10 +139,15 @@ export default function CustomersPage() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) { window.location.href = "/login"; return; }
 
-      const { data: p, error: e1 } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle();
+      const [{ data: p, error: e1 }, { data: adminResult, error: adminError }] = await Promise.all([
+        supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle(),
+        supabase.rpc("is_admin"),
+      ]);
       if (e1) throw e1;
+      if (adminError) throw adminError;
       if (!p) throw new Error("Profile not found");
       setProfile(p as Profile);
+      setCanAdmin(adminResult === true);
 
       const { data, error: e2 } = await supabase.from("customers").select("*").is("deleted_at", null).order("code");
       if (e2) throw e2;
@@ -149,8 +155,8 @@ export default function CustomersPage() {
 
       const { data: entData } = await supabase.from("selling_entities").select("id, code, name").is("deleted_at", null).order("code");
       setEntities((entData ?? []) as SellingEntity[]);
-    } catch (err: any) {
-      setError(err?.message ?? "Có lỗi xảy ra");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Có lỗi xảy ra"));
     } finally {
       setLoading(false);
     }
@@ -184,41 +190,44 @@ export default function CustomersPage() {
 
       setOpen(false);
       await load();
-    } catch (err: any) {
-      setError(err?.message ?? "Lỗi khi lưu");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Lỗi khi lưu"));
     }
   }
 
   async function del(c: Customer) {
-    if (!isManager) { showToast("Bạn không có quyền xóa", "error"); return; }
-    const ok = await showConfirm({ message: `Xóa khách hàng ${c.code}? (Sẽ xóa luôn các vendor con nếu có)`, danger: true, confirmLabel: "Xóa" });
+    if (!canAdmin) { showToast("Chỉ Admin mới có quyền ngừng khách hàng / Vendor.", "error"); return; }
+    const label = c.parent_customer_id ? "Vendor" : "khách hàng";
+    const ok = await showConfirm({
+      message: `Ngừng dùng ${label} ${c.code}? Dòng này sẽ biến mất khỏi danh sách chọn mới nhưng lịch sử không bị xóa. Nếu đang được kế hoạch, kho hoặc công nợ sử dụng, database sẽ chặn.`,
+      danger: true,
+      confirmLabel: "Ngừng dùng",
+    });
     if (!ok) return;
     try {
-      const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("customers")
-        .update({ deleted_at: new Date().toISOString(), deleted_by: u.user?.id ?? null })
-        .or(`id.eq.${c.id},parent_customer_id.eq.${c.id}`);
+      const { error } = await supabase.rpc("admin_deactivate_customers_v1", { p_customer_ids: [c.id] });
       if (error) throw error;
-      showToast("Đã xoá khách hàng thành công", "success");
+      showToast(`Đã ngừng dùng ${label} ${c.code}. Lịch sử vẫn được giữ.`, "success");
       await load();
-    } catch (err: any) { setError(err?.message ?? "Lỗi khi xóa"); }
+    } catch (err: unknown) { setError(getErrorMessage(err, "Lỗi khi ngừng")); }
   }
 
   async function bulkDelete() {
-    if (!isManager || selectedIds.size === 0) return;
-    const ok = await showConfirm({ message: `Xóa ${selectedIds.size} khách hàng đã chọn? (Sẽ xóa luôn các vendor con nếu có)`, danger: true, confirmLabel: "Xóa" });
+    if (!canAdmin || selectedIds.size === 0) return;
+    const selectedCount = selectedIds.size;
+    const ok = await showConfirm({
+      message: `Ngừng dùng ${selectedCount} khách hàng / Vendor đã chọn? Lịch sử không bị xóa. Nếu một dòng đang được sử dụng, toàn bộ lần này sẽ dừng và không dòng nào thay đổi.`,
+      danger: true,
+      confirmLabel: "Ngừng dùng",
+    });
     if (!ok) return;
     try {
-      const { data: u } = await supabase.auth.getUser();
-      const csv = Array.from(selectedIds).join(",");
-      const { error } = await supabase.from("customers")
-        .update({ deleted_at: new Date().toISOString(), deleted_by: u.user?.id ?? null })
-        .or(`id.in.(${csv}),parent_customer_id.in.(${csv})`);
+      const { error } = await supabase.rpc("admin_deactivate_customers_v1", { p_customer_ids: Array.from(selectedIds) });
       if (error) throw error;
       setSelectedIds(new Set());
-      showToast(`Đã xóa ${selectedIds.size} tải khoản / vendor.`, "success");
+      showToast(`Đã ngừng dùng ${selectedCount} khách hàng / Vendor. Lịch sử vẫn được giữ.`, "success");
       await load();
-    } catch (err: any) { setError(err?.message ?? "Lỗi khi xóa"); }
+    } catch (err: unknown) { setError(getErrorMessage(err, "Lỗi khi ngừng")); }
   }
 
   function handleExportExcel() {
@@ -262,8 +271,8 @@ export default function CustomersPage() {
           <button onClick={() => openCreate()} className="btn btn-primary">+ Thêm khách hàng</button>
           <button onClick={handleExportExcel} className="btn btn-secondary"><FileSpreadsheet size={16} strokeWidth={2.4} /> Xuất Excel</button>
           <button onClick={load} className="btn btn-secondary">Làm mới</button>
-          {isManager && selectedIds.size > 0 && (
-            <button onClick={bulkDelete} className="btn btn-danger">Xóa đã chọn ({selectedIds.size})</button>
+          {canAdmin && selectedIds.size > 0 && (
+            <button onClick={bulkDelete} className="btn btn-danger">Ngừng đã chọn ({selectedIds.size})</button>
           )}
         </div>
       </div>
@@ -285,7 +294,7 @@ export default function CustomersPage() {
         <table className="data-table !border-separate !border-spacing-0" style={{ minWidth: 860 }}>
           <thead>
             <tr>
-              {isManager && (
+              {canAdmin && (
                 <th style={{ width: 44, textAlign: "center", position: "sticky", top: 0, left: 0, zIndex: 102, background: "white", borderBottom: "1px solid #e2e8f0" }}>
                   <input type="checkbox" className="rounded text-brand"
                     checked={parents.length > 0 && parents.every(r => selectedIds.has(r.id))}
@@ -318,7 +327,7 @@ export default function CustomersPage() {
               return [
                 // --- Parent Row ---
                 <tr key={`parent-${parent.id}`} className={`group transition-colors ${isSel ? "bg-emerald-50" : "bg-white hover:bg-emerald-50/30"}`}>
-                  {isManager && (
+                  {canAdmin && (
                     <td className="py-3 px-3 text-center sticky left-0 z-10 bg-inherit">
                       <input type="checkbox" checked={isSel} className="rounded text-indigo-600 border-slate-300 w-4 h-4"
                         onChange={e => { const n = new Set(selectedIds); if (e.target.checked) n.add(parent.id); else n.delete(parent.id); setSelectedIds(n); }}
@@ -359,10 +368,10 @@ export default function CustomersPage() {
                     <td className="py-3 px-3">
                       <div className="flex gap-1.5 items-center">
                         <button onClick={() => openCreate(parent.id)} title="Thêm Vendor con" className="w-7 h-7 flex items-center justify-center rounded-lg bg-violet-50 border border-violet-200 text-violet-600 hover:bg-violet-100 transition-all text-[12px]"><Plus size={14} strokeWidth={2.8} /></button>
-                        {profile?.role === "admin" && (
+                        {canAdmin && (
                           <button onClick={() => openEdit(parent)} className="px-2 py-1 bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-[10px] text-indigo-700 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all">Sửa</button>
                         )}
-                        <button onClick={() => del(parent)} className="px-2 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[10px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all">Xóa</button>
+                        {canAdmin && <button onClick={() => del(parent)} className="px-2 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[10px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all">Ngừng</button>}
                       </div>
                     </td>
                   )}
@@ -371,7 +380,7 @@ export default function CustomersPage() {
                 // --- Vendor Child Rows (expandable) ---
                 ...(isExpanded ? vendors.map(vendor => (
                   <tr key={`vendor-${vendor.id}`} className="group hover:bg-violet-50/30 transition-colors bg-slate-50/50">
-                    {isManager && (
+                    {canAdmin && (
                       <td className="py-2.5 px-3 text-center sticky left-0 z-10 bg-inherit">
                         <input type="checkbox" checked={selectedIds.has(vendor.id)} className="rounded text-violet-600 border-slate-300 w-4 h-4"
                           onChange={e => { const n = new Set(selectedIds); if (e.target.checked) n.add(vendor.id); else n.delete(vendor.id); setSelectedIds(n); }}
@@ -401,10 +410,10 @@ export default function CustomersPage() {
                     {isManager && (
                       <td className="py-2.5 px-3">
                         <div className="flex gap-1.5">
-                          {profile?.role === "admin" && (
+                          {canAdmin && (
                             <button onClick={() => openEdit(vendor)} className="px-2 py-1 bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-[10px] text-indigo-700 font-black uppercase rounded-lg transition-all">Sửa</button>
                           )}
-                          <button onClick={() => del(vendor)} className="px-2 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[10px] text-red-600 font-black uppercase rounded-lg transition-all">Xóa</button>
+                          {canAdmin && <button onClick={() => del(vendor)} className="px-2 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[10px] text-red-600 font-black uppercase rounded-lg transition-all">Ngừng</button>}
                         </div>
                       </td>
                     )}

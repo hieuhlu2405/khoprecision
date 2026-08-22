@@ -1,5 +1,16 @@
 # Handoff Du An
 
+## Cap nhat 2026-08-21 - Sua quyen Admin khi ngung Vendor
+
+- Nguyen nhan theo code: trang Khach hang/Vendor tu nhan Admin bang `profiles.role = admin`, trong khi database con cong nhan Super Admin qua `public.is_admin()`. Hai lop co the hieu khac nhau, nen tai khoan chu du an co quyen Admin o database van co the bi giao dien chan/bao sai quyen. Day la ket luan dua tren code, chua phai du lieu production.
+- Da sua `app/(protected)/customers/page.tsx`: giao dien hoi truc tiep `public.is_admin()`; nut `Xoa` doi thanh `Ngung`; ca ngung don va ngung nhieu dong deu goi mot RPC backend, khong cap nhat `deleted_at` truc tiep tu trinh duyet.
+- Da tao `supabase-sql/20260821_fix_admin_vendor_deactivation.sql`, DA CHAY LIVE thanh cong ngay 2026-08-23 theo xac nhan cua chu du an (`Success. No rows returned`). RPC `admin_deactivate_customers_v1(uuid[])` tu kiem tra Admin/Super Admin, khoa dong, xu ly ca danh sach trong mot giao dich, danh dau ngung va ghi audit. Neu mot Vendor/khach hang dang duoc ma hang, ke hoach, kho, chuyen xe, kiem ke, cong no hoac bang co khoa ngoai khac su dung thi database chan ca lan; khong dong nao bi thay doi.
+- SQL them trigger chan hard delete tren `customers`; `DROP TRIGGER` va `CREATE OR REPLACE FUNCTION` chi tao lai hang rao/cach database xu ly, khong xoa du lieu. File khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`.
+- Hau kiem chi doc `supabase-sql/20260821_audit_admin_vendor_deactivation_postfix.sql` DA CHAY LIVE thanh cong ngay 2026-08-23, ket qua `No rows returned`: RPC, trigger chan xoa cung, bang audit va quyen goi deu dat kiem tra.
+- `npm run build` pass ngay 2026-08-21. ESLint rieng trang Khach hang/Vendor khong co loi, con 3 canh bao cu (`colWidths`, `onResize`, directive thua). Quet SQL khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`; file hau kiem chi doc.
+- Backend da cai va hau kiem dat. Con can deploy web va test: (1) Admin/Super Admin ngung mot Vendor chua tung duoc dung, dong bien mat va audit co ghi; (2) thu Vendor da co ke hoach/lich su, database phai chan va du lieu khong doi; (3) Manager/Staff khong thay nut va goi thang RPC bi chan; (4) ngung nhieu dong co mot dong dang duoc dung thi tat ca rollback.
+- Chua test mobile bang browser/screenshot.
+
 ## Cap nhat 2026-08-11 - Autofocus bo loc da test OK va gop main
 
 - Chu du an da test preview nhanh `codex/delivery-filter-stable-focus` va xac nhan autofocus bo loc tai ca `Ke hoach giao hang` va `Canh bao thieu hang` da OK.
