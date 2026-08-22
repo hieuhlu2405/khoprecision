@@ -1,5 +1,12 @@
 # Handoff Du An
 
+## Cap nhat 2026-08-23 - Enter de loc tai Nhat ky giao hang
+
+- Da sua `app/(protected)/delivery-plan/log/page.tsx`: popup loc cot nay nhan phim Enter de ap dung bo loc va dong popup, dung cung luong voi nut `DONG Y`; nut `XOA` duoc dat ro la nut thuong de khong bi Enter kich hoat nham.
+- Khong sua SQL/backend, khong doc/ghi database, khong doi du lieu giao hang, ton kho, Da giao hay backlog. Rui ro mat du lieu/sai so lieu: thap; thay doi chi o thao tac loc tren giao dien.
+- Can test desktop sau deploy: mo tung bo loc cot, nhap gia tri va bam Enter; ket qua phai giong bam `DONG Y`.
+- Chua test mobile bang browser/screenshot theo yeu cau chu du an.
+
 ## Cap nhat 2026-08-23 - Cho ngung Vendor khi con ke hoach dang giao
 
 - Chu du an test lai production sau ban 20260823 va backend bao con dung 1 ke hoach phai giao, cac rang buoc khac deu 0. Quyen Admin va viec tach lich su da hoat dong dung; hang rao ke hoach van chat hon nhu cau ngung Vendor.

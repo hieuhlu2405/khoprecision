@@ -775,7 +775,14 @@ export default function DeliveryLogPage() {
             <div onMouseDown={startResizing} className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-500/50 transition-colors z-20" />
             
             {isOpen && (
-              <div className="absolute top-[calc(100%+4px)] right-0 z-[100] bg-white border border-slate-200 shadow-2xl rounded-xl p-4 min-w-[220px]" onClick={e => e.stopPropagation()}>
+              <form
+                className="absolute top-[calc(100%+4px)] right-0 z-[100] bg-white border border-slate-200 shadow-2xl rounded-xl p-4 min-w-[220px]"
+                onClick={e => e.stopPropagation()}
+                onSubmit={e => {
+                  e.preventDefault();
+                  setOpenPopupId(null);
+                }}
+              >
                 <div className="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest">Lọc cột: {label}</div>
                 <select 
                   className="select select-bordered select-sm w-full mb-3 text-xs" 
@@ -802,10 +809,10 @@ export default function DeliveryLogPage() {
                   })}
                 />
                 <div className="flex justify-end gap-2">
-                   <button className="btn btn-ghost btn-xs text-[10px] font-bold" onClick={() => { setColFilters(p => { const n = {...p}; delete n[colKey]; return n; }); setOpenPopupId(null); }}>XÓA</button>
-                   <button className="btn btn-primary btn-xs text-[10px] font-bold" onClick={() => setOpenPopupId(null)}>ĐỒNG Ý</button>
+                   <button type="button" className="btn btn-ghost btn-xs text-[10px] font-bold" onClick={() => { setColFilters(p => { const n = {...p}; delete n[colKey]; return n; }); setOpenPopupId(null); }}>XÓA</button>
+                   <button type="submit" className="btn btn-primary btn-xs text-[10px] font-bold">ĐỒNG Ý</button>
                 </div>
-              </div>
+              </form>
             )}
           </div>
         </th>
