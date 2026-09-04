@@ -318,6 +318,138 @@ export function exportToExcel(data: any[], filename: string, sheetName: string =
   });
 }
 
+export type ShipmentLogExcelRow = {
+  stt: number;
+  shipmentNo: string;
+  shipmentDate: Date;
+  customers: string;
+  skuCount: number;
+  totalQty: number;
+  totalValue: number;
+  licensePlate: string;
+  drivers: string;
+  assistants: string;
+  note: string;
+  correctionStatus: string;
+  latestCorrectionReason: string;
+};
+
+export async function exportShipmentLogExcel(
+  rows: ShipmentLogExcelRow[],
+  filename: string,
+  subtitle: string
+) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "PP";
+  workbook.created = new Date();
+
+  const worksheet = workbook.addWorksheet("Nhật ký giao hàng");
+  const headers = [
+    "STT",
+    "Số phiếu",
+    "Ngày xuất",
+    "Khách hàng / Vendor",
+    "Số mã hàng",
+    "Tổng số lượng",
+    "Tổng giá trị (VND)",
+    "Biển số",
+    "Tài xế",
+    "Phụ xe",
+    "Ghi chú",
+    "Điều chỉnh",
+    "Lý do điều chỉnh gần nhất",
+  ];
+  const widths = [7, 18, 13, 32, 13, 16, 20, 16, 26, 26, 30, 18, 38];
+  const lastColumn = headers.length;
+  const thinBorder: Partial<ExcelJS.Borders> = {
+    top: { style: "thin", color: { argb: "FFD7DEE8" } },
+    left: { style: "thin", color: { argb: "FFD7DEE8" } },
+    bottom: { style: "thin", color: { argb: "FFD7DEE8" } },
+    right: { style: "thin", color: { argb: "FFD7DEE8" } },
+  };
+
+  worksheet.mergeCells(1, 1, 1, lastColumn);
+  const titleCell = worksheet.getCell(1, 1);
+  titleCell.value = "NHẬT KÝ GIAO HÀNG";
+  titleCell.font = { name: "Arial", size: 16, bold: true, color: { argb: "FFFFFFFF" } };
+  titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } };
+  titleCell.alignment = { horizontal: "center", vertical: "middle" };
+  worksheet.getRow(1).height = 28;
+
+  worksheet.mergeCells(2, 1, 2, lastColumn);
+  const subtitleCell = worksheet.getCell(2, 1);
+  subtitleCell.value = safeExcelValue(subtitle);
+  subtitleCell.font = { name: "Arial", size: 10, italic: true, color: { argb: "FF475569" } };
+  subtitleCell.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+  worksheet.getRow(2).height = 24;
+
+  const headerRow = worksheet.getRow(4);
+  headerRow.values = headers;
+  headerRow.height = 28;
+  headerRow.eachCell(cell => {
+    cell.font = { name: "Arial", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    cell.border = thinBorder;
+  });
+
+  rows.forEach((item, index) => {
+    const row = worksheet.addRow([
+      item.stt,
+      safeExcelValue(item.shipmentNo),
+      item.shipmentDate,
+      safeExcelValue(item.customers),
+      item.skuCount,
+      item.totalQty,
+      item.totalValue,
+      safeExcelValue(item.licensePlate),
+      safeExcelValue(item.drivers),
+      safeExcelValue(item.assistants),
+      safeExcelValue(item.note),
+      safeExcelValue(item.correctionStatus),
+      safeExcelValue(item.latestCorrectionReason),
+    ]);
+    row.height = 24;
+    row.eachCell((cell, columnNumber) => {
+      cell.font = { name: "Arial", size: 10, color: { argb: "FF0F172A" } };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: index % 2 === 0 ? "FFFFFFFF" : "FFF8FAFC" },
+      };
+      cell.border = thinBorder;
+      cell.alignment = {
+        horizontal: [1, 5, 6, 7].includes(columnNumber) ? "right" : "left",
+        vertical: "middle",
+        wrapText: [4, 9, 10, 11, 12, 13].includes(columnNumber),
+      };
+    });
+    row.getCell(5).numFmt = "#,##0";
+    row.getCell(3).numFmt = "dd/mm/yyyy";
+    row.getCell(6).numFmt = "#,##0.##";
+    row.getCell(7).numFmt = "#,##0";
+  });
+
+  worksheet.columns.forEach((column, index) => {
+    column.width = widths[index];
+  });
+  worksheet.views = [{ state: "frozen", ySplit: 4 }];
+  worksheet.autoFilter = {
+    from: { row: 4, column: 1 },
+    to: { row: 4 + rows.length, column: lastColumn },
+  };
+  worksheet.pageSetup = {
+    orientation: "landscape",
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+    paperSize: 9,
+  };
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  saveAs(new Blob([buffer]), normalizeExcelFilename(filename));
+}
+
 export async function exportDeliveryFuturePlanMatrixExcel(
   rows: {
     customerName: string;

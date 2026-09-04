@@ -3,10 +3,10 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
-import { exportTemplateBundle, type TemplateExportFile } from "@/lib/excel-utils";
+import { exportShipmentLogExcel, exportTemplateBundle, type ShipmentLogExcelRow, type TemplateExportFile } from "@/lib/excel-utils";
 import { fetchAllRows } from "@/lib/supabase-fetch-all";
 import { getErrorMessage } from "@/lib/user-error";
-import { ArrowUpDown, Check, CircleDollarSign, FileText, Filter, PencilLine, Plus, Printer, Save, Search, ScrollText, Trash2, Truck, UserRound, X } from "lucide-react";
+import { ArrowUpDown, Check, CircleDollarSign, FileSpreadsheet, FileText, Filter, PencilLine, Plus, Printer, Save, Search, ScrollText, Trash2, Truck, UserRound, X } from "lucide-react";
 
 type ShipmentLog = {
   id: string;
@@ -92,15 +92,69 @@ const fetchQuantityAdjustments = async (baseTransactionIds: string[]) => {
   for (let index = 0; index < baseTransactionIds.length; index += 150) {
     chunks.push(baseTransactionIds.slice(index, index + 150));
   }
-  const rows = await Promise.all(chunks.map(ids => fetchAllRows<CorrectionAdjustment>(
-    supabase
-      .from("inventory_transactions")
-      .select("id, adjusted_from_transaction_id, tx_type, qty")
-      .in("adjusted_from_transaction_id", ids)
-      .is("deleted_at", null)
-      .order("id")
-  )));
-  return rows.flat();
+  const rows: CorrectionAdjustment[] = [];
+  for (let index = 0; index < chunks.length; index += 5) {
+    const batchRows = await Promise.all(chunks.slice(index, index + 5).map(ids => fetchAllRows<CorrectionAdjustment>(
+      supabase
+        .from("inventory_transactions")
+        .select("id, adjusted_from_transaction_id, tx_type, qty")
+        .in("adjusted_from_transaction_id", ids)
+        .is("deleted_at", null)
+        .order("id")
+    )));
+    rows.push(...batchRows.flat());
+  }
+  return rows;
+};
+
+const enrichShipmentLogs = async (rawLogs: ShipmentLog[]) => {
+  const baseLogs = rawLogs.map(log => ({
+    ...log,
+    inventory_transactions: (log.inventory_transactions || []).filter(
+      tx => tx.tx_type === "out" && !tx.adjusted_from_transaction_id
+    ),
+  }));
+  const baseTransactionIds = baseLogs.flatMap(log => (log.inventory_transactions || []).map(tx => tx.id));
+  const quantityAdjustments = await fetchQuantityAdjustments(baseTransactionIds);
+  const adjustmentByBase = new Map<string, number>();
+  quantityAdjustments.forEach(adjustment => {
+    const signedQty = adjustment.tx_type === "adjust_in" ? Number(adjustment.qty) : -Number(adjustment.qty);
+    adjustmentByBase.set(
+      adjustment.adjusted_from_transaction_id,
+      (adjustmentByBase.get(adjustment.adjusted_from_transaction_id) || 0) + signedQty
+    );
+  });
+
+  const effectiveLogs = baseLogs.map(log => ({
+    ...log,
+    inventory_transactions: (log.inventory_transactions || []).map(tx => ({
+      ...tx,
+      qty: Number(tx.qty) + (adjustmentByBase.get(tx.id) || 0),
+    })),
+  }));
+
+  const auditRows: CorrectionAuditRow[] = [];
+  const shipmentIds = effectiveLogs.map(log => log.id);
+  for (let index = 0; index < shipmentIds.length; index += 150) {
+    const { data } = await supabase
+      .from("shipment_item_correction_audit")
+      .select("shipment_id, reason, corrected_at")
+      .in("shipment_id", shipmentIds.slice(index, index + 150))
+      .order("corrected_at", { ascending: false });
+    auditRows.push(...((data || []) as CorrectionAuditRow[]));
+  }
+
+  const auditsByShipment = new Map<string, { reason: string; corrected_at: string }[]>();
+  auditRows.forEach(row => {
+    const rows = auditsByShipment.get(row.shipment_id) || [];
+    rows.push({ reason: row.reason, corrected_at: row.corrected_at });
+    auditsByShipment.set(row.shipment_id, rows);
+  });
+
+  return effectiveLogs.map(log => ({
+    ...log,
+    shipment_item_correction_audit: auditsByShipment.get(log.id) || [],
+  }));
 };
 
 const vndFormatter = new Intl.NumberFormat("vi-VN", {
@@ -138,6 +192,10 @@ export default function DeliveryLogPage() {
   
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const [exportExcelOpen, setExportExcelOpen] = useState(false);
+  const [exportStartDate, setExportStartDate] = useState(getTodayVN());
+  const [exportEndDate, setExportEndDate] = useState(getTodayVN());
   const [limit, setLimit] = useState(100);
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState("");
@@ -229,42 +287,7 @@ export default function DeliveryLogPage() {
       const { data, error } = await query;
       if (error) throw error;
 
-      const baseLogs = ((data || []) as ShipmentLog[]).map(log => ({
-        ...log,
-        inventory_transactions: (log.inventory_transactions || []).filter(tx => tx.tx_type === "out" && !tx.adjusted_from_transaction_id),
-      }));
-      const baseTransactionIds = baseLogs.flatMap(log => (log.inventory_transactions || []).map(tx => tx.id));
-      const quantityAdjustments = await fetchQuantityAdjustments(baseTransactionIds);
-      const adjustmentByBase = new Map<string, number>();
-      quantityAdjustments.forEach(adjustment => {
-        const signedQty = adjustment.tx_type === "adjust_in" ? Number(adjustment.qty) : -Number(adjustment.qty);
-        adjustmentByBase.set(adjustment.adjusted_from_transaction_id, (adjustmentByBase.get(adjustment.adjusted_from_transaction_id) || 0) + signedQty);
-      });
-      const effectiveLogs = baseLogs.map(log => ({
-        ...log,
-        inventory_transactions: (log.inventory_transactions || []).map(tx => ({
-          ...tx,
-          qty: Number(tx.qty) + (adjustmentByBase.get(tx.id) || 0),
-        })),
-      }));
-      let auditRows: CorrectionAuditRow[] = [];
-      if (effectiveLogs.length > 0) {
-        const { data: auditData } = await supabase
-          .from("shipment_item_correction_audit")
-          .select("shipment_id, reason, corrected_at")
-          .in("shipment_id", effectiveLogs.map(log => log.id))
-          .order("corrected_at", { ascending: false });
-        auditRows = (auditData || []) as CorrectionAuditRow[];
-      }
-
-      const auditsByShipment = new Map<string, { reason: string; corrected_at: string }[]>();
-      auditRows.forEach(row => {
-        const rows = auditsByShipment.get(row.shipment_id) || [];
-        rows.push({ reason: row.reason, corrected_at: row.corrected_at });
-        auditsByShipment.set(row.shipment_id, rows);
-      });
-
-      setLogs(effectiveLogs.map(log => ({ ...log, shipment_item_correction_audit: auditsByShipment.get(log.id) || [] })));
+      setLogs(await enrichShipmentLogs((data || []) as ShipmentLog[]));
       setHasMore((data || []).length === currentLimit);
     } catch (err: unknown) {
       showToast(getErrorMessage(err, "Không thể tải nhật ký giao hàng."), "error");
@@ -900,6 +923,85 @@ export default function DeliveryLogPage() {
 
   const selectedLogs = useMemo(() => logs.filter(log => selectedIds.has(log.id)), [logs, selectedIds]);
   const allVisibleSelected = finalLogs.length > 0 && finalLogs.every(log => selectedIds.has(log.id));
+  const handleExportExcel = async () => {
+    if (exportingExcel) return;
+    if (!exportStartDate || !exportEndDate) {
+      showToast("Vui lòng chọn đủ Từ ngày và Đến ngày.", "warning");
+      return;
+    }
+    if (exportStartDate > exportEndDate) {
+      showToast("Từ ngày phải nhỏ hơn hoặc bằng Đến ngày.", "warning");
+      return;
+    }
+    setExportingExcel(true);
+    try {
+      const rawExportLogs = await fetchAllRows<ShipmentLog>(
+        supabase
+          .from("shipment_logs")
+          .select(`
+            *,
+            inventory_transactions(id, customer_id, product_id, qty, unit_cost, tx_type, adjusted_from_transaction_id)
+          `)
+          .is("deleted_at", null)
+          .gte("shipment_date", exportStartDate)
+          .lte("shipment_date", exportEndDate)
+          .order("shipment_date", { ascending: true })
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+      );
+      const exportLogs = await enrichShipmentLogs(rawExportLogs);
+      if (exportLogs.length === 0) {
+        showToast("Không có chuyến giao hàng nào trong khoảng ngày đã chọn.", "warning");
+        return;
+      }
+
+      const rows: ShipmentLogExcelRow[] = exportLogs.map((log, index) => {
+        const txs = log.inventory_transactions || [];
+        const customerIds = Array.from(new Set([log.customer_id, ...txs.map(tx => tx.customer_id)])).filter(Boolean);
+        const customerLabels = customerIds.map(customerId => {
+          const customer = customers.find(item => item.id === customerId);
+          if (!customer) return "Không rõ khách";
+          return [customer.code, customer.name].filter(Boolean).join(" - ");
+        });
+        const vehicle = vehicles.find(item => item.id === log.vehicle_id);
+        const drivers = [log.driver_1_name_snapshot, log.driver_2_name_snapshot].filter(Boolean);
+        const assistants = [log.assistant_1_name_snapshot, log.assistant_2_name_snapshot].filter(Boolean);
+        const corrections = log.shipment_item_correction_audit || [];
+
+        return {
+          stt: index + 1,
+          shipmentNo: log.shipment_no,
+          shipmentDate: new Date(`${log.shipment_date}T00:00:00`),
+          customers: customerLabels.join("; "),
+          skuCount: new Set(txs.map(tx => tx.product_id)).size,
+          totalQty: txs.reduce((sum, tx) => sum + (Number(tx.qty) || 0), 0),
+          totalValue: getShipmentValue(log),
+          licensePlate: vehicle?.license_plate || "",
+          drivers: drivers.join(", ") || log.driver_info || "",
+          assistants: assistants.join(", "),
+          note: log.note || "",
+          correctionStatus: corrections.length > 0 ? `Đã điều chỉnh ${corrections.length} lần` : "Chưa điều chỉnh",
+          latestCorrectionReason: corrections[0]?.reason || "",
+        };
+      });
+      const exportedAt = new Intl.DateTimeFormat("vi-VN", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        dateStyle: "short",
+        timeStyle: "short",
+      }).format(new Date());
+      await exportShipmentLogExcel(
+        rows,
+        `Nhat_ky_giao_hang_${exportStartDate.replaceAll("-", "")}_den_${exportEndDate.replaceAll("-", "")}`,
+        `Từ ${exportStartDate.split("-").reverse().join("/")} đến ${exportEndDate.split("-").reverse().join("/")} • Xuất lúc ${exportedAt} • ${rows.length} chuyến`
+      );
+      setExportExcelOpen(false);
+      showToast(`Đã xuất đủ ${rows.length} chuyến từ ${exportStartDate.split("-").reverse().join("/")} đến ${exportEndDate.split("-").reverse().join("/")}.`, "success");
+    } catch (error: unknown) {
+      showToast(getErrorMessage(error, "Không thể xuất Nhật ký giao hàng ra Excel."), "error");
+    } finally {
+      setExportingExcel(false);
+    }
+  };
   const toggleSelectAll = () => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -933,6 +1035,16 @@ export default function DeliveryLogPage() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
+          <button
+            type="button"
+            onClick={() => setExportExcelOpen(true)}
+            disabled={loading || exportingExcel || bulkAction !== null}
+            className="btn min-h-11 w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white border-none font-black disabled:opacity-50"
+            title="Chọn khoảng ngày và xuất đầy đủ Nhật ký giao hàng"
+          >
+            <FileSpreadsheet size={17} strokeWidth={2.5} />
+            {exportingExcel ? "ĐANG XUẤT..." : "XUẤT EXCEL"}
+          </button>
           {selectedIds.size > 0 && (
             <div className="flex flex-col sm:flex-row gap-2">
               <button
@@ -955,6 +1067,76 @@ export default function DeliveryLogPage() {
           )}
         </div>
       </div>
+
+      {exportExcelOpen && (
+        <div
+          className="fixed inset-0 z-[1300] bg-slate-950/60 backdrop-blur-sm p-0 sm:p-6 flex items-end sm:items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="export-excel-title"
+          onPointerDown={event => {
+            if (event.target === event.currentTarget && !exportingExcel) setExportExcelOpen(false);
+          }}
+        >
+          <div className="w-full sm:max-w-lg max-h-[92dvh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-200">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-start justify-between gap-3">
+              <div>
+                <h2 id="export-excel-title" className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <FileSpreadsheet size={20} className="text-emerald-600" /> Xuất Nhật ký giao hàng
+                </h2>
+                <p className="mt-1 text-xs font-bold text-slate-500">File lấy đủ mọi chuyến trong khoảng ngày, không phụ thuộc danh sách đang hiển thị.</p>
+              </div>
+              <button
+                type="button"
+                className="w-11 h-11 shrink-0 rounded-xl hover:bg-slate-200 flex items-center justify-center"
+                disabled={exportingExcel}
+                onClick={() => setExportExcelOpen(false)}
+                aria-label="Đóng cửa sổ xuất Excel"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="min-w-0">
+                <span className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-2">Từ ngày</span>
+                <input
+                  type="date"
+                  className="input input-bordered w-full min-h-12 text-base"
+                  value={exportStartDate}
+                  max={getTodayVN()}
+                  disabled={exportingExcel}
+                  onChange={event => setExportStartDate(event.target.value)}
+                />
+              </label>
+              <label className="min-w-0">
+                <span className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-2">Đến ngày</span>
+                <input
+                  type="date"
+                  className="input input-bordered w-full min-h-12 text-base"
+                  value={exportEndDate}
+                  min={exportStartDate || undefined}
+                  max={getTodayVN()}
+                  disabled={exportingExcel}
+                  onChange={event => setExportEndDate(event.target.value)}
+                />
+              </label>
+            </div>
+
+            <div className="px-4 sm:px-6 py-4 border-t border-slate-200 bg-white flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <button type="button" className="btn min-h-11" disabled={exportingExcel} onClick={() => setExportExcelOpen(false)}>Hủy</button>
+              <button
+                type="button"
+                className="btn min-h-11 bg-emerald-600 hover:bg-emerald-700 text-white border-none font-black"
+                disabled={exportingExcel || !exportStartDate || !exportEndDate}
+                onClick={handleExportExcel}
+              >
+                <FileSpreadsheet size={17} /> {exportingExcel ? "ĐANG LẤY ĐỦ DỮ LIỆU..." : "XUẤT EXCEL"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Table */}
       <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/20 overflow-hidden">
