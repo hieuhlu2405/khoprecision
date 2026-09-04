@@ -671,3 +671,225 @@ export async function exportDeliveryDraftExcel(
   const buffer = await workbook.xlsx.writeBuffer();
   saveAs(new Blob([buffer]), `${filename}.xlsx`);
 }
+
+export type SalesDebtReconciliationExcelRow = {
+  rowId: string;
+  deliveryDate: string;
+  shipmentNo: string;
+  deliveryPointCode: string;
+  deliveryPointName: string;
+  productName: string;
+  internalCode: string;
+  sapCode: string;
+  unitPrice: number | null;
+  deliveredQty: number;
+  lineTotal: number | null;
+  priceSource: "saved" | "missing";
+  entityId: string | null;
+  entityCode: string;
+  entityName: string;
+};
+
+type SalesDebtReconciliationExport = {
+  rows: SalesDebtReconciliationExcelRow[];
+  customerCode: string;
+  customerName: string;
+  customerAddress: string;
+  startDate: string;
+  endDate: string;
+};
+
+function excelDateFromISO(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) throw new Error("Ngày giao không hợp lệ.");
+  return new Date(year, month - 1, day);
+}
+
+function excelDateLabel(value: string) {
+  const [year, month, day] = value.split("-");
+  return year && month && day ? `${day}-${month}-${year}` : value;
+}
+
+function safeWorksheetName(value: string, usedNames: Set<string>) {
+  const base = (value || "Bảng kê")
+    .replace(/[\\/*?:[\]]/g, "-")
+    .trim()
+    .slice(0, 31) || "Bảng kê";
+  let name = base;
+  let index = 2;
+  while (usedNames.has(name)) {
+    const suffix = `-${index++}`;
+    name = `${base.slice(0, 31 - suffix.length)}${suffix}`;
+  }
+  usedNames.add(name);
+  return name;
+}
+
+export async function exportSalesDebtReconciliationExcel({
+  rows,
+  customerCode,
+  customerName,
+  customerAddress,
+  startDate,
+  endDate,
+}: SalesDebtReconciliationExport) {
+  if (rows.length === 0) throw new Error("Bảng kê không có dữ liệu để xuất.");
+  if (rows.some(row => row.priceSource === "missing" || row.unitPrice === null || row.unitPrice <= 0 || row.lineTotal === null)) {
+    throw new Error("Bảng kê còn dòng thiếu đơn giá đã lưu lúc giao.");
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Precision Packaging";
+  workbook.created = new Date();
+
+  const groupedRows = new Map<string, SalesDebtReconciliationExcelRow[]>();
+  rows.forEach(row => {
+    const key = row.entityId || row.entityCode || "unknown";
+    groupedRows.set(key, [...(groupedRows.get(key) || []), row]);
+  });
+
+  const usedSheetNames = new Set<string>();
+  const headers = [
+    "STT",
+    "Ngày giao",
+    "Số phiếu giao",
+    "Điểm giao / Vendor",
+    "Tên hàng",
+    "Mã nội bộ",
+    "Mã SAP",
+    "Đơn giá",
+    "Số lượng giao",
+    "Thành tiền",
+  ];
+  const widths = [7, 14, 20, 28, 34, 22, 18, 18, 18, 20];
+  const thinBorder: Partial<ExcelJS.Borders> = {
+    top: { style: "thin", color: { argb: "FFD7DEE8" } },
+    left: { style: "thin", color: { argb: "FFD7DEE8" } },
+    bottom: { style: "thin", color: { argb: "FFD7DEE8" } },
+    right: { style: "thin", color: { argb: "FFD7DEE8" } },
+  };
+
+  for (const entityRows of groupedRows.values()) {
+    const first = entityRows[0];
+    const entityLabel = [first.entityCode, first.entityName].filter(Boolean).join(" - ") || "Chưa gán pháp nhân";
+    const worksheet = workbook.addWorksheet(safeWorksheetName(first.entityCode || "Bảng kê", usedSheetNames));
+    const lastColumn = headers.length;
+
+    worksheet.mergeCells(1, 1, 1, lastColumn);
+    const title = worksheet.getCell(1, 1);
+    title.value = "BẢNG KÊ ĐỐI CHIẾU CÔNG NỢ BÁN HÀNG";
+    title.font = { name: "Arial", size: 16, bold: true, color: { argb: "FFFFFFFF" } };
+    title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF047857" } };
+    title.alignment = { horizontal: "center", vertical: "middle" };
+    worksheet.getRow(1).height = 30;
+
+    const informationRows = [
+      `Pháp nhân bán hàng: ${entityLabel}`,
+      `Khách hàng: ${customerCode} - ${customerName}`,
+      `Địa chỉ: ${customerAddress || ""}`,
+      `Kỳ đối chiếu: Từ ${excelDateLabel(startDate)} đến ${excelDateLabel(endDate)}`,
+    ];
+    informationRows.forEach((value, index) => {
+      const rowNumber = index + 2;
+      worksheet.mergeCells(rowNumber, 1, rowNumber, lastColumn);
+      const cell = worksheet.getCell(rowNumber, 1);
+      cell.value = safeExcelValue(value);
+      cell.font = { name: "Arial", size: 10, bold: index < 2, color: { argb: "FF334155" } };
+      cell.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+      worksheet.getRow(rowNumber).height = 20;
+    });
+
+    const headerRowNumber = 7;
+    const headerRow = worksheet.getRow(headerRowNumber);
+    headerRow.values = headers;
+    headerRow.height = 30;
+    headerRow.eachCell(cell => {
+      cell.font = { name: "Arial", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+      cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+      cell.border = thinBorder;
+    });
+
+    entityRows.forEach((item, index) => {
+      const deliveryPoint = [item.deliveryPointCode, item.deliveryPointName].filter(Boolean).join(" - ");
+      const row = worksheet.addRow([
+        index + 1,
+        excelDateFromISO(item.deliveryDate),
+        safeExcelValue(item.shipmentNo),
+        safeExcelValue(deliveryPoint),
+        safeExcelValue(item.productName),
+        safeExcelValue(item.internalCode),
+        safeExcelValue(item.sapCode),
+        item.unitPrice,
+        item.deliveredQty,
+        item.lineTotal,
+      ]);
+      row.height = 24;
+      row.eachCell((cell, columnNumber) => {
+        cell.font = { name: "Arial", size: 10, color: { argb: "FF0F172A" } };
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: index % 2 === 0 ? "FFFFFFFF" : "FFF8FAFC" },
+        };
+        cell.border = thinBorder;
+        cell.alignment = {
+          horizontal: [1, 2, 8, 9, 10].includes(columnNumber) ? "right" : "left",
+          vertical: "middle",
+          wrapText: [3, 4, 5].includes(columnNumber),
+        };
+      });
+      row.getCell(2).numFmt = "dd-mm-yyyy";
+      row.getCell(8).numFmt = "#,##0";
+      row.getCell(9).numFmt = "#,##0.##";
+      row.getCell(10).numFmt = "#,##0";
+    });
+
+    const totalRow = worksheet.addRow([
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      "TỔNG CỘNG",
+      null,
+      entityRows.reduce((sum, row) => sum + row.deliveredQty, 0),
+      entityRows.reduce((sum, row) => sum + (row.lineTotal || 0), 0),
+    ]);
+    worksheet.mergeCells(totalRow.number, 1, totalRow.number, 8);
+    totalRow.getCell(1).value = "TỔNG CỘNG";
+    totalRow.height = 28;
+    totalRow.eachCell(cell => {
+      cell.font = { name: "Arial", size: 11, bold: true, color: { argb: "FF064E3B" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD1FAE5" } };
+      cell.border = thinBorder;
+      cell.alignment = { horizontal: "right", vertical: "middle" };
+    });
+    totalRow.getCell(9).numFmt = "#,##0.##";
+    totalRow.getCell(10).numFmt = "#,##0";
+
+    worksheet.columns.forEach((column, index) => {
+      column.width = widths[index];
+    });
+    worksheet.views = [{ state: "frozen", ySplit: headerRowNumber }];
+    worksheet.autoFilter = {
+      from: { row: headerRowNumber, column: 1 },
+      to: { row: headerRowNumber + entityRows.length, column: lastColumn },
+    };
+    worksheet.pageSetup = {
+      orientation: "landscape",
+      paperSize: 9,
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      horizontalCentered: true,
+      printTitlesRow: `1:${headerRowNumber}`,
+    };
+  }
+
+  const safeCustomerCode = (customerCode || "KH").replace(/[\\/:*?"<>|]/g, "-");
+  const filename = `Bang_ke_cong_no_ban_hang_${safeCustomerCode}_${startDate.replaceAll("-", "")}_den_${endDate.replaceAll("-", "")}`;
+  const buffer = await workbook.xlsx.writeBuffer();
+  saveAs(new Blob([buffer]), normalizeExcelFilename(filename));
+}

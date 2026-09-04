@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
@@ -10,6 +11,7 @@ import {
   CalendarClock,
   CheckCircle2,
   CircleDollarSign,
+  FileSpreadsheet,
   FilePenLine,
   FileText,
   Landmark,
@@ -910,6 +912,9 @@ export default function AccountingPage() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
+          <Link className="btn min-h-11 bg-emerald-600 hover:bg-emerald-700 text-white border-none font-black" href="/accounting/sales-reconciliation">
+            <FileSpreadsheet size={16} strokeWidth={2.4} /> Bảng kê bán hàng
+          </Link>
           <button className="btn btn-secondary" onClick={load}>
             <RefreshCw size={16} strokeWidth={2.4} /> Làm mới
           </button>

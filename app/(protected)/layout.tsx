@@ -69,6 +69,7 @@ const REPORT_ROUTE_PREFIXES = [
   "/inventory/report-history",
   "/vehicles/report",
   "/sales-command-center",
+  "/accounting",
 ];
 
 function hasReportAccess(p: Profile, isAdmin: boolean) {
@@ -612,7 +613,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                 );
               }
 
-              const isActive = pathname === m.href;
+              const isActive = pathname === m.href || (m.href === "/accounting" && pathname.startsWith("/accounting/"));
 
               return (
                 <Link

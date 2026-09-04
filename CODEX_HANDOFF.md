@@ -867,3 +867,15 @@ Luu y:
 - Khong cleanup SQL cu trong luc dang theo doi tinh nang moi.
 - Khong sua tiep luong chot no/huy no neu production dang on.
 - Khong claim an toan 100% neu chua co them log/test production sau vai ngay.
+
+## Cap nhat 2026-09-04 - Bang ke doi chieu cong no ban hang theo khach hang
+
+- Da tao nhanh phu `codex/sales-debt-reconciliation` de chu du an test; khong dua cac file local dang do cua dot truoc vao commit.
+- Da them man hinh `app/(protected)/accounting/sales-reconciliation/page.tsx` va nut vao tu trang Cong no. Admin/Ke toan chon khach hang, Tu ngay, Toi ngay, xem chi tiet giao hang va xuat Excel. Ngay giao tren web va Excel deu dung dang `dd-mm-yyyy`.
+- Bang va Excel co Ten hang, Ma noi bo, Ma SAP, Don gia, So luong giao, Ngay giao, Thanh tien, Tong tien; them So phieu, Diem giao/Vendor va Phap nhan de truy nguoc khi lech. Neu mot ky co nhieu phap nhan, file Excel tach thanh nhieu sheet.
+- So lieu chi lay giao dich xuat co gan ke hoach, gom chuyen xe va xuat nhanh; bo phieu/dong da huy mem; tinh so sau dieu chinh theo quy tac hien tai `goc + adjust_in - adjust_out`. Don gia chi dung `inventory_transactions.unit_cost` da luu luc giao. Neu thieu/0 gia, web canh bao va khoa xuat Excel de tranh sai tien.
+- Da tao `supabase-sql/20260904_create_sales_debt_reconciliation_report.sql`, CHUA CHAY LIVE. SQL chi tao/thay function doc bao cao `sales_debt_reconciliation_report_v1`, tu kiem tra quyen Admin/Ke toan; khong sua giao dich kho, ke hoach, hoa don hay cong no. Co `CREATE OR REPLACE FUNCTION`, `REVOKE/GRANT`; khong co `DROP TABLE`, `DROP COLUMN`, `DELETE FROM`, `TRUNCATE`, `DROP TRIGGER`.
+- Da tao hau kiem chi doc `supabase-sql/20260904_audit_sales_debt_reconciliation_report_postfix.sql`, CHUA CHAY LIVE. Sau khi cai backend, ket qua dung la `No rows returned`.
+- `npm run build` pass truoc khi sua va pass sau khi sua ngay 2026-09-04; route `/accounting/sales-reconciliation` duoc tao thanh cong. ESLint trang moi pass; cac loi con lai nam o dong cu cua trang Cong no, layout va bo Excel.
+- Can test sau khi chay SQL va deploy nhanh phu: Admin/Ke toan vao duoc, role khac bi chan; chon khach + ngay; doi chieu chuyen thuong, xuat nhanh, chuyen da dieu chinh, phieu da huy, Vendor; kiem tra ngay `dd-mm-yyyy`, tong tien va file nhieu sheet neu co nhieu phap nhan. Chua test mobile bang browser/screenshot.
+- Day la ket luan dua tren code, chua phai du lieu production. Chua chay SQL va khong sua du lieu production.
