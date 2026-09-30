@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
 import { exportShipmentLogExcel, exportTemplateBundle, type ShipmentLogExcelRow, type TemplateExportFile } from "@/lib/excel-utils";
 import { fetchAllRows } from "@/lib/supabase-fetch-all";
-import { getErrorMessage } from "@/lib/user-error";
+import { formatUserError, getErrorMessage } from "@/lib/user-error";
 import { ArrowUpDown, Check, CircleDollarSign, FileSpreadsheet, FileText, Filter, PencilLine, Plus, Printer, Save, Search, ScrollText, Trash2, Truck, UserRound, X } from "lucide-react";
 
 type ShipmentLog = {
@@ -108,12 +108,26 @@ const fetchQuantityAdjustments = async (baseTransactionIds: string[]) => {
 };
 
 const enrichShipmentLogs = async (rawLogs: ShipmentLog[]) => {
-  const baseLogs = rawLogs.map(log => ({
-    ...log,
-    inventory_transactions: (log.inventory_transactions || []).filter(
-      tx => tx.tx_type === "out" && !tx.adjusted_from_transaction_id
-    ),
-  }));
+  // Avoid the embedded relationship: it times out on the growing transaction table.
+  // Page each small group independently so trips with many lines are never truncated.
+  type BaseTransaction = NonNullable<ShipmentLog["inventory_transactions"]>[number] & { shipment_id: string };
+  const transactionsByShipment = new Map<string, BaseTransaction[]>();
+  for (let index = 0; index < rawLogs.length; index += 25) {
+    const transactions = await fetchAllRows<BaseTransaction>(supabase
+      .from("inventory_transactions")
+      .select("id, shipment_id, customer_id, product_id, qty, unit_cost, tx_type, adjusted_from_transaction_id")
+      .in("shipment_id", rawLogs.slice(index, index + 25).map(log => log.id))
+      .eq("tx_type", "out")
+      .is("adjusted_from_transaction_id", null)
+      .is("deleted_at", null)
+      .order("id"));
+    transactions.forEach(tx => {
+      const rows = transactionsByShipment.get(tx.shipment_id) || [];
+      rows.push(tx);
+      transactionsByShipment.set(tx.shipment_id, rows);
+    });
+  }
+  const baseLogs = rawLogs.map(log => ({ ...log, inventory_transactions: transactionsByShipment.get(log.id) || [] }));
   const baseTransactionIds = baseLogs.flatMap(log => (log.inventory_transactions || []).map(tx => tx.id));
   const quantityAdjustments = await fetchQuantityAdjustments(baseTransactionIds);
   const adjustmentByBase = new Map<string, number>();
@@ -192,6 +206,8 @@ export default function DeliveryLogPage() {
   
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const logRequestId = useRef(0);
   const [exportingExcel, setExportingExcel] = useState(false);
   const [exportExcelOpen, setExportExcelOpen] = useState(false);
   const [exportStartDate, setExportStartDate] = useState(getTodayVN());
@@ -265,35 +281,51 @@ export default function DeliveryLogPage() {
   }, [showToast]);
 
   const fetchLogs = useCallback(async (currentLimit: number, isInitial = false) => {
+    const requestId = ++logRequestId.current;
     if (isInitial) setLoading(true);
     else setLoadingMore(true);
+    setLoadError(null);
     
     try {
       let query = supabase
         .from("shipment_logs")
-        .select(`
-          *,
-          inventory_transactions(id, customer_id, product_id, qty, unit_cost, tx_type, adjusted_from_transaction_id)
-        `)
+        .select("*")
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
-        .limit(currentLimit);
+        .order("id", { ascending: false });
 
       if (search) {
         // Since we can't join-search easily with local aggregation, we keep searching shipment fields
-        query = query.or(`shipment_no.ilike.%${search}%,driver_1_name_snapshot.ilike.%${search}%,driver_2_name_snapshot.ilike.%${search}%`);
+        const pattern = JSON.stringify(`%${search}%`);
+        query = query.or(`shipment_no.ilike.${pattern},driver_1_name_snapshot.ilike.${pattern},driver_2_name_snapshot.ilike.${pattern}`);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      const data: ShipmentLog[] = [];
+      for (let offset = 0; offset < currentLimit; offset += 100) {
+        if (requestId !== logRequestId.current) return;
+        const size = Math.min(100, currentLimit - offset);
+        const page = await query.range(offset, offset + size - 1);
+        if (page.error) throw page.error;
+        data.push(...((page.data || []) as ShipmentLog[]));
+        if (!page.data || page.data.length < size) break;
+      }
 
-      setLogs(await enrichShipmentLogs((data || []) as ShipmentLog[]));
-      setHasMore((data || []).length === currentLimit);
+      if (requestId !== logRequestId.current) return;
+      const enriched = await enrichShipmentLogs(data);
+      if (requestId !== logRequestId.current) return;
+      setLogs(enriched);
+      setHasMore(data.length === currentLimit);
     } catch (err: unknown) {
-      showToast(getErrorMessage(err, "Không thể tải nhật ký giao hàng."), "error");
+      if (requestId !== logRequestId.current) return;
+      console.error("delivery-log.load", err);
+      const message = formatUserError(err, "Không thể tải nhật ký giao hàng.");
+      setLoadError(message);
+      showToast(message, "error");
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      if (requestId === logRequestId.current) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
   }, [search, showToast]);
 
@@ -302,7 +334,11 @@ export default function DeliveryLogPage() {
   }, [loadBaseData]);
 
   useEffect(() => {
-    fetchLogs(limit, true);
+    const timer = setTimeout(() => { void fetchLogs(limit, true); }, 300);
+    return () => {
+      clearTimeout(timer);
+      logRequestId.current += 1;
+    };
   }, [search, limit, fetchLogs]);
 
   useEffect(() => {
@@ -938,10 +974,7 @@ export default function DeliveryLogPage() {
       const rawExportLogs = await fetchAllRows<ShipmentLog>(
         supabase
           .from("shipment_logs")
-          .select(`
-            *,
-            inventory_transactions(id, customer_id, product_id, qty, unit_cost, tx_type, adjusted_from_transaction_id)
-          `)
+          .select("*")
           .is("deleted_at", null)
           .gte("shipment_date", exportStartDate)
           .lte("shipment_date", exportEndDate)
@@ -1032,7 +1065,7 @@ export default function DeliveryLogPage() {
               placeholder="Tìm Số phiếu, Biển số..."
               className="input input-bordered input-sm pl-4 w-full sm:w-80 font-bold text-xs rounded-xl focus:ring-2 focus:ring-indigo-500/20 border-slate-200"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => { setSearch(e.target.value); setLimit(100); }}
             />
           </div>
           <button
@@ -1067,6 +1100,15 @@ export default function DeliveryLogPage() {
           )}
         </div>
       </div>
+
+      {loadError && (
+        <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <p className="font-bold">Chưa tải được nhật ký giao hàng.</p>
+          <p className="whitespace-pre-line break-words mt-1">{loadError}</p>
+          {logs.length > 0 && <p className="mt-1">Danh sách bên dưới là lần tải trước, chưa cập nhật.</p>}
+          <button type="button" className="btn min-h-11 mt-3 w-full sm:w-auto" disabled={loading || loadingMore} onClick={() => { void fetchLogs(limit, true); }}>TẢI LẠI</button>
+        </div>
+      )}
 
       {exportExcelOpen && (
         <div
@@ -1158,6 +1200,8 @@ export default function DeliveryLogPage() {
             <tbody className="divide-y divide-slate-100">
               {loading && logs.length === 0 ? (
                 <tr><td colSpan={7} className="py-20 text-center text-slate-400 font-bold">Đang tải dữ liệu...</td></tr>
+              ) : loadError && logs.length === 0 ? (
+                <tr><td colSpan={7} className="py-20 text-center text-red-600 font-bold">Tải dữ liệu bị lỗi. Bấm TẢI LẠI ở trên để thử lại.</td></tr>
               ) : finalLogs.length === 0 ? (
                 <tr><td colSpan={7} className="py-20 text-center text-slate-300 font-bold italic">Không tìm thấy chuyến hàng nào.</td></tr>
               ) : (

@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback, useRef, type CSSProperties, 
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/lib/supabaseClient";
 import { useUI } from "@/app/context/UIContext";
+import { formatUserError } from "@/lib/user-error";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowDown,
@@ -573,6 +574,7 @@ export default function DeliveryPlanPage() {
   const [tripCountAlert, setTripCountAlert] = useState<number>(0);
   const [shipmentEntityId, setShipmentEntityId] = useState<string>("");
   const [shipmentProcessing, setShipmentProcessing] = useState(false);
+  const shipmentSubmitInFlight = useRef(false);
 
   // Tab state: 'plan' | 'history'
   const [activeTab, setActiveTab] = useState<'plan' | 'history'>('plan');
@@ -912,23 +914,6 @@ export default function DeliveryPlanPage() {
 
     setShipmentProcessing(true);
     try {
-      const currD = getVNTimeNow();
-      const qStart = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-01`;
-      const qEnd = `${currD.getFullYear()}-${String(currD.getMonth() + 1).padStart(2, "0")}-${String(currD.getDate()).padStart(2, "0")}`;
-      const { data: ops } = await supabase.from("inventory_opening_balances").select("*").lte("period_month", qEnd + "T23:59:59.999Z").is("deleted_at", null);
-      const computedBounds = computeSnapshotBounds(qStart, qEnd, ops || []);
-      const baselineDate = computedBounds.S || qStart;
-      const endPlus1 = new Date(qEnd);
-      endPlus1.setDate(endPlus1.getDate() + 1);
-      const nextD = `${endPlus1.getFullYear()}-${String(endPlus1.getMonth() + 1).padStart(2, "0")}-${String(endPlus1.getDate()).padStart(2, "0")}`;
-      const stockRows = await fetchAllRpcRows<ProductStockRpcRow>(supabase.rpc("inventory_calculate_product_stock_v1", {
-        p_baseline_date: baselineDate,
-        p_movements_start_date: computedBounds.effectiveStart,
-        p_movements_end_date: nextD,
-      }));
-      const stockMap: Record<string, number> = {};
-      (stockRows || []).forEach((r: any) => { stockMap[r.product_id] = (stockMap[r.product_id] || 0) + Number(r.current_qty); });
-
       const items: ShipmentItem[] = [];
       for (const planId of selectedPlanIds) {
         const plan = plans.find(p => p.id === planId);
@@ -1015,7 +1000,8 @@ export default function DeliveryPlanPage() {
   };
 
   const submitShipment = async () => {
-    const invalidItems = shipmentItems.filter(it => !it.actual || Number(it.actual) <= 0);
+    if (shipmentSubmitInFlight.current) return;
+    const invalidItems = shipmentItems.filter(it => !it.actual || !Number.isFinite(Number(it.actual)) || Number(it.actual) <= 0);
     if (invalidItems.length > 0) {
       showToast(`Còn ${invalidItems.length} mã hàng chưa nhập số lượng thực tế.`, "warning");
       return;
@@ -1025,7 +1011,9 @@ export default function DeliveryPlanPage() {
       return;
     }
 
+    shipmentSubmitInFlight.current = true;
     setShipmentProcessing(true);
+    let shipmentStage = "Kiểm tra tồn kho";
     try {
       // --- BỘ KIỂM TRA TỔNG THỂ (PRE-CHECK) ---
       // Lấy tồn kho hiện tại
@@ -1076,6 +1064,7 @@ export default function DeliveryPlanPage() {
         ? resolvePlanOwnerCustomerId(firstPlan, firstProduct, firstDeliveryCustomer)
         : null;
 
+      shipmentStage = "Tạo chuyến hàng";
       const { data, error } = await supabase.rpc("shipment_outbound_delivery", {
         p_payload: payload,
         p_customer_id: custId,
@@ -1093,15 +1082,16 @@ export default function DeliveryPlanPage() {
 
       const shipmentNo = data?.shipment_no || "";
       showToast(`Tạo chuyến hàng ${shipmentNo} thành công!`, "success");
-
-      await exportShipmentExcel(shipmentItems, shipmentNo);
-
       setShipmentModalOpen(false);
       setSelectedPlanIds(new Set());
-      loadData();
-    } catch (err: any) {
-      showToast(err.message, "error");
+      void loadData();
+      shipmentStage = `Chuyến ${shipmentNo} đã tạo, nhưng xuất file`;
+      await exportShipmentExcel(shipmentItems, shipmentNo);
+    } catch (err: unknown) {
+      console.error("delivery-plan.submit-shipment", { stage: shipmentStage, error: err });
+      showToast(`${shipmentStage}: ${formatUserError(err)}`, "error");
     } finally {
+      shipmentSubmitInFlight.current = false;
       setShipmentProcessing(false);
     }
   };

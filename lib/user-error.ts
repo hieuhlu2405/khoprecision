@@ -33,6 +33,9 @@ function vietnameseMessage(raw: string): string {
   if (/failed to fetch|networkerror|network request failed|load failed/i.test(message)) {
     return "Không kết nối được máy chủ.";
   }
+  if (/canceling statement due to statement timeout|statement timeout|query timeout|timed out/i.test(message)) {
+    return "Máy chủ xử lý quá lâu nên yêu cầu bị ngắt.";
+  }
   if (/jwt|session|not authenticated|đăng nhập|dang nhap/i.test(message)) {
     return "Phiên đăng nhập đã hết hoặc không hợp lệ.";
   }
@@ -64,6 +67,7 @@ function vietnameseMessage(raw: string): string {
 }
 
 function guidanceFor(message: string): string {
+  if (/xử lý quá lâu|quá thời gian/i.test(message)) return "Tải lại trang để kiểm tra kết quả. Nếu vừa tạo phiếu, kiểm tra Nhật ký trước khi tạo lại để tránh trùng. Nếu vẫn lỗi, báo Admin kèm thời điểm thao tác.";
   if (/kết nối|máy chủ/i.test(message)) return "Kiểm tra mạng rồi thử lại.";
   if (/đăng nhập|phiên/i.test(message)) return "Đăng nhập lại rồi thử lại.";
   if (/không có quyền|tài khoản/i.test(message)) return "Liên hệ Admin để được cấp quyền.";
