@@ -9,6 +9,8 @@ import { exportToExcel } from "@/lib/excel-utils";
 import { formatDateTimeVN, getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { fetchAllRows } from "@/lib/supabase-fetch-all";
+import { ReceiptSourceField } from "@/app/components/inventory/ReceiptSourceField";
+import { listReceiptSuppliers, loadReceiptMetadata, loadReceiptAdjustments, receiptSourceLabel, receiptCreatorLabel, receiptErrorMessage, receiptRequestId, type ReceiptSourceFields, type ReceiptSupplier, type ReceiptSourceChoice, type ReceiptRequest } from "@/lib/inventory-receipts";
 import { ArrowUpDown, Edit3, FileSpreadsheet, Filter, Save, Search, Trash2, Wrench, X } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -31,7 +33,7 @@ type Customer = {
   name: string;
 };
 
-type InboundTx = {
+type InboundTx = ReceiptSourceFields & {
   id: string;
   tx_date: string;
   customer_id: string | null;
@@ -52,7 +54,7 @@ type InboundTx = {
   hasAdjs?: boolean;
 };
 
-type AdjTx = {
+type AdjTx = ReceiptSourceFields & {
   id: string;
   tx_date: string;
   tx_type: string;
@@ -322,6 +324,15 @@ export default function InventoryInboundPage() {
     { key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }
   ]);
   const [saving, setSaving] = useState(false);
+  const [suppliers, setSuppliers] = useState<ReceiptSupplier[]>([]);
+  const [receiptsReady, setReceiptsReady] = useState(false);
+  const [source, setSource] = useState<ReceiptSourceChoice>({ kind: "", supplierId: "" });
+  const [editSource, setEditSource] = useState<ReceiptSourceChoice>({ kind: "", supplierId: "" });
+  const [sourceReason, setSourceReason] = useState("");
+  const mutationRef = useRef(false);
+  const createRequestRef = useRef<ReceiptRequest>(null);
+  const adjustmentRequestRef = useRef<ReceiptRequest>(null);
+  const sourceReady = receiptsReady && (source.kind === "factory" || (source.kind === "supplier" && !!source.supplierId));
 
   /* ---- single-row edit form state ---- */
   const [editOpen, setEditOpen] = useState(false);
@@ -337,12 +348,15 @@ export default function InventoryInboundPage() {
   /* ---- adjustment form state ---- */
   const [adjOpen, setAdjOpen] = useState(false);
   const [adjBaseTx, setAdjBaseTx] = useState<InboundTx | null>(null);
-  const [aType, setAType] = useState<"adjust_in" | "adjust_out">("adjust_in");
   const [aDate, setADate] = useState(getTodayVNStr());
   const [aCurrentBaseQty, setACurrentBaseQty] = useState(0);
   const [aTargetQty, setATargetQty] = useState("");
   const [aCost, setACost] = useState("");
   const [aNote, setANote] = useState("");
+
+  const createDraftFingerprint = JSON.stringify([hDate, hNote, source.kind, source.supplierId, lines.map(line => [line.productId, line.qty, line.unitCost, line.note])]);
+  useEffect(() => { createRequestRef.current = null; }, [createDraftFingerprint]);
+  useEffect(() => { adjustmentRequestRef.current = null; }, [aDate, aTargetQty, aCost, aNote]);
 
   // ---- Table Header Filters & Sorting ----
   const [colFilters, setColFilters] = useState<Record<string, ColFilter>>({});
@@ -370,7 +384,7 @@ export default function InventoryInboundPage() {
   function customerLabel(customerId: string | null): string {
     if (!customerId) return "";
     const c = customers.find((x) => x.id === customerId);
-    return c ? `${c.code} - ${c.name}` : "";
+    return c?.code || "";
   }
 
   function getAdjustments(rowId: string) {
@@ -415,7 +429,9 @@ export default function InventoryInboundPage() {
       list = list.filter(
         (r) =>
           r.product_name_snapshot.toLowerCase().includes(s) ||
-          skuFor(r).toLowerCase().includes(s)
+          skuFor(r).toLowerCase().includes(s) ||
+          receiptSourceLabel(r).toLowerCase().includes(s) ||
+          receiptCreatorLabel(r).toLowerCase().includes(s)
       );
     }
     if (qDate) {
@@ -436,6 +452,7 @@ export default function InventoryInboundPage() {
       case "name": return r.product_name_snapshot;
       case "spec": return r.product_spec_snapshot || "";
       case "note": return r.note || "";
+      case "source": return receiptSourceLabel(r);
     }
     return "";
   }
@@ -459,7 +476,7 @@ export default function InventoryInboundPage() {
     let result = [...baseFiltered];
 
     for (const [key, f] of Object.entries(colFilters)) {
-      if (["customer", "sku", "name", "spec", "note"].includes(key)) {
+      if (["customer", "sku", "name", "spec", "note", "source"].includes(key)) {
         result = result.filter(r => passesTextFilter(textVal(r, key), f as TextFilter));
       } else if (["qty", "price"].includes(key)) {
         result = result.filter(r => passesNumFilter(numVal(r, key), f as NumFilter));
@@ -472,7 +489,7 @@ export default function InventoryInboundPage() {
       const dir = sortDir === "asc" ? 1 : -1;
       result.sort((a, b) => {
         let va: string | number | null = null, vb: string | number | null = null;
-        if (["customer", "sku", "name", "spec", "note"].includes(sortCol)) {
+        if (["customer", "sku", "name", "spec", "note", "source"].includes(sortCol)) {
           va = textVal(a, sortCol).toLowerCase();
           vb = textVal(b, sortCol).toLowerCase();
         } else if (["qty", "price"].includes(sortCol)) {
@@ -487,6 +504,7 @@ export default function InventoryInboundPage() {
         if (vb == null && va != null) return 1 * dir;
         if (va != null && vb != null) {
           if (va < vb) return -1 * dir;
+          if (va > vb) return 1 * dir;
         }
         return 0;
       });
@@ -528,6 +546,8 @@ export default function InventoryInboundPage() {
   };
 
   /* ---- Table Header Cell Component ---- */
+  const tableWidth = 40 + ([["date", 110], ["customer", 180], ["sku", 140], ["name", 250], ["spec", 160], ["qty", 100], ["source", 180], ["price", 110], ["note", 200], ["createdAt", 200], ["actions", 120]] as [string, number][]).reduce((sum, [key, fallback]) => sum + (colWidths[key] || fallback), 0);
+
   function ThCell({ label, colKey, sortable, filterable = true, colType, align, w, extra }: {
     label: string; colKey: string; sortable: boolean; filterable?: boolean; colType: "text" | "num" | "date";
     align?: "left" | "right" | "center"; w?: string; extra?: React.CSSProperties;
@@ -633,6 +653,8 @@ export default function InventoryInboundPage() {
 
   /* ---- multi-line form helpers ---- */
   function resetCreateForm() {
+    setSource({ kind: "", supplierId: "" });
+    createRequestRef.current = null;
     setHDate(getTodayVNStr());
     setHNote("");
     setLines([{ key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }]);
@@ -642,7 +664,7 @@ export default function InventoryInboundPage() {
     const hasData = lines.some(l => l.productId || l.qty) || hNote || hDate;
     if (hasData) {
       showConfirm({ message: "Dữ liệu phiếu nhập đang nhập dở sẽ bị mất. Bạn có chắc không?", confirmLabel: "Hủy phiếu ngay", danger: true }).then(ok => {
-        if (ok) setShowCreate(false);
+        if (ok) { setShowCreate(false); resetCreateForm(); }
       });
     } else {
       setShowCreate(false);
@@ -650,6 +672,8 @@ export default function InventoryInboundPage() {
   }
 
   function addLine() {
+    if (!sourceReady || mutationRef.current) return;
+    if (lines.length >= 100) return showToast("Mỗi lần nhập tối đa 100 dòng. Lưu phiếu này rồi nhập tiếp.", "info");
     setLines(p => [...p, { key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }]);
   }
 
@@ -673,15 +697,17 @@ export default function InventoryInboundPage() {
     setEQty(String(r.qty));
     setECost(r.unit_cost != null ? String(r.unit_cost) : "");
     setENote(r.note ?? "");
+    setEditSource({ kind: r.source_kind || "", supplierId: r.supplier_id || "" });
+    setSourceReason("");
     setEditOpen(true);
   }
 
   /* ---- adjustment helpers ---- */
   function openAdjustment(r: any) {
+    adjustmentRequestRef.current = null;
     setAdjBaseTx(r);
     setACurrentBaseQty(r.finalQty);
     setATargetQty(String(r.finalQty));
-    setAType("adjust_in");
     setADate(getTodayVNStr());
     setACost("");
     setANote("");
@@ -692,48 +718,31 @@ export default function InventoryInboundPage() {
   const fetchIdRef = useRef(0);
 
   async function load() {
-    setError("");
-    setLoading(true);
+    setError(""); setLoading(true); setReceiptsReady(false);
     const thisFetchId = ++fetchIdRef.current;
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return window.location.href = "/login";
-
-      const { data: p, error: e1 } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle();
-      if (e1) throw e1;
-      if (thisFetchId !== fetchIdRef.current) return;
-      setProfile(p as Profile);
-
-      const [rP, rC] = await Promise.all([
-        supabase.from("products").select("id, sku, name, spec, customer_id, unit_price, is_active").is("deleted_at", null).order("sku"),
-        supabase.from("customers").select("id, code, name").is("deleted_at", null).order("code"),
+      const { data: p, error: profileError } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle();
+      if (profileError) throw profileError;
+      const [productRows, customerRows, supplierRows, txRows] = await Promise.all([
+        fetchAllRows<Product>(supabase.from("products").select("id, sku, name, spec, customer_id, unit_price, is_active").is("deleted_at", null).order("sku").order("id")),
+        fetchAllRows<Customer>(supabase.from("customers").select("id, code, name").order("code").order("id")),
+        listReceiptSuppliers(),
+        fetchAllRows<InboundTx>(supabase.from("inventory_transactions").select("*").eq("tx_type", "in").is("deleted_at", null)
+          .gte("tx_date", filterDateStart).lte("tx_date", `${filterDateEnd}T23:59:59.999Z`).order("tx_date", { ascending: false }).order("id")),
       ]);
-      if (rP.error) throw rP.error;
-      if (thisFetchId !== fetchIdRef.current) return;
-
-      const [txRows, adjTxRows] = await Promise.all([
-        fetchAllRows(
-          supabase.from("inventory_transactions").select("*").eq("tx_type", "in").is("deleted_at", null)
-            .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd)
-            .order("tx_date", { ascending: false })
-        ),
-        fetchAllRows(
-          supabase.from("inventory_transactions").select("*").in("tx_type", ["adjust_in", "adjust_out"]).not("adjusted_from_transaction_id", "is", null).is("deleted_at", null)
-            .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd)
-        ),
+      const [withMetadata, adjTxRows] = await Promise.all([
+        loadReceiptMetadata("inventory", txRows),
+        loadReceiptAdjustments<AdjTx>("inventory", txRows.map(row => row.id)),
       ]);
       if (thisFetchId !== fetchIdRef.current) return;
-
-      setProducts(rP.data || []);
-      setCustomers(rC.data || []);
-      setRows(txRows);
-      setAdjRows(adjTxRows);
-    } catch (err: any) {
+      setProfile(p as Profile); setProducts(productRows); setCustomers(customerRows); setSuppliers(supplierRows);
+      setRows(withMetadata); setAdjRows(adjTxRows); setSelectedIds(new Set()); setReceiptsReady(true);
+    } catch (err: unknown) {
       if (thisFetchId !== fetchIdRef.current) return;
-      setError(err?.message ?? "Có lỗi xảy ra");
-    } finally {
-      if (thisFetchId === fetchIdRef.current) setLoading(false);
-    }
+      setError(receiptErrorMessage(err));
+    } finally { if (thisFetchId === fetchIdRef.current) setLoading(false); }
   }
 
   useEffect(() => { load(); }, [filterDateStart, filterDateEnd]); // eslint-disable-line
@@ -741,170 +750,117 @@ export default function InventoryInboundPage() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F2" && showCreate) {
+      if (e.key === "F2" && showCreate && sourceReady && !saving) {
         e.preventDefault();
         addLine();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showCreate]);
+  }, [showCreate, sourceReady, saving, lines.length]);
 
   /* ---- business logic: save, edit, delete ---- */
-  async function saveMulti() {
-    if (!hDate) return showToast("Thiếu ngày nhập.", "error");
-    const valid = lines.filter(l => l.productId && l.qty);
-    if (valid.length === 0) return showToast("Vui lòng nhập ít nhất 1 dòng sản phẩm hợp lệ.", "error");
+  async function changeSource(next: ReceiptSourceChoice) {
+    if (mutationRef.current) return;
+    if (source.kind === next.kind && source.supplierId === next.supplierId) return;
+    if (lines.some(line => line.productId || line.productSearch || line.qty || line.unitCost || line.note)) {
+      const ok = await showConfirm({ message: "Đổi Nguồn sẽ áp dụng cho tất cả dòng đang nhập. Xác nhận dùng nguồn mới cho toàn bộ lần nhập này?", confirmLabel: "Đổi nguồn", cancelLabel: "Giữ nguồn cũ" });
+      if (!ok) return;
+    }
+    setSource(next);
+  }
+
+  function beginMutation(): boolean {
+    if (mutationRef.current) return false;
+    if (!receiptsReady) { showToast("Chưa tải đủ thông tin Nguồn. Vui lòng tải lại trang trước khi lưu.", "error"); return false; }
+    mutationRef.current = true;
     setSaving(true);
+    return true;
+  }
+
+  function endMutation() {
+    mutationRef.current = false;
+    setSaving(false);
+  }
+
+  async function saveMulti() {
+    if (!sourceReady) return showToast("Phải chọn Nguồn và nhà cung cấp (nếu có) trước khi nhập.", "error");
+    if (!hDate) return showToast("Thiếu ngày nhập.", "error");
+    const valid = lines.filter(line => line.productId || line.productSearch || line.qty || line.unitCost || line.note);
+    if (!valid.length) return showToast("Vui lòng nhập ít nhất một dòng sản phẩm.", "error");
+    if (valid.some(line => !line.productId || !line.qty || !Number.isFinite(Number(line.qty)) || Number(line.qty) <= 0 || (line.unitCost !== "" && (!Number.isFinite(Number(line.unitCost)) || Number(line.unitCost) < 0)))) {
+      return showToast("Mỗi dòng đã nhập phải có sản phẩm, số lượng lớn hơn 0 và đơn giá không âm. Hoàn thiện hoặc bỏ dòng còn thiếu trước khi lưu.", "error");
+    }
+    const payload = valid.map(line => ({ tx_date: hDate, product_id: line.productId, qty: Number(line.qty), unit_cost: line.unitCost ? Number(line.unitCost) : null, note: line.note || hNote || null, source_kind: source.kind, supplier_id: source.kind === "supplier" ? source.supplierId : null }));
+    if (!beginMutation()) return;
     try {
-      const rows = valid.map(l => {
-        const p = products.find(x => x.id === l.productId);
-        return {
-          tx_date: hDate,
-          customer_id: p?.customer_id,
-          product_id: l.productId,
-          qty: Number(l.qty),
-          unit_cost: l.unitCost ? Number(l.unitCost) : null,
-          note: l.note || hNote || null
-        };
-      });
-      const { error } = await supabase.rpc("inventory_create_manual_transactions", {
-        p_tx_type: "in",
-        p_rows: rows
-      });
+      const { error } = await supabase.rpc("inventory_create_receipts_v1", { p_kind: "inventory", p_rows: payload, p_request_id: receiptRequestId(createRequestRef, payload) });
       if (error) throw error;
       showToast("Đã lưu phiếu nhập kho!", "success");
       setShowCreate(false);
       resetCreateForm();
-      load();
-    } catch (err: any) {
-      showToast(err.message, "error");
-    } finally {
-      setSaving(false);
-    }
+      await load();
+    } catch (err: unknown) { showToast(receiptErrorMessage(err), "error"); }
+    finally { endMutation(); }
   }
 
   async function saveEdit() {
     if (!editing) return;
+    const sourceChanged = (editing.source_kind || "") !== editSource.kind || (editing.supplier_id || "") !== editSource.supplierId;
+    if ((!editSource.kind && editing.source_kind) || (editSource.kind === "supplier" && !editSource.supplierId)) return showToast("Vui lòng chọn đủ Nguồn.", "error");
+    if (sourceChanged && !sourceReason.trim()) return showToast("Nhập lý do thay đổi hoặc bổ sung Nguồn.", "error");
+    if (!eDate || !eProductId || !Number.isFinite(Number(eQty)) || Number(eQty) <= 0 || (eCost !== "" && (!Number.isFinite(Number(eCost)) || Number(eCost) < 0))) return showToast("Kiểm tra ngày, sản phẩm, số lượng lớn hơn 0 và đơn giá không âm.", "error");
+    if (!beginMutation()) return;
     try {
-      const { error } = await supabase.rpc("inventory_update_manual_transaction", {
-        p_transaction_id: editing.id,
-        p_tx_date: eDate,
-        p_product_id: eProductId,
-        p_qty: Number(eQty),
-        p_unit_cost: eCost ? Number(eCost) : null,
-        p_note: eNote || null,
-        p_delivery_customer_id: null
+      const { error } = await supabase.rpc("inventory_update_receipt_v1", {
+        p_kind: "inventory", p_transaction_id: editing.id, p_tx_date: eDate, p_product_id: eProductId,
+        p_qty: Number(eQty), p_unit_cost: eCost ? Number(eCost) : null, p_note: eNote || null,
+        p_source_kind: editSource.kind || null, p_supplier_id: editSource.kind === "supplier" ? editSource.supplierId : null, p_source_reason: sourceChanged ? sourceReason.trim() : null,
       });
       if (error) throw error;
       showToast("Đã cập nhật giao dịch!", "success");
       setEditOpen(false);
-      load();
-    } catch (err: any) {
-      showToast(err.message, "error");
-    }
+      await load();
+    } catch (err: unknown) { showToast(receiptErrorMessage(err), "error"); }
+    finally { endMutation(); }
   }
 
   async function saveAdjustment() {
     if (!adjBaseTx) return;
-    if (!aTargetQty || !aNote) return showToast("Vui lòng nhập đủ số lượng mục tiêu và lý do.", "error");
-    
     const target = Number(aTargetQty);
-    const diff = target - aCurrentBaseQty;
-    if (diff === 0) return showToast("Số lượng sau điều chỉnh phải khác số lượng hiện tại.", "info");
-
+    if (!aDate || aTargetQty === "" || !Number.isFinite(target) || target < 0 || !aNote.trim()) return showToast("Nhập ngày, số lượng mục tiêu không âm và lý do điều chỉnh.", "error");
+    if (aCost !== "" && (!Number.isFinite(Number(aCost)) || Number(aCost) < 0)) return showToast("Đơn giá không được âm.", "error");
+    if (target === aCurrentBaseQty) return showToast("Số lượng sau điều chỉnh phải khác số lượng hiện tại.", "info");
+    const payload = { p_kind: "inventory", p_transaction_id: adjBaseTx.id, p_target_qty: target, p_tx_date: aDate, p_unit_cost: aCost ? Number(aCost) : (adjBaseTx.unit_cost ?? null), p_note: aNote.trim() };
+    if (!beginMutation()) return;
     try {
-      const { error } = await supabase.rpc("inventory_adjust_manual_transaction", {
-        p_transaction_id: adjBaseTx.id,
-        p_target_qty: target,
-        p_tx_date: aDate,
-        p_unit_cost: aCost ? Number(aCost) : (adjBaseTx.unit_cost || null),
-        p_note: aNote
-      });
+      const { error } = await supabase.rpc("inventory_adjust_receipt_v1", { ...payload, p_request_id: receiptRequestId(adjustmentRequestRef, payload) });
       if (error) throw error;
-      showToast("Đã lưu giao dịch điều chỉnh!", "success");
+      showToast("Đã lưu điều chỉnh, giữ nguyên nguồn của phiếu gốc.", "success");
       setAdjOpen(false);
-      load();
-    } catch (err: any) {
-      showToast(err.message, "error");
-    }
+      await load();
+    } catch (err: unknown) { showToast(receiptErrorMessage(err), "error"); }
+    finally { endMutation(); }
   }
 
-  async function handleDelete(row: InboundTx) {
-    const effectiveQty = row.finalQty ?? row.qty;
-    const ok = await showConfirm({
-      message: [
-        "Hủy giao dịch nhập kho này?",
-        `Ngày: ${fmtDate(row.tx_date)}`,
-        `Mã hàng: ${skuFor(row)}`,
-        `Số lượng hiện tại: ${fmtNum(effectiveQty)}`,
-        `Tạo lúc: ${fmtDatetime(row.created_at)}`,
-        "",
-        "Giao dịch và các điều chỉnh liên quan sẽ được đánh dấu hủy; lịch sử vẫn được giữ lại.",
-      ].join("\n"),
-      confirmLabel: "Hủy giao dịch",
-      cancelLabel: "Quay lại",
-      danger: true,
-    });
-    if (!ok) return;
+  async function cancelReceipts(ids: string[]) {
+    if (!ids.length || mutationRef.current) return;
+    if (ids.length > 100) return showToast("Mỗi lần hủy tối đa 100 giao dịch. Vui lòng chọn ít dòng hơn.", "error");
+    const selectedRows = enrichedRows.filter(row => ids.includes(row.id));
+    const preview = selectedRows.slice(0, 5).map(row => `${fmtDate(row.tx_date)} · ${skuFor(row)} · ${fmtNum(row.finalQty)} · ${receiptSourceLabel(row)}`).join("\n");
+    const ok = await showConfirm({ message: `Hủy ${ids.length} giao dịch nhập kho?\n${preview}\nGiao dịch và tất cả điều chỉnh liên quan sẽ được đánh dấu hủy. Lịch sử vẫn được giữ lại; số tồn sẽ được tính lại.`, danger: true, confirmLabel: "Hủy giao dịch", cancelLabel: "Quay lại" });
+    if (!ok || !beginMutation()) return;
     try {
-      const { data, error } = await supabase.rpc("inventory_soft_delete_manual_transactions", {
-        p_transaction_ids: [row.id]
-      });
+      const { error } = await supabase.rpc("inventory_cancel_receipts_v1", { p_kind: "inventory", p_transaction_ids: ids });
       if (error) throw error;
-
-      const adjCount = Number((data as { soft_deleted_adjustment_count?: number } | null)?.soft_deleted_adjustment_count || 0);
-      const msg = adjCount > 0 
-        ? `Đã hủy 1 giao dịch và ${adjCount} bản điều chỉnh liên quan. Lịch sử vẫn được giữ lại.`
-        : "Đã hủy giao dịch. Lịch sử vẫn được giữ lại.";
-
-      showToast(msg, "info");
-      load();
-    } catch (err: any) {
-      showToast(err.message, "error");
-    }
+      showToast("Đã hủy giao dịch và các điều chỉnh liên quan. Lịch sử vẫn được giữ lại.", "success");
+      await load();
+    } catch (err: unknown) { showToast(receiptErrorMessage(err), "error"); }
+    finally { endMutation(); }
   }
 
-  async function bulkDelete() {
-    const ids = Array.from(selectedIds);
-    const selectedRows = enrichedRows.filter((row) => selectedIds.has(row.id));
-    const preview = selectedRows
-      .slice(0, 5)
-      .map((row) => `${fmtDate(row.tx_date)} · ${skuFor(row)} · ${fmtNum(row.finalQty ?? row.qty)} · ${fmtDatetime(row.created_at)}`)
-      .join("\n");
-    const remainingCount = Math.max(0, selectedRows.length - 5);
-    const ok = await showConfirm({
-      message: [
-        `Hủy ${ids.length} giao dịch nhập kho đã chọn?`,
-        "",
-        preview,
-        remainingCount > 0 ? `... và ${remainingCount} giao dịch khác.` : "",
-        "",
-        "Các giao dịch và điều chỉnh liên quan sẽ được đánh dấu hủy; lịch sử vẫn được giữ lại.",
-      ].filter(Boolean).join("\n"),
-      confirmLabel: `Hủy ${ids.length} giao dịch`,
-      cancelLabel: "Quay lại",
-      danger: true,
-    });
-    if (!ok) return;
-    try {
-      const { data, error } = await supabase.rpc("inventory_soft_delete_manual_transactions", {
-        p_transaction_ids: ids
-      });
-      if (error) throw error;
-
-      const adjCount = Number((data as { soft_deleted_adjustment_count?: number } | null)?.soft_deleted_adjustment_count || 0);
-      const msg = adjCount > 0 
-        ? `Đã hủy ${ids.length} giao dịch và ${adjCount} bản điều chỉnh liên quan. Lịch sử vẫn được giữ lại.`
-        : `Đã hủy ${ids.length} giao dịch. Lịch sử vẫn được giữ lại.`;
-
-      showToast(msg, "info");
-      setSelectedIds(new Set());
-      load();
-    } catch (err: any) {
-      showToast(err.message, "error");
-    }
-  }
+  async function handleDelete(row: InboundTx) { await cancelReceipts([row.id]); }
+  async function bulkDelete() { await cancelReceipts(Array.from(selectedIds)); }
 
   function handleExportExcel() {
     const data = finalFiltered.map((r, i) => {
@@ -919,10 +875,11 @@ export default function InventoryInboundPage() {
         "Tên hàng": r.product_name_snapshot,
         "Quy cách": r.product_spec_snapshot || "",
         "Số lượng": r.finalQty,
+        "Nguồn": receiptSourceLabel(r),
         "Đơn giá": finalPrice,
         "Thành tiền": amount,
         "Ghi chú": r.note || "",
-        "Tạo lúc": fmtDatetime(r.created_at)
+        "Tạo lúc": `${receiptCreatorLabel(r)} — ${fmtDatetime(r.created_at)}`
       };
     });
     exportToExcel(data, "LichSuNhapKho", "Lịch sử nhập kho");
@@ -938,8 +895,8 @@ export default function InventoryInboundPage() {
           <p className="page-description">Quản lý lịch sử nhập kho và điều chỉnh tồn kho tăng.</p>
         </div>
         <div style={{ display: "flex", gap: 12 }}>
-          {canCreate && (
-            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+          {canCreate && receiptsReady && (
+            <button className="btn btn-primary" onClick={() => { resetCreateForm(); setShowCreate(true); }}>
               + NHẬP KHO MỚI
             </button>
           )}
@@ -949,12 +906,18 @@ export default function InventoryInboundPage() {
         </div>
       </header>
 
+      <ErrorBanner message={error} onDismiss={() => setError("")} />
+      {!receiptsReady && !loading && <button onClick={load} className="btn btn-secondary mb-4">Tải lại dữ liệu</button>}
+
       {showCreate && (
         <div className="card shadow-lg entry-create-panel" style={{ marginBottom: 24, background: "white", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0" }}>
           <div className="entry-create-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
              <h2 style={{ fontSize: 18, fontWeight: 700 }}>Tạo phiếu nhập mới</h2>
-             <button onClick={handleCancelCreate} className="btn-icon"><X size={16} strokeWidth={2.5} /></button>
+             <button disabled={saving} onClick={handleCancelCreate} className="btn-icon"><X size={16} strokeWidth={2.5} /></button>
           </div>
+          <div className="mb-4"><ReceiptSourceField value={source} suppliers={suppliers} onChange={changeSource} disabled={saving || !receiptsReady} /></div>
+          {!sourceReady && <p className="mb-3 text-sm text-amber-700">Chọn đầy đủ Nguồn để mở phần nhập hàng.</p>}
+          <fieldset disabled={!sourceReady || saving} className="m-0 min-w-0 border-0 p-0 disabled:opacity-60">
           <div className="entry-header-grid" style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 20, marginBottom: 16 }}>
             <label style={{ display: "grid", gap: 6 }}>
               Ngày nhập *
@@ -1009,7 +972,7 @@ export default function InventoryInboundPage() {
                                 if (p.unit_price != null) updateLine(l.key, "unitCost", String(p.unit_price));
                               }}>
                                 <div style={{ fontWeight: 700 }}>{p.sku} - {p.name} {p.spec && <span style={{ fontWeight: 400, color: "#64748b" }}>({p.spec})</span>}</div>
-                                <div style={{ fontSize: 11, color: "#64748b" }}>KH: {c ? `${c.code} - ${c.name}` : "---"}</div>
+                                <div style={{ fontSize: 11, color: "#64748b" }}>KH: {c?.code || "---"}</div>
                               </div>
                             );
                           })}
@@ -1029,12 +992,13 @@ export default function InventoryInboundPage() {
           <div className="entry-form-actions" style={{ display: "flex", justifyContent: "space-between" }}>
              <button onClick={addLine} className="btn btn-secondary btn-sm" style={{ fontWeight: 700 }}>+ THÊM DÒNG (F2)</button>
              <div className="entry-form-actions" style={{ display: "flex", gap: 12 }}>
-                <button onClick={handleCancelCreate} className="btn btn-ghost" disabled={saving}>HỦY</button>
+                <button disabled={saving} onClick={handleCancelCreate} className="btn btn-ghost">HỦY</button>
                 <button onClick={saveMulti} className="btn btn-primary" disabled={saving}>
                    {saving ? "ĐANG LƯU..." : <><Save size={16} strokeWidth={2.5} /> LƯU PHIẾU NHẬP</>}
                 </button>
              </div>
           </div>
+          </fieldset>
         </div>
       )}
 
@@ -1065,21 +1029,21 @@ export default function InventoryInboundPage() {
         <input type="date" className="input" style={{ width: 160 }} value={qDate} onChange={e => setQDate(e.target.value)} />
         <select className="select input" style={{ width: 220 }} value={qCustomer} onChange={e => setQCustomer(e.target.value)}>
            <option value="">Tất cả khách hàng</option>
-           {customers.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+           {customers.map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
         </select>
         {Object.keys(colFilters).length > 0 && (
           <button onClick={() => setColFilters({})} className="text-brand text-xs font-black uppercase underline">XÓA LỌC ({Object.keys(colFilters).length})</button>
         )}
-        {selectedIds.size > 0 && <button onClick={bulkDelete} className="btn btn-danger btn-sm">HỦY {selectedIds.size} DÒNG</button>}
+        {canDelete && selectedIds.size > 0 && <button disabled={saving || !receiptsReady} onClick={bulkDelete} className="btn btn-danger btn-sm">HỦY {selectedIds.size} DÒNG</button>}
       </div>
 
       {/* VIRTUAL TABLE */}
       <div 
         ref={parentRef}
-        className="data-table-wrap !rounded-xl overflow-auto border border-slate-200" 
-        style={{ maxHeight: "calc(100vh - 380px)", position: "relative" }}
+        className="data-table-wrap max-w-full !rounded-xl overflow-auto border border-slate-200"
+        style={{ maxHeight: "calc(100dvh - 380px)", position: "relative" }}
       >
-        <table className="data-table !border-separate !border-spacing-0 table-fixed" style={{ width: "100%", minWidth: "100%" }}>
+        <table className="data-table !border-separate !border-spacing-0 table-fixed" style={{ width: tableWidth, minWidth: "100%" }}>
           <thead className="sticky top-0 z-50 bg-white">
             <tr>
               <th style={{ ...thStyle, width: 40, textAlign: "center", left: 0, zIndex: 101, background: "white", borderBottom: "2px solid #000000", color: "#000000", fontWeight: 900 }}>
@@ -1091,9 +1055,10 @@ export default function InventoryInboundPage() {
               <ThCell label="Tên hàng" colKey="name" sortable colType="text" w="250px" />
               <ThCell label="Quy cách" colKey="spec" sortable colType="text" w="160px" />
               <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" w="100px" />
+              <ThCell label="Nguồn" colKey="source" sortable colType="text" w="180px" />
               <ThCell label="Đơn giá" colKey="price" sortable colType="num" align="right" w="110px" />
               <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="200px" />
-              <ThCell label="Tạo lúc" colKey="createdAt" sortable colType="date" w="160px" />
+              <ThCell label="Tạo lúc" colKey="createdAt" sortable colType="date" w="200px" />
               <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="120px" />
             </tr>
           </thead>
@@ -1131,21 +1096,22 @@ export default function InventoryInboundPage() {
                         {hasAdjs && <span style={{ fontSize: 10, color: adjTotal >= 0 ? "green" : "red", fontWeight: 900 }}>(Gốc: {fmtNum(originalQty)})</span>}
                       </div>
                     </td>
+                    <td style={{ ...tdStyle, width: colWidths["source"] || 180, flexShrink: 0, overflowWrap: "anywhere", whiteSpace: "normal" }}>{receiptSourceLabel(r)}</td>
                     <td style={{ ...tdStyle, width: colWidths["price"] || 110, textAlign: "right", flexShrink: 0, color: "#6b7280" }}>{r.unit_cost != null ? fmtNum(r.unit_cost) : "---"}</td>
                     <td className="table-note-black" style={{ ...tdStyle, width: colWidths["note"] || 200, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }} title={r.note || ""}>{r.note || ""}</td>
-                    <td style={{ ...tdStyle, width: colWidths["createdAt"] || 160, flexShrink: 0, fontSize: 11, color: "#cbd5e1" }}>{fmtDatetime(r.created_at)}</td>
+                    <td style={{ ...tdStyle, width: colWidths["createdAt"] || 200, flexShrink: 0, color: "#475569", whiteSpace: "normal" }}><div className="text-sm font-semibold">{receiptCreatorLabel(r)}</div><div className="text-xs">{fmtDatetime(r.created_at)}</div></td>
                     <td style={{ ...tdStyle, width: 120, textAlign: "center", flexShrink: 0 }}>
                        <div className="flex gap-2 justify-center">
                           <button onClick={() => toggleExpanded(r.id)} className="btn-icon">{isExpanded ? "▲" : "▼"}</button>
-                          {canEdit && <button onClick={() => openEdit(r)} className="btn-icon"><Edit3 size={15} strokeWidth={2.5} /></button>}
-                          <button onClick={() => openAdjustment(r)} className="btn-icon"><Wrench size={15} strokeWidth={2.5} /></button>
-                          {canDelete && <button onClick={() => handleDelete(r)} className="btn-icon text-red-500" title="Hủy giao dịch và giữ lại lịch sử"><Trash2 size={15} strokeWidth={2.5} /></button>}
+                          {canEdit && <button disabled={saving || !receiptsReady} onClick={() => openEdit(r)} className="btn-icon"><Edit3 size={15} strokeWidth={2.5} /></button>}
+                          <button disabled={!canCreate || saving || !receiptsReady} title="Điều chỉnh số lượng" onClick={() => openAdjustment(r)} className="btn-icon"><Wrench size={15} strokeWidth={2.5} /></button>
+                          {canDelete && <button disabled={saving || !receiptsReady} title="Hủy giao dịch, giữ lịch sử" onClick={() => handleDelete(r)} className="btn-icon text-red-500"><Trash2 size={15} strokeWidth={2.5} /></button>}
                        </div>
                     </td>
                   </tr>
                   {isExpanded && hasAdjs && (
                     <tr style={{ position: "absolute", top: (virtualRow.start + 60), width: "100%", background: "#f1f5f9", zIndex: 10 }}>
-                       <td colSpan={10} style={{ padding: "12px 24px" }}>
+                       <td colSpan={12} style={{ padding: "12px 24px" }}>
                           <div style={{ fontSize: 13, background: "white", padding: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}>
                              <div className="font-bold mb-2">Chi tiết điều chỉnh:</div>
                              {r.adjs?.map((a: any) => (
@@ -1166,27 +1132,35 @@ export default function InventoryInboundPage() {
       </div>
 
       {editOpen && editing && (
-        <div className="modal-overlay" onPointerDown={(e) => e.target === e.currentTarget && setEditOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div className="modal-box bg-white p-6 rounded-2xl shadow-2xl w-[500px]" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onPointerDown={(e) => !saving && e.target === e.currentTarget && setEditOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="modal-box bg-white p-6 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-bold mb-4">Sửa giao dịch</h2>
+            {editing.hasAdjs && <p className="mb-3 text-sm text-amber-700">Phiếu đã có điều chỉnh: chỉ sửa Nguồn, đơn giá hoặc ghi chú tại đây. Muốn đổi số lượng, dùng nút Điều chỉnh.</p>}
+            <div className="mb-4 space-y-3">
+              <ReceiptSourceField value={editSource} suppliers={suppliers} onChange={setEditSource} disabled={saving} legacy={!editing.source_kind}
+                currentSupplier={editing.supplier_id ? (suppliers.find(s => s.id === editing.supplier_id) || { id: editing.supplier_id, code: editing.supplier_code_snapshot || "Chưa có mã NCC", name: editing.supplier_name_snapshot || "Nhà cung cấp cũ", is_active: false }) : undefined} />
+              {((editing.source_kind || "") !== editSource.kind || (editing.supplier_id || "") !== editSource.supplierId) && <label className="flex flex-col gap-2 text-sm">Lý do thay đổi / bổ sung Nguồn *<input className="input min-h-11 text-base" value={sourceReason} onChange={e => setSourceReason(e.target.value)} disabled={saving} /></label>}
+              {!editing.source_kind && <p className="text-sm text-slate-600">Phiếu cũ có thể giữ “Chưa ghi nhận” khi sửa số lượng; bổ sung nguồn cần ghi lý do.</p>}
+            </div>
              <div className="grid gap-4">
-                <label className="grid gap-1">Ngày<input type="date" className="input" value={eDate} onChange={e => setEDate(e.target.value)} /></label>
-                <label className="grid gap-1">Số lượng<input type="number" className="input" value={eQty} onChange={e => setEQty(e.target.value)} /></label>
-                <label className="grid gap-1">Đơn giá<input type="number" className="input" value={eCost} onChange={e => setECost(e.target.value)} /></label>
-                <label className="grid gap-1">Ghi chú<textarea className="input min-h-[80px]" value={eNote} onChange={e => setENote(e.target.value)} /></label>
+                <label className="grid gap-1">Ngày<input type="date" className="input" disabled={saving || !!editing?.hasAdjs} value={eDate} onChange={e => setEDate(e.target.value)} /></label>
+                <label className="grid gap-1">Số lượng<input type="number" className="input" disabled={saving || !!editing?.hasAdjs} value={eQty} onChange={e => setEQty(e.target.value)} /></label>
+                <label className="grid gap-1">Đơn giá<input type="number" className="input" disabled={saving} value={eCost} onChange={e => setECost(e.target.value)} /></label>
+                <label className="grid gap-1">Ghi chú<textarea className="input min-h-[80px]" disabled={saving} value={eNote} onChange={e => setENote(e.target.value)} /></label>
              </div>
              <div className="flex justify-end gap-3 mt-6">
-                <button onClick={() => setEditOpen(false)} className="btn btn-secondary">HỦY</button>
-                <button onClick={saveEdit} className="btn btn-primary">LƯU</button>
+                <button disabled={saving} onClick={() => setEditOpen(false)} className="btn btn-secondary">HỦY</button>
+                <button disabled={saving || !receiptsReady} onClick={saveEdit} className="btn btn-primary">LƯU</button>
              </div>
           </div>
         </div>
       )}
 
       {adjOpen && adjBaseTx && (
-        <div className="modal-overlay" onPointerDown={(e) => e.target === e.currentTarget && setAdjOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div className="modal-box bg-white p-8 rounded-2xl shadow-2xl w-[600px] animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onPointerDown={(e) => !saving && e.target === e.currentTarget && setAdjOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="modal-box bg-white p-8 rounded-2xl shadow-2xl w-full max-w-xl max-h-[90dvh] overflow-y-auto animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <h2 className="text-2xl font-black mb-6 flex items-center gap-2 uppercase tracking-tighter"><Wrench size={24} strokeWidth={2.5} /> ĐIỀU CHỈNH KHO</h2>
+            <p className="mb-4 text-sm text-slate-700">Nguồn: <strong>{receiptSourceLabel(adjBaseTx)}</strong> — điều chỉnh giữ nguồn của phiếu gốc.</p>
             <div className="p-5 bg-slate-50 rounded-2xl mb-6 border border-slate-100">
                 <div className="flex justify-between items-start mb-2">
                   <div className="font-black text-black text-lg tracking-tight leading-none">{skuFor(adjBaseTx)}</div>
@@ -1203,7 +1177,7 @@ export default function InventoryInboundPage() {
                   </div>
                   <label className="grid gap-1">
                     <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Số lượng sau điều chỉnh *</span>
-                    <input type="number" className="input font-black text-black bg-indigo-50/50 border-indigo-100 focus:border-indigo-500" value={aTargetQty} onChange={e => setATargetQty(e.target.value)} autoFocus />
+                    <input type="number" className="input font-black text-black bg-indigo-50/50 border-indigo-100 focus:border-indigo-500" disabled={saving} value={aTargetQty} onChange={e => setATargetQty(e.target.value)} autoFocus />
                   </label>
                 </div>
 
@@ -1222,23 +1196,23 @@ export default function InventoryInboundPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <label className="grid gap-1">
                     <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Ngày điều chỉnh</span>
-                    <input type="date" className="input font-bold" value={aDate} onChange={e => setADate(e.target.value)} />
+                    <input type="date" className="input font-bold" disabled={saving} value={aDate} onChange={e => setADate(e.target.value)} />
                   </label>
                   <label className="grid gap-1">
                     <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Đơn giá (Tùy chọn)</span>
-                    <input type="number" className="input" value={aCost} onChange={e => setACost(e.target.value)} placeholder="Mặc định giá gốc" />
+                    <input type="number" className="input" disabled={saving} value={aCost} onChange={e => setACost(e.target.value)} placeholder="Mặc định giá gốc" />
                   </label>
                 </div>
 
                 <label className="grid gap-1">
                   <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Lý do điều chỉnh *</span>
-                  <textarea className="input min-h-[100px] font-black text-black" value={aNote} onChange={e => setANote(e.target.value)} placeholder="Ví dụ: Kiểm kê thấy lệch, hàng lỗi trả về..." />
+                  <textarea className="input min-h-[100px] font-black text-black" disabled={saving} value={aNote} onChange={e => setANote(e.target.value)} placeholder="Ví dụ: Kiểm kê thấy lệch, hàng lỗi trả về..." />
                 </label>
              </div>
 
              <div className="flex justify-end gap-3 mt-8">
-                <button onClick={() => setAdjOpen(false)} className="btn btn-ghost">HỦY</button>
-                <button onClick={saveAdjustment} className="btn btn-primary px-10 shadow-xl shadow-indigo-200">XÁC NHẬN ĐIỀU CHỈNH</button>
+                <button disabled={saving} onClick={() => setAdjOpen(false)} className="btn btn-ghost">HỦY</button>
+                <button disabled={saving || !receiptsReady} onClick={saveAdjustment} className="btn btn-primary px-10 shadow-xl shadow-indigo-200">XÁC NHẬN ĐIỀU CHỈNH</button>
              </div>
           </div>
         </div>

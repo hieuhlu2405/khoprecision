@@ -9,6 +9,8 @@ import { exportToExcel } from "@/lib/excel-utils";
 import { formatDateTimeVN, getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { fetchAllRows } from "@/lib/supabase-fetch-all";
+import { ReceiptSourceField } from "@/app/components/inventory/ReceiptSourceField";
+import { listReceiptSuppliers, loadReceiptMetadata, loadReceiptAdjustments, receiptSourceLabel, receiptCreatorLabel, receiptErrorMessage, receiptRequestId, type ReceiptSourceFields, type ReceiptSupplier, type ReceiptSourceChoice, type ReceiptRequest } from "@/lib/inventory-receipts";
 import { ArrowUpDown, Box, Edit3, FileSpreadsheet, Filter, Plus, Search, Trash2, Wrench, X } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -31,7 +33,7 @@ type Customer = {
   name: string;
 };
 
-type PhoiTx = {
+type PhoiTx = ReceiptSourceFields & {
   id: string;
   tx_date: string;
   customer_id: string | null;
@@ -313,6 +315,15 @@ export default function PhoiPage() {
     { key: nextKey(), productId: "", qty: "", unitCost: "", note: "" }
   ]);
   const [saving, setSaving] = useState(false);
+  const [suppliers, setSuppliers] = useState<ReceiptSupplier[]>([]);
+  const [receiptsReady, setReceiptsReady] = useState(false);
+  const [source, setSource] = useState<ReceiptSourceChoice>({ kind: "", supplierId: "" });
+  const [editSource, setEditSource] = useState<ReceiptSourceChoice>({ kind: "", supplierId: "" });
+  const [sourceReason, setSourceReason] = useState("");
+  const mutationRef = useRef(false);
+  const createRequestRef = useRef<ReceiptRequest>(null);
+  const adjustmentRequestRef = useRef<ReceiptRequest>(null);
+  const sourceReady = receiptsReady && (source.kind === "factory" || (source.kind === "supplier" && !!source.supplierId));
 
   /* ---- single-row edit form state ---- */
   const [editOpen, setEditOpen] = useState(false);
@@ -328,12 +339,15 @@ export default function PhoiPage() {
   /* ---- adjustment form state ---- */
   const [adjOpen, setAdjOpen] = useState(false);
   const [adjBaseTx, setAdjBaseTx] = useState<PhoiTx | null>(null);
-  const [aType, setAType] = useState<"adjust_in" | "adjust_out">("adjust_in");
   const [aDate, setADate] = useState(getTodayVNStr());
   const [aCurrentBaseQty, setACurrentBaseQty] = useState(0);
   const [aTargetQty, setATargetQty] = useState("");
   const [aCost, setACost] = useState("");
   const [aNote, setANote] = useState("");
+
+  const createDraftFingerprint = JSON.stringify([hDate, hNote, source.kind, source.supplierId, lines.map(line => [line.productId, line.qty, line.unitCost, line.note])]);
+  useEffect(() => { createRequestRef.current = null; }, [createDraftFingerprint]);
+  useEffect(() => { adjustmentRequestRef.current = null; }, [aDate, aTargetQty, aCost, aNote]);
 
   // ---- Table Header Filters & Sorting ----
   const [colFilters, setColFilters] = useState<Record<string, ColFilter>>({});
@@ -361,7 +375,7 @@ export default function PhoiPage() {
   function customerLabel(customerId: string | null): string {
     if (!customerId) return "";
     const c = customers.find((x) => x.id === customerId);
-    return c ? `${c.code} - ${c.name}` : "";
+    return c?.code || "";
   }
 
   function getAdjustments(rowId: string) {
@@ -406,7 +420,9 @@ export default function PhoiPage() {
       list = list.filter(
         (r) =>
           r.product_name_snapshot.toLowerCase().includes(s) ||
-          skuFor(r).toLowerCase().includes(s)
+          skuFor(r).toLowerCase().includes(s) ||
+          receiptSourceLabel(r).toLowerCase().includes(s) ||
+          receiptCreatorLabel(r).toLowerCase().includes(s)
       );
     }
     if (qDate) {
@@ -427,6 +443,7 @@ export default function PhoiPage() {
       case "name": return r.product_name_snapshot;
       case "spec": return r.product_spec_snapshot || "";
       case "note": return r.note || "";
+      case "source": return receiptSourceLabel(r);
     }
     return "";
   }
@@ -450,7 +467,7 @@ export default function PhoiPage() {
     let result = [...baseFiltered];
 
     for (const [key, f] of Object.entries(colFilters)) {
-      if (["customer", "sku", "name", "spec", "note"].includes(key)) {
+      if (["customer", "sku", "name", "spec", "note", "source"].includes(key)) {
         result = result.filter(r => passesTextFilter(textVal(r, key), f as TextFilter));
       } else if (["qty", "price"].includes(key)) {
         result = result.filter(r => passesNumFilter(numVal(r, key), f as NumFilter));
@@ -463,7 +480,7 @@ export default function PhoiPage() {
       const dir = sortDir === "asc" ? 1 : -1;
       result.sort((a, b) => {
         let va: string | number | null = null, vb: string | number | null = null;
-        if (["customer", "sku", "name", "spec", "note"].includes(sortCol)) {
+        if (["customer", "sku", "name", "spec", "note", "source"].includes(sortCol)) {
           va = textVal(a, sortCol).toLowerCase();
           vb = textVal(b, sortCol).toLowerCase();
         } else if (["qty", "price"].includes(sortCol)) {
@@ -478,6 +495,7 @@ export default function PhoiPage() {
         if (vb == null && va != null) return 1 * dir;
         if (va != null && vb != null) {
           if (va < vb) return -1 * dir;
+          if (va > vb) return 1 * dir;
         }
         return 0;
       });
@@ -519,6 +537,8 @@ export default function PhoiPage() {
   };
 
   /* ---- Table Header Cell Component ---- */
+  const tableWidth = 40 + ([["date", 110], ["customer", 180], ["sku", 140], ["name", 250], ["spec", 160], ["qty", 100], ["source", 180], ["note", 200], ["createdAt", 200], ["actions", 120]] as [string, number][]).reduce((sum, [key, fallback]) => sum + (colWidths[key] || fallback), 0);
+
   function ThCell({ label, colKey, sortable, filterable = true, colType, align, w, extra }: {
     label: string; colKey: string; sortable: boolean; filterable?: boolean; colType: "text" | "num" | "date";
     align?: "left" | "right" | "center"; w?: string; extra?: React.CSSProperties;
@@ -623,6 +643,8 @@ export default function PhoiPage() {
   }
 
   function resetCreateForm() {
+    setSource({ kind: "", supplierId: "" });
+    createRequestRef.current = null;
     setHDate(getTodayVNStr());
     setHNote("");
     setLines([{ key: nextKey(), productId: "", productSearch: "", showSuggestions: false, qty: "", unitCost: "", note: "" }]);
@@ -632,7 +654,7 @@ export default function PhoiPage() {
     const hasData = lines.some(l => l.productId || l.qty) || hNote || hDate;
     if (hasData) {
       showConfirm({ message: "Dữ liệu phiếu nhập đang nhập dở sẽ bị mất. Bạn có chắc không?", confirmLabel: "Hủy phiếu ngay", danger: true }).then(ok => {
-        if (ok) setShowCreate(false);
+        if (ok) { setShowCreate(false); resetCreateForm(); }
       });
     } else {
       setShowCreate(false);
@@ -640,6 +662,8 @@ export default function PhoiPage() {
   }
 
   function addLine() {
+    if (!sourceReady || mutationRef.current) return;
+    if (lines.length >= 100) return showToast("Mỗi lần nhập tối đa 100 dòng. Lưu phiếu này rồi nhập tiếp.", "info");
     setLines(p => [...p, { key: nextKey(), productId: "", productSearch: "", showSuggestions: false, qty: "", unitCost: "", note: "" }]);
   }
 
@@ -663,15 +687,17 @@ export default function PhoiPage() {
     setEQty(String(r.qty));
     setECost(r.unit_cost != null ? String(r.unit_cost) : "");
     setENote(r.note ?? "");
+    setEditSource({ kind: r.source_kind || "", supplierId: r.supplier_id || "" });
+    setSourceReason("");
     setEditOpen(true);
   }
 
   /* ---- adjustment helpers ---- */
   function openAdjustment(r: any) {
+    adjustmentRequestRef.current = null;
     setAdjBaseTx(r);
     setACurrentBaseQty(r.finalQty);
     setATargetQty(String(r.finalQty));
-    setAType("adjust_in");
     setADate(getTodayVNStr());
     setACost("");
     setANote("");
@@ -682,48 +708,31 @@ export default function PhoiPage() {
   const fetchIdRef = useRef(0);
 
   async function load() {
-    setError("");
-    setLoading(true);
+    setError(""); setLoading(true); setReceiptsReady(false);
     const thisFetchId = ++fetchIdRef.current;
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return window.location.href = "/login";
-
-      const { data: p, error: e1 } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle();
-      if (e1) throw e1;
-      if (thisFetchId !== fetchIdRef.current) return;
-      setProfile(p as Profile);
-
-      const [rP, rC] = await Promise.all([
-        supabase.from("products").select("id, sku, name, spec, customer_id, unit_price, is_active").is("deleted_at", null).order("sku"),
-        supabase.from("customers").select("id, code, name").is("deleted_at", null).order("code"),
+      const { data: p, error: profileError } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle();
+      if (profileError) throw profileError;
+      const [productRows, customerRows, supplierRows, txRows] = await Promise.all([
+        fetchAllRows<Product>(supabase.from("products").select("id, sku, name, spec, customer_id, unit_price, is_active").is("deleted_at", null).order("sku").order("id")),
+        fetchAllRows<Customer>(supabase.from("customers").select("id, code, name").order("code").order("id")),
+        listReceiptSuppliers(),
+        fetchAllRows<PhoiTx>(supabase.from("phoi_transactions").select("*").eq("tx_type", "in").is("deleted_at", null)
+          .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd).order("tx_date", { ascending: false }).order("id")),
       ]);
-      if (rP.error) throw rP.error;
-      if (thisFetchId !== fetchIdRef.current) return;
-
-      const [txRows, adjTxRows] = await Promise.all([
-        fetchAllRows(
-          supabase.from("phoi_transactions").select("*").eq("tx_type", "in").is("deleted_at", null)
-            .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd)
-            .order("tx_date", { ascending: false })
-        ),
-        fetchAllRows(
-          supabase.from("phoi_transactions").select("*").in("tx_type", ["adjust_in", "adjust_out"]).not("adjusted_from_transaction_id", "is", null).is("deleted_at", null)
-            .gte("tx_date", filterDateStart).lte("tx_date", filterDateEnd)
-        ),
+      const [withMetadata, adjTxRows] = await Promise.all([
+        loadReceiptMetadata("phoi", txRows),
+        loadReceiptAdjustments<PhoiTx>("phoi", txRows.map(row => row.id)),
       ]);
       if (thisFetchId !== fetchIdRef.current) return;
-
-      setProducts(rP.data || []);
-      setCustomers(rC.data || []);
-      setRows(txRows);
-      setAdjRows(adjTxRows);
-    } catch (err: any) {
+      setProfile(p as Profile); setProducts(productRows); setCustomers(customerRows); setSuppliers(supplierRows);
+      setRows(withMetadata); setAdjRows(adjTxRows); setSelectedIds(new Set()); setReceiptsReady(true);
+    } catch (err: unknown) {
       if (thisFetchId !== fetchIdRef.current) return;
-      setError(err?.message ?? "Có lỗi xảy ra");
-    } finally {
-      if (thisFetchId === fetchIdRef.current) setLoading(false);
-    }
+      setError(receiptErrorMessage(err));
+    } finally { if (thisFetchId === fetchIdRef.current) setLoading(false); }
   }
 
   useEffect(() => { load(); }, [filterDateStart, filterDateEnd]); // eslint-disable-line
@@ -731,140 +740,117 @@ export default function PhoiPage() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F2" && showCreate) {
+      if (e.key === "F2" && showCreate && sourceReady && !saving) {
         e.preventDefault();
         addLine();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showCreate]);
+  }, [showCreate, sourceReady, saving, lines.length]);
 
   /* ---- business logic: save, edit, delete ---- */
-  async function saveMulti() {
-    if (!hDate) return showToast("Thiếu ngày nhập.", "error");
-    const valid = lines.filter(l => l.productId && l.qty);
-    if (valid.length === 0) return showToast("Vui lòng nhập ít nhất 1 dòng sản phẩm hợp lệ.", "error");
+  async function changeSource(next: ReceiptSourceChoice) {
+    if (mutationRef.current) return;
+    if (source.kind === next.kind && source.supplierId === next.supplierId) return;
+    if (lines.some(line => line.productId || line.productSearch || line.qty || line.unitCost || line.note)) {
+      const ok = await showConfirm({ message: "Đổi Nguồn sẽ áp dụng cho tất cả dòng đang nhập. Xác nhận dùng nguồn mới cho toàn bộ lần nhập này?", confirmLabel: "Đổi nguồn", cancelLabel: "Giữ nguồn cũ" });
+      if (!ok) return;
+    }
+    setSource(next);
+  }
+
+  function beginMutation(): boolean {
+    if (mutationRef.current) return false;
+    if (!receiptsReady) { showToast("Chưa tải đủ thông tin Nguồn. Vui lòng tải lại trang trước khi lưu.", "error"); return false; }
+    mutationRef.current = true;
     setSaving(true);
+    return true;
+  }
+
+  function endMutation() {
+    mutationRef.current = false;
+    setSaving(false);
+  }
+
+  async function saveMulti() {
+    if (!sourceReady) return showToast("Phải chọn Nguồn và nhà cung cấp (nếu có) trước khi nhập.", "error");
+    if (!hDate) return showToast("Thiếu ngày nhập.", "error");
+    const valid = lines.filter(line => line.productId || line.productSearch || line.qty || line.unitCost || line.note);
+    if (!valid.length) return showToast("Vui lòng nhập ít nhất một dòng sản phẩm.", "error");
+    if (valid.some(line => !line.productId || !line.qty || !Number.isFinite(Number(line.qty)) || Number(line.qty) <= 0 || (line.unitCost !== "" && (!Number.isFinite(Number(line.unitCost)) || Number(line.unitCost) < 0)))) {
+      return showToast("Mỗi dòng đã nhập phải có sản phẩm, số lượng lớn hơn 0 và đơn giá không âm. Hoàn thiện hoặc bỏ dòng còn thiếu trước khi lưu.", "error");
+    }
+    const payload = valid.map(line => ({ tx_date: hDate, product_id: line.productId, qty: Number(line.qty), unit_cost: line.unitCost ? Number(line.unitCost) : null, note: line.note || hNote || null, source_kind: source.kind, supplier_id: source.kind === "supplier" ? source.supplierId : null }));
+    if (!beginMutation()) return;
     try {
-      const { data: u } = await supabase.auth.getUser();
-      const insertRows = valid.map(l => {
-        const p = products.find(x => x.id === l.productId);
-        return {
-          tx_date: hDate,
-          customer_id: p?.customer_id,
-          product_id: l.productId,
-          product_name_snapshot: p?.name || "",
-          product_spec_snapshot: p?.spec,
-          tx_type: "in",
-          qty: Number(l.qty),
-          unit_cost: l.unitCost ? Number(l.unitCost) : null,
-          note: l.note || hNote || null,
-          created_by: u.user?.id
-        };
-      });
-      const { error } = await supabase.from("phoi_transactions").insert(insertRows);
+      const { error } = await supabase.rpc("inventory_create_receipts_v1", { p_kind: "phoi", p_rows: payload, p_request_id: receiptRequestId(createRequestRef, payload) });
       if (error) throw error;
       showToast("Đã lưu phiếu nhập phôi!", "success");
       setShowCreate(false);
       resetCreateForm();
-      load();
-    } catch (err: any) {
-      showToast(err.message, "error");
-    } finally {
-      setSaving(false);
-    }
+      await load();
+    } catch (err: unknown) { showToast(receiptErrorMessage(err), "error"); }
+    finally { endMutation(); }
   }
 
   async function saveEdit() {
     if (!editing) return;
+    const sourceChanged = (editing.source_kind || "") !== editSource.kind || (editing.supplier_id || "") !== editSource.supplierId;
+    if ((!editSource.kind && editing.source_kind) || (editSource.kind === "supplier" && !editSource.supplierId)) return showToast("Vui lòng chọn đủ Nguồn.", "error");
+    if (sourceChanged && !sourceReason.trim()) return showToast("Nhập lý do thay đổi hoặc bổ sung Nguồn.", "error");
+    if (!eDate || !eProductId || !Number.isFinite(Number(eQty)) || Number(eQty) <= 0 || (eCost !== "" && (!Number.isFinite(Number(eCost)) || Number(eCost) < 0))) return showToast("Kiểm tra ngày, sản phẩm, số lượng lớn hơn 0 và đơn giá không âm.", "error");
+    if (!beginMutation()) return;
     try {
-      const p = products.find(x => x.id === eProductId);
-      const { error } = await supabase.from("phoi_transactions").update({
-        tx_date: eDate,
-        product_id: eProductId,
-        product_name_snapshot: p?.name || editing.product_name_snapshot,
-        product_spec_snapshot: p?.spec || editing.product_spec_snapshot,
-        qty: Number(eQty),
-        unit_cost: eCost ? Number(eCost) : null,
-        note: eNote || null,
-        updated_at: new Date().toISOString()
-      }).eq("id", editing.id);
+      const { error } = await supabase.rpc("inventory_update_receipt_v1", {
+        p_kind: "phoi", p_transaction_id: editing.id, p_tx_date: eDate, p_product_id: eProductId,
+        p_qty: Number(eQty), p_unit_cost: eCost ? Number(eCost) : null, p_note: eNote || null,
+        p_source_kind: editSource.kind || null, p_supplier_id: editSource.kind === "supplier" ? editSource.supplierId : null, p_source_reason: sourceChanged ? sourceReason.trim() : null,
+      });
       if (error) throw error;
       showToast("Đã cập nhật giao dịch!", "success");
       setEditOpen(false);
-      load();
-    } catch (err: any) {
-      showToast(err.message, "error");
-    }
+      await load();
+    } catch (err: unknown) { showToast(receiptErrorMessage(err), "error"); }
+    finally { endMutation(); }
   }
 
   async function saveAdjustment() {
     if (!adjBaseTx) return;
-    if (!aTargetQty || !aNote) return showToast("Vui lòng nhập đủ số lượng mục tiêu và lý do.", "error");
-    
     const target = Number(aTargetQty);
-    const diff = target - aCurrentBaseQty;
-    if (diff === 0) return showToast("Số lượng sau điều chỉnh phải khác số lượng hiện tại.", "info");
-
-    const finalType = diff > 0 ? "adjust_in" : "adjust_out";
-    const finalQty = Math.abs(diff);
-
+    if (!aDate || aTargetQty === "" || !Number.isFinite(target) || target < 0 || !aNote.trim()) return showToast("Nhập ngày, số lượng mục tiêu không âm và lý do điều chỉnh.", "error");
+    if (aCost !== "" && (!Number.isFinite(Number(aCost)) || Number(aCost) < 0)) return showToast("Đơn giá không được âm.", "error");
+    if (target === aCurrentBaseQty) return showToast("Số lượng sau điều chỉnh phải khác số lượng hiện tại.", "info");
+    const payload = { p_kind: "phoi", p_transaction_id: adjBaseTx.id, p_target_qty: target, p_tx_date: aDate, p_unit_cost: aCost ? Number(aCost) : (adjBaseTx.unit_cost ?? null), p_note: aNote.trim() };
+    if (!beginMutation()) return;
     try {
-      const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("phoi_transactions").insert([{
-        tx_date: aDate,
-        customer_id: adjBaseTx.customer_id,
-        product_id: adjBaseTx.product_id,
-        product_name_snapshot: adjBaseTx.product_name_snapshot,
-        product_spec_snapshot: adjBaseTx.product_spec_snapshot,
-        tx_type: finalType,
-        qty: finalQty,
-        unit_cost: aCost ? Number(aCost) : (adjBaseTx.unit_cost || null),
-        note: aNote,
-        adjusted_from_transaction_id: adjBaseTx.id,
-        created_by: u.user?.id
-      }]);
+      const { error } = await supabase.rpc("inventory_adjust_receipt_v1", { ...payload, p_request_id: receiptRequestId(adjustmentRequestRef, payload) });
       if (error) throw error;
-      showToast("Đã lưu điều chỉnh!", "success");
+      showToast("Đã lưu điều chỉnh, giữ nguyên nguồn của phiếu gốc.", "success");
       setAdjOpen(false);
-      load();
-    } catch (err: any) {
-      showToast(err.message, "error");
-    }
+      await load();
+    } catch (err: unknown) { showToast(receiptErrorMessage(err), "error"); }
+    finally { endMutation(); }
   }
 
-  async function handleDelete(id: string) {
-    const ok = await showConfirm({ message: "Xóa bản ghi này?", danger: true, confirmLabel: "Xóa ngay" });
-    if (!ok) return;
+  async function cancelReceipts(ids: string[]) {
+    if (!ids.length || mutationRef.current) return;
+    if (ids.length > 100) return showToast("Mỗi lần hủy tối đa 100 giao dịch. Vui lòng chọn ít dòng hơn.", "error");
+    const selectedRows = enrichedRows.filter(row => ids.includes(row.id));
+    const preview = selectedRows.slice(0, 5).map(row => `${fmtDate(row.tx_date)} · ${skuFor(row)} · ${fmtNum(row.finalQty)} · ${receiptSourceLabel(row)}`).join("\n");
+    const ok = await showConfirm({ message: `Hủy ${ids.length} giao dịch nhập phôi?\n${preview}\nGiao dịch và tất cả điều chỉnh liên quan sẽ được đánh dấu hủy. Lịch sử vẫn được giữ lại; số tồn sẽ được tính lại.`, danger: true, confirmLabel: "Hủy giao dịch", cancelLabel: "Quay lại" });
+    if (!ok || !beginMutation()) return;
     try {
-      const { error } = await supabase.from("phoi_transactions").update({
-        deleted_at: new Date().toISOString()
-      }).eq("id", id);
+      const { error } = await supabase.rpc("inventory_cancel_receipts_v1", { p_kind: "phoi", p_transaction_ids: ids });
       if (error) throw error;
-      showToast("Đã xóa bản ghi.", "success");
-      load();
-    } catch (err: any) {
-      showToast(err.message, "error");
-    }
+      showToast("Đã hủy giao dịch và các điều chỉnh liên quan. Lịch sử vẫn được giữ lại.", "success");
+      await load();
+    } catch (err: unknown) { showToast(receiptErrorMessage(err), "error"); }
+    finally { endMutation(); }
   }
 
-  async function bulkDelete() {
-    if (selectedIds.size === 0) return;
-    const ok = await showConfirm({ message: `Xóa ${selectedIds.size} dòng đã chọn?`, danger: true, confirmLabel: "Xóa tất cả" });
-    if (!ok) return;
-    try {
-      const { error } = await supabase.from("phoi_transactions").update({
-        deleted_at: new Date().toISOString()
-      }).in("id", Array.from(selectedIds));
-      if (error) throw error;
-      showToast(`Đã xóa ${selectedIds.size} dòng.`, "success");
-      setSelectedIds(new Set());
-      load();
-    } catch (err: any) {
-      showToast(err.message, "error");
-    }
-  }
+  async function handleDelete(id: string) { await cancelReceipts([id]); }
+  async function bulkDelete() { await cancelReceipts(Array.from(selectedIds)); }
 
   function handleExportExcel() {
     const data = finalFiltered.map((r, i) => ({
@@ -875,8 +861,9 @@ export default function PhoiPage() {
       "Tên hàng": r.product_name_snapshot,
       "Quy cách": r.product_spec_snapshot ?? "",
       "Số lượng": r.finalQty,
+        "Nguồn": receiptSourceLabel(r),
       "Ghi chú": r.note || "",
-      "Tạo lúc": fmtDatetime(r.created_at)
+      "Tạo lúc": `${receiptCreatorLabel(r)} — ${fmtDatetime(r.created_at)}`
     }));
     exportToExcel(data, "LichSuNhapPhoi", "Lịch sử nhập phôi");
   }
@@ -893,7 +880,7 @@ export default function PhoiPage() {
     }).slice(0, 50);
   })();
 
-  if (loading || !mounted) return <LoadingPage text="Đang tải dữ liệu nhập phôi..." />;
+  if ((loading && rows.length === 0) || !mounted) return <LoadingPage text="Đang tải dữ liệu nhập phôi..." />;
 
   return (
     <div ref={containerRef} className="page-root min-h-screen bg-[#f8f9fa] p-4 md:p-6">
@@ -919,7 +906,7 @@ export default function PhoiPage() {
             <button onClick={handleExportExcel} className="btn btn-secondary h-11 px-5 shadow-sm">
               <FileSpreadsheet size={16} strokeWidth={2.4} /> Xuất Excel
             </button>
-            {canCreate && (
+            {canCreate && receiptsReady && (
               <button 
                 onClick={() => { resetCreateForm(); setShowCreate(true); }}
                 className="btn btn-primary h-11 px-5 shadow-lg shadow-indigo-200"
@@ -931,6 +918,7 @@ export default function PhoiPage() {
         </div>
 
         <ErrorBanner message={error} onDismiss={() => setError("")} />
+        {!receiptsReady && !loading && <button onClick={load} className="btn btn-secondary">Tải lại dữ liệu</button>}
 
         {/* MULTI-LINE CREATE FORM */}
         {showCreate && (
@@ -940,10 +928,13 @@ export default function PhoiPage() {
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 font-black text-sm">F2</span>
                 <h3 className="text-lg font-black text-slate-800 uppercase">Tạo phiếu nhập phôi mới</h3>
               </div>
-              <button onClick={handleCancelCreate} className="text-slate-400 hover:text-slate-600 font-bold p-1"><X size={18} strokeWidth={2.5} /></button>
+              <button disabled={saving} onClick={handleCancelCreate} className="text-slate-400 hover:text-slate-600 font-bold p-1"><X size={18} strokeWidth={2.5} /></button>
             </div>
 
-            <div className="entry-header-grid grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="mb-4"><ReceiptSourceField value={source} suppliers={suppliers} onChange={changeSource} disabled={saving || !receiptsReady} /></div>
+          {!sourceReady && <p className="mb-3 text-sm text-amber-700">Chọn đầy đủ Nguồn để mở phần nhập hàng.</p>}
+          <fieldset disabled={!sourceReady || saving} className="m-0 min-w-0 border-0 p-0 disabled:opacity-60">
+          <div className="entry-header-grid grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Ngày lập phiếu</label>
                 <input type="date" value={hDate} onChange={e => setHDate(e.target.value)} className="w-full h-12 bg-white border-slate-300 border rounded-xl px-4 font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none" />
@@ -1056,7 +1047,7 @@ export default function PhoiPage() {
               </button>
               
               <div className="entry-form-actions flex gap-3">
-                <button onClick={handleCancelCreate} className="btn btn-secondary h-12 px-8">Hủy bỏ</button>
+                <button disabled={saving} onClick={handleCancelCreate} className="btn btn-secondary h-12 px-8">Hủy bỏ</button>
                 <button 
                   onClick={saveMulti} disabled={saving}
                   className="btn btn-primary h-12 px-10 shadow-lg shadow-indigo-200"
@@ -1065,8 +1056,11 @@ export default function PhoiPage() {
                 </button>
               </div>
             </div>
+          </fieldset>
           </div>
         )}
+
+        {canDelete && selectedIds.size > 0 && <button disabled={saving || !receiptsReady} onClick={bulkDelete} className="btn btn-danger">Hủy {selectedIds.size} dòng đã chọn</button>}
 
         {/* QUICK FILTERS */}
         <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
@@ -1110,27 +1104,28 @@ export default function PhoiPage() {
         </div>
 
         {/* VIRTUAL TABLE */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+        <div className="max-w-full rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
           <div 
             ref={parentRef}
-            className="overflow-auto" 
-            style={{ maxHeight: "calc(100vh - 300px)", position: "relative" }}
+            className="max-w-full overflow-auto"
+            style={{ maxHeight: "calc(100dvh - 300px)", position: "relative" }}
           >
-            <table className="w-full border-separate border-spacing-0 table-fixed" style={{ width: rowVirtualizer.getTotalSize() ? "100%" : "auto" }}>
+            <table className="w-full border-separate border-spacing-0 table-fixed" style={{ width: tableWidth, minWidth: "100%" }}>
               <thead>
                 <tr>
                   <th style={{ ...thStyle, width: 40, textAlign: "center", left: 0, zIndex: 101, background: "white", borderBottom: "2px solid #000000", color: "#000000", fontWeight: 900 }}>
                     <input type="checkbox" checked={allChecked} onChange={e => setSelectedIds(e.target.checked ? new Set(allSelectableIds) : new Set())} />
                   </th>
-                  <ThCell label="Ngày" colKey="tx_date" sortable colType="date" w="110px" />
+                  <ThCell label="Ngày" colKey="date" sortable colType="date" w="110px" />
                   <ThCell label="Khách hàng" colKey="customer" sortable colType="text" w="180px" />
                   <ThCell label="Mã hàng" colKey="sku" sortable colType="text" w="140px" />
                   <ThCell label="Tên hàng" colKey="name" sortable colType="text" w="250px" />
                   <ThCell label="Quy cách" colKey="spec" sortable colType="text" w="160px" />
                   <ThCell label="Số lượng" colKey="qty" sortable colType="num" align="right" w="100px" />
+              <ThCell label="Nguồn" colKey="source" sortable colType="text" w="180px" />
                   {/* Unit Cost Header Hidden */}
                   <ThCell label="Ghi chú" colKey="note" sortable colType="text" w="200px" />
-                  <ThCell label="Tạo lúc" colKey="createdAt" sortable colType="date" w="160px" />
+                  <ThCell label="Tạo lúc" colKey="createdAt" sortable colType="date" w="200px" />
                   <ThCell label="Thao tác" colKey="actions" sortable={false} filterable={false} colType="text" align="center" w="120px" />
                 </tr>
               </thead>
@@ -1154,7 +1149,7 @@ export default function PhoiPage() {
                         <td style={{ ...tdStyle, width: 40, textAlign: "center" }} onClick={e => e.stopPropagation()}>
                            <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => { const n = new Set(selectedIds); if(n.has(r.id)) n.delete(r.id); else n.add(r.id); setSelectedIds(n); }} />
                         </td>
-                        <td style={{ ...tdStyle, width: colWidths["tx_date"] || 110 }}>{fmtDate(r.tx_date)}</td>
+                        <td style={{ ...tdStyle, width: colWidths["date"] || 110 }}>{fmtDate(r.tx_date)}</td>
                         <td style={{ ...tdStyle, width: colWidths["customer"] || 180, overflow: "hidden", textOverflow: "ellipsis", color: "#6b7280" }} title={customerLabel(r.customer_id)}>{customerLabel(r.customer_id)}</td>
                         <td style={{ ...tdStyle, width: colWidths["sku"] || 140, fontWeight: 800, color: "#000000", fontSize: "16px" }}>{skuFor(r)}</td>
                         <td style={{ ...tdStyle, width: colWidths["name"] || 250, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", fontSize: "15px", color: "#6b7280" }} title={r.product_name_snapshot}>{r.product_name_snapshot}</td>
@@ -1168,21 +1163,22 @@ export default function PhoiPage() {
                              {hasAdjs && <span style={{ fontSize: 10, color: adjTotal >= 0 ? "green" : "red", fontWeight: 900 }}>(Gốc: {fmtNum(originalQty)})</span>}
                            </div>
                         </td>
-                        {/* Unit Cost Cell Hidden */}
+                        <td style={{ ...tdStyle, width: colWidths["source"] || 180, flexShrink: 0, overflowWrap: "anywhere", whiteSpace: "normal" }}>{receiptSourceLabel(r)}</td>
+                    {/* Unit Cost Cell Hidden */}
                         <td className="table-note-black" style={{ ...tdStyle, width: colWidths["note"] || 200, overflow: "hidden", textOverflow: "ellipsis" }} title={r.note || ""}>{r.note || ""}</td>
-                        <td style={{ ...tdStyle, width: colWidths["createdAt"] || 160, fontSize: 11, color: "#cbd5e1" }}>{fmtDatetime(r.created_at)}</td>
+                        <td style={{ ...tdStyle, width: colWidths["createdAt"] || 200, flexShrink: 0, color: "#475569", whiteSpace: "normal" }}><div className="text-sm font-semibold">{receiptCreatorLabel(r)}</div><div className="text-xs">{fmtDatetime(r.created_at)}</div></td>
                         <td style={{ ...tdStyle, width: 120, textAlign: "center" }}>
                            <div className="flex gap-2 justify-center">
                               <button onClick={() => toggleExpanded(r.id)} className="btn-icon">{isExpanded ? "▲" : "▼"}</button>
-                              {canEdit && <button onClick={() => openEdit(r)} className="btn-icon"><Edit3 size={15} strokeWidth={2.5} /></button>}
-                              <button onClick={() => openAdjustment(r)} className="btn-icon"><Wrench size={15} strokeWidth={2.5} /></button>
-                              {canDelete && <button onClick={() => handleDelete(r.id)} className="btn-icon text-red-500"><Trash2 size={15} strokeWidth={2.5} /></button>}
+                              {canEdit && <button disabled={saving || !receiptsReady} onClick={() => openEdit(r)} className="btn-icon"><Edit3 size={15} strokeWidth={2.5} /></button>}
+                              <button disabled={!canCreate || saving || !receiptsReady} title="Điều chỉnh số lượng" onClick={() => openAdjustment(r)} className="btn-icon"><Wrench size={15} strokeWidth={2.5} /></button>
+                              {canDelete && <button disabled={saving || !receiptsReady} title="Hủy giao dịch, giữ lịch sử" onClick={() => handleDelete(r.id)} className="btn-icon text-red-500"><Trash2 size={15} strokeWidth={2.5} /></button>}
                            </div>
                         </td>
                       </tr>
                       {isExpanded && hasAdjs && (
                         <tr style={{ position: "absolute", top: (virtualRow.start + 60), width: "100%", background: "#f1f5f9", zIndex: 10 }}>
-                           <td colSpan={10} style={{ padding: "12px 24px" }}>
+                           <td colSpan={11} style={{ padding: "12px 24px" }}>
                               <div style={{ fontSize: 13, background: "white", padding: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}>
                                  <div className="font-bold mb-2">Chi tiết điều chỉnh:</div>
                                  {r.adjs?.map((a: any) => (
@@ -1206,13 +1202,20 @@ export default function PhoiPage() {
       {/* EDIT MODAL */}
       {editOpen && editing && (
         <div className="modal-overlay">
-          <div className="modal-box max-w-lg">
+          <div className="modal-box max-w-lg w-full max-h-[90dvh] overflow-y-auto">
             <h2 className="modal-title uppercase">Chỉnh sửa phiếu nhập phôi</h2>
+            {editing.hasAdjs && <p className="mb-3 text-sm text-amber-700">Phiếu đã có điều chỉnh: chỉ sửa Nguồn, đơn giá hoặc ghi chú tại đây. Muốn đổi số lượng, dùng nút Điều chỉnh.</p>}
+            <div className="mb-4 space-y-3">
+              <ReceiptSourceField value={editSource} suppliers={suppliers} onChange={setEditSource} disabled={saving} legacy={!editing.source_kind}
+                currentSupplier={editing.supplier_id ? (suppliers.find(s => s.id === editing.supplier_id) || { id: editing.supplier_id, code: editing.supplier_code_snapshot || "Chưa có mã NCC", name: editing.supplier_name_snapshot || "Nhà cung cấp cũ", is_active: false }) : undefined} />
+              {((editing.source_kind || "") !== editSource.kind || (editing.supplier_id || "") !== editSource.supplierId) && <label className="flex flex-col gap-2 text-sm">Lý do thay đổi / bổ sung Nguồn *<input className="input min-h-11 text-base" value={sourceReason} onChange={e => setSourceReason(e.target.value)} disabled={saving} /></label>}
+              {!editing.source_kind && <p className="text-sm text-slate-600">Phiếu cũ có thể giữ “Chưa ghi nhận” khi sửa số lượng; bổ sung nguồn cần ghi lý do.</p>}
+            </div>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <label className="flex flex-col gap-1">
                   <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Ngày nhập</span>
-                  <input type="date" value={eDate} onChange={e => setEDate(e.target.value)} className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-bold text-slate-700 outline-none" />
+                  <input type="date" disabled={saving || !!editing?.hasAdjs} value={eDate} onChange={e => setEDate(e.target.value)} className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-bold text-slate-700 outline-none" />
                 </label>
                 <div className="flex flex-col gap-1">
                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Mã hàng (Snapshot)</span>
@@ -1225,7 +1228,7 @@ export default function PhoiPage() {
                   <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sản phẩm hiện tại</span>
                   <div className="relative">
                     <input 
-                      value={eProductSearch} 
+                      disabled={saving || !!editing?.hasAdjs} value={eProductSearch}
                       onChange={e => { setEProductSearch(e.target.value); setEShowSuggestions(true); setEProductId(""); }}
                       onFocus={() => setEShowSuggestions(true)}
                       onBlur={() => setTimeout(() => setEShowSuggestions(false), 200)}
@@ -1260,21 +1263,21 @@ export default function PhoiPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <label className="flex flex-col gap-1">
                     <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Số lượng</span>
-                    <input type="number" value={eQty} onChange={e => setEQty(e.target.value)} className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-black text-slate-900 outline-none" />
+                    <input type="number" disabled={saving || !!editing?.hasAdjs} value={eQty} onChange={e => setEQty(e.target.value)} className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-black text-slate-900 outline-none" />
                   </label>
                   {/* Unit Cost Hidden in Edit Modal */}
                 </div>
 
                 <label className="flex flex-col gap-1">
                   <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Ghi chú</span>
-                  <input value={eNote} onChange={e => setENote(e.target.value)} className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-bold text-slate-700 outline-none" />
+                  <input disabled={saving} value={eNote} onChange={e => setENote(e.target.value)} className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-bold text-slate-700 outline-none" />
                 </label>
               </div>
             </div>
 
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setEditOpen(false)}>Đóng</button>
-              <button className="btn btn-primary px-8" onClick={saveEdit}>Lưu chỉnh sửa</button>
+              <button className="btn btn-secondary" disabled={saving} onClick={() => setEditOpen(false)}>Đóng</button>
+              <button className="btn btn-primary px-8" disabled={saving || !receiptsReady} onClick={saveEdit}>Lưu chỉnh sửa</button>
             </div>
           </div>
         </div>
@@ -1283,8 +1286,9 @@ export default function PhoiPage() {
       {/* ADJUSTMENT MODAL */}
       {adjOpen && adjBaseTx && (
         <div className="modal-overlay">
-          <div className="modal-box max-w-md">
+          <div className="modal-box max-w-md w-full max-h-[90dvh] overflow-y-auto">
             <h2 className="modal-title uppercase">Điều chỉnh tồn kho phôi</h2>
+            <p className="mb-4 text-sm text-slate-700">Nguồn: <strong>{receiptSourceLabel(adjBaseTx)}</strong> — điều chỉnh giữ nguồn của phiếu gốc.</p>
             <div className="p-4 bg-indigo-50/50 rounded-xl mb-6 space-y-1">
               <div className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Sản phẩm điều chỉnh</div>
               <div className="font-bold text-slate-800">{skuFor(adjBaseTx)}</div>
@@ -1295,10 +1299,10 @@ export default function PhoiPage() {
               <div className="grid grid-cols-2 gap-4">
                 <label className="flex flex-col gap-1">
                   <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Ngày thực hiện</span>
-                  <input type="date" value={aDate} onChange={e => setADate(e.target.value)} className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-bold text-slate-900 outline-none" />
+                  <input type="date" disabled={saving} value={aDate} onChange={e => setADate(e.target.value)} className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-bold text-slate-900 outline-none" />
                 </label>
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tồn hiện tại</span>
+                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Số lượng hiện tại</span>
                   <div className="h-11 flex items-center px-4 bg-white border border-slate-200 rounded-lg font-black text-slate-400 italic">{fmtNum(aCurrentBaseQty)}</div>
                 </div>
               </div>
@@ -1307,7 +1311,7 @@ export default function PhoiPage() {
                 <label className="flex flex-col gap-2">
                   <span className="text-xs font-black text-slate-700 uppercase">Số lượng sau điều chỉnh (Mục tiêu) *</span>
                   <input 
-                    type="number" value={aTargetQty} 
+                    type="number" disabled={saving} value={aTargetQty}
                     onChange={e => setATargetQty(e.target.value)} 
                     placeholder="Nhập số cuối cùng..."
                     className="h-12 text-2xl font-black text-indigo-600 border-none outline-none w-full text-center"
@@ -1329,15 +1333,15 @@ export default function PhoiPage() {
 
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Lý do điều chỉnh *</span>
-                <input value={aNote} onChange={e => setANote(e.target.value)} placeholder="Nhập lý do (VD: Kiểm kê lại, sai sót...)" className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-bold text-slate-900 outline-none" />
+                <input disabled={saving} value={aNote} onChange={e => setANote(e.target.value)} placeholder="Nhập lý do (VD: Kiểm kê lại, sai sót...)" className="w-full h-11 bg-white border-slate-300 border rounded-lg px-4 font-bold text-slate-900 outline-none" />
               </label>
 
               {/* Unit Cost Hidden in Adj Modal */}
             </div>
 
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setAdjOpen(false)}>Đóng</button>
-              <button className="btn btn-primary px-8" onClick={saveAdjustment}>Cập nhật tồn kho</button>
+              <button className="btn btn-secondary" disabled={saving} onClick={() => setAdjOpen(false)}>Đóng</button>
+              <button className="btn btn-primary px-8" disabled={saving || !receiptsReady} onClick={saveAdjustment}>Lưu điều chỉnh</button>
             </div>
           </div>
         </div>

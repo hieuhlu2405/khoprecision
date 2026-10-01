@@ -361,7 +361,7 @@ export default function ReturnedGoodsPage() {
   function customerLabel(customerId: string | null): string {
     if (!customerId) return "";
     const c = customers.find((x) => x.id === customerId);
-    return c ? `${c.code} - ${c.name}` : "";
+    return c?.code || "—";
   }
 
   function getAdjustments(rowId: string) {

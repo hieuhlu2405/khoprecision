@@ -9,6 +9,8 @@ import { LoadingInline, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { getTodayVNStr } from "@/lib/date-utils";
+import { fetchInventoryHistory, type HistoryClient } from "@/lib/inventory-history";
+import { receiptSourceLabel, type ReceiptSourceFields } from "@/lib/inventory-receipts";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 import { ArrowUpDown, BarChart3, Camera, Download, Eye, FileSpreadsheet, Filter, Package, Rocket, Upload, X, Zap } from "lucide-react";
@@ -45,7 +47,7 @@ type ReportRow = {
   inventory_value: number | null;
 };
 
-type HistoryTx = InventoryTx & {
+type HistoryTx = InventoryTx & ReceiptSourceFields & {
   qty: number;
   note: string | null;
   original_tx_type?: string | null;
@@ -281,6 +283,8 @@ export default function InventoryReportPage() {
   /* ---- History Modal State ---- */
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const historyRequestRef = useRef(0);
   const [historyData, setHistoryData] = useState<HistoryTx[]>([]);
   const [historyProduct, setHistoryProduct] = useState<{ id: string; sku: string; name: string; spec: string | null } | null>(null);
   const [historyCustomerLabel, setHistoryCustomerLabel] = useState("");
@@ -288,41 +292,20 @@ export default function InventoryReportPage() {
   const [historyEndDate, setHistoryEndDate] = useState(qEnd);
 
   async function fetchHistory(productId: string, start: string, end: string) {
+    const request = ++historyRequestRef.current;
     setHistoryLoading(true);
+    setHistoryError("");
+    setHistoryData([]);
     try {
-      const { data, error } = await supabase.from("inventory_transactions").select("*")
-        .eq("product_id", productId)
-        .gte("tx_date", start)
-        .lte("tx_date", end)
-        .is("deleted_at", null)
-        .order("tx_date", { ascending: false })
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      const rows = (data || []) as HistoryTx[];
-      const knownOriginalTypes = new Map(rows.map(tx => [tx.id, tx.tx_type]));
-      const missingOriginalIds = Array.from(new Set(
-        rows
-          .map(tx => tx.adjusted_from_transaction_id)
-          .filter((id): id is string => !!id && !knownOriginalTypes.has(id))
-      ));
-
-      if (missingOriginalIds.length > 0) {
-        const { data: originalRows, error: originalErr } = await supabase
-          .from("inventory_transactions")
-          .select("id, tx_type")
-          .in("id", missingOriginalIds);
-        if (originalErr) throw originalErr;
-        (originalRows || []).forEach(row => knownOriginalTypes.set(row.id, row.tx_type));
-      }
-
-      setHistoryData(rows.map(tx => ({
-        ...tx,
-        original_tx_type: tx.adjusted_from_transaction_id ? knownOriginalTypes.get(tx.adjusted_from_transaction_id) || null : null,
-      })));
-    } catch (err: any) {
-      showToast("Lỗi tải lịch sử: " + err.message, "error");
+      const rows = await fetchInventoryHistory<HistoryTx>(supabase as unknown as HistoryClient<HistoryTx>, productId, start, end);
+      if (request === historyRequestRef.current) setHistoryData(rows);
+    } catch (err: unknown) {
+      if (request !== historyRequestRef.current) return;
+      const message = err instanceof Error ? err.message : typeof err === "object" && err && "message" in err ? String(err.message) : "Không thể tải lịch sử.";
+      setHistoryError(message);
+      showToast("Lỗi tải lịch sử: " + message, "error");
     } finally {
-      setHistoryLoading(false);
+      if (request === historyRequestRef.current) setHistoryLoading(false);
     }
   }
 
@@ -975,38 +958,44 @@ export default function InventoryReportPage() {
       {/* ---- History Modal ---- */}
       {historyModalOpen && historyProduct && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onPointerDown={(e) => e.target === e.currentTarget && setHistoryModalOpen(false)}>
-          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-[800px] w-full flex flex-col" style={{ maxHeight: "85vh" }} onClick={e => e.stopPropagation()}>
-            <div className="p-6 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-3">
+          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-[800px] w-full min-w-0 flex flex-col" style={{ maxHeight: "85dvh" }} onClick={e => e.stopPropagation()}>
+            <div className="p-4 sm:p-6 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center gap-2 shrink-0">
+              <div className="flex min-w-0 items-center gap-3">
                 <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center"><Eye size={22} strokeWidth={2.5} /></div>
-                <div>
+                <div className="min-w-0 break-words">
                   <h2 className="font-black text-lg text-slate-900 uppercase tracking-tight">{historyProduct.sku} - {historyProduct.name}</h2>
                   <p className="text-xs text-indigo-600 font-bold tracking-widest uppercase">
                     {historyCustomerLabel || "Khách chung"} {historyProduct.spec ? `| ${historyProduct.spec}` : ""}
                   </p>
                 </div>
               </div>
-              <button onClick={() => setHistoryModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-black p-2 bg-white rounded-lg transition-colors"><X size={18} strokeWidth={2.5} /></button>
+              <button onClick={() => setHistoryModalOpen(false)} aria-label="Đóng lịch sử" className="shrink-0 min-h-11 min-w-11 flex items-center justify-center text-slate-400 hover:text-slate-600 font-black p-2 bg-white rounded-lg transition-colors"><X size={18} strokeWidth={2.5} /></button>
             </div>
 
-            <div className="p-4 bg-slate-50 border-b border-slate-200 flex gap-4 items-end shrink-0">
-              <div>
+            <div className="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-2 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end shrink-0 min-w-0">
+              <div className="min-w-0">
                 <label className="filter-label text-slate-500 font-bold uppercase text-[9px] mb-1.5 block tracking-widest">Từ ngày</label>
-                <input type="date" value={historyStartDate} onChange={e => setHistoryStartDate(e.target.value)} className="input border-slate-200/60 bg-white/50 focus:bg-white transition-all rounded-lg h-10 w-40 font-bold" />
+                <input type="date" value={historyStartDate} onChange={e => setHistoryStartDate(e.target.value)} className="input border-slate-200/60 bg-white/50 focus:bg-white transition-all rounded-lg min-h-11 w-full min-w-0 text-base font-bold" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="filter-label text-slate-500 font-bold uppercase text-[9px] mb-1.5 block tracking-widest">Đến ngày</label>
-                <input type="date" value={historyEndDate} onChange={e => setHistoryEndDate(e.target.value)} className="input border-slate-200/60 bg-white/50 focus:bg-white transition-all rounded-lg h-10 w-40 font-bold" />
+                <input type="date" value={historyEndDate} onChange={e => setHistoryEndDate(e.target.value)} className="input border-slate-200/60 bg-white/50 focus:bg-white transition-all rounded-lg min-h-11 w-full min-w-0 text-base font-bold" />
               </div>
               <button
                 onClick={() => fetchHistory(historyProduct.id, historyStartDate, historyEndDate)}
-                className="btn h-10 px-6 bg-indigo-600 text-white font-black text-[11px] uppercase tracking-widest hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-colors"
+                disabled={historyLoading}
+                className="btn col-span-2 sm:col-span-1 min-h-11 px-6 bg-indigo-600 text-white font-black text-sm uppercase tracking-widest hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-colors disabled:opacity-50"
               >Lọc</button>
             </div>
 
-            <div className="overflow-auto bg-white flex-1 p-0 relative">
+            <div className="overflow-auto bg-white flex-1 min-h-0 min-w-0 p-0 relative">
               {historyLoading ? (
                 <div className="py-20 text-center text-slate-400 font-bold text-xs uppercase tracking-widest animate-pulse">Đang tải lịch sử...</div>
+              ) : historyError ? (
+                <div role="alert" className="p-6 text-sm text-red-700">
+                  <p>Không tải được lịch sử: {historyError}</p>
+                  <button className="btn btn-secondary mt-3" onClick={() => fetchHistory(historyProduct.id, historyStartDate, historyEndDate)}>Tải lại</button>
+                </div>
               ) : historyData.length === 0 ? (
                 <div className="py-20 text-center text-slate-400 font-bold text-xs uppercase tracking-widest">Không có giao dịch nào trong khoảng thời gian này</div>
               ) : (
@@ -1016,6 +1005,7 @@ export default function InventoryReportPage() {
                       <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-32">Ngày</th>
                       <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-32">Loại</th>
                       <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right w-24">Số lượng</th>
+                      <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nguồn</th>
                       <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Ghi chú</th>
                     </tr>
                   </thead>
@@ -1032,7 +1022,10 @@ export default function InventoryReportPage() {
                           <td className={`px-6 py-4 font-black text-right text-base ${qtySign === '+' ? 'text-blue-600' : 'text-red-500'}`}>
                             {qtySign}{fmtNum(tx.qty)}
                           </td>
-                          <td className="px-6 py-4 font-black text-black text-sm italic">{tx.note || "-"}</td>
+                          <td className="px-6 py-4 text-sm text-slate-700">
+                            {tx.tx_type === "out" || tx.original_tx_type === "out" ? "—" : receiptSourceLabel(tx)}
+                          </td>
+                          <td className="px-6 py-4 font-black text-black text-sm italic break-words">{tx.note || "-"}</td>
                         </tr>
                       );
                     })}

@@ -89,6 +89,7 @@ function buildMenu(p: Profile, isAdmin: boolean) {
     { label: "Dashboard", icon: "dashboard", href: "/app", show: true },
     { label: "Mã hàng", icon: "products", href: "/products", show: true },
     { label: "Khách hàng", icon: "customers", href: "/customers", show: true },
+    { label: "Nhà cung cấp", icon: "entities", href: "/suppliers", show: true },
     { label: "Pháp nhân", icon: "entities", href: "/selling-entities", show: true },
     { label: "Danh sách xe", icon: "truck", href: "/vehicles", show: true },
 
