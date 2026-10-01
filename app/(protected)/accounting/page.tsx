@@ -60,7 +60,7 @@ function supplierSaveError(error: unknown) {
     return "Chưa có bản cập nhật danh mục Nhà cung cấp. Nhờ Admin cài bản cập nhật dữ liệu trước khi sử dụng.";
   }
   if (/23505|duplicate key|mã nhà cung cấp.*(?:trùng|đã được)|ma nha cung cap.*(?:trung|da duoc)/i.test(message)) {
-    return "Mã NCC này đã được dùng, kể cả nhà cung cấp đã ngưng hoạt động. Cách xử lý: Chọn mã khác; không cấp lại mã cũ cho nhà cung cấp mới.";
+    return "Mã nhà cung cấp này đã được dùng, kể cả nhà cung cấp đã ngưng hoạt động. Hãy chọn mã khác; không cấp lại mã cũ cho nhà cung cấp mới.";
   }
   return message;
 }
@@ -634,10 +634,10 @@ export default function AccountingPage() {
       const code = normalizeSupplierText(supplierForm.code);
       const name = normalizeSupplierText(supplierForm.name);
       const term = Number(supplierForm.defaultPaymentTermDays || 0);
-      if (!code || !name) throw new Error("Anh yêu cần nhập đủ mã và tên NCC.");
-      if (!Number.isInteger(term) || term < 0 || term > 3650) throw new Error("Thời hạn công nợ NCC phải là số ngày nguyên từ 0 đến 3650.");
+      if (!code || !name) throw new Error("Cần nhập đủ mã và tên nhà cung cấp.");
+      if (!Number.isInteger(term) || term < 0 || term > 3650) throw new Error("Thời hạn công nợ nhà cung cấp phải là số ngày nguyên từ 0 đến 3650.");
       if (suppliers.some((supplier) => supplier.id !== supplierForm.id && normalizeSupplierText(supplier.code || "").toLowerCase() === code.toLowerCase())) {
-        throw new Error("Mã NCC này đã được dùng, kể cả nhà cung cấp đã ngưng hoạt động. Cách xử lý: Chọn mã khác; không cấp lại mã cũ cho nhà cung cấp mới.");
+        throw new Error("Mã nhà cung cấp này đã được dùng, kể cả nhà cung cấp đã ngưng hoạt động. Hãy chọn mã khác; không cấp lại mã cũ cho nhà cung cấp mới.");
       }
       // Ensure the shared catalog protections are installed before direct writes that also save terms/note.
       const readiness = await supabase.rpc("inventory_list_receipt_suppliers_v1").range(0, 0);
@@ -645,7 +645,7 @@ export default function AccountingPage() {
       const previous = suppliers.find((supplier) => supplier.id === supplierForm.id);
       if (previous && (code !== previous.code || name !== previous.name)) {
         const ok = await showConfirm({
-          message: `Cập nhật NCC ${previous.code || "chưa có mã"} — ${previous.name} thành ${code} — ${name}?\nDanh mục dùng chung cho công nợ và nhập hàng. Lịch sử nhập cũ vẫn giữ mã và tên lúc nhập.`,
+          message: `Cập nhật nhà cung cấp ${previous.code || "chưa có mã"} — ${previous.name} thành ${code} — ${name}?\nDanh mục dùng chung cho công nợ và nhập hàng. Lịch sử nhập cũ vẫn giữ mã và tên lúc nhập.`,
           confirmLabel: "Cập nhật",
         });
         if (!ok) return;
@@ -663,11 +663,11 @@ export default function AccountingPage() {
           .update(payload).eq("id", supplierForm.id).eq("is_active", true).is("deleted_at", null).select("id").maybeSingle();
         if (updateError) throw updateError;
         if (!updatedSupplier) throw new Error("Nhà cung cấp không còn hoạt động. Vui lòng tải lại danh sách.");
-        showToast("Đã cập nhật NCC công nợ.", "success");
+        showToast("Đã cập nhật nhà cung cấp công nợ.", "success");
       } else {
         const { error: insertError } = await supabase.from("accounting_debt_suppliers").insert(payload);
         if (insertError) throw insertError;
-        showToast("Đã thêm NCC công nợ.", "success");
+        showToast("Đã thêm nhà cung cấp công nợ.", "success");
       }
 
       setSupplierForm(emptySupplierForm());
@@ -686,14 +686,14 @@ export default function AccountingPage() {
     setSaving(true);
     try {
       const ok = await showConfirm({
-        message: `Ngưng dùng NCC ${supplier.code ? `${supplier.code} - ` : ""}${supplier.name}?\nNCC không còn trong lựa chọn mới ở Công nợ, Nhập kho và Nhập phôi. Lịch sử cũ giữ nguyên; mã NCC không được cấp lại.`,
+        message: `Ngưng dùng nhà cung cấp ${supplier.code ? `${supplier.code} - ` : ""}${supplier.name}?\nNhà cung cấp không còn trong lựa chọn mới ở Công nợ, Nhập kho và Nhập phôi. Lịch sử cũ giữ nguyên; mã nhà cung cấp không được cấp lại.`,
         danger: true,
         confirmLabel: "Ngưng dùng",
       });
       if (!ok) return;
       const { error: updateError } = await supabase.rpc("inventory_deactivate_receipt_supplier_v1", { p_supplier_id: supplier.id });
       if (updateError) throw updateError;
-      showToast("Đã ngưng dùng NCC.", "success");
+      showToast("Đã ngưng dùng nhà cung cấp.", "success");
       if (supplierForm.id === supplier.id) setSupplierForm(emptySupplierForm());
       await load();
     } catch (err) {
@@ -720,7 +720,7 @@ export default function AccountingPage() {
       const selectedCustomer = customers.find((c) => c.id === invoiceForm.customerId);
       const selectedSupplier = suppliers.find((s) => s.id === invoiceForm.supplierId);
       if (invoiceForm.debtType === "payable" && selectedSupplier && !isSupplierActive(selectedSupplier) && editingInvoice?.supplier_id !== selectedSupplier.id) {
-        throw new Error("Nhà cung cấp đã ngưng sử dụng. Vui lòng chọn NCC đang hoạt động.");
+        throw new Error("Nhà cung cấp đã ngưng sử dụng. Vui lòng chọn nhà cung cấp đang hoạt động.");
       }
       if (invoiceForm.debtType === "receivable" && !selectedCustomer) {
         throw new Error("Anh yêu cần chọn khách hàng cho công nợ phải thu.");
@@ -1028,7 +1028,7 @@ export default function AccountingPage() {
             onChange={(e) => setQ(e.target.value)}
             className="input w-full pl-9"
             style={{ paddingLeft: 42 }}
-            placeholder="Tìm số hóa đơn, khách/NCC, PO, mã đối chiếu..."
+            placeholder="Tìm số hóa đơn, khách hàng/nhà cung cấp, PO, mã đối chiếu..."
           />
         </div>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input min-w-[180px]">
@@ -1091,7 +1091,7 @@ export default function AccountingPage() {
               return (
                 <tr key={row.id}>
                   <td>
-                    <div className="font-black text-slate-900">{row.partner_code || "NCC"} - {row.partner_name}</div>
+                    <div className="font-black text-slate-900">{row.partner_code || "Nhà cung cấp"} - {row.partner_name}</div>
                     <div className="text-[11px] text-slate-400 font-bold">{row.debt_type === "receivable" ? "Khách hàng" : "Nhà cung cấp"}</div>
                   </td>
                   <td>
@@ -1181,10 +1181,10 @@ export default function AccountingPage() {
               ) : (
                 <>
                   <label className="field-group md:col-span-2">
-                    <span className="field-label">NCC đã lưu</span>
+                    <span className="field-label">Nhà cung cấp đã lưu</span>
                     <div className="flex gap-2">
                       <select value={invoiceForm.supplierId} onChange={(e) => applySupplierToInvoice(e.target.value)} className="input flex-1">
-                        <option value="">-- Chọn NCC để tự lấy hạn công nợ --</option>
+                        <option value="">-- Chọn nhà cung cấp để tự lấy hạn công nợ --</option>
                         {suppliers.filter((s) => isSupplierActive(s) || s.id === invoiceForm.supplierId).map((s) => (
                           <option key={s.id} value={s.id} disabled={!isSupplierActive(s)}>
                             {s.code ? `${s.code} - ` : ""}{s.name} · {s.default_payment_term_days} ngày{!isSupplierActive(s) ? " · Đã ngưng" : ""}
@@ -1197,12 +1197,12 @@ export default function AccountingPage() {
                     </div>
                   </label>
                   <label className="field-group">
-                    <span className="field-label">Mã NCC</span>
+                    <span className="field-label">Mã nhà cung cấp</span>
                     <input value={invoiceForm.partnerCode} onChange={(e) => patchInvoiceForm({ supplierId: "", partnerCode: e.target.value })} className="input" placeholder="VD: NCC001" />
                   </label>
                   <label className="field-group">
                     <span className="field-label">Tên nhà cung cấp *</span>
-                    <input value={invoiceForm.partnerName} onChange={(e) => patchInvoiceForm({ supplierId: "", partnerName: e.target.value })} className="input" placeholder="Tên NCC trên hóa đơn" />
+                    <input value={invoiceForm.partnerName} onChange={(e) => patchInvoiceForm({ supplierId: "", partnerName: e.target.value })} className="input" placeholder="Tên nhà cung cấp trên hóa đơn" />
                   </label>
                 </>
               )}
@@ -1425,11 +1425,11 @@ export default function AccountingPage() {
             ) : (
             <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
               <div className="min-w-0 border border-slate-200 rounded-lg p-4 bg-slate-50">
-                <h3 className="section-title !text-sm !mb-3">{supplierForm.id ? "Sửa NCC" : "Thêm NCC"}</h3>
-                <p className="mb-3 text-sm text-slate-500">Danh mục dùng chung với nguồn nhập hàng. NCC cũ thiếu mã cần bổ sung mã thủ công; mã đã dùng không được cấp lại.</p>
+                <h3 className="section-title !text-sm !mb-3">{supplierForm.id ? "Sửa nhà cung cấp" : "Thêm nhà cung cấp"}</h3>
+                <p className="mb-3 text-sm text-slate-500">Danh mục dùng chung với nguồn nhập hàng. Nhà cung cấp cũ thiếu mã cần bổ sung mã thủ công; mã đã dùng không được cấp lại.</p>
                 <fieldset className="grid gap-3" disabled={saving}>
                   <label className="field-group min-w-0">
-                    <span className="field-label">Mã NCC *</span>
+                    <span className="field-label">Mã nhà cung cấp *</span>
                     <input
                       value={supplierForm.code}
                       onChange={(e) => setSupplierForm((prev) => ({ ...prev, code: e.target.value }))}
@@ -1443,7 +1443,7 @@ export default function AccountingPage() {
                     />
                   </label>
                   <label className="field-group min-w-0">
-                    <span className="field-label">Tên NCC *</span>
+                    <span className="field-label">Tên nhà cung cấp *</span>
                     <input
                       value={supplierForm.name}
                       onChange={(e) => setSupplierForm((prev) => ({ ...prev, name: e.target.value }))}
@@ -1486,7 +1486,7 @@ export default function AccountingPage() {
                   </label>
                   <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                     <button className="btn btn-primary min-w-0" onClick={saveSupplier} disabled={saving}>
-                      {saving ? "Đang lưu..." : "Lưu NCC"}
+                      {saving ? "Đang lưu..." : "Lưu nhà cung cấp"}
                     </button>
                     {supplierForm.id && (
                       <button className="btn btn-secondary min-w-0" onClick={() => setSupplierForm(emptySupplierForm())} disabled={saving}>
@@ -1501,8 +1501,8 @@ export default function AccountingPage() {
                 <table className="data-table" style={{ minWidth: 620 }}>
                   <thead>
                     <tr>
-                      <th>Mã NCC</th>
-                      <th>Tên NCC</th>
+                      <th>Mã nhà cung cấp</th>
+                      <th>Tên nhà cung cấp</th>
                       <th>Hạn mặc định</th>
                       <th>Trạng thái</th>
                       <th>Thao tác</th>
@@ -1512,7 +1512,7 @@ export default function AccountingPage() {
                     {suppliers.length === 0 && (
                       <tr>
                         <td colSpan={5} className="text-center py-10 text-slate-400 font-bold">
-                          Chưa có NCC công nợ nào.
+                          Chưa có nhà cung cấp công nợ nào.
                         </td>
                       </tr>
                     )}
@@ -1558,7 +1558,7 @@ export default function AccountingPage() {
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
                   <h2 className="modal-title !mb-1">Chi tiết hóa đơn {detailInvoice.invoice_no}</h2>
-                  <p className="text-xs text-slate-500 font-bold">{detailInvoice.partner_code || "NCC"} - {detailInvoice.partner_name}</p>
+                  <p className="text-xs text-slate-500 font-bold">{detailInvoice.partner_code || "Nhà cung cấp"} - {detailInvoice.partner_name}</p>
                 </div>
                 <button className="btn btn-ghost btn-sm" onClick={() => setDetailInvoice(null)}>
                   <X size={15} strokeWidth={2.5} />

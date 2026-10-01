@@ -1,5 +1,12 @@
 # Handoff Du An
 
+## Cập nhật 2026-10-01 — Giao diện Nhà cung cấp
+
+- Thanh menu đổi tên mục Pháp nhân thành “Pháp nhân bán hàng”; đường dẫn và dữ liệu pháp nhân không đổi.
+- Nhánh `codex/inventory-sources`: đổi biểu tượng Nhà cung cấp khác Pháp nhân; trang Nhà cung cấp chỉ hiện nút Thêm, bấm nút hoặc Sửa mới mở hộp nhập mã/tên. Hộp nhập có nút Hủy/Đóng và báo lỗi tại chỗ.
+- Các nhãn, cảnh báo và thông báo nhìn thấy trên web viết đầy đủ “nhà cung cấp” thay “NCC”. Mã dữ liệu như `NCC01` giữ nguyên. Xuất Excel sản phẩm/khách hàng dùng tiêu đề đầy đủ; nhập Excel sản phẩm vẫn chấp nhận cả tiêu đề cũ để không mất khả năng nhập file trước đây.
+- Chỉ sửa giao diện/nhãn, không tạo SQL và không đổi dữ liệu. `npm run build` và ESLint phần Nhà cung cấp/nguồn nhập PASS. Chưa test mobile bằng browser/screenshot theo yêu cầu trước đó của chủ dự án. Cần kiểm tra sau khi mở web: nút Thêm/Sửa, đóng hộp, báo trùng mã, tìm kiếm và bố cục 390/430/768/1366px.
+
 ## Cập nhật 2026-10-01 — Nguồn nhập, danh mục NCC và người nhập (nhánh phụ)
 
 - Phạm vi theo chủ dự án: mã NCC nhập thủ công/chặn trùng; nguồn chỉ ghi theo lần nhập và lịch sử, không tách tồn theo nguồn. Nhánh `codex/inventory-sources`, bản làm việc riêng; không gộp main. Chủ dự án yêu cầu bỏ qua toàn bộ test trình duyệt.

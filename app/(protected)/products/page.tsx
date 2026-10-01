@@ -685,7 +685,7 @@ export default function ProductsPage() {
         "Khách hàng": c ? `${c.code} - ${c.name}` : r.customer_id,
         "Mã hàng": r.sku,
         "Mã SAP": r.sap_code ?? "",
-        "Mã hàng (NCC)": r.external_sku ?? "",
+        "Mã hàng (nhà cung cấp)": r.external_sku ?? "",
         "Tên hàng": r.name,
         "Kích thước (MM)": r.spec ?? "",
         "ĐƠN VỊ TÍNH": r.uom,
@@ -729,7 +729,7 @@ export default function ProductsPage() {
         const name = text(valueFrom(raw, "Tên hàng"));
         const spec = text(valueFrom(raw, "Kích thước (MM)", "Kích thước")) || null;
         const sapCode = text(valueFrom(raw, "Mã SAP")) || null;
-        const externalSku = text(valueFrom(raw, "Mã hàng (NCC)", "Mã NCC")) || null;
+        const externalSku = text(valueFrom(raw, "Mã hàng (nhà cung cấp)", "Mã nhà cung cấp", "Mã hàng (NCC)", "Mã NCC")) || null;
         const uom = text(valueFrom(raw, "ĐƠN VỊ TÍNH", "Đơn vị tính")) || "PCS";
         const customerLabel = text(valueFrom(raw, "Khách hàng"));
         const priceRaw = valueFrom(raw, "Đơn giá");
@@ -1173,7 +1173,7 @@ export default function ProductsPage() {
                )}
                <ThCell label="Mã nội bộ" colKey="sku" sortable colType="text" w="200px" extra={{ position: "sticky", left: isManager ? 50 : 0, zIndex: 101, background: "white", boxShadow: "4px 0 10px -2px rgba(0,0,0,0.15)", borderRight: "1px solid #e2e8f0" }} />
                <ThCell label="Mã SAP" colKey="sap_code" sortable colType="text" w="150px" />
-               <ThCell label="Mã hàng (NCC)" colKey="external_sku" sortable colType="text" w="180px" />
+               <ThCell label="Mã hàng (nhà cung cấp)" colKey="external_sku" sortable colType="text" w="180px" />
                <ThCell label="Tên hàng" colKey="name" sortable colType="text" />
                <ThCell label="Kích thước (MM)" colKey="spec" sortable colType="text" w="160px" />
                <ThCell label="ĐƠN VỊ TÍNH" colKey="uom" sortable colType="text" w="120px" />
@@ -1312,8 +1312,8 @@ export default function ProductsPage() {
                   <input value={sapCode} onChange={(e) => setSapCode(e.target.value)} className="input" placeholder="Mã SAP..." />
                 </label>
                 <label className="product-editor-field">
-                  Mã hàng NCC (Tùy chọn)
-                  <input value={externalSku} onChange={(e) => setExternalSku(e.target.value)} className="input" placeholder="Mã NCC..." />
+                  Mã hàng nhà cung cấp (tùy chọn)
+                  <input value={externalSku} onChange={(e) => setExternalSku(e.target.value)} className="input" placeholder="Mã nhà cung cấp..." />
                 </label>
               </div>
 

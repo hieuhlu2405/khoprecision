@@ -31,7 +31,7 @@ export function ReceiptSourceField({ value, suppliers, onChange, disabled = fals
             <option value="">Chọn mã và tên nhà cung cấp</option>
             {available.map(s => <option key={s.id} value={s.id} disabled={!s.is_active}>{s.code} — {s.name}{!s.is_active ? " (đã ngưng dùng)" : ""}</option>)}
           </select>
-          {available.length === 0 && <span className="text-sm font-normal text-amber-700">Chưa có NCC đang sử dụng với mã hợp lệ. Liên hệ Admin bổ sung.</span>}
+          {available.length === 0 && <span className="text-sm font-normal text-amber-700">Chưa có nhà cung cấp đang sử dụng với mã hợp lệ. Liên hệ Admin bổ sung.</span>}
         </label>
       )}
     </div>

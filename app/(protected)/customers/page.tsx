@@ -235,9 +235,9 @@ export default function CustomersPage() {
     const data: Record<string, unknown>[] = [];
     parents.forEach((p, i) => {
       const ent = entities.find(e => e.id === p.selling_entity_id);
-      data.push({ "STT": i + 1, "Loại": "CÔNG TY MẸ", "Mã KH nội bộ": p.code, "Mã KH (NCC)": p.external_code ?? "", "Tên khách hàng": p.name, "Địa chỉ": p.address ?? "", "MST": p.tax_code ?? "", "Pháp nhân": ent ? `${ent.code} - ${ent.name}` : "", "Công ty mẹ": "" });
+      data.push({ "STT": i + 1, "Loại": "CÔNG TY MẸ", "Mã KH nội bộ": p.code, "Mã KH (nhà cung cấp)": p.external_code ?? "", "Tên khách hàng": p.name, "Địa chỉ": p.address ?? "", "MST": p.tax_code ?? "", "Pháp nhân": ent ? `${ent.code} - ${ent.name}` : "", "Công ty mẹ": "" });
       (vendorsByParent[p.id] || []).forEach(v => {
-        data.push({ "STT": "", "Loại": "VENDOR", "Mã KH nội bộ": v.code, "Mã KH (NCC)": v.external_code ?? "", "Tên khách hàng": v.name, "Địa chỉ": v.address ?? "", "MST": v.tax_code ?? "", "Pháp nhân": "", "Công ty mẹ": p.name });
+        data.push({ "STT": "", "Loại": "VENDOR", "Mã KH nội bộ": v.code, "Mã KH (nhà cung cấp)": v.external_code ?? "", "Tên khách hàng": v.name, "Địa chỉ": v.address ?? "", "MST": v.tax_code ?? "", "Pháp nhân": "", "Công ty mẹ": p.name });
       });
     });
     exportToExcel(data, `Danh_sach_khach_hang_${new Date().toISOString().slice(0, 10)}`, "Customers");
@@ -304,7 +304,7 @@ export default function CustomersPage() {
                 </th>
               )}
               {[
-                { label: "Loại", w: 100 }, { label: "Mã nội bộ", w: 180 }, { label: "Mã NCC", w: 180 },
+                { label: "Loại", w: 100 }, { label: "Mã nội bộ", w: 180 }, { label: "Mã nhà cung cấp", w: 180 },
                 { label: "Tên khách hàng", w: 280 }, { label: "Địa chỉ", w: 260 }, { label: "MST", w: 130 }, { label: "Pháp nhân", w: 160 },
                 ...(isManager ? [{ label: "Ngày tạo", w: 160 }, { label: "Thao tác", w: 120 }] : [])
               ].map(col => (
@@ -471,7 +471,7 @@ export default function CustomersPage() {
                 <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} className="input" placeholder="Vd: KH0123" autoFocus />
               </label>
               <label style={{ display: "grid", gap: 6 }}>
-                <span className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Mã NCC (tùy chọn)</span>
+                <span className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Mã nhà cung cấp (tùy chọn)</span>
                 <input value={externalCode} onChange={e => setExternalCode(e.target.value)} className="input" placeholder="Mã từ nhà cung cấp..." />
               </label>
               <label style={{ display: "grid", gap: 6 }}>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Building2, Plus, RefreshCw, Search } from "lucide-react";
+import { Plus, RefreshCw, Search, Store, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { getErrorMessage } from "@/lib/user-error";
 import { useUI } from "@/app/context/UIContext";
@@ -18,7 +18,7 @@ function supplierError(error: unknown) {
     return "Chưa có bản cập nhật danh mục Nhà cung cấp. Nhờ Admin cài bản cập nhật dữ liệu trước khi sử dụng.";
   }
   if (/23505|duplicate key|mã nhà cung cấp.*(?:trùng|đã được)|ma nha cung cap.*(?:trung|da duoc)/i.test(message)) {
-    return "Mã NCC này đã được dùng, kể cả nhà cung cấp đã ngưng hoạt động. Cách xử lý: Chọn mã khác; không cấp lại mã cũ cho nhà cung cấp mới.";
+    return "Mã nhà cung cấp này đã được dùng, kể cả nhà cung cấp đã ngưng hoạt động. Hãy chọn mã khác; không cấp lại mã cũ cho nhà cung cấp mới.";
   }
   return message;
 }
@@ -34,6 +34,8 @@ export default function SuppliersPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [form, setForm] = useState<SupplierForm>(emptyForm);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formError, setFormError] = useState("");
   const busy = useRef(false);
   const codeInput = useRef<HTMLInputElement>(null);
 
@@ -75,6 +77,16 @@ export default function SuppliersPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  useEffect(() => {
+    if (!formOpen) return;
+    codeInput.current?.focus();
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy.current) setFormOpen(false);
+    };
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [formOpen]);
+
   const visible = useMemo(() => {
     const search = normalize(query).toLocaleLowerCase("vi-VN");
     return suppliers.filter((supplier) => (
@@ -87,7 +99,8 @@ export default function SuppliersPage() {
   function edit(supplier?: Supplier) {
     if (!canManage || busy.current) return;
     setForm(supplier ? { id: supplier.id, code: supplier.code || "", name: supplier.name } : emptyForm());
-    codeInput.current?.focus();
+    setFormError("");
+    setFormOpen(true);
   }
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
@@ -95,13 +108,13 @@ export default function SuppliersPage() {
     if (!canManage || !ready || busy.current) return;
     busy.current = true;
     setSaving(true);
-    setError("");
+    setFormError("");
     try {
       const code = normalize(form.code);
       const name = normalize(form.name);
       if (!code || !name) throw new Error("Vui lòng nhập đủ mã và tên nhà cung cấp.");
       if (suppliers.some((supplier) => supplier.id !== form.id && normalize(supplier.code || "").toLowerCase() === code.toLowerCase())) {
-        throw new Error("Mã NCC này đã được dùng, kể cả nhà cung cấp đã ngưng hoạt động. Cách xử lý: Chọn mã khác; không cấp lại mã cũ cho nhà cung cấp mới.");
+        throw new Error("Mã nhà cung cấp này đã được dùng, kể cả nhà cung cấp đã ngưng hoạt động. Hãy chọn mã khác; không cấp lại mã cũ cho nhà cung cấp mới.");
       }
       const previous = suppliers.find((supplier) => supplier.id === form.id);
       if (previous && (code !== previous.code || name !== previous.name)) {
@@ -118,10 +131,11 @@ export default function SuppliersPage() {
       });
       if (result.error) throw result.error;
       setForm(emptyForm());
+      setFormOpen(false);
       showToast(form.id ? "Đã cập nhật nhà cung cấp." : "Đã thêm nhà cung cấp.", "success");
       await load();
     } catch (err) {
-      setError(supplierError(err));
+      setFormError(supplierError(err));
     } finally {
       setSaving(false);
       busy.current = false;
@@ -134,7 +148,7 @@ export default function SuppliersPage() {
     setSaving(true);
     try {
       const ok = await showConfirm({
-        message: `Ngưng dùng ${supplier.code || "NCC chưa có mã"} — ${supplier.name}?\nNCC sẽ không còn trong lựa chọn mới ở Nhập kho, Nhập phôi và Công nợ. Lịch sử cũ giữ nguyên; mã NCC không được cấp lại.`,
+        message: `Ngưng dùng ${supplier.code || "nhà cung cấp chưa có mã"} — ${supplier.name}?\nNhà cung cấp sẽ không còn trong lựa chọn mới ở Nhập kho, Nhập phôi và Công nợ. Lịch sử cũ giữ nguyên; mã nhà cung cấp không được cấp lại.`,
         confirmLabel: "Ngưng dùng",
         danger: true,
       });
@@ -158,38 +172,45 @@ export default function SuppliersPage() {
     <div className="page-container min-w-0 space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="page-title flex items-center gap-2"><Building2 size={26} />Nhà cung cấp</h1>
+          <h1 className="page-title flex items-center gap-2"><Store size={26} />Nhà cung cấp</h1>
           <p className="mt-1 text-sm text-slate-500">Dùng chung cho nguồn nhập hàng và công nợ.</p>
         </div>
-        <button type="button" className="btn btn-secondary min-h-11" onClick={() => void load()} disabled={loading || saving}>
-          <RefreshCw size={16} />Tải lại
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {canManage && <button type="button" className="btn btn-primary min-h-11" onClick={() => edit()} disabled={loading || saving || !ready}><Plus size={16} />Thêm nhà cung cấp</button>}
+          <button type="button" className="btn btn-secondary min-h-11" onClick={() => void load()} disabled={loading || saving}><RefreshCw size={16} />Tải lại</button>
+        </div>
       </div>
       {error && <ErrorBanner message={error} onDismiss={() => setError("")} />}
       {missingCodes > 0 && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-        Có {missingCodes} NCC cũ chưa có mã. {canManage ? "Chọn Sửa để bổ sung mã thủ công trước khi dùng làm nguồn nhập." : "Nhờ Admin hoặc Kế toán bổ sung mã trước khi dùng làm nguồn nhập."}
+        Có {missingCodes} nhà cung cấp cũ chưa có mã. {canManage ? "Chọn Sửa để bổ sung mã thủ công trước khi dùng làm nguồn nhập." : "Nhờ Admin hoặc Kế toán bổ sung mã trước khi dùng làm nguồn nhập."}
       </p>}
-      {canManage && <form onSubmit={save} className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-bold text-slate-900">{form.id ? "Sửa nhà cung cấp" : "Thêm nhà cung cấp"}</h2>
-          {form.id && <button type="button" className="btn btn-secondary min-h-11" onClick={() => edit()} disabled={saving}><Plus size={16} />Tạo mới</button>}
-        </div>
-        <fieldset disabled={saving || loading || !ready} className="grid min-w-0 gap-3 md:grid-cols-2">
-          <label className="field-group min-w-0"><span className="field-label">Mã NCC *</span>
-            <input ref={codeInput} required maxLength={50} autoComplete="off" autoCapitalize="off" spellCheck={false} className="input min-h-11 w-full min-w-0 !text-base" placeholder="VD: NCC01" value={form.code} onChange={(event) => setForm((previous) => ({ ...previous, code: event.target.value }))} />
-          </label>
-          <label className="field-group min-w-0"><span className="field-label">Tên nhà cung cấp *</span>
-            <input required maxLength={300} className="input min-h-11 w-full min-w-0 !text-base" placeholder="Tên đầy đủ của nhà cung cấp" value={form.name} onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))} />
-          </label>
-          <p className="text-sm text-slate-500 md:col-span-2">Mã nhập thủ công, không phân biệt chữ hoa/thường. Mã đã dùng được giữ lại kể cả khi đổi mã hoặc ngưng NCC.</p>
-          <div className="flex flex-wrap gap-3 md:col-span-2"><button type="submit" className="btn btn-primary min-h-11">{saving ? "Đang xử lý..." : "Lưu nhà cung cấp"}</button></div>
-        </fieldset>
-      </form>}
-      {!canManage && ready && <p className="text-sm text-slate-500">Anh/chị có thể xem danh mục và chọn NCC khi nhập hàng. Admin hoặc Kế toán quản lý mã, tên và trạng thái NCC.</p>}
+      {!canManage && ready && <p className="text-sm text-slate-500">Anh/chị có thể xem danh mục và chọn nhà cung cấp khi nhập hàng. Admin hoặc Kế toán quản lý mã, tên và trạng thái nhà cung cấp.</p>}
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row">
-        <label className="relative flex min-w-0 flex-1 items-center"><Search size={17} className="absolute left-3 text-slate-400" /><input aria-label="Tìm nhà cung cấp" className="input min-h-11 w-full min-w-0 !pl-10 !text-base" placeholder="Tìm theo mã hoặc tên NCC" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+        <label className="relative flex min-w-0 flex-1 items-center"><Search size={17} className="absolute left-3 text-slate-400" /><input aria-label="Tìm nhà cung cấp" className="input min-h-11 w-full min-w-0 !pl-10 !text-base" placeholder="Tìm theo mã hoặc tên nhà cung cấp" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
         <select aria-label="Trạng thái nhà cung cấp" className="input min-h-11 min-w-0 !text-base" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Tất cả trạng thái</option><option value="active">Đang sử dụng</option><option value="inactive">Đã ngưng</option></select>
       </div>
+      {formOpen && canManage && <div className="modal-overlay" onPointerDown={(event) => { if (event.target === event.currentTarget && !saving) setFormOpen(false); }}>
+        <form role="dialog" aria-modal="true" aria-labelledby="supplier-form-title" onSubmit={save} className="modal-box min-w-0 !max-w-lg">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <h2 id="supplier-form-title" className="text-lg font-bold text-slate-900">{form.id ? "Sửa nhà cung cấp" : "Thêm nhà cung cấp"}</h2>
+            <button type="button" aria-label="Đóng" className="btn btn-secondary min-h-11 min-w-11" onClick={() => setFormOpen(false)} disabled={saving}><X size={18} /></button>
+          </div>
+          {formError && <div className="mb-3"><ErrorBanner message={formError} onDismiss={() => setFormError("")} /></div>}
+          <fieldset disabled={saving || loading || !ready} className="grid min-w-0 gap-3">
+            <label className="field-group min-w-0"><span className="field-label">Mã nhà cung cấp *</span>
+              <input ref={codeInput} required maxLength={50} autoComplete="off" autoCapitalize="off" spellCheck={false} className="input min-h-11 w-full min-w-0 !text-base" placeholder="Ví dụ: NCC01" value={form.code} onChange={(event) => setForm((previous) => ({ ...previous, code: event.target.value }))} />
+            </label>
+            <label className="field-group min-w-0"><span className="field-label">Tên nhà cung cấp *</span>
+              <input required maxLength={300} className="input min-h-11 w-full min-w-0 !text-base" placeholder="Tên đầy đủ của nhà cung cấp" value={form.name} onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))} />
+            </label>
+            <p className="text-sm text-slate-500">Mã nhập thủ công, không phân biệt chữ hoa/thường. Mã đã dùng được giữ lại kể cả khi đổi mã hoặc ngưng nhà cung cấp.</p>
+            <div className="modal-footer !mt-1 flex-wrap">
+              <button type="button" className="btn btn-secondary min-h-11" onClick={() => setFormOpen(false)} disabled={saving}>Hủy</button>
+              <button type="submit" className="btn btn-primary min-h-11">{saving ? "Đang xử lý..." : "Lưu nhà cung cấp"}</button>
+            </div>
+          </fieldset>
+        </form>
+      </div>}
       <div className="space-y-3" aria-busy={loading}>
         <div className="text-sm text-slate-500">{visible.length} nhà cung cấp{loading ? " · Đang tải lại..." : ""}</div>
         {visible.map((supplier) => <article key={supplier.id} className="grid min-w-0 gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-[minmax(0,1fr)_auto]">

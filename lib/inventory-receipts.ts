@@ -15,7 +15,7 @@ export type ReceiptRequest = { payload: string; id: string } | null;
 
 export function receiptSourceLabel(row: ReceiptSourceFields): string {
   if (row.source_kind === "factory") return "Nhà máy tự sản xuất";
-  if (row.source_kind === "supplier") return row.supplier_code_snapshot?.trim() || "Chưa có mã NCC";
+  if (row.source_kind === "supplier") return row.supplier_code_snapshot?.trim() || "Chưa có mã nhà cung cấp";
   return "Chưa ghi nhận";
 }
 

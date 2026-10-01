@@ -1138,7 +1138,7 @@ export default function InventoryInboundPage() {
             {editing.hasAdjs && <p className="mb-3 text-sm text-amber-700">Phiếu đã có điều chỉnh: chỉ sửa Nguồn, đơn giá hoặc ghi chú tại đây. Muốn đổi số lượng, dùng nút Điều chỉnh.</p>}
             <div className="mb-4 space-y-3">
               <ReceiptSourceField value={editSource} suppliers={suppliers} onChange={setEditSource} disabled={saving} legacy={!editing.source_kind}
-                currentSupplier={editing.supplier_id ? (suppliers.find(s => s.id === editing.supplier_id) || { id: editing.supplier_id, code: editing.supplier_code_snapshot || "Chưa có mã NCC", name: editing.supplier_name_snapshot || "Nhà cung cấp cũ", is_active: false }) : undefined} />
+                currentSupplier={editing.supplier_id ? (suppliers.find(s => s.id === editing.supplier_id) || { id: editing.supplier_id, code: editing.supplier_code_snapshot || "Chưa có mã nhà cung cấp", name: editing.supplier_name_snapshot || "Nhà cung cấp cũ", is_active: false }) : undefined} />
               {((editing.source_kind || "") !== editSource.kind || (editing.supplier_id || "") !== editSource.supplierId) && <label className="flex flex-col gap-2 text-sm">Lý do thay đổi / bổ sung Nguồn *<input className="input min-h-11 text-base" value={sourceReason} onChange={e => setSourceReason(e.target.value)} disabled={saving} /></label>}
               {!editing.source_kind && <p className="text-sm text-slate-600">Phiếu cũ có thể giữ “Chưa ghi nhận” khi sửa số lượng; bổ sung nguồn cần ghi lý do.</p>}
             </div>

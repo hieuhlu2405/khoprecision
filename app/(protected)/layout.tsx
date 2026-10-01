@@ -34,6 +34,7 @@ import {
   ScrollText,
   ShoppingBag,
   ShoppingCart,
+  Store,
   Truck,
   Upload,
   UserRound,
@@ -89,8 +90,8 @@ function buildMenu(p: Profile, isAdmin: boolean) {
     { label: "Dashboard", icon: "dashboard", href: "/app", show: true },
     { label: "Mã hàng", icon: "products", href: "/products", show: true },
     { label: "Khách hàng", icon: "customers", href: "/customers", show: true },
-    { label: "Nhà cung cấp", icon: "entities", href: "/suppliers", show: true },
-    { label: "Pháp nhân", icon: "entities", href: "/selling-entities", show: true },
+    { label: "Nhà cung cấp", icon: "suppliers", href: "/suppliers", show: true },
+    { label: "Pháp nhân bán hàng", icon: "entities", href: "/selling-entities", show: true },
     { label: "Danh sách xe", icon: "truck", href: "/vehicles", show: true },
 
     { label: "Nghiệp vụ kho", show: true, isHeader: true },
@@ -216,6 +217,7 @@ function SidebarIcon({ type, className = "w-4 h-4" }: { type?: string; className
     case "products": return <Package {...iconProps} />;
     case "customers": return <Users {...iconProps} />;
     case "entities": return <Building2 {...iconProps} />;
+    case "suppliers": return <Store {...iconProps} />;
     case "truck": return <Truck {...iconProps} />;
     case "inventory": return <ClipboardList {...iconProps} />;
     case "opening": return <Flag {...iconProps} />;
