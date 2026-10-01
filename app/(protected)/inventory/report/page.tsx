@@ -10,7 +10,7 @@ import { exportToExcel } from "@/lib/excel-utils";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { getTodayVNStr } from "@/lib/date-utils";
 import { fetchInventoryHistory, type HistoryClient } from "@/lib/inventory-history";
-import { receiptSourceLabel, type ReceiptSourceFields } from "@/lib/inventory-receipts";
+import { loadReceiptMetadata, receiptCreatorLabel, receiptSourceLabel, type ReceiptSourceFields } from "@/lib/inventory-receipts";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchAllRows, fetchAllRpcRows, type ProductStockRpcRow } from "@/lib/supabase-fetch-all";
 import { ArrowUpDown, BarChart3, Camera, Download, Eye, FileSpreadsheet, Filter, Package, Rocket, Upload, X, Zap } from "lucide-react";
@@ -298,7 +298,9 @@ export default function InventoryReportPage() {
     setHistoryData([]);
     try {
       const rows = await fetchInventoryHistory<HistoryTx>(supabase as unknown as HistoryClient<HistoryTx>, productId, start, end);
-      if (request === historyRequestRef.current) setHistoryData(rows);
+      const creatorMetadata = await loadReceiptMetadata("inventory", rows.map(row => ({ id: row.id })));
+      const creatorById = new Map(creatorMetadata.map(row => [row.id, row.created_by_name_snapshot]));
+      if (request === historyRequestRef.current) setHistoryData(rows.map(row => ({ ...row, created_by_name_snapshot: creatorById.get(row.id) })));
     } catch (err: unknown) {
       if (request !== historyRequestRef.current) return;
       const message = err instanceof Error ? err.message : typeof err === "object" && err && "message" in err ? String(err.message) : "Không thể tải lịch sử.";
@@ -958,7 +960,7 @@ export default function InventoryReportPage() {
       {/* ---- History Modal ---- */}
       {historyModalOpen && historyProduct && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onPointerDown={(e) => e.target === e.currentTarget && setHistoryModalOpen(false)}>
-          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-[800px] w-full min-w-0 flex flex-col" style={{ maxHeight: "85dvh" }} onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-[960px] w-full min-w-0 flex flex-col" style={{ maxHeight: "85dvh" }} onClick={e => e.stopPropagation()}>
             <div className="p-4 sm:p-6 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center gap-2 shrink-0">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center"><Eye size={22} strokeWidth={2.5} /></div>
@@ -999,13 +1001,14 @@ export default function InventoryReportPage() {
               ) : historyData.length === 0 ? (
                 <div className="py-20 text-center text-slate-400 font-bold text-xs uppercase tracking-widest">Không có giao dịch nào trong khoảng thời gian này</div>
               ) : (
-                <table className="w-full text-sm text-left data-table">
+                <table className="w-full min-w-[840px] text-sm text-left data-table">
                   <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm border-b border-slate-200">
                     <tr>
                       <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-32">Ngày</th>
                       <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-32">Loại</th>
                       <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right w-24">Số lượng</th>
                       <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nguồn</th>
+                      <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Người nhập</th>
                       <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Ghi chú</th>
                     </tr>
                   </thead>
@@ -1025,6 +1028,7 @@ export default function InventoryReportPage() {
                           <td className="px-6 py-4 text-sm text-slate-700">
                             {tx.tx_type === "out" || tx.original_tx_type === "out" ? "—" : receiptSourceLabel(tx)}
                           </td>
+                          <td className="px-6 py-4 text-sm text-slate-700 break-words">{receiptCreatorLabel(tx)}</td>
                           <td className="px-6 py-4 font-black text-black text-sm italic break-words">{tx.note || "-"}</td>
                         </tr>
                       );

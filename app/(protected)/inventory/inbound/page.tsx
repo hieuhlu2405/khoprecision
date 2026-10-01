@@ -10,6 +10,7 @@ import { formatDateTimeVN, getTodayVNStr } from "@/lib/date-utils";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { fetchAllRows } from "@/lib/supabase-fetch-all";
 import { ReceiptSourceField } from "@/app/components/inventory/ReceiptSourceField";
+import { CreatorDateFilterPopup } from "@/app/components/inventory/CreatorDateFilterPopup";
 import { listReceiptSuppliers, loadReceiptMetadata, loadReceiptAdjustments, receiptSourceLabel, receiptCreatorLabel, receiptErrorMessage, receiptRequestId, type ReceiptSourceFields, type ReceiptSupplier, type ReceiptSourceChoice, type ReceiptRequest } from "@/lib/inventory-receipts";
 import { ArrowUpDown, Edit3, FileSpreadsheet, Filter, Save, Search, Trash2, Wrench, X } from "lucide-react";
 
@@ -453,6 +454,7 @@ export default function InventoryInboundPage() {
       case "spec": return r.product_spec_snapshot || "";
       case "note": return r.note || "";
       case "source": return receiptSourceLabel(r);
+      case "creator": return receiptCreatorLabel(r);
     }
     return "";
   }
@@ -476,7 +478,7 @@ export default function InventoryInboundPage() {
     let result = [...baseFiltered];
 
     for (const [key, f] of Object.entries(colFilters)) {
-      if (["customer", "sku", "name", "spec", "note", "source"].includes(key)) {
+      if (["customer", "sku", "name", "spec", "note", "source", "creator"].includes(key)) {
         result = result.filter(r => passesTextFilter(textVal(r, key), f as TextFilter));
       } else if (["qty", "price"].includes(key)) {
         result = result.filter(r => passesNumFilter(numVal(r, key), f as NumFilter));
@@ -552,7 +554,7 @@ export default function InventoryInboundPage() {
     label: string; colKey: string; sortable: boolean; filterable?: boolean; colType: "text" | "num" | "date";
     align?: "left" | "right" | "center"; w?: string; extra?: React.CSSProperties;
   }) {
-    const active = !!colFilters[colKey];
+    const active = !!colFilters[colKey] || (colKey === "createdAt" && !!colFilters.creator);
     const isSortTarget = sortCol === colKey;
     const width = colWidths[colKey] || (w ? parseInt(w) : undefined);
     const thRef = useRef<HTMLTableCellElement>(null);
@@ -629,10 +631,10 @@ export default function InventoryInboundPage() {
         </div>
         <div onMouseDown={startResizing} className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-indigo-500 transition-colors z-20" />
         {popupOpen && (
-          <div className="absolute top-[calc(100%+4px)] left-0 z-[100]" onClick={e => e.stopPropagation()}>
+          <div className="absolute top-[calc(100%+4px)] left-0 z-[100]" style={colKey === "createdAt" ? { left: "auto", right: 0 } : undefined} onClick={e => e.stopPropagation()}>
             {colType === "text" && <TextFilterPopup filter={(colFilters[colKey] as TextFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
             {colType === "num" && <NumFilterPopup filter={(colFilters[colKey] as NumFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
-            {colType === "date" && <DateFilterPopup filter={(colFilters[colKey] as DateFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
+            {colKey === "createdAt" ? <CreatorDateFilterPopup creatorFilter={(colFilters.creator as TextFilter) || null} dateFilter={(colFilters.createdAt as DateFilter) || null} onApply={(creator, date) => { setColFilters(p => { const next = { ...p }; if (creator) next.creator = creator; else delete next.creator; if (date) next.createdAt = date; else delete next.createdAt; return next; }); }} onClose={() => setOpenPopupId(null)} /> : colType === "date" && <DateFilterPopup filter={(colFilters[colKey] as DateFilter) || null} onChange={f => { setColFilters(p => { const x = { ...p }; if(f) x[colKey]=f; else delete x[colKey]; return x; }); }} onClose={() => setOpenPopupId(null)} />}
           </div>
         )}
       </th>
@@ -931,6 +933,7 @@ export default function InventoryInboundPage() {
           <table className="entry-lines-table" style={{ width: "100%", marginBottom: 16 }}>
             <thead>
               <tr style={{ textAlign: "left" }}>
+                <th style={{ width: 48, padding: "8px 0", textAlign: "center" }}>#</th>
                 <th style={{ padding: "8px 0" }}>Sản phẩm / Khách hàng *</th>
                 <th style={{ width: 120 }}>Số lượng *</th>
                 <th style={{ width: 150 }}>Đơn giá</th>
@@ -941,7 +944,8 @@ export default function InventoryInboundPage() {
             <tbody>
               {lines.map((l, idx) => (
                 <tr key={l.key}>
-                   <td data-label="Sản phẩm / Khách hàng" data-row-number={idx + 1} style={{ padding: "4px 4px 4px 0", position: "relative" }}>
+                   <td data-label="Dòng" style={{ width: 48, padding: "4px", textAlign: "center", fontWeight: 700, color: "#64748b" }}>{idx + 1}</td>
+                   <td data-label="Sản phẩm / Khách hàng" style={{ padding: "4px 4px 4px 0", position: "relative" }}>
                       <input 
                         className="input w-full"
                         placeholder="Tìm mã hàng, tên hàng..."

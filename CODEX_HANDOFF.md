@@ -1,5 +1,12 @@
 # Handoff Du An
 
+## Cập nhật 2026-10-01 — Lọc người nhập và số thứ tự dòng
+
+- Nhánh `codex/inventory-sources`: Nhập kho/Nhập phôi có bộ lọc chung ở cột “Tạo lúc”, cho lọc họ tên người nhập và ngày tạo cùng lúc; có nút xóa cả hai điều kiện. Dùng tên đã ghi theo phiếu và tên đầy đủ của tài khoản cho phiếu cũ.
+- Form thêm dòng ở Nhập kho/Xuất kho hiện cột số thứ tự 1, 2, 3 như Nhập phôi; điện thoại vẫn xem từng dòng theo dạng thẻ.
+- Con mắt ở Tồn hiện tại có thêm cột “Người nhập” giữa “Nguồn” và “Ghi chú”. Tên lấy qua RPC lịch sử hiện có; nguồn điều chỉnh vẫn lấy từ phiếu gốc. Bảng có vùng cuộn ngang riêng khi màn hình hẹp.
+- Chỉ sửa luồng đọc/giao diện, không thêm SQL và không thay số lượng tồn hay lịch sử. `npm run build` PASS, 10 test helper lịch sử PASS, ESLint component lọc mới PASS. Cần test thực tế sau deploy: lọc riêng tên/ngày và lọc kết hợp, thêm 3 dòng ở Nhập kho/Xuất kho, con mắt xem giao dịch nhập/xuất/điều chỉnh/phiếu cũ. Chưa test mobile bằng browser/screenshot theo yêu cầu bỏ qua test trình duyệt trước đó.
+
 ## Cập nhật 2026-10-01 — Giao diện Nhà cung cấp
 
 - Thanh menu đổi tên mục Pháp nhân thành “Pháp nhân bán hàng”; đường dẫn và dữ liệu pháp nhân không đổi.

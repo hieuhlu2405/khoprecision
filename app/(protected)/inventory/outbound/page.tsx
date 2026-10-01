@@ -1024,6 +1024,7 @@ export default function InventoryOutboundPage() {
           <table className="entry-lines-table" style={{ width: "100%", marginBottom: 16 }}>
             <thead>
               <tr style={{ textAlign: "left" }}>
+                <th style={{ width: 48, padding: "8px 0", textAlign: "center" }}>#</th>
                 <th style={{ padding: "8px 0" }}>Sản phẩm / Khách hàng *</th>
                 <th style={{ width: 120 }}>Số lượng *</th>
                 <th style={{ width: 150 }}>Đơn giá</th>
@@ -1035,7 +1036,8 @@ export default function InventoryOutboundPage() {
             <tbody>
               {lines.map((l, idx) => (
                 <tr key={l.key}>
-                   <td data-label="Sản phẩm / Khách hàng" data-row-number={idx + 1} style={{ padding: "4px 4px 4px 0", position: "relative" }}>
+                   <td data-label="Dòng" style={{ width: 48, padding: "4px", textAlign: "center", fontWeight: 700, color: "#64748b" }}>{idx + 1}</td>
+                   <td data-label="Sản phẩm / Khách hàng" style={{ padding: "4px 4px 4px 0", position: "relative" }}>
                       <input 
                         className="input w-full"
                         placeholder="Tìm mã hàng, tên hàng..."
