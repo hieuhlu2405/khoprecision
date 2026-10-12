@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:permissions": "node --test tests/admin-permission.test.cjs",
+    "prebuild": "npm run test:permissions"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.90.1",

@@ -219,5 +219,25 @@ await owner(async () => {
   }
   console.log('PASS generated RPC/column types and one-line SQL match installed schema');
 });
+// Regression: use the installed authority definition, including Super Admin membership.
+const superAdmin = '99999999-9999-4999-8999-999999999999';
+await owner(async () => {
+  await db.exec('CREATE TABLE public.super_admins(user_id uuid PRIMARY KEY)');
+  await db.query("INSERT INTO profiles(id,full_name,role,department) VALUES($1,'Chủ dự án','staff','warehouse')",[superAdmin]);
+  await db.query('INSERT INTO super_admins(user_id) VALUES($1)',[superAdmin]);
+  const authority = read('20260710_fix_auth_approved_rls_rpc.sql').split(/\r?\n/).find(text => text.startsWith('CREATE OR REPLACE FUNCTION public.is_admin()'));
+  assert.ok(authority, 'Canonical admin authority must exist');
+  await db.exec(authority);
+});
+await actor(superAdmin);
+assert.equal((await db.query('SELECT is_admin() AS allowed')).rows[0].allowed,true);
+const superReceipt=(await receipt('phoi',[line({tx_date:'2026-09-01'})])).rows[0].result.transaction_ids[0];
+await update('phoi',superReceipt,'factory',null,null,{date:'2026-09-01',qty:20,note:'Super Admin sửa phiếu cũ'});
+assert.equal(Number((await owner(()=>db.query('SELECT qty FROM phoi_transactions WHERE id=$1',[superReceipt]))).rows[0].qty),20);
+await actor(staff);
+assert.equal((await db.query('SELECT is_admin() AS allowed')).rows[0].allowed,false);
+await assert.rejects(update('phoi',superReceipt,'factory',null,null,{date:'2026-09-01',qty:30}),/khong co quyen/);
+assert.equal(Number((await owner(()=>db.query('SELECT qty FROM phoi_transactions WHERE id=$1',[superReceipt]))).rows[0].qty),20);
+console.log('PASS Super Admin with staff profile edits an old phoi receipt; ordinary staff is denied without changing quantity');
 await db.close();
 console.log('All inventory receipt source database tests passed. Single in-memory connection; no live database or multi-connection concurrency test.');

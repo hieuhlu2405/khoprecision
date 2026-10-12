@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/lib/supabaseClient";
+import { loadAdminPermission } from "@/lib/admin-permission";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
@@ -305,6 +306,7 @@ export default function InventoryInboundPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [mounted, setMounted] = useState(false);
   // Date range filter — mặc định tháng hiện tại (performance fix)
   const [filterDateStart, setFilterDateStart] = useState(() => {
@@ -642,10 +644,10 @@ export default function InventoryInboundPage() {
   }
 
   /* ---- permissions ---- */
-  const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
+  const isManager = isAdmin || (profile?.role === "manager" && profile?.department === "warehouse");
   const canCreate = isManager;
-  const canEdit = profile?.role === "admin";
-  const canDelete = profile?.role === "admin";
+  const canEdit = isAdmin;
+  const canDelete = isAdmin;
 
   /* ---- inline expansion UI state ---- */
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -690,6 +692,7 @@ export default function InventoryInboundPage() {
 
   /* ---- single-row edit helpers ---- */
   function openEdit(r: InboundTx) {
+    if (!canEdit || !receiptsReady || mutationRef.current) return;
     setEditing(r);
     setEDate(r.tx_date.slice(0, 10));
     setEProductId(r.product_id);
@@ -706,6 +709,7 @@ export default function InventoryInboundPage() {
 
   /* ---- adjustment helpers ---- */
   function openAdjustment(r: any) {
+    if (!canCreate || !receiptsReady || mutationRef.current) return;
     adjustmentRequestRef.current = null;
     setAdjBaseTx(r);
     setACurrentBaseQty(r.finalQty);
@@ -720,12 +724,17 @@ export default function InventoryInboundPage() {
   const fetchIdRef = useRef(0);
 
   async function load() {
+    setIsAdmin(false);
+    setProfile(null);
     setError(""); setLoading(true); setReceiptsReady(false);
     const thisFetchId = ++fetchIdRef.current;
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return window.location.href = "/login";
-      const { data: p, error: profileError } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle();
+      const [{ data: p, error: profileError }, adminPermission] = await Promise.all([
+        supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle(),
+        loadAdminPermission(supabase),
+      ]);
       if (profileError) throw profileError;
       const [productRows, customerRows, supplierRows, txRows] = await Promise.all([
         fetchAllRows<Product>(supabase.from("products").select("id, sku, name, spec, customer_id, unit_price, is_active").is("deleted_at", null).order("sku").order("id")),
@@ -739,10 +748,13 @@ export default function InventoryInboundPage() {
         loadReceiptAdjustments<AdjTx>("inventory", txRows.map(row => row.id)),
       ]);
       if (thisFetchId !== fetchIdRef.current) return;
+      setIsAdmin(adminPermission);
       setProfile(p as Profile); setProducts(productRows); setCustomers(customerRows); setSuppliers(supplierRows);
       setRows(withMetadata); setAdjRows(adjTxRows); setSelectedIds(new Set()); setReceiptsReady(true);
     } catch (err: unknown) {
       if (thisFetchId !== fetchIdRef.current) return;
+      setIsAdmin(false);
+      setProfile(null);
       setError(receiptErrorMessage(err));
     } finally { if (thisFetchId === fetchIdRef.current) setLoading(false); }
   }
@@ -786,6 +798,7 @@ export default function InventoryInboundPage() {
   }
 
   async function saveMulti() {
+    if (!canCreate) return showToast("Tài khoản không có quyền thực hiện thao tác này.", "error");
     if (!sourceReady) return showToast("Phải chọn Nguồn và nhà cung cấp (nếu có) trước khi nhập.", "error");
     if (!hDate) return showToast("Thiếu ngày nhập.", "error");
     const valid = lines.filter(line => line.productId || line.productSearch || line.qty || line.unitCost || line.note);
@@ -807,6 +820,7 @@ export default function InventoryInboundPage() {
   }
 
   async function saveEdit() {
+    if (!canEdit) return showToast("Tài khoản không có quyền thực hiện thao tác này.", "error");
     if (!editing) return;
     const sourceChanged = (editing.source_kind || "") !== editSource.kind || (editing.supplier_id || "") !== editSource.supplierId;
     if ((!editSource.kind && editing.source_kind) || (editSource.kind === "supplier" && !editSource.supplierId)) return showToast("Vui lòng chọn đủ Nguồn.", "error");
@@ -828,6 +842,7 @@ export default function InventoryInboundPage() {
   }
 
   async function saveAdjustment() {
+    if (!canCreate) return showToast("Tài khoản không có quyền thực hiện thao tác này.", "error");
     if (!adjBaseTx) return;
     const target = Number(aTargetQty);
     if (!aDate || aTargetQty === "" || !Number.isFinite(target) || target < 0 || !aNote.trim()) return showToast("Nhập ngày, số lượng mục tiêu không âm và lý do điều chỉnh.", "error");
@@ -846,6 +861,7 @@ export default function InventoryInboundPage() {
   }
 
   async function cancelReceipts(ids: string[]) {
+    if (!canDelete) return showToast("Tài khoản không có quyền thực hiện thao tác này.", "error");
     if (!ids.length || mutationRef.current) return;
     if (ids.length > 100) return showToast("Mỗi lần hủy tối đa 100 giao dịch. Vui lòng chọn ít dòng hơn.", "error");
     const selectedRows = enrichedRows.filter(row => ids.includes(row.id));

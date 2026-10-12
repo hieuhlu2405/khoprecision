@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/lib/supabaseClient";
+import { loadAdminPermission } from "@/lib/admin-permission";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, ErrorBanner } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
@@ -292,6 +293,7 @@ export default function ReturnedGoodsPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   // Month Navigator state (same pattern as Inbound/Outbound)
@@ -611,10 +613,10 @@ export default function ReturnedGoodsPage() {
   }
 
   /* ---- permissions ---- */
-  const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
+  const isManager = isAdmin || (profile?.role === "manager" && profile?.department === "warehouse");
   const canCreate = isManager;
-  const canEdit = profile?.role === "admin";
-  const canDelete = profile?.role === "admin";
+  const canEdit = isAdmin;
+  const canDelete = isAdmin;
 
   /* ---- inline expansion UI state ---- */
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -682,6 +684,8 @@ export default function ReturnedGoodsPage() {
   const fetchIdRef = useRef(0);
 
   async function load() {
+    setIsAdmin(false);
+    setProfile(null);
     setError("");
     setLoading(true);
     const thisFetchId = ++fetchIdRef.current;
@@ -689,9 +693,13 @@ export default function ReturnedGoodsPage() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return window.location.href = "/login";
 
-      const { data: p, error: e1 } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle();
+      const [{ data: p, error: e1 }, adminPermission] = await Promise.all([
+        supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle(),
+        loadAdminPermission(supabase),
+      ]);
       if (e1) throw e1;
       if (thisFetchId !== fetchIdRef.current) return;
+      setIsAdmin(adminPermission);
       setProfile(p as Profile);
 
       const [rP, rC] = await Promise.all([
@@ -720,6 +728,8 @@ export default function ReturnedGoodsPage() {
       setAdjRows(adjTxRows);
     } catch (err: any) {
       if (thisFetchId !== fetchIdRef.current) return;
+      setIsAdmin(false);
+      setProfile(null);
       setError(err?.message ?? "Có lỗi xảy ra");
     } finally {
       if (thisFetchId === fetchIdRef.current) setLoading(false);

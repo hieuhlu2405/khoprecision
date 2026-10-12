@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/lib/supabaseClient";
+import { loadAdminPermission } from "@/lib/admin-permission";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage } from "@/app/components/ui/Loading";
 import { exportToExcel } from "@/lib/excel-utils";
@@ -310,6 +311,7 @@ export default function InventoryOutboundPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [mounted, setMounted] = useState(false);
   // Date range filter — mặc định tháng hiện tại (performance fix)
   const defaultRange = getMonthRange();
@@ -623,10 +625,10 @@ export default function InventoryOutboundPage() {
   }
 
   /* ---- permissions ---- */
-  const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
+  const isManager = isAdmin || (profile?.role === "manager" && profile?.department === "warehouse");
   const canCreate = isManager;
-  const canEditAdmin = profile?.role === "admin";
-  const canDeleteAdmin = profile?.role === "admin";
+  const canEditAdmin = isAdmin;
+  const canDeleteAdmin = isAdmin;
 
   // Kiểm tra giao dịch có nằm trong 3 ngày gần nhất không (cho Manager kho)
   const isWithin3Days = (txDate: string) => {
@@ -708,6 +710,8 @@ export default function InventoryOutboundPage() {
   const fetchIdRef = useRef(0);
 
   async function load() {
+    setIsAdmin(false);
+    setProfile(null);
     setError("");
     setLoading(true);
     const thisFetchId = ++fetchIdRef.current; // Guard against stale data when switching months rapidly
@@ -715,9 +719,13 @@ export default function InventoryOutboundPage() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return window.location.href = "/login";
 
-      const { data: p, error: e1 } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle();
+      const [{ data: p, error: e1 }, adminPermission] = await Promise.all([
+        supabase.from("profiles").select("id, role, department").eq("id", u.user.id).maybeSingle(),
+        loadAdminPermission(supabase),
+      ]);
       if (e1) throw e1;
       if (thisFetchId !== fetchIdRef.current) return; // Stale guard
+      setIsAdmin(adminPermission);
       setProfile(p as Profile);
 
       // Products & Customers (these tables are small, no pagination needed)
@@ -750,6 +758,8 @@ export default function InventoryOutboundPage() {
       setAdjRows(adjTxRows);
     } catch (err: any) {
       if (thisFetchId !== fetchIdRef.current) return; // Don't show error for cancelled fetches
+      setIsAdmin(false);
+      setProfile(null);
       setError(err?.message ?? "Có lỗi xảy ra");
     } finally {
       if (thisFetchId === fetchIdRef.current) setLoading(false);

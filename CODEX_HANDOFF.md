@@ -1,5 +1,14 @@
 # Handoff Du An
 
+## Cập nhật 2026-10-13 — Sửa quyền Admin ở Nhập phôi
+
+- Chủ dự án báo tài khoản admin không sửa được trang Nhập phôi; yêu cầu sửa, phòng lỗi tái diễn và push main. Theo code, bốn trang Nhập phôi/Nhập kho/Xuất kho/Hàng trả về chỉ nhận nhãn admin trong profiles, khác database is_admin() có công nhận Super Admin. Chưa đối chiếu trực tiếp tài khoản production của chủ dự án.
+- Thêm lib/admin-permission.ts hỏi is_admin() và buộc kết quả boolean; lỗi/thiếu kết quả phải báo rõ, không cấp quyền từ nhãn hồ sơ. Bốn trang dùng chung quyền này, xóa quyền cũ khi tải lại/lỗi, giữ kiểm tra ngày của Manager kho ở Xuất kho. Nhập phôi/Nhập kho kiểm tra lại quyền khi mở/sửa/lưu/điều chỉnh/hủy.
+- Thêm kiểm tra tự động trước mỗi npm run build, gồm quyền Super Admin có hồ sơ staff/manager, từ chối cấp quyền theo nhãn admin khi DB từ chối, lỗi đọc quyền, kiểm tra bốn trang không quay lại cách cũ, và chạy hàm lưu thật với API giả (đúng phiếu, không ghi khi thiếu quyền, lỗi lưu giữ form). AGENTS.md ghi quy định bắt buộc dùng quyền database.
+- Không tạo/chạy SQL mới, không ghi/sửa/xóa nghiệp vụ production, không thay số tồn/backlog/lịch sử. Database giữ nguyên kiểm tra quyền, ngày, giao dịch trọn vẹn và chặn âm kho. Kiểm thử database tạm có thêm Super Admin hồ sơ staff sửa phiếu phôi ngày cũ; staff thường bị chặn và số lượng giữ nguyên.
+- Kiểm thử: 21 test quyền/hàm lưu thật với API giả PASS; 10 test lịch sử kho PASS; bộ kiểm thử PostgreSQL tạm PGlite PASS, có Super Admin hồ sơ staff sửa phiếu phôi cũ và staff thường bị chặn. npm run build PASS (35 routes, kiểm tra TypeScript PASS); ESLint helper và test quyền mới PASS. Chủ dự án đã cho phép push main sau kiểm tra; chưa xác nhận deploy hoặc thao tác thực tế trên production. Môi trường bản riêng ban đầu dùng đường nối node_modules gây lỗi Turbopack; đã bỏ đường nối và cài đúng thư viện từ package-lock, không sửa thư viện tại D:/pp.
+- Chủ dự án xác nhận bỏ kiểm tra trình duyệt trong chat này, cho phép build rồi push. Chưa test mobile bằng browser/screenshot; chưa kiểm các cỡ 390/430/768/1366px hay Safari thật. Sau deploy cần thử tài khoản của chủ dự án: mở Nhập phôi, sửa ghi chú và lưu/tải lại; thử phiếu cũ, điều chỉnh và tài khoản không có quyền. Kết luận về nguyên nhân dựa trên code và kiểm thử dữ liệu giả, chưa phải dữ liệu production.
+
 ## Cập nhật 2026-10-01 — Lọc người nhập và số thứ tự dòng
 
 - Nhánh `codex/inventory-sources`: Nhập kho/Nhập phôi có bộ lọc chung ở cột “Tạo lúc”, cho lọc họ tên người nhập và ngày tạo cùng lúc; có nút xóa cả hai điều kiện. Dùng tên đã ghi theo phiếu và tên đầy đủ của tài khoản cho phiếu cũ.
