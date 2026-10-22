@@ -1,5 +1,12 @@
 # Handoff Du An
 
+## Cập nhật 2026-10-22 - Tìm kiếm không thấy KC 06 nhưng thêm báo trùng
+
+- Đã kiểm tra CHỈ ĐỌC production bằng tài khoản nội bộ: `KC 06` tồn tại, ID `a74de2de-8e41-4e95-9d87-fb2d91e2056c`, tên `Thùng 5 lớp BC`, đang hoạt động và chưa xóa. Tổng danh sách chưa xóa là 1.005 mã; truy vấn cũ chỉ trả 1.000 mã mới nhất, không có KC 06 nên tìm kiếm tại trang Mã hàng bỏ sót.
+- Sửa `app/(protected)/products/page.tsx` dùng `fetchAllRows<Product>` và sắp xếp ổn định theo `created_at`, `id` để tải đủ mã trước khi tìm kiếm/đối chiếu Excel. Không sửa SQL/schema, không tạo hoặc thay đổi mã KC 06, không ghi/xóa dữ liệu nghiệp vụ.
+- Kiểm tra truy vấn mới với production trả đủ 1.005 mã và tìm đúng KC 06; kiểm tra lỗi đọc được báo thay vì trả danh sách thiếu. Script chỉ đọc: `tmp/audit-product-kc06-20261022.mjs`. `npm run build` trước và sau sửa PASS; `git diff --check` PASS.
+- Chu du an da yeu cau push main; chua xac nhan deploy. Chưa test mobile bằng browser/screenshot (390/430/768/1366px), chưa kiểm tra Safari thật. Sau deploy cần vào Mã hàng, tìm KC 06 và đối chiếu tên/trạng thái; không cần tạo lại mã này.
+
 ## Cap nhat 2026-09-30 - Timeout tao chuyen nhieu ma va trang Nhat ky giao hang
 
 - Chu du an xac nhan loi tao chuyen xay ra sau khi bam chot trong modal da chon xe, thuong tu khoang 18 ma. Chua goi RPC ghi tren production de tai hien; nguyen nhan tao chuyen dua tren code: guard tinh lai ton toan kho sau tung INSERT, wrapper ghi thu tu lai gay UPDATE/guard cho tung dong. Khong co gioi han 18 dong trong code.

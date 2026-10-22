@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef, Fragment } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { fetchAllRows } from "@/lib/supabase-fetch-all";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, TableSkeleton, ErrorBanner, LoadingInline } from "@/app/components/ui/Loading";
 import { exportToExcel, readExcel } from "@/lib/excel-utils";
@@ -537,14 +538,16 @@ export default function ProductsPage() {
       const defaultCustomerId = parents[0]?.id ?? "";
       setCustomerId(defaultCustomerId);
 
-      const { data, error: e2 } = await supabase
-        .from("products")
-        .select("*")
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
-
-      if (e2) throw e2;
-      setRows((data ?? []) as Product[]);
+      // Search and import validation need every product, including rows after the API's 1000-row limit.
+      const products = await fetchAllRows<Product>(
+        supabase
+          .from("products")
+          .select("*")
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+      );
+      setRows(products);
     } catch (err: any) {
       setError(err?.message ?? "Có lỗi xảy ra");
     } finally {
