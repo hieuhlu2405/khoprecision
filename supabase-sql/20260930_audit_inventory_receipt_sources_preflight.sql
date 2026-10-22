@@ -1,0 +1,15 @@
+/* Read only. Run as database administrator. Missing supplier table is allowed; duplicate reserved codes require a deliberate correction first. Missing legacy codes are reported, never guessed. */
+WITH required(signature) AS (VALUES ('public.require_approved_active_user()'),('public.is_approved_active_user()'),('public.inventory_actor_can_change_transaction(date)'),('public.inventory_guard_transactions()'),('public.inventory_lock_product(uuid)'),('public.inventory_assert_no_negative_product_after(uuid,date)'),('public.inventory_update_manual_transaction(uuid,date,uuid,numeric,numeric,text,uuid)'),('public.inventory_adjust_manual_transaction(uuid,numeric,date,numeric,text)'),('public.inventory_soft_delete_manual_transactions(uuid[])')), checks AS (
+SELECT 'missing_function'::text AS check_name,signature AS detail FROM required WHERE to_regprocedure(signature) IS NULL
+UNION ALL SELECT 'stock_guard_wrong_version','inventory_guard_transactions must check product totals' WHERE COALESCE(pg_get_functiondef(to_regprocedure('public.inventory_guard_transactions()')),'') NOT ILIKE '%inventory_assert_no_negative_product_after%'
+UNION ALL SELECT 'cancel_wrong_version','inventory_soft_delete_manual_transactions must check product totals' WHERE COALESCE(pg_get_functiondef(to_regprocedure('public.inventory_soft_delete_manual_transactions(uuid[])')),'') NOT ILIKE '%inventory_assert_no_negative_product_after%'
+UNION ALL SELECT 'missing_table',t FROM (VALUES('profiles'),('products'),('inventory_transactions'),('phoi_transactions')) x(t) WHERE to_regclass('public.'||t) IS NULL
+UNION ALL SELECT 'missing_column',t||'.'||c FROM (VALUES('profiles','full_name'),('profiles','department'),('products','is_active'),('inventory_transactions','stocktake_id'),('inventory_transactions','shipment_id'),('inventory_transactions','delivery_plan_id'),('inventory_transactions','adjusted_from_transaction_id'),('phoi_transactions','adjusted_from_transaction_id'),('phoi_transactions','tx_type')) x(t,c) WHERE NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name=t AND column_name=c)
+)
+SELECT 'STOP' AS status,check_name,detail FROM checks
+UNION ALL SELECT 'OK','backend','Required backend present; run supplier code audit below if supplier table exists' WHERE NOT EXISTS(SELECT 1 FROM checks);
+
+/* This separate SELECT only applies when accounting_debt_suppliers already exists. If absent, skip it; installer safely creates the catalog with payment terms. */
+SELECT CASE WHEN NULLIF(upper(regexp_replace(btrim(code),'\s+',' ','g')),'') IS NULL THEN 'MISSING_CODE' ELSE 'STOP_DUPLICATE' END AS status,upper(regexp_replace(btrim(code),'\s+',' ','g')) AS normalized_code,jsonb_agg(jsonb_build_object('id',id,'code',code,'name',name,'deleted_at',deleted_at) ORDER BY id) AS suppliers
+FROM public.accounting_debt_suppliers
+GROUP BY upper(regexp_replace(btrim(code),'\s+',' ','g')) HAVING count(*)>1 OR NULLIF(upper(regexp_replace(btrim(code),'\s+',' ','g')),'') IS NULL;

@@ -13,6 +13,7 @@ const EXACT_TITLES: Record<string, string> = {
   "/profile": "Hồ sơ",
   "/products": "Mã hàng",
   "/customers": "Khách hàng",
+  "/suppliers": "Nhà cung cấp",
   "/selling-entities": "Pháp nhân",
   "/vehicles": "Danh sách xe",
   "/vehicles/report": "Logistics",

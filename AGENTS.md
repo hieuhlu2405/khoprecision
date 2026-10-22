@@ -141,3 +141,10 @@ Moi thay doi UI/UX phai dam bao web dung duoc tren desktop, macOS, tablet va die
 6. Khong tu y commit/push neu chu du an chua yeu cau.
 
 Muc tieu cua du an: build den dau chac den do. Backend phai bao ve du lieu truoc, giao dien dep sau.
+
+## Quy định nhận quyền Admin/Super Admin (2026-10-13)
+
+- Quyền Admin trên giao diện phải lấy từ public.is_admin() qua helper lib/admin-permission.ts, không tự suy ra bằng nhãn profiles.role === admin. Super Admin có thể có nhãn staff/manager nhưng vẫn được database công nhận.
+- Khi kiểm tra quyền lỗi hoặc trả kết quả không hợp lệ, phải báo lỗi rõ và khóa thao tác; không tự cấp quyền dự phòng theo hồ sơ. Tải lại dữ liệu phải bỏ quyền cũ, tránh dùng quyền của lần tải trước.
+- Khi sửa màn hình có phân quyền, kiểm tra Admin thường, Super Admin với hồ sơ không phải admin, tài khoản không có quyền và lỗi đọc quyền. Kiểm tra cả nút hiển thị, hàm lưu và hàng rào database.
+- npm run build phải chạy kiểm tra quyền tự động trước. Không bỏ prebuild hoặc sửa test để né lỗi. Bốn trang Nhập kho, Nhập phôi, Xuất kho, Hàng trả về có kiểm tra ngăn quay lại cách nhận admin theo nhãn hồ sơ.
