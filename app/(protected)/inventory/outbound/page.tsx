@@ -728,12 +728,11 @@ export default function InventoryOutboundPage() {
       setIsAdmin(adminPermission);
       setProfile(p as Profile);
 
-      // Products & Customers (these tables are small, no pagination needed)
-      const [rP, rC] = await Promise.all([
-        supabase.from("products").select("id, sku, name, spec, customer_id, unit_price, is_active").is("deleted_at", null).order("sku"),
-        supabase.from("customers").select("id, code, name, parent_customer_id").is("deleted_at", null).order("code"),
+      // Load complete catalogs so history and filters also resolve rows beyond the API limit.
+      const [productRows, allCust] = await Promise.all([
+        fetchAllRows<Product>(supabase.from("products").select("id, sku, name, spec, customer_id, unit_price, is_active").is("deleted_at", null).order("sku").order("id")),
+        fetchAllRows<Customer & { parent_customer_id: string | null }>(supabase.from("customers").select("id, code, name, parent_customer_id").is("deleted_at", null).order("code").order("id")),
       ]);
-      if (rP.error) throw rP.error;
       if (thisFetchId !== fetchIdRef.current) return; // Stale guard
 
       // Transactions & Adjustments: use fetchAllRows to bypass 1000-row limit
@@ -750,8 +749,7 @@ export default function InventoryOutboundPage() {
       ]);
       if (thisFetchId !== fetchIdRef.current) return; // Stale guard
 
-      setProducts(rP.data || []);
-      const allCust = (rC.data || []) as (Customer & { parent_customer_id: string | null })[];
+      setProducts(productRows);
       setAllCustomers(allCust);
       setCustomers(allCust.filter(c => !c.parent_customer_id)); // Chỉ hiện Công ty Mẹ ở filter toolbar
       setRows(txRows);
@@ -1014,6 +1012,15 @@ export default function InventoryOutboundPage() {
           </button>
         </div>
       </header>
+
+      {error && (
+        <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
+          <p className="break-words">Chưa tải được đầy đủ dữ liệu xuất kho: {error}</p>
+          <button type="button" className="btn btn-secondary mt-3" onClick={load} disabled={loading}>
+            TẢI LẠI
+          </button>
+        </div>
+      )}
 
       {showCreate && (
         <div className="card shadow-lg entry-create-panel" style={{ marginBottom: 24, background: "white", padding: 20, borderRadius: 12, border: "1px solid #e2e8f0" }}>
