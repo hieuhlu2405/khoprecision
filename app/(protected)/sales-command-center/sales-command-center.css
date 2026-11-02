@@ -1,0 +1,310 @@
+.sales-command-center {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sales-command-center .sales-panel,
+.sales-command-center .sales-kpi,
+.sales-command-center .sales-ranking-row {
+  min-width: 0;
+}
+
+.sales-command-center .sales-ranking-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px 12px;
+}
+
+.sales-command-center .sales-ranking-name,
+.sales-command-center .sales-ranking-desc,
+.sales-command-center .sales-customer-name,
+.sales-command-center .sales-legend-label {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.5;
+}
+
+.sales-command-center .sales-ranking-value {
+  white-space: nowrap;
+}
+
+.sales-command-center .sales-legend-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+}
+
+.sales-command-center .sales-date-range {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sales-command-center .sales-date-range label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sales-command-center .sales-date-range label > span {
+  font-size: 12px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.sales-command-center .sales-date-range input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.sales-command-center .sales-table-wrap {
+  max-height: max(320px, calc(100dvh - 250px));
+}
+
+.sales-command-center .sales-mobile-sort {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  /* The app already has a mobile header; keep this one in the page flow. */
+  .sales-command-center .sales-header {
+    position: static;
+    margin-inline: 0;
+    padding: 16px 0;
+    background: transparent;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+
+  .sales-command-center .sales-header h1 {
+    font-size: 18px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .sales-command-center .sales-header-actions {
+    width: 100%;
+    flex-wrap: nowrap;
+  }
+
+  .sales-command-center .sales-month-picker {
+    flex: 1;
+    min-width: 0;
+    justify-content: space-between;
+    padding: 0 4px;
+  }
+
+  .sales-command-center .sales-month-picker button {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 24px;
+  }
+
+  .sales-command-center .sales-month-picker span {
+    width: auto;
+    min-width: 0;
+  }
+
+  .sales-command-center .sales-kpi {
+    padding: 14px 12px;
+  }
+
+  .sales-command-center .sales-kpi > .flex {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .sales-command-center .sales-kpi .text-2xl {
+    font-size: 20px;
+    overflow-wrap: anywhere;
+  }
+
+  .sales-command-center .sales-kpi-sub {
+    font-size: 11px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  .sales-command-center .sales-tabs {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    gap: 4px;
+    margin-bottom: 20px;
+  }
+
+  .sales-command-center .sales-tabs button {
+    justify-content: flex-start;
+    min-height: 44px;
+    font-size: 12px;
+    transform: none;
+    scale: 1;
+  }
+
+  .sales-command-center .sales-panel {
+    padding: 20px 16px;
+    border-radius: 20px;
+  }
+
+  .sales-command-center .sales-panel-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    gap: 12px;
+  }
+
+  .sales-command-center .sales-panel h3 {
+    letter-spacing: 0.05em;
+    line-height: 1.5;
+  }
+
+  .sales-command-center .sales-ranking-heading {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sales-command-center .sales-ranking-name {
+    font-size: 14px;
+  }
+
+  .sales-command-center .sales-ranking-desc,
+  .sales-command-center .sales-ranking-value {
+    font-size: 13px;
+  }
+
+  .sales-command-center .sales-ranking-value {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .sales-command-center .sales-rank {
+    margin-top: 2px;
+  }
+
+  .sales-command-center .sales-donut {
+    position: static;
+  }
+
+  .sales-command-center .sales-table-toolbar {
+    padding: 20px 16px;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sales-command-center .sales-table-toolbar button {
+    min-height: 44px;
+  }
+
+  .sales-command-center .sales-mobile-sort {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+  }
+
+  .sales-command-center .sales-mobile-sort select {
+    min-height: 44px;
+    padding: 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: white;
+  }
+
+  .sales-command-center .sales-table-wrap {
+    max-height: none;
+    overflow: visible;
+  }
+
+  /* Keep one set of report rows; present every column as a labeled card. */
+  .sales-command-center .sales-detail-table,
+  .sales-command-center .sales-detail-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sales-command-center .sales-detail-table thead {
+    display: none;
+  }
+
+  .sales-command-center .sales-detail-table tbody {
+    padding: 12px;
+    background: #f8fafc;
+  }
+
+  .sales-command-center .sales-detail-table tr {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    margin-bottom: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: white;
+    min-width: 0;
+  }
+
+  .sales-command-center .sales-detail-table td {
+    display: block;
+    padding: 8px 0;
+    border: 0;
+    text-align: left !important;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  .sales-command-center .sales-detail-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .sales-command-center .sales-detail-table td > .flex {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .sales-command-center .sales-customer-name {
+    font-size: 14px;
+    margin-top: 4px;
+  }
+
+  .sales-command-center .sales-compare-periods {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .sales-command-center .sales-date-range {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sales-command-center .sales-date-range input {
+    font-size: 16px;
+    text-align: left;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .sales-command-center .sales-compare-metric > span {
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+
+  .sales-command-center .sales-delta-heading {
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .sales-command-center .sales-compare-filters {
+    flex-direction: column;
+    width: 100%;
+  }
+}

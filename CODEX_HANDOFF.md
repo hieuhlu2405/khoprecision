@@ -1,5 +1,17 @@
 # Handoff Du An
 
+## Cập nhật 2026-11-02 - Hiển thị Sales Command Center trên điện thoại
+
+- Sửa `app/(protected)/sales-command-center/page.tsx`, thêm CSS riêng `app/(protected)/sales-command-center/sales-command-center.css`. Tên khách hàng/mã hàng/mô tả xuống dòng đầy đủ, doanh thu xếp hạng hiện số tiền chính xác bằng đồng ngay trên màn hình thay cho tooltip cần rê chuột. Ghi chú KPI và chú giải biểu đồ không bị cắt.
+- Từ 900px trở xuống: bảng khách hàng và bảng đối chiếu chuyển sang thẻ có đủ nhãn/cột, dùng cùng nguồn dữ liệu/cùng danh sách; thêm chọn sắp xếp trên điện thoại. Ô ngày có nhãn Từ/Đến riêng, cỡ chữ 16px; nút tab/chọn tháng/lọc dễ bấm; tiêu đề trang cuộn cùng nội dung để không chồng thanh menu của ứng dụng. Desktop giữ bảng và vùng cuộn riêng. Dùng chiều cao động cho trang/vùng bảng.
+- Không sửa SQL/schema/RPC/cách tính doanh thu, không đọc/ghi dữ liệu production, không cần migration. Chỉ đổi hiển thị và điều khiển xem báo cáo; không đổi giao dịch kho, backlog, công nợ. Đây là kết luận dựa trên code và dữ liệu kiểm thử giả, chưa phải dữ liệu production.
+- `npm run build` trước và sau sửa PASS. Kiểm tra browser Chromium và WebKit (nền tảng của Safari) ở 390/430/768/1366px, đủ 3 tab: PASS không tràn ngang, không cắt tên/mã/số tiền, nút và ô nhập nằm trong màn hình. PASS thao tác chọn 4 ngày và đối chiếu tham số gửi, lọc tăng/giảm/tất cả, khách có doanh thu/tất cả, sắp xếp doanh thu/mã khách, đổi tháng và tải lại. Tất cả yêu cầu dịch vụ được chặn bằng dữ liệu giả trong browser; không dùng tài khoản thật. Chưa test trên iPhone/macOS thật.
+- ESLint riêng trang vẫn có 39 lỗi có sẵn (38 `any`, 1 immutability trong biểu đồ); đối chiếu HEAD không tăng lỗi, cảnh báo giảm từ 8 còn 7. `git diff --check` riêng trang sửa PASS; handoff có thay đổi/CRLF từ trước nên không chuẩn hóa cả file.
+- Script kiểm tra tạm: `tmp/sales-mobile-setup.cjs`, `tmp/sales-mobile-verify.cjs`. Ảnh kiểm tra tại `output/playwright/sales-*.png`; ảnh xếp hạng mobile: `output/playwright/sales-mobile-preview.png`. Chưa commit/push/deploy. Sau deploy cần đối chiếu bằng tài khoản thật trên iPhone: đủ tên và số tiền, đổi tháng, 3 tab và lọc/chọn ngày vẫn dùng được.
+
+
+
+
 ## Cập nhật 2026-10-22 - Tìm kiếm không thấy KC 06 nhưng thêm báo trùng
 
 - Đã kiểm tra CHỈ ĐỌC production bằng tài khoản nội bộ: `KC 06` tồn tại, ID `a74de2de-8e41-4e95-9d87-fb2d91e2056c`, tên `Thùng 5 lớp BC`, đang hoạt động và chưa xóa. Tổng danh sách chưa xóa là 1.005 mã; truy vấn cũ chỉ trả 1.000 mã mới nhất, không có KC 06 nên tìm kiếm tại trang Mã hàng bỏ sót.

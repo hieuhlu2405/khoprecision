@@ -6,6 +6,7 @@ import { useUI } from "@/app/context/UIContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { getVNTimeNow, getTodayVNStr } from "@/lib/date-utils";
 import { BarChart3, Building2, CheckCircle2, ClipboardList, CreditCard, Flame, Gem, RefreshCw, Repeat2, Rocket, TrendingDown, TrendingUp, Truck, Zap } from "lucide-react";
+import "./sales-command-center.css";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -79,7 +80,7 @@ function KpiCard({ icon, label, rawValue, formatted, sub, color, trend, idx = 0 
   const display = formatted ?? fmtNum(animated);
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}
-      className="relative overflow-hidden rounded-2xl bg-white border border-slate-200/80 p-5 shadow-sm">
+      className="sales-kpi relative overflow-hidden rounded-2xl bg-white border border-slate-200/80 p-5 shadow-sm">
       <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-[0.05] pointer-events-none" style={{ background: color, transform: "translate(30%, -30%)" }} />
       <div className="flex items-center gap-3 mb-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${color}15`, color }}>{icon}</div>
@@ -93,7 +94,7 @@ function KpiCard({ icon, label, rawValue, formatted, sub, color, trend, idx = 0 
         </div>
       </div>
       <div className="text-2xl font-black mb-1" style={{ color }}>{display}</div>
-      <div className="text-[10px] text-slate-400 font-bold uppercase truncate">{sub}</div>
+      <div className="sales-kpi-sub text-[10px] text-slate-500 font-bold uppercase">{sub}</div>
     </motion.div>
   );
 }
@@ -103,24 +104,18 @@ function RevenueBar({ label, desc, value, max, color, rank, unit }: any) {
   const rankColor = rank < 3 ? "#ef4444" : color;
   
   return (
-    <motion.div className="flex flex-col gap-1.5 group cursor-default" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: rank * 0.04 }}>
-      <div className="flex items-center gap-3">
-        <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white shadow-sm" style={{ background: rankColor }}>#{rank + 1}</div>
+    <motion.div className="sales-ranking-row flex flex-col gap-1.5 group cursor-default" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: rank * 0.04 }}>
+      <div className="flex items-start gap-3 min-w-0">
+        <div className="sales-rank w-6 h-6 shrink-0 rounded-lg flex items-center justify-center text-[10px] font-black text-white shadow-sm" style={{ background: rankColor }}>#{rank + 1}</div>
         <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-baseline">
-            <div className="flex flex-col">
-              <span className="font-bold text-[12px] text-slate-800 truncate group-hover:text-indigo-600 transition-colors" title={label}>{label}</span>
-              {desc && <span className="font-bold text-[9px] text-slate-400 uppercase truncate mt-0.5">{desc}</span>}
+          <div className="sales-ranking-heading">
+            <div className="flex flex-col min-w-0">
+              <span className="sales-ranking-name font-bold text-[12px] text-slate-800 group-hover:text-indigo-600 transition-colors">{label}</span>
+              {desc && <span className="sales-ranking-desc font-bold text-[11px] text-slate-500 uppercase mt-0.5">{desc}</span>}
             </div>
-            <div className="relative group/tooltip flex items-baseline">
-                <span className="font-black text-[11px] text-slate-600 ml-2">
-                  {unit === "VND" ? (value >= 1_000_000 ? (value / 1_000_000).toFixed(1) + " tr" : fmtNum(value)) : fmtNum(value)}
-                </span>
-                {/* Tooltip hiển thị số tiền chính xác */}
-                <div className="absolute hidden group-hover/tooltip:block bottom-full right-0 mb-2 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-black rounded-lg shadow-xl z-50 whitespace-nowrap">
-                   {fmtNum(Math.round(value))} VNĐ
-                </div>
-            </div>
+            <span className="sales-ranking-value font-black text-[12px] text-slate-700 tabular-nums">
+              {fmtNum(Math.round(value))}{unit === "VND" ? " ₫" : ""}
+            </span>
           </div>
         </div>
       </div>
@@ -161,14 +156,14 @@ function DonutChart({ data, total, title }: any) {
       </div>
       <div className="w-full space-y-2 mt-2">
         {data.map((d: any, i: number) => (
-          <div key={i} className="flex items-center justify-between group">
+          <div key={i} className="sales-legend-row group">
             <div className="flex items-center gap-2 min-w-0">
-                <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ background: d.color }} />
-                <span className="text-[10px] font-bold text-slate-600 truncate uppercase group-hover:text-indigo-600 transition-colors">{d.label}</span>
+                <div className="w-2.5 h-2.5 shrink-0 rounded-full shadow-sm" style={{ background: d.color }} />
+                <span className="sales-legend-label text-[12px] font-bold text-slate-600 uppercase group-hover:text-indigo-600 transition-colors">{d.label}</span>
             </div>
             <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black text-slate-300">{fmtVND(d.value)}</span>
-                <span className="text-[10px] font-black text-slate-500 min-w-[40px] text-right">{((d.value / total) * 100).toFixed(1)}%</span>
+                <span className="text-[12px] font-black text-slate-600 whitespace-nowrap">{fmtVND(d.value)}</span>
+                <span className="text-[12px] font-black text-slate-500 whitespace-nowrap">{((d.value / total) * 100).toFixed(1)}%</span>
             </div>
           </div>
         ))}
@@ -345,24 +340,24 @@ export default function SalesCommandCenterPage() {
   const UIColors = ["#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6"];
 
   return (
-    <motion.div className="page-root min-h-screen bg-[#f8fafc] overflow-x-hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+    <motion.div className="sales-command-center page-root min-h-dvh bg-[#f8fafc]" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       
       {/* ─── HEADER ─── */}
-      <div className="page-header -mx-6 px-6 py-5 mb-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-[100] shadow-sm">
+      <div className="sales-header page-header -mx-6 px-6 py-5 mb-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-[100] shadow-sm">
         <div className="flex items-center gap-4 min-w-0">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg ring-4 ring-indigo-50"><Rocket size={26} strokeWidth={2.5} /></div>
-          <div>
+          <div className="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg ring-4 ring-indigo-50"><Rocket size={26} strokeWidth={2.5} /></div>
+          <div className="min-w-0">
             <h1 className="page-title mb-0 text-xl font-black text-slate-800">SALES COMMAND CENTER</h1>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{getMonthRange(monthOffset).label}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm">
-            <button onClick={() => setMonthOffset(m => m - 1)} className="p-1 hover:text-indigo-600 font-bold transition-colors">‹</button>
+        <div className="sales-header-actions flex items-center gap-3 flex-wrap">
+          <div className="sales-month-picker flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm">
+            <button aria-label="Tháng trước" onClick={() => setMonthOffset(m => m - 1)} className="p-1 hover:text-indigo-600 font-bold transition-colors">‹</button>
             <span className="text-xs font-black text-slate-700 w-36 text-center uppercase tracking-tighter">{getMonthRange(monthOffset).label}</span>
-            <button onClick={() => setMonthOffset(m => Math.min(0, m + 1))} className="p-1 hover:text-indigo-600 font-bold transition-colors">›</button>
+            <button aria-label="Tháng sau" disabled={monthOffset === 0} onClick={() => setMonthOffset(m => Math.min(0, m + 1))} className="p-1 hover:text-indigo-600 font-bold transition-colors disabled:opacity-30">›</button>
           </div>
-          <button onClick={loadData} className="w-11 h-11 bg-white border border-slate-200 rounded-xl flex items-center justify-center hover:bg-slate-50 hover:text-indigo-600 transition-all active:scale-95 shadow-sm"><RefreshCw size={18} strokeWidth={2.5} /></button>
+          <button aria-label="Tải lại báo cáo" disabled={loading} onClick={loadData} className="w-11 h-11 shrink-0 bg-white border border-slate-200 rounded-xl flex items-center justify-center hover:bg-slate-50 hover:text-indigo-600 transition-all active:scale-95 shadow-sm disabled:opacity-50"><RefreshCw size={18} strokeWidth={2.5} /></button>
         </div>
       </div>
 
@@ -377,10 +372,10 @@ export default function SalesCommandCenterPage() {
       </div>
 
       {/* ─── TABS ─── */}
-      <div className="flex flex-wrap gap-1 bg-slate-200/50 p-1 rounded-2xl w-fit max-w-full mb-8 border border-slate-200/50 shadow-inner">
-        <button onClick={() => setActiveTab("overview")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider flex items-center gap-2 ${activeTab === "overview" ? "bg-white text-indigo-600 shadow-md scale-105" : "text-slate-500 hover:text-slate-800"}`}><BarChart3 size={15} strokeWidth={2.5} /> Tổng quan Sales</button>
-        <button onClick={() => setActiveTab("customers")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider flex items-center gap-2 ${activeTab === "customers" ? "bg-white text-indigo-600 shadow-md scale-105" : "text-slate-500 hover:text-slate-800"}`}><Building2 size={15} strokeWidth={2.5} /> Báo cáo Khách hàng</button>
-        <button onClick={() => setActiveTab("compare")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider flex items-center gap-2 ${activeTab === "compare" ? "bg-white text-indigo-600 shadow-md scale-105" : "text-slate-500 hover:text-slate-800"}`}><Repeat2 size={15} strokeWidth={2.5} /> Đối chiếu Kỳ</button>
+      <div className="sales-tabs flex flex-wrap gap-1 bg-slate-200/50 p-1 rounded-2xl w-fit max-w-full mb-8 border border-slate-200/50 shadow-inner">
+        <button onClick={() => setActiveTab("overview")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider flex items-center gap-2 ${activeTab === "overview" ? "bg-white text-indigo-600 shadow-md" : "text-slate-500 hover:text-slate-800"}`}><BarChart3 size={15} strokeWidth={2.5} /> Tổng quan Sales</button>
+        <button onClick={() => setActiveTab("customers")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider flex items-center gap-2 ${activeTab === "customers" ? "bg-white text-indigo-600 shadow-md" : "text-slate-500 hover:text-slate-800"}`}><Building2 size={15} strokeWidth={2.5} /> Báo cáo Khách hàng</button>
+        <button onClick={() => setActiveTab("compare")} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all tracking-wider flex items-center gap-2 ${activeTab === "compare" ? "bg-white text-indigo-600 shadow-md" : "text-slate-500 hover:text-slate-800"}`}><Repeat2 size={15} strokeWidth={2.5} /> Đối chiếu Kỳ</button>
       </div>
 
       <AnimatePresence mode="wait">
@@ -389,10 +384,10 @@ export default function SalesCommandCenterPage() {
           <motion.div key="overview" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="grid grid-cols-1 xl:grid-cols-3 gap-8">
             <div className="xl:col-span-2 flex flex-col gap-8 min-w-0">
               {/* Top Customers Card */}
-              <div className="bg-white rounded-[2rem] border border-slate-200/80 p-8 shadow-xl shadow-slate-200/40 border-t-4 border-t-indigo-500">
-                <div className="flex items-center justify-between mb-8">
+              <div className="sales-panel bg-white rounded-[2rem] border border-slate-200/80 p-8 shadow-xl shadow-slate-200/40 border-t-4 border-t-indigo-500">
+                <div className="sales-panel-heading flex items-center justify-between gap-4 mb-8">
                   <div><h3 className="font-black text-sm uppercase tracking-[0.2em] text-slate-800">Top Doanh thu theo Khách hàng</h3><p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">Xếp hạng nguồn thu chính theo Parent Customer</p></div>
-                  <div className="text-[12px] font-black text-emerald-600 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 shadow-sm">{fmtVND(stats.monthRev)}</div>
+                  <div className="shrink-0 whitespace-nowrap text-[12px] font-black text-emerald-600 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 shadow-sm">{fmtVND(stats.monthRev)}</div>
                 </div>
                 <div className="space-y-6">
                   {loading ? Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-10 bg-slate-100 rounded-xl animate-pulse" />) :
@@ -400,7 +395,7 @@ export default function SalesCommandCenterPage() {
                 </div>
               </div>
               {/* Top Products Card */}
-              <div className="bg-white rounded-[2rem] border border-slate-200/80 p-8 shadow-xl shadow-slate-200/40 border-t-4 border-t-emerald-500">
+              <div className="sales-panel bg-white rounded-[2rem] border border-slate-200/80 p-8 shadow-xl shadow-slate-200/40 border-t-4 border-t-emerald-500">
                 <h3 className="font-black text-sm uppercase tracking-[0.2em] text-slate-800 mb-8">Top Doanh thu theo Mã hàng</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-6">
                   {loading ? Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-10 bg-slate-100 rounded-xl animate-pulse" />) :
@@ -410,7 +405,7 @@ export default function SalesCommandCenterPage() {
             </div>
             {/* Right Side Donut */}
             <div className="flex flex-col gap-8 min-w-0">
-              <div className="bg-white rounded-[2rem] border border-slate-200/80 p-6 shadow-xl shadow-slate-200/40 sticky top-28">
+              <div className="sales-panel sales-donut bg-white rounded-[2rem] border border-slate-200/80 p-6 shadow-xl shadow-slate-200/40 sticky top-28">
                 <h3 className="font-black text-[11px] uppercase tracking-[0.15em] text-slate-500 mb-6 text-center">Cơ cấu Doanh thu Nhóm Khách Hàng</h3>
                 <DonutChart title="TOTAL REVENUE" total={stats.monthRev} data={(() => {
                     const top10 = customerList.slice(0, 10);
@@ -428,17 +423,29 @@ export default function SalesCommandCenterPage() {
         {activeTab === "customers" && (
           <motion.div key="customers" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}>
             <div className="bg-white rounded-[2rem] border border-slate-200 shadow-2xl overflow-hidden flex flex-col">
-              <div className="px-8 py-6 border-b border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-white z-40">
+              <div className="sales-table-toolbar px-8 py-6 border-b border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-white z-40">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
                   <h3 className="font-black text-[15px] uppercase tracking-[0.1em] text-slate-900 border-l-4 border-indigo-600 pl-4">Chi tiết báo cáo doanh thu theo khách hàng</h3>
-                  <div className="h-8 w-[1px] bg-slate-200" />
-                  <button onClick={() => setShowActiveOnly(!showActiveOnly)} className={`px-4 py-2 rounded-xl border text-[11px] font-black uppercase transition-all shadow-sm ${showActiveOnly ? "bg-indigo-600 border-indigo-700 text-white translate-y-[-2px] shadow-indigo-200" : "bg-white border-slate-200 text-slate-400 hover:bg-slate-50"}`}>
+                  <div className="hidden lg:block h-8 w-px bg-slate-200" />
+                  <button onClick={() => setShowActiveOnly(!showActiveOnly)} className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border text-[11px] font-black uppercase transition-all shadow-sm ${showActiveOnly ? "bg-indigo-600 border-indigo-700 text-white translate-y-[-2px] shadow-indigo-200" : "bg-white border-slate-200 text-slate-400 hover:bg-slate-50"}`}>
                     {showActiveOnly ? <><CheckCircle2 size={14} strokeWidth={2.5} /> Đang lọc khách có DT</> : "Tất cả khách hàng"}
                   </button>
                 </div>
+                <label className="sales-mobile-sort">Sắp xếp khách hàng
+                  <select value={`${sortCol}:${sortDir}`} onChange={e => {
+                    const [column, direction] = e.target.value.split(":");
+                    setSortCol(column);
+                    setSortDir(direction as SortDir);
+                  }}>
+                    <option value="revenue:desc">Doanh thu: cao đến thấp</option>
+                    <option value="revenue:asc">Doanh thu: thấp đến cao</option>
+                    <option value="code:asc">Mã khách hàng: A → Z</option>
+                    <option value="code:desc">Mã khách hàng: Z → A</option>
+                  </select>
+                </label>
               </div>
-              <div className="overflow-x-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 350px)' }}>
-                <table className="w-full border-collapse">
+              <div className="sales-table-wrap overflow-x-auto custom-scrollbar">
+                <table className="sales-detail-table sales-customer-table w-full border-collapse">
                   <thead>
                     <tr>
                       <ThCell label="#" colKey="rank" align="center" w="60px" colWidths={colWidths} onResize={onResize} />
@@ -454,15 +461,15 @@ export default function SalesCommandCenterPage() {
                         const isTop3 = i < 3;
                         return (
                           <tr key={r.id} className="hover:bg-indigo-50/20 transition-all group">
-                            <td className={`py-4 px-4 text-center font-black text-[11px] border-r border-slate-100 transition-colors ${isTop3 ? "text-rose-500" : "text-slate-300"}`}>#{i + 1}</td>
-                            <td className="py-5 px-6 border-r border-slate-100">
+                            <td data-label="Xếp hạng" className={`py-4 px-4 text-center font-black text-[11px] border-r border-slate-100 transition-colors ${isTop3 ? "text-rose-500" : "text-slate-300"}`}>#{i + 1}</td>
+                            <td data-label="Khách hàng" className="py-5 px-6 border-r border-slate-100">
                               <div className={`font-black text-[14px] uppercase tracking-wider transition-colors ${isTop3 ? "text-rose-600" : "text-slate-900"} group-hover:text-indigo-600`}>{r.code}</div>
-                              <div className="font-medium text-slate-400 text-[11px] truncate opacity-80">{r.name}</div>
+                              <div className="sales-customer-name font-medium text-slate-600 text-[12px]">{r.name}</div>
                             </td>
-                            <td className="py-4 px-4 text-center border-r border-slate-100">
-                               <div className={`font-black text-[15px] tabular-nums transition-all origin-center group-hover:scale-110 ${isTop3 ? "text-rose-600" : "text-slate-900"}`}>{fmtNum(Math.round(r.revenue))} <small className="text-[11px] text-slate-300 ml-1">đ</small></div>
+                            <td data-label="Doanh thu thực tế" className="py-4 px-4 text-center border-r border-slate-100">
+                               <div className={`font-black text-[15px] tabular-nums transition-all origin-center ${isTop3 ? "text-rose-600" : "text-slate-900"}`}>{fmtNum(Math.round(r.revenue))} <small className="text-[11px] text-slate-300 ml-1">đ</small></div>
                             </td>
-                            <td className="py-4 px-6 text-center">
+                            <td data-label="Tỷ trọng doanh thu" className="py-4 px-6 text-center">
                               <div className="flex items-center justify-center gap-4">
                                 <div className="flex-1 h-3.5 bg-slate-100 rounded-full max-w-[100px] overflow-hidden border border-slate-200/50 shadow-inner">
                                    <div className={`h-full rounded-full shadow-[0_0_10px_rgba(255,50,50,0.2)] transition-all duration-1000 ${isTop3 ? "bg-gradient-to-r from-rose-500 to-rose-400" : "bg-gradient-to-r from-indigo-500 to-purple-500"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
@@ -483,30 +490,28 @@ export default function SalesCommandCenterPage() {
         {/* TAB: COMPARE */}
         {activeTab === "compare" && (
           <motion.div key="compare" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="flex flex-col gap-8">
-            <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-2xl p-10 flex flex-col gap-8">
+            <div className="sales-panel bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-2xl p-10 flex flex-col gap-8">
                <div className="flex flex-col gap-2 border-b border-slate-100 pb-6 text-center">
                   <h3 className="font-black text-[22px] text-slate-900 uppercase tracking-widest">Trung tâm Đối chiếu biến động doanh thu</h3>
                   <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Phân tích chênh lệch VNĐ và sức khỏe tăng trưởng giữa 2 kỳ</p>
                </div>
                
-               <div className="flex flex-wrap items-end justify-center gap-8">
+               <div className="sales-compare-periods flex flex-wrap items-end justify-center gap-8">
                   <div className="flex flex-col gap-2">
                      <label className="text-[10px] font-black uppercase text-indigo-600 ml-1">Kỳ báo cáo mới (Kỳ Gần đây)</label>
-                     <div className="flex items-center bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 gap-3">
-                        <input type="date" value={p1Start} onChange={e => setP1Start(e.target.value)} className="bg-transparent border-none outline-none font-bold text-sm" />
-                        <span className="text-slate-300">→</span>
-                        <input type="date" value={p1End} onChange={e => setP1End(e.target.value)} className="bg-transparent border-none outline-none font-bold text-sm" />
+                     <div className="sales-date-range bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3">
+                        <label><span>Từ ngày</span><input type="date" value={p1Start} onChange={e => setP1Start(e.target.value)} className="bg-transparent border-none outline-none font-bold text-sm" /></label>
+                        <label><span>Đến ngày</span><input type="date" value={p1End} onChange={e => setP1End(e.target.value)} className="bg-transparent border-none outline-none font-bold text-sm" /></label>
                      </div>
                   </div>
                   <div className="flex flex-col gap-2">
                      <label className="text-[10px] font-black uppercase text-amber-600 ml-1">Kỳ so sánh cũ (Kỳ Quá khứ)</label>
-                     <div className="flex items-center bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 gap-3">
-                        <input type="date" value={p2Start} onChange={e => setP2Start(e.target.value)} className="bg-transparent border-none outline-none font-bold text-sm" />
-                        <span className="text-slate-300">→</span>
-                        <input type="date" value={p2End} onChange={e => setP2End(e.target.value)} className="bg-transparent border-none outline-none font-bold text-sm" />
+                     <div className="sales-date-range bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3">
+                        <label><span>Từ ngày</span><input type="date" value={p2Start} onChange={e => setP2Start(e.target.value)} className="bg-transparent border-none outline-none font-bold text-sm" /></label>
+                        <label><span>Đến ngày</span><input type="date" value={p2End} onChange={e => setP2End(e.target.value)} className="bg-transparent border-none outline-none font-bold text-sm" /></label>
                      </div>
                   </div>
-                  <button onClick={loadCompare} className="h-12 px-8 bg-black text-white rounded-2xl font-black uppercase text-[12px] shadow-lg shadow-slate-200 hover:shadow-indigo-200 hover:-translate-y-1 transition-all active:scale-95 disabled:bg-slate-300" disabled={loading}>
+                  <button onClick={loadCompare} className="inline-flex items-center justify-center gap-2 h-12 px-8 bg-black text-white rounded-2xl font-black uppercase text-[12px] shadow-lg shadow-slate-200 hover:shadow-indigo-200 hover:-translate-y-1 transition-all active:scale-95 disabled:bg-slate-300" disabled={loading}>
                     {loading ? "Đang xử lý..." : <><Repeat2 size={16} strokeWidth={2.5} /> Thực hiện Đối chiếu</>}
                   </button>
                </div>
@@ -523,7 +528,7 @@ export default function SalesCommandCenterPage() {
                        ].map((k, i) => (
                          <div key={i} className="bg-slate-50 rounded-2xl p-6 border border-slate-100 flex flex-col gap-1">
                             <div className="text-[10px] font-black uppercase text-slate-400 mb-1">{k.label}</div>
-                            <div className={`flex items-center gap-2 font-black ${k.val >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                            <div className={`sales-compare-metric flex flex-wrap items-center gap-2 font-black ${k.val >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
                                <span className="text-sm">{k.val >= 0 ? "▲ TĂNG" : "▼ GIẢM"}</span>
                                <span className="text-xl">
                                  {k.val >= 0 ? "+" : "-"}{k.type === "vnd" ? fmtNum(Math.round(Math.abs(k.val))) : Math.abs(k.val).toFixed(2) + "%"}
@@ -567,7 +572,7 @@ export default function SalesCommandCenterPage() {
                                const maxDelta = list[0]?.delta || 1;
                                return list.map((c: any) => (
                                  <div key={c.id} className="flex flex-col gap-1">
-                                    <div className="flex justify-between text-[10px] font-bold uppercase truncate"><span>{c.code}</span> <span className="text-emerald-600">+{fmtNum(Math.round(c.delta))}</span></div>
+                                    <div className="sales-delta-heading flex justify-between gap-2 text-[12px] font-bold uppercase"><span>{c.code}</span> <span className="text-emerald-600">+{fmtNum(Math.round(c.delta))}</span></div>
                                     <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
                                        <div className="h-full bg-emerald-500" style={{ width: `${(c.delta / maxDelta) * 100}%` }} />
                                     </div>
@@ -590,7 +595,7 @@ export default function SalesCommandCenterPage() {
                                const maxAbsDelta = Math.abs(list[0]?.delta || 1);
                                return list.map((c: any) => (
                                  <div key={c.id} className="flex flex-col gap-1">
-                                    <div className="flex justify-between text-[10px] font-bold uppercase truncate"><span>{c.code}</span> <span className="text-rose-600">-{fmtNum(Math.round(Math.abs(c.delta)))}</span></div>
+                                    <div className="sales-delta-heading flex justify-between gap-2 text-[12px] font-bold uppercase"><span>{c.code}</span> <span className="text-rose-600">-{fmtNum(Math.round(Math.abs(c.delta)))}</span></div>
                                     <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
                                        <div className="h-full bg-rose-500" style={{ width: `${(Math.abs(c.delta) / maxAbsDelta) * 100}%` }} />
                                     </div>
@@ -603,14 +608,14 @@ export default function SalesCommandCenterPage() {
 
                     {/* Detailed Analysis Table */}
                     <div className="bg-white border border-slate-200 rounded-[1.5rem] overflow-hidden mt-6">
-                       <div className="bg-slate-50 px-8 py-5 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                       <div className="sales-table-toolbar bg-slate-50 px-8 py-5 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                           <div>
                              <h3 className="font-black text-[14px] uppercase text-slate-800 tracking-widest">Báo cáo chênh lệch chi tiết</h3>
                              <div className="text-[10px] font-black uppercase text-slate-400 mt-1">Đơn vị tính: VNĐ</div>
                           </div>
                           
                           {/* Filter Tabs */}
-                          <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+                          <div className="sales-compare-filters flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
                              {[
                                { id: "all", label: "Tất cả", icon: <ClipboardList size={14} strokeWidth={2.5} /> },
                                { id: "growth", label: "Tăng trưởng", icon: <TrendingUp size={14} strokeWidth={2.5} /> },
@@ -623,7 +628,7 @@ export default function SalesCommandCenterPage() {
                           </div>
                        </div>
                        <div className="overflow-x-auto custom-scrollbar">
-                       <table className="w-full min-w-[980px] border-collapse">
+                       <table className="sales-detail-table sales-compare-table w-full min-w-[980px] border-collapse">
                           <thead>
                              <tr className="bg-white border-b border-slate-100 italic">
                                 <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 w-[60px]">#</th>
@@ -662,8 +667,8 @@ export default function SalesCommandCenterPage() {
                                  
                                  return (
                                    <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
-                                      <td className={`px-6 py-5 text-center font-black text-[11px] ${i < 3 ? "text-rose-500" : "text-slate-300"}`}>#{i+1}</td>
-                                      <td className="px-6 py-5 border-r border-slate-100">
+                                      <td data-label="Xếp hạng" className={`px-6 py-5 text-center font-black text-[11px] ${i < 3 ? "text-rose-500" : "text-slate-300"}`}>#{i+1}</td>
+                                      <td data-label="Khách hàng" className="px-6 py-5 border-r border-slate-100">
                                          <div className="flex items-center gap-2 mb-1">
                                             <span className="font-black text-[14px] text-slate-900 uppercase group-hover:text-indigo-600 transition-colors">{r.code}</span>
                                             {isNew && <span className="bg-emerald-100 text-emerald-600 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">MỚI</span>}
@@ -672,12 +677,12 @@ export default function SalesCommandCenterPage() {
                                          </div>
                                          <div className="text-[11px] font-bold text-slate-400 leading-tight break-words">{r.name}</div>
                                       </td>
-                                      <td className="px-6 py-5 text-center font-bold text-[13px] text-slate-700 bg-slate-50/30 border-r border-slate-100">{fmtNum(Math.round(r.p1_revenue))}</td>
-                                      <td className="px-6 py-5 text-center font-bold text-[13px] text-slate-700 border-r border-slate-100">{fmtNum(Math.round(r.p2_revenue))}</td>
-                                      <td className={`px-6 py-5 text-center font-black text-[14px] border-r border-slate-100 ${delta >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                                      <td data-label="Kỳ Gần đây (VNĐ)" className="px-6 py-5 text-center font-bold text-[13px] text-slate-700 bg-slate-50/30 border-r border-slate-100">{fmtNum(Math.round(r.p1_revenue))}</td>
+                                      <td data-label="Kỳ Quá khứ (VNĐ)" className="px-6 py-5 text-center font-bold text-[13px] text-slate-700 border-r border-slate-100">{fmtNum(Math.round(r.p2_revenue))}</td>
+                                      <td data-label="Biến động (VNĐ)" className={`px-6 py-5 text-center font-black text-[14px] border-r border-slate-100 ${delta >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
                                          {delta >= 0 ? "+" : ""}{fmtNum(Math.round(delta))}
                                       </td>
-                                      <td className={`px-6 py-5 text-center font-black text-[13px] ${delta >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                                      <td data-label="Tăng / giảm (%)" className={`px-6 py-5 text-center font-black text-[13px] ${delta >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
                                          {isNew ? "100%" : isLost ? "-100%" : (pct >= 0 ? "+" : "") + pct.toFixed(1) + "%"}
                                       </td>
                                    </tr>
