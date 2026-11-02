@@ -1,5 +1,16 @@
 # Handoff Du An
 
+## Cập nhật 2026-11-02 - Xuất kho trống mã Y94438 01 và Y94438 02
+
+- Đã kiểm tra CHỈ ĐỌC production bằng tài khoản nội bộ có sẵn: 1.012 mã chưa xóa; truy vấn cũ tại Xuất kho chỉ trả 1.000 mã theo SKU. `Y94438 01` đứng thứ 1.002 và `Y94438 02` đứng thứ 1.003 nên không có trong danh sách tra mã. Hai mã đang hoạt động, chưa xóa; phiếu `PX-20261102-012` ngày 02-11-2026 vẫn có đủ giao dịch 620 và 3.750, cùng shipment còn hiệu lực. Nhật ký giao hàng đã phân trang danh sách mã nên không gặp lỗi này. Script audit: `tmp/audit-outbound-y94438-20261102.mjs`.
+- Sửa `app/(protected)/inventory/outbound/page.tsx`: dùng `fetchAllRows` cho products/customers, sắp xếp ổn định theo `sku, id` / `code, id`; chỉ cập nhật danh sách khi đọc đủ, lỗi được đưa ra màn hình với nút Tải lại (trước đó có state error nhưng không hiển thị). Cùng danh sách mã phục vụ cột Mã hàng, tìm kiếm, lựa chọn và xuất Excel.
+- Không sửa SQL/schema/RPC/logic ghi phiếu hoặc tính tồn, không cần migration; không ghi/xóa dữ liệu nghiệp vụ production. Không tự xuất lại phiếu hay tạo lại mã. Kiểm chứng nguyên nhân bằng dữ liệu production; kiểm chứng giao diện bản sửa bằng dữ liệu giả.
+- `npm run build` trước và sau sửa PASS; `git diff --check` riêng trang PASS. Browser Chromium và WebKit ở 390/430/768/1366px PASS: tải trang thứ hai của 1.012 mã và 1.002 khách giả, hai mã hiện đủ/tìm kiếm được, không tràn ngang toàn trang (bảng có vùng cuộn riêng), xuất Excel có hai mã. PASS lỗi trang thứ hai báo rõ, không trả lịch sử thiếu, nút Tải lại phục hồi. Không test thao tác ghi/chốt/hủy vì không thay các luồng đó. Chưa test iPhone/macOS thật.
+- Script browser tạm: `tmp/outbound-pagination-browser-20261102.cjs`; ảnh/file Excel kiểm tra tại `output/playwright/outbound-*`. Đã commit và push GitHub main ngày 02-11-2026: bản sửa `4610611`; chưa xác nhận deploy. Sau deploy cần mở Xuất kho tháng 11/2026, tìm hai mã, đối chiếu phiếu 012 và file Excel; không cần chạy SQL. Bản phát hành áp dụng riêng bản vá Xuất kho trên main mới nhất `ecc3593` tại `tmp/kc06-release-20261022`, giữ các sửa quyền Admin và hiển thị đã có trên main. Checkout gốc D:/pp còn thay đổi local từ trước nên không ghi đè hoặc gom chúng vào commit.
+
+
+- Kiểm tra lại sau khi ghép main: `npm run build` PASS, gồm 21/21 kiểm thử quyền Admin/Super Admin. Chỉ đẩy trang Xuất kho và mục handoff của lỗi này; không sửa dữ liệu thật.
+
 ## Cập nhật 2026-11-02 - Hiển thị Sales Command Center trên điện thoại
 
 - Sửa `app/(protected)/sales-command-center/page.tsx`, thêm CSS riêng `app/(protected)/sales-command-center/sales-command-center.css`. Tên khách hàng/mã hàng/mô tả xuống dòng đầy đủ, doanh thu xếp hạng hiện số tiền chính xác bằng đồng ngay trên màn hình thay cho tooltip cần rê chuột. Ghi chú KPI và chú giải biểu đồ không bị cắt.
