@@ -1,5 +1,14 @@
 # Handoff Du An
 
+## Cập nhật 2026-11-20 - Danh mục phôi riêng, mẫu BBHN
+
+- Thêm menu Danh mục phôi và trang `/materials/blanks`. Tìm theo mã/quy cách, lọc trạng thái. Tài khoản đã duyệt và đang hoạt động được xem. Admin được thêm, sửa quy cách và kích thước, ngưng dùng hoặc dùng lại. Mã đã tạo được giữ cố định và không cấp trùng kể cả khác chữ hoa/thường hoặc đã ngưng dùng.
+- SQL mới `supabase-sql/20261120_create_blank_material_catalog.sql` **CHƯA CHẠY LIVE**. Một dòng để dán vào SQL Editor. Tạo bảng riêng `blank_materials` và 14 bản ghi mẫu khớp mã, quy cách, dài và khổ trong 23 dòng của `Pre - T10 BBHN.xlsx`. Tạo và nạp mẫu trong cùng giao dịch, chỉ cấp quyền ghi cho Admin qua chính sách của bảng mới. Không có DROP/DELETE/TRUNCATE. Kiểu dữ liệu phần web ở `lib/blank-materials-database.types.ts`.
+- Đối chiếu production **CHỈ ĐỌC** ngày 2026-11-20: 14/14 mã trong bảng kê BBHN đều ghi là tấm phôi và đồng thời khớp chính xác mã trong danh mục thành phẩm: NM-DOWOO-5, ITP BAR 01, 180-XN420350-0400, 180-XN580480-0240, #9-2, #11, IT 002, 93195D NHO 02, 93195D TO 02, VB 03, 93195D 03, ITM 003, IT 0014 CKD, AAC 174. Thành phẩm IT 002 đã ngưng dùng; 13 mã còn lại đang dùng. Trạng thái thành phẩm độc lập với danh mục phôi. Nguồn chưa phân biệt phôi độc lập/dùng chung. Không tự liên kết hai bản ghi trùng mã hoặc sửa danh mục thành phẩm.
+- Không thay giao dịch nhập phôi cũ, nhập/xuất kho, tồn kho, giao hàng, báo cáo, đơn giá hay PO. Sau khi cài SQL và web, kiểm tra đủ 14 mã trên trang mới, tài khoản thường chỉ xem, Admin tạo/sửa/ngưng/dùng lại, đối chiếu danh sách lên kế hoạch giao hàng và một báo cáo tồn với trước khi cài.
+- Build trước và sau thay đổi PASS. ESLint phần mới PASS. Kiểm tra PostgreSQL tạm PASS về 14 mã, quyền, chặn trùng, kích thước không hợp lệ, đổi trạng thái và chặn xóa. Bộ test quyền cũ trong checkout hiện tại có 9 lỗi ở các trang Nhập phôi/Nhập kho/Xuất kho/Trả hàng và cấu hình chạy test; các file mà bộ test đọc không thuộc thay đổi lần này. Chưa commit/push/deploy.
+- Chromium với dữ liệu giả PASS tại 390/430/768/1366px và thao tác tìm, lọc, thêm, sửa, hủy chỉnh sửa, ngưng dùng, dùng lại và tài khoản chỉ xem. Chưa kiểm tra Safari: WebKit có sẵn không tương thích phiên bản công cụ. Script kiểm tra tạm ở `tmp/blank-materials-browser-20261120.cjs`.
+
 ## Cập nhật 2026-11-02 - Xuất kho trống mã Y94438 01 và Y94438 02
 
 - Đã kiểm tra CHỈ ĐỌC production bằng tài khoản nội bộ có sẵn: 1.012 mã chưa xóa; truy vấn cũ tại Xuất kho chỉ trả 1.000 mã theo SKU. `Y94438 01` đứng thứ 1.002 và `Y94438 02` đứng thứ 1.003 nên không có trong danh sách tra mã. Hai mã đang hoạt động, chưa xóa; phiếu `PX-20261102-012` ngày 02-11-2026 vẫn có đủ giao dịch 620 và 3.750, cùng shipment còn hiệu lực. Nhật ký giao hàng đã phân trang danh sách mã nên không gặp lỗi này. Script audit: `tmp/audit-outbound-y94438-20261102.mjs`.
