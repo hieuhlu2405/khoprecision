@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:permissions": "node --test tests/admin-permission.test.cjs",
+    "test:permissions": "node --test tests/admin-permission.test.cjs tests/product-deletion.test.cjs",
     "prebuild": "npm run test:permissions"
   },
   "dependencies": {

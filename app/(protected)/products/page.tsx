@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, useRef, Fragment } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { fetchAllRows } from "@/lib/supabase-fetch-all";
+import { loadAdminPermission } from "@/lib/admin-permission";
+import { softDeleteProducts } from "@/lib/product-deletion";
 import { useUI } from "@/app/context/UIContext";
 import { LoadingPage, TableSkeleton, ErrorBanner, LoadingInline } from "@/app/components/ui/Loading";
 import { exportToExcel, readExcel } from "@/lib/excel-utils";
@@ -55,14 +57,17 @@ export default function ProductsPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [rows, setRows] = useState<Product[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
   const [q, setQ] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
-  const isManager = profile?.role === "admin" || (profile?.role === "manager" && profile?.department === "warehouse");
-  const canEdit = profile?.role === "admin";
-  const canDelete = profile?.role === "admin";
+  const isManager = isAdmin || (profile?.role === "manager" && profile?.department === "warehouse");
+  const canEdit = isAdmin;
+  const canDelete = isAdmin;
 
   // form state (single add/edit)
   const [open, setOpen] = useState(false);
@@ -490,9 +495,8 @@ export default function ProductsPage() {
   }
 
   function openEdit(p: Product) {
-    if (!profile) return;
-    if (profile?.role !== 'admin') {
-      showToast("Chỉ Admin tối cao mới có quyền sửa mã hàng", "error");
+    if (!canEdit) {
+      showToast("Chỉ Admin mới có quyền sửa mã hàng", "error");
       return;
     }
     setEditing(p);
@@ -509,6 +513,7 @@ export default function ProductsPage() {
   }
 
   async function load() {
+    setIsAdmin(false);
     setError("");
     setLoading(true);
     try {
@@ -520,6 +525,8 @@ export default function ProductsPage() {
 
       const { data: pData } = await supabase.from("profiles").select("id, role, department").eq("id", u.user.id).single();
       if (pData) setProfile(pData as Profile);
+      const adminPermission = await loadAdminPermission(supabase);
+      setIsAdmin(adminPermission);
 
       // Chỉ load Công ty Mẹ (parent_customer_id IS NULL)
       // Vendor con tự động thừa hưởng mã hàng của Mẹ — không cần gán riêng
@@ -549,6 +556,7 @@ export default function ProductsPage() {
       );
       setRows(products);
     } catch (err: any) {
+      setIsAdmin(false);
       setError(err?.message ?? "Có lỗi xảy ra");
     } finally {
       setLoading(false);
@@ -618,63 +626,45 @@ export default function ProductsPage() {
     }
   }
 
-  /* ---- bulk delete ---- */
-  async function bulkDelete() {
-    if (!profile) return;
-    if (!isManager) {
+  async function deleteProducts(ids: string[]) {
+    if (!canDelete) {
       showToast("Bạn không có quyền xóa mã hàng", "error");
       return;
     }
-    if (selectedIds.size === 0) return;
-    const ok = await showConfirm({ message: `Xóa ${selectedIds.size} mã hàng đã chọn?`, danger: true, confirmLabel: "Xóa" });
-    if (!ok) return;
-    setError("");
+    if (ids.length === 0 || deletingRef.current) return;
+    if (ids.length > 100) {
+      showToast("Mỗi lần chỉ được xóa tối đa 100 mã hàng.", "error");
+      return;
+    }
+    deletingRef.current = true;
+    setDeleting(true);
     try {
-      const { data: u, error: uErr } = await supabase.auth.getUser();
-      if (uErr) throw uErr;
-      const userId = u.user?.id ?? null;
-      const ids = Array.from(selectedIds);
-      const { error } = await supabase
-        .from("products")
-        .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
-        .in("id", ids);
-      if (error) throw error;
+      const labels = rows.filter(row => ids.includes(row.id)).slice(0, 5).map(row => row.sku).join(", ");
+      const ok = await showConfirm({
+        message: `Xóa mềm ${ids.length} mã hàng: ${labels}${ids.length > 5 ? ", …" : ""}?\nChỉ mã chưa có lịch sử mới được xóa. Mã đã được sử dụng cần chọn Sửa và tắt Active để ngưng dùng. Không xóa lịch sử kho hoặc giao hàng.`,
+        danger: true,
+        confirmLabel: "Xóa mã chưa dùng",
+      });
+      if (!ok) return;
+      setError("");
+      await softDeleteProducts(supabase, ids);
       setSelectedIds(new Set());
-      showToast(`Đã xóa ${ids.length} mã hàng.`, "success");
+      showToast(`Đã xóa mềm ${ids.length} mã hàng chưa sử dụng.`, "success");
       await load();
-    } catch (err: any) {
-      setError(err?.message ?? "Lỗi khi xóa");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Lỗi khi xóa mã hàng.");
+    } finally {
+      deletingRef.current = false;
+      setDeleting(false);
     }
   }
 
+  async function bulkDelete() {
+    await deleteProducts(Array.from(selectedIds));
+  }
+
   async function del(p: Product) {
-    if (!profile) return;
-    if (!isManager) {
-      showToast("Bạn không có quyền xóa mã hàng", "error");
-      return;
-    }
-    const ok = await showConfirm({ message: `Xóa mã hàng ${p.sku}?`, danger: true, confirmLabel: "Xóa" });
-    if (!ok) return;
-    setError("");
-    try {
-      const { data: u, error: uErr } = await supabase.auth.getUser();
-      if (uErr) throw uErr;
-      const userId = u.user?.id ?? null;
-
-      const { error } = await supabase
-        .from("products")
-        .update({
-          deleted_at: new Date().toISOString(),
-          deleted_by: userId,
-        })
-        .eq("id", p.id);
-
-      if (error) throw error;
-
-      await load();
-    } catch (err: any) {
-      setError(err?.message ?? "Lỗi khi xóa");
-    }
+    await deleteProducts([p.id]);
   }
 
   function handleExportExcel() {
@@ -926,8 +916,8 @@ export default function ProductsPage() {
                Xóa lọc cột ({Object.keys(colFilters).length})
             </button>
           )}
-          {selectedIds.size > 0 && isManager && (
-            <button onClick={bulkDelete} className="btn btn-danger">
+          {selectedIds.size > 0 && canDelete && (
+            <button onClick={bulkDelete} disabled={deleting} className="btn btn-danger">
               Xóa đã chọn ({selectedIds.size})
             </button>
           )}
@@ -1261,10 +1251,10 @@ export default function ProductsPage() {
                     {isManager && (
                       <td className="py-4 px-4">
                         <div className="flex flex-col sm:flex-row justify-center items-center gap-2 mt-1">
-                          {profile?.role === 'admin' && (
+                          {canEdit && (
                             <button onClick={() => openEdit(p)} className="px-3 py-1 bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-[11px] text-indigo-700 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all w-full sm:w-auto">Sửa</button>
                           )}
-                          <button onClick={() => del(p)} className="px-3 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all w-full sm:w-auto">Xóa</button>
+                          {canDelete && <button onClick={() => del(p)} disabled={deleting} className="min-h-11 px-3 py-1 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-[11px] text-red-600 font-black uppercase tracking-widest shadow-sm rounded-lg transition-all w-full sm:w-auto disabled:opacity-50">Xóa</button>}
                         </div>
                       </td>
                     )}
